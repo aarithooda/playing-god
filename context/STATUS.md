@@ -1,11 +1,10 @@
 # Status
 _Concise authoritative snapshot. Update after every meaningful session._
 
-- **Phase:** M0 physics-engine feasibility spike; implementation still pre-simulation.
-- **GitHub:** CLI 2.103.0 installed and authenticated as `biscuitfab`; Git credential setup succeeded. `main` context is pushed through `bca9ab0`.
-- **Review branch:** `validation/physics-first-principles` commit `a6540f0` is pushed and tracks origin. It contains an independent analytical report and standard-library calculator; no PR opened.
-- **Uncommitted main change:** `frontend/package.json` esbuild allowScripts edit; preserved and excluded from commits.
-- **Not verified:** no REBOUND engine run, checkpoint experiment, collision implementation, or M0 go/no-go.
-- **Tasks:** M0.1 agreement and M0.2/M0.3 experiments remain open; the independent report is a comparison reference, not a task closure.
-- **Next milestone:** compare derivations, agree M0.1 units/conventions/tolerances, then run M0 fixtures.
-
+- **Main:** `main` tracks `origin/main` at `47c1bfb`; the only uncommitted change is the pre-existing `frontend/package.json` esbuild allowScripts edit.
+- **Remote branches fetched:** `feature/m0-rebound-physics-api` at `14af4f4` and `codex/3drender` at `397e563`; local tracking branches point to those exact remote commits. Neither is merged.
+- **Aarit M0/API branch:** contains API/state endpoints, REBOUND spike/collision/merger/checkpoint harness and tests, license/doc decisions. Branch-local STATUS reports 88 pytest passes and frontend build OK; not rerun in this session.
+- **Nikhil 3D branch:** adds scene/canvas, camera controls, body inspector, control panel, event timeline and styling. It is behind current main and should be rebased before PR.
+- **PRs:** no open PRs found.
+- **Independent review:** `validation/physics-first-principles` is pushed separately and unmerged.
+- **Main verification:** this session only fetched/inspected refs and created local tracking refs; no app tests run and no teammate branch was switched, merged, rebased, or reset.

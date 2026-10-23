@@ -30,3 +30,6 @@ Start **M0** (below): read `PHYSICS_SPIKE.md`, agree units/conventions (M0.1), t
 | T-003 | Decide units and coordinate conventions (finalized after M0.1) | high | todo | lead, Vaibhav | M0.1 | Accepted entry in DECISIONS.md |
 | T-004 | Add CI (pytest + frontend build) | medium | todo | integration dev | T-000 | CI green on main |
 | T-005 | Invite teammates as collaborators; agree branch/PR rules from `TEAM_WORKFLOW.md` | high | todo | lead | T-000 | All four can push branches; workflow confirmed by everyone |
+
+### Remote branch inventory — 2026-10-23
+Fetched and created local tracking refs for `feature/m0-rebound-physics-api` (Aarit) and `codex/3drender` (Nikhil). Their work remains unmerged; branch-local test/status claims are not main verification. See HANDOFF/STATUS for changed files and current tips. M0 task statuses on main remain unchanged pending review/integration.
