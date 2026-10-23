@@ -3,7 +3,7 @@
 ## Remove selected-body ring (2026-10-24, Codex) — latest
 1. Removed only the separate white ring mesh from `CelestialBody`; body click selection, inspector opening, double-click focus, and the subtle selected-body emissive highlight remain intact.
 2. `npm run build` passed (641 modules); the existing >500 kB chunk warning remains. Tests and browser E2E were not run.
-3. The source and context changes are ready to commit and push to `origin/bugfix/body-inspector-close`; branch remains unmerged.
+3. Source/context commit `ff372a0` is pushed to `origin/bugfix/body-inspector-close`; branch remains unmerged.
 
 ## Keep inspector open on body clicks (2026-10-24, Codex) — latest
 1. Direct canvas presses that ray-hit a displayed body are marked before the inspector's document capture handler. Body clicks no longer dismiss the inspector; clicks elsewhere retain click-away dismissal, and drags continue to keep it open for camera orbit.

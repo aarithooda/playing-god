@@ -274,3 +274,6 @@
 - Changed: removed the conditional ring mesh from `CelestialBody`; selection state, click handlers, inspector/focus behavior, and subtle emissive selection highlight remain unchanged.
 - Verification: `npm run build` passed (641 modules); the existing >500 kB chunk warning remains. Tests and browser E2E were not run.
 - Branch: `bugfix/body-inspector-close`; source and context changes are ready to commit and push, not merged.
+
+### Push follow-up
+- Source/context commit `ff372a0` is pushed to `origin/bugfix/body-inspector-close`; branch remains unmerged.
