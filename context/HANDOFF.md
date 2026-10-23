@@ -1,13 +1,11 @@
 # Handoff (latest — rewrite at end of each session)
 
-**Date:** 2026-10-23 · **By:** Claude Sonnet 5.5 for the project lead
+**Date:** 2026-10-23 · **By:** Codex
 
-1. **Project:** PLAYING GOD — browser 3D gravitational sandbox (React/TS/Vite/Three.js frontend, FastAPI backend, backend owns physics state). See `PROJECT_BRIEF.md`.
-2. **Current state:** Minimal runnable skeleton (placeholder page, `GET /health`, one passing test). No simulation. Public repo: https://github.com/aarithooda/playing-god. See `STATUS.md`.
-3. **Last completed milestone:** T-000 initialization (pushed). Then this session wrote `TEAM_WORKFLOW.md`, `PHYSICS_SPIKE.md` and the M0 task plan (docs only).
-4. **In progress:** nothing coded. The doc changes from this session are uncommitted until the project lead reviews them.
-5. **Do first:** (a) T-005 — add teammates as collaborators and confirm `TEAM_WORKFLOW.md`. (b) M0.1 — project lead and Vaibhav agree units/conventions/tolerances. (c) Then M0.2 and M0.3 in parallel on separate branches.
-6. **Relevant files:** `context/TASKS.md` (M0), `context/PHYSICS_SPIKE.md`, `context/TEAM_WORKFLOW.md`, `context/DECISIONS.md`.
-7. **Commands:** `pytest` (root, venv active); `cd frontend && npm run build`; run services per `README.md`.
-8. **Do not change without investigation:** backend-owns-state rule (D-001). Do not add REBOUND to `requirements.txt` or build simulation features until M0 concludes (D-003 is only proposed).
-9. **Uncommitted changes / failures:** uncommitted documentation edits (see `git status`); no failures known. Minor: esbuild postinstall warning; Starlette/httpx deprecation warning in pytest.
+1. **Project:** PLAYING GOD — browser 3D Newtonian gravity sandbox; backend will own authoritative state. See `PROJECT_BRIEF.md`.
+2. **Repository:** `main` is aligned with `origin/main` at `ad4bd59`. The working tree has an existing uncommitted `frontend/package.json` esbuild allowScripts edit; leave it intact.
+3. **This session:** Installed GitHub CLI 2.103.0 via winget. Executable: `C:\Program Files\GitHub CLI\gh.exe`. Machine PATH is updated, but this already-running terminal may need restart to resolve `gh` by name.
+4. **GitHub auth:** CLI reports no authenticated GitHub host. Run `gh auth login` after terminal/VS Code restart before remote pushes. No login flow was started here.
+5. **Pending review branch:** local branch `validation/physics-first-principles` has commit `a6540f0` with the independent M0 derivation; it was not pushed because credentials were unavailable. Its worktree is `C:\Users\calli\code\playing-god-physics-review`.
+6. **M0:** no simulation implementation/engine verification; M0.1 and M0.2/M0.3 experiments remain open. See `TASKS.md` and `PHYSICS_SPIKE.md`.
+7. **Next:** authenticate with `gh auth login`, then push the review branch if still desired; continue M0 after conventions/tolerances are agreed.
