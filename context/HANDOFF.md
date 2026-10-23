@@ -3,7 +3,7 @@
 ## Keep body inspector open during camera drag (2026-10-24, Codex) — latest
 1. Outside-pointer dismissal now waits for pointer-up and closes after a 300 ms double-click window only if movement stayed under 6 px. Dragging on the canvas therefore keeps the inspector open while OrbitControls rotates around the focused body; a normal outside click still dismisses it.
 2. `npm run build` passed (640 modules); existing >500 kB chunk warning remains. Tests and browser E2E were not run.
-3. Changes are on `bugfix/body-inspector-close`; commit/push pending.
+3. Source commit `1ac2115` is pushed to `origin/bugfix/body-inspector-close`; not merged.
 ## Revert universe background zoom changes (2026-10-24, Codex) — latest
 1. Restored `UniverseCanvas` to its state at `3e03479`: the original Drei starfield (`radius=300`, `depth=60`, `count=20000`) and no custom maximum zoom-out/body-cloud cap or dynamic far-plane logic.
 2. All other fixes present by `3e03479` remain: inspector dismissal, focus framing/animation, body placement and earlier UI behavior.
