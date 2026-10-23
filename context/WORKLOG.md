@@ -34,6 +34,21 @@
 - Tests: `pytest tests/test_api.py tests/test_health.py` -> 30 passed. Full `pytest` -> 33 passed, 11 FAILED in `tests/spike/` (pre-existing: uncommitted `rebound_spike.py` no longer has `orbit(dt=)`, `merger`, `tunnelling`, etc.; logic moved to untracked `collision_spike.py`; not touched here).
 - Not committed. Other endpoints in the contract are planned only.
 
+## 2026-10-23 — M0 decision-ready: SI units, extended collision/merger/checkpoint evidence
+- Owner/AI: project lead / Claude Sonnet 5.5
+- Goal: SI convention, implement the planned collision tests, verify merger mechanics and checkpoint reproducibility, make an evidence-backed recommendation.
+- Changed: rewrote `backend/experiments/rebound_spike.py` (SI, explicit G, seeded) and added `collision_spike.py` (merge layer with ledgers, stable ids, sweep, fixtures, checkpoint-with-collision); replaced `tests/spike/*` with `test_si_gravity_orbits.py` and `test_collisions_mergers.py` (58 tests; the previous 14-test file was removed because it targeted the old dimensionless harness); rewrote `PHYSICS_SPIKE.md`; updated STATUS, TASKS, HANDOFF, DECISIONS (D-007, D-008, D-009; D-006 superseded), ARCHITECTURE.
+- Tests: `pytest` -> 88 passed, 3 warnings (run twice). Negative control: wrong G (REBOUND SI value) gives a 1e-3 orbit return error vs the 1e-10 bound. Explicit probes (not in the suite): WHFast radial pass at integer separations 20000–20019 (3 failures, one hang), IAS15 reselect after merge (dp 9.3e-6 -> 4.5e-13), random collision order vs `rand_seed`.
+- Findings: F1–F11 in `PHYSICS_SPIKE.md`. Cross-checked six fixtures from the independent review on `origin/validation/physics-first-principles` (all agree).
+- Repo state noticed: local main has an API-contract commit (2dfc8ac) and is 3 commits behind origin/main (Codex docs); nothing was pulled, committed or pushed.
+- Commit: none. Remaining: joint sign-off, license decision, untested items (P-003), F10.
+
+## 2026-10-23 — M0 integration: topic branch, license, reconciliation with origin/main
+- Owner/AI: project lead / Claude Sonnet 5.5
+- Goal: finish M0 and push a clean topic branch (no push to `main`, no force-push).
+- Done: verified state (local `main` was 1 ahead / 3 behind, spike files uncommitted); created `feature/m0-rebound-physics-api`; committed the spike + tests, then `LICENSE` (GPL-3.0-only, text from the REBOUND wheel), `THIRD_PARTY_NOTICES.md` and README license section, then docs (D-008 accepted, D-009 GPL-3.0-only, D-010 coordinates, TASKS/STATUS/HANDOFF); rebased onto the latest `origin/main`, preserving the Codex GitHub-sync entries.
+- Tests: results of the post-rebase run are recorded in the final report of this session and in STATUS.
+
 ## 2026-10-23 — GitHub CLI setup
 - Owner/AI: Codex.
 - Goal: install GitHub CLI for repository operations.

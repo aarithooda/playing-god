@@ -1,16 +1,17 @@
 # Status
 _Concise authoritative snapshot. Update after every meaningful session._
 
-- **Phase:** M0 physics spike in progress: first experiment pass run (uncommitted); awaiting joint review.
-- **Branch / commits:** `main` = `origin/main` at `ad4bd59`; M0 experiment code and doc updates are uncommitted (see `git status`).
-- **Works (verified 2026-10-23):** backend serves `GET /health` -> `{"status":"ok"}`; Vite dev server serves the PLAYING GOD page and proxies `/api/health` to the backend; `npm run build` succeeds.
-- **API (2026-10-23, uncommitted):** `GET /healthz`, `GET /api/v1/simulation/state`, `POST /api/v1/bodies` implemented in-memory (no physics); rest planned. See `API_CONTRACT.md`.
-- **Tests (run 2026-10-23):** `pytest tests/test_api.py tests/test_health.py` -> 30 passed. Full `pytest`: 11 spike tests FAIL (uncommitted `backend/experiments/rebound_spike.py` was refactored; tests/spike expect old functions) — needs the spike owner.
-- **M0 findings (details in PHYSICS_SPIKE.md):** orbits conserve E/L to 1e-11 or better; 'direct' collision mode misses fast collisions, 'line' caught all tested; merger conserves mass/momentum; restore is bitwise-identical but the collision resolver must be re-set; REBOUND is GPL-3.0-only. Provisional: GO WITH A CUSTOM COLLISION LAYER.
-- **Not implemented:** everything else — simulation, physics engine, collisions, tidal model, checkpoints, Three.js scene, API contracts. M0 criteria are only provisionally evidenced: AI-run, not independently reviewed; units/tolerances unagreed; several cases untested (see PHYSICS_SPIKE.md).
-- **Known risks/issues:** REBOUND GPL-3.0-only license needs a team decision; esbuild postinstall warning on `npm install` (build/dev still work); no frontend tests or CI; collaborators added 2026-10-23 (biscuitfab, 19nikhiljha, manharrawat49-bit), workflow confirmation pending (T-005).
-- **GitHub:** public repo https://github.com/aarithooda/playing-god ; `main` tracks `origin/main`.
-- **Next milestone:** M0 — Physics Engine Feasibility Spike (`TASKS.md`, `PHYSICS_SPIKE.md`).
+- **Phase:** M0 complete (engine decision accepted); integration branch `feature/m0-rebound-physics-api` pushed for review. Next milestone: production engine integration (P-001).
+- **Decisions (accepted 2026-10-23):** D-008 **GO WITH CUSTOM COLLISION LAYER** (REBOUND + IAS15 + `line` detection + our own merger layer; evidence, failure modes and limitations in `PHYSICS_SPIKE.md`); D-007 SI units with explicit G; D-010 right-handed Cartesian; D-009 project license GPL-3.0-only (`LICENSE`, `THIRD_PARTY_NOTICES.md`; project decision, not legal advice).
+- **Units:** SI project-wide (D-007): m, m/s, kg, s, J, kg·m²/s, G = 6.67430e-11. REBOUND's own SI constant (6.67408e-11) is overridden.
+- **Git:** work is on branch `feature/m0-rebound-physics-api` (API commit + M0 spike + license + docs, rebased on the latest `origin/main`, pushed with a normal push; `main` untouched). Branch `origin/validation/physics-first-principles` (independent physics review) is still unmerged.
+- **Tests (run 2026-10-23):** `pytest` -> **88 passed, 3 warnings** (1 health + 29 API + 58 spike; ~9 s; run twice, identical). Spike tests need REBOUND 5.2.2 (`backend/experiments/requirements.txt`, installed only in the local `.venv`) and skip without it. `npm run build` re-run 2026-10-23: OK.
+- **Works:** backend `/health`, `/healthz`, `GET /api/v1/simulation/state`, `POST /api/v1/bodies` (in-memory, no physics); Vite page; API contract v1 (`API_CONTRACT.md`).
+- **M0 findings in one line each:** orbits conserve E, L to ≤1e-12 (IAS15); `direct` detection misses fast collisions (50/50 sweep collisions, 91% of fast phases), `line` had 0 errors in 144 swept scenarios (evidence, not proof); merger conserves mass/momentum to 1e-12 but kinetic+potential energy and orbital angular momentum are not conserved (booked in ledgers); checkpoint restore is bitwise identical but the resolver must be re-registered; WHFast is unsafe near collisions; collision order is random unless `rand_seed` is fixed; IAS15 needs a reset after a merge.
+- **Not implemented:** the simulation itself (no REBOUND in the app, no events, no checkpoints endpoint, no tidal model, no Three.js scene).
+- **Known risks:** see `PHYSICS_SPIKE.md` (untested: strongly curved paths, tree modes, many simultaneous collisions, scale; IAS15 warning after a merge with capped chunks); no frontend tests or CI; Vite proxy strips `/api` while the backend serves `/api/v1` (T-008); workflow confirmation by all four collaborators pending (T-005).
+- **GitHub:** public repo https://github.com/aarithooda/playing-god ; collaborators added 2026-10-23.
+- **Next:** review/merge the topic branch, then P-001 (production collision layer in the app) and the follow-ups P-002..P-004.
 
 ## Remote sync notes (Codex, 2026-10-23; historical, kept from origin/main)
 Statements below were written before the M0 evidence existed (for example 'no engine verification'); the sections above are authoritative.
