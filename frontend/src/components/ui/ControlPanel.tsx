@@ -1,18 +1,21 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { BodyCreateDto } from '../../api/types';
 import { formatDuration } from '../../sim/format';
 import { MAX_SPEED_EXP, MIN_SPEED_EXP, type ActionResult } from '../../sim/useSimulation';
 import {
   NEW_BODY_DEFAULTS,
+  defaultsForNewBody,
   parseBodyForm,
   type FieldErrors,
   type FieldKey,
   type FormValues,
 } from '../../sim/validation';
+import type { BodyView } from '../../sim/viewModel';
 import { BodyFields } from './BodyFields';
 import { btnStyle, errorTextStyle, panelStyle } from './styles';
 
 interface ControlPanelProps {
+  bodies?: readonly BodyView[];
   playing: boolean;
   stepping: boolean;
   canRun: boolean;
@@ -30,6 +33,7 @@ interface ControlPanelProps {
 }
 
 export const ControlPanel: React.FC<ControlPanelProps> = ({
+  bodies = [],
   playing,
   stepping,
   canRun,
@@ -47,13 +51,36 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 }) => {
   const [creating, setCreating] = useState(false);
   const [values, setValues] = useState<FormValues>(NEW_BODY_DEFAULTS);
+  const [positionManuallyEdited, setPositionManuallyEdited] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const change = (key: FieldKey, value: string) => {
     setValues((v) => ({ ...v, [key]: value }));
+    if (key === 'px' || key === 'py' || key === 'pz') setPositionManuallyEdited(true);
     setErrors((e) => ({ ...e, [key]: undefined }));
+  };
+
+  // Keep an untouched automatic position clear if the body set or the requested radius changes.
+  useEffect(() => {
+    if (!creating || positionManuallyEdited) return;
+    const defaults = defaultsForNewBody(bodies, values.radius);
+    setValues((current) => current.px === defaults.px && current.py === defaults.py && current.pz === defaults.pz
+      ? current
+      : { ...current, px: defaults.px, py: defaults.py, pz: defaults.pz });
+  }, [bodies, creating, positionManuallyEdited, values.radius]);
+
+  const toggleCreate = () => {
+    if (creating) {
+      setCreating(false);
+      return;
+    }
+    setValues(defaultsForNewBody(bodies));
+    setPositionManuallyEdited(false);
+    setErrors({});
+    setServerError(null);
+    setCreating(true);
   };
 
   const submit = async () => {
@@ -69,6 +96,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     if (result.ok) {
       setCreating(false);
       setValues(NEW_BODY_DEFAULTS);
+      setPositionManuallyEdited(false);
+      setErrors({});
     } else setServerError(result.error);
   };
 
@@ -113,7 +142,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       </div>
 
       <div style={{ borderTop: '1px solid #333', paddingTop: '10px' }}>
-        <button style={btnStyle} onClick={() => setCreating((c) => !c)} disabled={disabled}>
+        <button style={btnStyle} onClick={toggleCreate} disabled={disabled}>
           {creating ? 'Cancel' : 'Add body…'}
         </button>
         {creating && (

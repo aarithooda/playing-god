@@ -169,3 +169,71 @@ export const NEW_BODY_DEFAULTS: FormValues = {
   vz: "0",
   color: "#3b82f6",
 };
+
+/**
+ * Gives the create form an automatically chosen position outside every current body's sphere.
+ * Try the closest free point on each coordinate axis first; the normal case is a small offset
+ * from the familiar Earth-orbit default. The backend still validates every submitted position.
+ */
+export function defaultsForNewBody(bodies: readonly BodyView[], radiusText = NEW_BODY_DEFAULTS.radius): FormValues {
+  const parsedRadius = Number(radiusText);
+  const radius = Number.isFinite(parsedRadius) && parsedRadius > 0 ? parsedRadius : Number(NEW_BODY_DEFAULTS.radius);
+  const origin = { x: Number(NEW_BODY_DEFAULTS.px), y: 0, z: 0 };
+  if (bodies.length === 0) return { ...NEW_BODY_DEFAULTS };
+
+  const gapFor = (body: BodyView) => Math.max(1, (radius + body.radiusM) * 0.1);
+  const isFree = (position: { x: number; y: number; z: number }) =>
+    bodies.every((body) => {
+      const dx = position.x - body.positionM.x;
+      const dy = position.y - body.positionM.y;
+      const dz = position.z - body.positionM.z;
+      return Math.hypot(dx, dy, dz) >= radius + body.radiusM + gapFor(body);
+    });
+
+  const choices: Array<{ position: typeof origin; distanceSquared: number }> = [];
+  const axes = ["x", "y", "z"] as const;
+  for (const axis of axes) {
+    const base = origin[axis];
+    const positive = Math.max(base, ...bodies.map((body) => body.positionM[axis] + radius + body.radiusM + gapFor(body)));
+    const negative = Math.min(base, ...bodies.map((body) => body.positionM[axis] - radius - body.radiusM - gapFor(body)));
+    for (const coordinate of [positive, negative]) {
+      if (!Number.isFinite(coordinate) || Math.abs(coordinate) > LIMITS.maxPositionM) continue;
+      const position = { ...origin, [axis]: coordinate };
+      if (!isFree(position)) continue;
+      const dx = position.x - origin.x;
+      const dy = position.y - origin.y;
+      const dz = position.z - origin.z;
+      choices.push({ position, distanceSquared: dx * dx + dy * dy + dz * dz });
+    }
+  }
+
+  // A crowded scene can block the axis candidates. Search a bounded set of diagonal placements
+  // before falling back to the origin default; the backend remains the final overlap authority.
+  if (choices.length === 0) {
+    const largestRadius = Math.max(radius, ...bodies.map((body) => body.radiusM));
+    const stride = 2.2 * (radius + largestRadius);
+    for (let ring = 1; ring <= 256 && choices.length === 0; ring += 1) {
+      for (const dx of [-1, 0, 1]) {
+        for (const dy of [-1, 0, 1]) {
+          for (const dz of [-1, 0, 1]) {
+            if (dx === 0 && dy === 0 && dz === 0) continue;
+            const norm = Math.hypot(dx, dy, dz);
+            const distance = stride * ring;
+            const position = {
+              x: origin.x + (dx / norm) * distance,
+              y: origin.y + (dy / norm) * distance,
+              z: origin.z + (dz / norm) * distance,
+            };
+            if (Object.values(position).some((coordinate) => Math.abs(coordinate) > LIMITS.maxPositionM)) continue;
+            if (isFree(position)) {
+              choices.push({ position, distanceSquared: distance * distance });
+            }
+          }
+        }
+      }
+    }
+  }
+
+  const position = choices.sort((a, b) => a.distanceSquared - b.distanceSquared)[0]?.position ?? origin;
+  return { ...NEW_BODY_DEFAULTS, px: String(position.x), py: String(position.y), pz: String(position.z) };
+}

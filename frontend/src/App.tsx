@@ -114,6 +114,7 @@ export default function App() {
           {/* Right: Controls */}
           <div style={{ pointerEvents: "auto" }}>
             <ControlPanel
+              bodies={bodies}
               playing={simulation.playing}
               stepping={simulation.stepping}
               canRun={bodies.length > 0}
