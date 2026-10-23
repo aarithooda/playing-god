@@ -12,6 +12,8 @@ export interface FocusRequest {
   radius: number;
 }
 
+const FOCUS_DISTANCE_UNITS = 70;
+
 interface UniverseCanvasProps {
   bodies: SceneBody[];
   selectedBodyId?: string;
@@ -66,7 +68,7 @@ const CameraRig: React.FC<{ frameEpoch: number; focus?: FocusRequest }> = ({ fra
     }
     // Every focus request returns to this body-relative viewing distance, even after the user
     // has manually zoomed. Repeated focus taps therefore cannot keep zooming inward.
-    const focusedDistance = Math.max(focus.radius * 4.5, 8);
+    const focusedDistance = Math.max(focus.radius * 8, FOCUS_DISTANCE_UNITS);
     const zoom = focusedDistance / distance;
     animation.current = {
       elapsed: 0,
@@ -157,7 +159,7 @@ const PlacementCursor: React.FC<{
       event.preventDefault();
       const targetPoint = controls ? new Vector3(controls.target.x, controls.target.y, controls.target.z) : new Vector3();
       const targetDistance = camera.position.distanceTo(targetPoint);
-      depth.current = Math.max(-targetDistance * 0.8, Math.min(targetDistance * 10, depth.current + event.deltaY * 0.01));
+      depth.current = Math.max(-targetDistance * 0.8, Math.min(targetDistance * 10, depth.current + event.deltaY * 0.013));
       const point = pointAt(event.clientX, event.clientY);
       if (point) setPreview(point);
     };
@@ -242,7 +244,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
           border: '1px solid rgba(220, 230, 240, 0.35)', font: '13px sans-serif', pointerEvents: 'none',
           textAlign: 'center', whiteSpace: 'nowrap',
         }}>
-          Move to preview · Scroll to adjust depth · Click to place · Esc to cancel
+          Move to preview · Scroll to adjust depth · Click to place and create · Esc to cancel
         </div>
       )}
     </div>

@@ -35,6 +35,7 @@ interface ControlPanelProps {
   onPlacementModeChange?: (active: boolean) => void;
   pickedPosition?: { position: Vec3; nonce: number };
   onPlacementRadiusChange?: (radiusM: number) => void;
+  onPlacementCreateResult?: (success: boolean) => void;
 }
 
 export const ControlPanel: React.FC<ControlPanelProps> = ({
@@ -57,6 +58,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   onPlacementModeChange = () => {},
   pickedPosition,
   onPlacementRadiusChange,
+  onPlacementCreateResult,
 }) => {
   const [creating, setCreating] = useState(false);
   const [values, setValues] = useState<FormValues>(NEW_BODY_DEFAULTS);
@@ -66,18 +68,43 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   const [serverError, setServerError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const createFromDraft = async (draft: FormValues) => {
+    const parsed = parseBodyForm(draft);
+    if (!parsed.ok) {
+      setErrors(parsed.errors);
+      onPlacementCreateResult?.(false);
+      return;
+    }
+    setBusy(true);
+    setServerError(null);
+    const result = await onCreate(parsed.value);
+    setBusy(false);
+    onPlacementCreateResult?.(result.ok);
+    if (result.ok) {
+      onPlacementModeChange(false);
+      setCreating(false);
+      setValues(NEW_BODY_DEFAULTS);
+      onPlacementRadiusChange?.(Number(NEW_BODY_DEFAULTS.radius));
+      setPositionManuallyEdited(false);
+      positionManuallyEditedRef.current = false;
+      setErrors({});
+    } else setServerError(result.error);
+  };
+
   useEffect(() => {
     if (!pickedPosition) return;
-    setValues((current) => ({
-      ...current,
+    const pickedDraft = {
+      ...values,
       px: String(pickedPosition.position.x),
       py: String(pickedPosition.position.y),
       pz: String(pickedPosition.position.z),
-    }));
+    };
+    setValues(pickedDraft);
     setPositionManuallyEdited(true);
     positionManuallyEditedRef.current = true;
     setErrors({});
     setServerError(null);
+    void createFromDraft(pickedDraft);
   }, [pickedPosition?.nonce]);
 
   const change = (key: FieldKey, value: string) => {
@@ -115,26 +142,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     setCreating(true);
   };
 
-  const submit = async () => {
-    const parsed = parseBodyForm(values);
-    if (!parsed.ok) {
-      setErrors(parsed.errors);
-      return;
-    }
-    setBusy(true);
-    setServerError(null);
-    const result = await onCreate(parsed.value);
-    setBusy(false);
-    if (result.ok) {
-      onPlacementModeChange(false);
-      setCreating(false);
-      setValues(NEW_BODY_DEFAULTS);
-      onPlacementRadiusChange?.(Number(NEW_BODY_DEFAULTS.radius));
-      setPositionManuallyEdited(false);
-      positionManuallyEditedRef.current = false;
-      setErrors({});
-    } else setServerError(result.error);
-  };
+  const submit = async () => createFromDraft(values);
 
   return (
     <div style={{

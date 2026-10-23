@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createApiClient } from "./api/client";
 import { UniverseCanvas, type FocusRequest } from "./components/canvas/UniverseCanvas";
 import { ControlPanel } from "./components/ui/ControlPanel";
@@ -31,6 +31,7 @@ export default function App() {
   const [placementMode, setPlacementMode] = useState(false);
   const [placementRadiusM, setPlacementRadiusM] = useState(6.371e6);
   const [pickedPosition, setPickedPosition] = useState<{ position: { x: number; y: number; z: number }; nonce: number } | undefined>();
+  const preserveSceneScaleRef = useRef<{ bodyCount: number; layoutEpoch: number } | null>(null);
 
   const bodies = sim?.bodies ?? [];
 
@@ -39,6 +40,11 @@ export default function App() {
   const { layoutEpoch } = simulation;
   useEffect(() => {
     if (layoutEpoch === 0) return;
+    const preserve = preserveSceneScaleRef.current;
+    if (preserve && layoutEpoch > preserve.layoutEpoch) {
+      preserveSceneScaleRef.current = null;
+      if (bodies.length === preserve.bodyCount + 1) return;
+    }
     setTransform(fitTransform(bodies.map((b) => b.positionM)));
     setFrameEpoch((n) => n + 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -65,13 +71,17 @@ export default function App() {
   };
 
   const confirmPlacement = useCallback((scenePosition: [number, number, number]) => {
+    preserveSceneScaleRef.current = { bodyCount: bodies.length, layoutEpoch };
     setPickedPosition((current) => ({
       position: toPhysicsPosition(scenePosition, transform),
       nonce: (current?.nonce ?? 0) + 1,
     }));
     setPlacementMode(false);
-  }, [transform]);
+  }, [bodies.length, layoutEpoch, transform]);
   const cancelPlacement = useCallback(() => setPlacementMode(false), []);
+  const placementCreateResult = useCallback((success: boolean) => {
+    if (!success) preserveSceneScaleRef.current = null;
+  }, []);
 
   const ready = loadStatus === "ready";
 
@@ -161,6 +171,7 @@ export default function App() {
               onPlacementModeChange={setPlacementMode}
               pickedPosition={pickedPosition}
               onPlacementRadiusChange={setPlacementRadiusM}
+              onPlacementCreateResult={placementCreateResult}
             />
           </div>
         </div>

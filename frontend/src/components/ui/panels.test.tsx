@@ -147,14 +147,15 @@ describe("ControlPanel", () => {
     expect(onPlacementModeChange).toHaveBeenLastCalledWith(false);
   });
 
-  it("copies a picked 3D position into the create form fields", async () => {
-    const { rerender } = render(<ControlPanel {...base} />);
+  it("creates a body immediately at the picked 3D position", async () => {
+    const onCreate = vi.fn(ok);
+    const { rerender } = render(<ControlPanel {...base} onCreate={onCreate} />);
     fireEvent.click(screen.getByText("Add body…"));
-    rerender(<ControlPanel {...base} pickedPosition={{ position: { x: 1.2e11, y: -3e10, z: 7e9 }, nonce: 1 }} />);
+    rerender(<ControlPanel {...base} onCreate={onCreate} pickedPosition={{ position: { x: 1.2e11, y: -3e10, z: 7e9 }, nonce: 1 }} />);
     await waitFor(() => {
-      expect((screen.getByLabelText("Position (m) X") as HTMLInputElement).value).toBe("120000000000");
-      expect((screen.getByLabelText("Position (m) Y") as HTMLInputElement).value).toBe("-30000000000");
-      expect((screen.getByLabelText("Position (m) Z") as HTMLInputElement).value).toBe("7000000000");
+      expect(onCreate).toHaveBeenCalledWith(expect.objectContaining({
+        positionM: { x: 1.2e11, y: -3e10, z: 7e9 },
+      }));
     });
   });
 });
