@@ -90,10 +90,24 @@ class BodyUpdate(BaseModel):
         return self
 
 
+class Diagnostics(BaseModel):
+    """System-level quantities of the exact state in `bodies` (definitions: backend/diagnostics.py, API_CONTRACT.md).
+    Each value is finite or null (undefined / overflow); vectors are all-or-nothing."""
+
+    version: int
+    totalMassKg: float | None
+    totalMomentumKgMPerS: Vec3 | None
+    kineticEnergyJ: float | None
+    potentialEnergyJ: float | None
+    angularMomentumAboutOriginKgM2PerS: Vec3 | None
+    bookedSpinKgM2PerS: Vec3 | None
+
+
 class SimulationState(BaseModel):
     status: Literal["paused", "running"]
     simulationTimeS: float
     bodies: list[Body]
+    diagnostics: Diagnostics
 
 
 class StepRequest(BaseModel):

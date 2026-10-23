@@ -33,10 +33,14 @@ def test_healthz(client):
     assert r.json() == {"status": "ok"}
 
 
+EMPTY_DIAGNOSTICS = {"version": 1, "totalMassKg": 0.0, "totalMomentumKgMPerS": {"x": 0.0, "y": 0.0, "z": 0.0}, "kineticEnergyJ": 0.0, "potentialEnergyJ": 0.0,
+         "angularMomentumAboutOriginKgM2PerS": {"x": 0.0, "y": 0.0, "z": 0.0}, "bookedSpinKgM2PerS": {"x": 0.0, "y": 0.0, "z": 0.0}}
+
+
 def test_initial_state_is_empty(client):
     r = client.get("/api/v1/simulation/state")
     assert r.status_code == 200
-    assert r.json() == {"status": "paused", "simulationTimeS": 0.0, "bodies": []}
+    assert r.json() == {"status": "paused", "simulationTimeS": 0.0, "bodies": [], "diagnostics": EMPTY_DIAGNOSTICS}
 
 
 def test_create_and_retrieve_body(client):
@@ -67,7 +71,7 @@ def test_si_field_names_in_response(client):
     assert set(body["positionM"]) == {"x", "y", "z"}
     assert set(body["velocityMPerS"]) == {"x", "y", "z"}
     state = client.get("/api/v1/simulation/state").json()
-    assert set(state) == {"status", "simulationTimeS", "bodies"}
+    assert set(state) == {"status", "simulationTimeS", "bodies", "diagnostics"}
 
 
 @pytest.mark.parametrize("field", ["massKg", "radiusM"])

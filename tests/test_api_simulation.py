@@ -111,12 +111,12 @@ def test_step_moves_bodies_and_reports_time(client):
     r = client.post("/api/v1/simulation/step", json={"dtS": 10.0})
     assert r.status_code == 200
     out = r.json()
-    assert set(out) == {"status", "simulationTimeS", "bodies", "advancedS", "events"}
+    assert set(out) == {"status", "simulationTimeS", "bodies", "advancedS", "events", "diagnostics"}
     assert out["status"] == "paused" and out["simulationTimeS"] == 10.0 and out["events"] == []
     assert out["advancedS"] == pytest.approx(10.0)
     assert out["bodies"][0]["id"] == b["id"]
     assert out["bodies"][0]["positionM"]["x"] == pytest.approx(30.0)
-    assert state(client) == {k: out[k] for k in ("status", "simulationTimeS", "bodies")}
+    assert state(client) == {k: out[k] for k in ("status", "simulationTimeS", "bodies", "diagnostics")}
 
 
 @pytest.mark.parametrize("payload", [
@@ -155,12 +155,16 @@ def test_step_with_merger_reports_event_and_events_endpoint_agrees(client):
 
 
 # ---------- reset ----------
+EMPTY_DIAGNOSTICS = {"version": 1, "totalMassKg": 0.0, "totalMomentumKgMPerS": {"x": 0.0, "y": 0.0, "z": 0.0}, "kineticEnergyJ": 0.0, "potentialEnergyJ": 0.0,
+         "angularMomentumAboutOriginKgM2PerS": {"x": 0.0, "y": 0.0, "z": 0.0}, "bookedSpinKgM2PerS": {"x": 0.0, "y": 0.0, "z": 0.0}}
+
+
 def test_reset_clears_everything(client):
     make(client)
     client.post("/api/v1/simulation/step", json={"dtS": 5.0})
     r = client.post("/api/v1/simulation/reset")
     assert r.status_code == 200
-    assert r.json() == {"status": "paused", "simulationTimeS": 0.0, "bodies": []}
+    assert r.json() == {"status": "paused", "simulationTimeS": 0.0, "bodies": [], "diagnostics": EMPTY_DIAGNOSTICS}
     assert client.get("/api/v1/events").json() == {"events": []}
     make(client)  # usable again
     assert client.post("/api/v1/simulation/step", json={"dtS": 1.0}).status_code == 200
