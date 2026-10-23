@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Stars } from '@react-three/drei';
-import { Plane, Raycaster, Vector2, Vector3 } from 'three';
+import { PerspectiveCamera, Plane, Raycaster, Vector2, Vector3 } from 'three';
 import { CelestialBody } from './CelestialBody';
 import { DEFAULT_CAMERA_POSITION, type ScenePosition } from '../../sim/renderTransform';
 import type { SceneBody } from '../../sim/viewModel';
@@ -12,7 +12,16 @@ export interface FocusRequest {
   radius: number;
 }
 
-const FOCUS_DISTANCE_UNITS = 66;
+const FOCUS_SCREEN_HEIGHT_FRACTION = 0.25;
+
+function focusDistanceForScreenHeight(radius: number, camera: PerspectiveCamera): number {
+  // A sphere's projected silhouette is r / (sqrt(d² - r²) * tan(fov / 2))
+  // of the viewport height. Solve for d so every focused body has the same
+  // apparent height, regardless of its displayed radius or canvas dimensions.
+  const halfFov = (camera.fov * Math.PI) / 360;
+  const scaledFraction = FOCUS_SCREEN_HEIGHT_FRACTION * Math.tan(halfFov);
+  return radius * Math.sqrt(1 + 1 / (scaledFraction * scaledFraction));
+}
 
 interface UniverseCanvasProps {
   bodies: SceneBody[];
@@ -66,9 +75,12 @@ const CameraRig: React.FC<{ frameEpoch: number; focus?: FocusRequest }> = ({ fra
       [offsetX, offsetY, offsetZ] = DEFAULT_CAMERA_POSITION;
       distance = Math.hypot(offsetX, offsetY, offsetZ);
     }
-    // Every focus request returns to this body-relative viewing distance, even after the user
-    // has manually zoomed. Repeated focus taps therefore cannot keep zooming inward.
-    const focusedDistance = Math.max(focus.radius * 8, FOCUS_DISTANCE_UNITS);
+    // Every focus request frames the body to the same fraction of the viewport height,
+    // even after the user has manually zoomed. Repeated focus taps cannot accumulate zoom.
+    const focusedDistance = focusDistanceForScreenHeight(
+      focus.radius,
+      camera as PerspectiveCamera,
+    );
     const zoom = focusedDistance / distance;
     animation.current = {
       elapsed: 0,
