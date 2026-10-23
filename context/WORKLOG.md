@@ -47,7 +47,7 @@
 - Owner/AI: project lead / Claude Sonnet 5.5
 - Goal: finish M0 and push a clean topic branch (no push to `main`, no force-push).
 - Done: verified state (local `main` was 1 ahead / 3 behind, spike files uncommitted); created `feature/m0-rebound-physics-api`; committed the spike + tests, then `LICENSE` (GPL-3.0-only, text from the REBOUND wheel), `THIRD_PARTY_NOTICES.md` and README license section, then docs (D-008 accepted, D-009 GPL-3.0-only, D-010 coordinates, TASKS/STATUS/HANDOFF); rebased onto the latest `origin/main`, preserving the Codex GitHub-sync entries.
-- Tests: results of the post-rebase run are recorded in the final report of this session and in STATUS.
+- Tests after the rebase: `pytest` -> 88 passed, 3 warnings; `cd frontend && npm run build` -> OK. Rebase conflicts were only in `context/STATUS.md`, `HANDOFF.md`, `WORKLOG.md`; the remote's GitHub-sync entries are kept (WORKLOG entries, and a 'Remote sync notes' section in STATUS and HANDOFF).
 
 ## 2026-10-23 — GitHub CLI setup
 - Owner/AI: Codex.
