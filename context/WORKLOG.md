@@ -254,3 +254,10 @@
 - Changed: restored `frontend/src/components/canvas/UniverseCanvas.tsx` from `3e03479`, which retains the existing focus, placement, and inspector behavior but uses the original static Drei starfield and has no added zoom cap or dynamic far-plane logic. Updated current-state docs; older zoom experiments remain in this append-only log as history.
 - Verification: `npm run build` passed (640 modules; existing >500 kB chunk warning). No test suite or browser E2E was run.
 - Branch: `bugfix/body-inspector-close`; rollback was pushed at the user's explicit request.
+
+## 2026-10-24 — Keep body inspector open while orbit-dragging
+- Owner/AI: Codex
+- Goal: allow camera rotation around the selected body without click-away dismissal closing its inspector.
+- Changed: outside-pointer handling tracks pointer movement and only schedules close after a click release under a 6 px movement threshold. The 300 ms delay lets a second press cancel the pending close so double-click-and-drag works; ordinary outside clicks still close the inspector.
+- Verification: `npm run build` passed (640 modules); existing >500 kB chunk warning remains. Tests and browser E2E were not run.
+- Branch: `bugfix/body-inspector-close`; changes are local and need commit/push. Not merged.

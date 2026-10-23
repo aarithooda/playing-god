@@ -1,6 +1,9 @@
 # Status
 _Concise authoritative snapshot. Update after every meaningful session._
 
+## Keep inspector open during camera drag (2026-10-24)
+- Outside-click dismissal now distinguishes a click from a drag: it waits for pointer-up, ignores movement of at least 6 px, and allows a 300 ms double-click window before closing. OrbitControls can rotate the focused body without dismissing its inspector.
+- `npm run build` passed (640 modules; existing >500 kB warning). Tests and browser E2E were not run. Changes are on `bugfix/body-inspector-close`; commit/push pending.
 ## Universe background zoom changes reverted (2026-10-24)
 - Restored the pre-background-zoom implementation from `3e03479`: the original 20,000-star Drei background sphere at radius 300/depth 60, with no custom zoom cap or dynamic far-plane changes.
 - Other UI fixes through `3e03479` are retained. Reversion commit `41dda60` is pushed to `origin/bugfix/body-inspector-close` at the user's request.

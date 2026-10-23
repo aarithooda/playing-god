@@ -43,11 +43,63 @@ export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDe
 
   useEffect(() => {
     if (!bodyId || !onClose) return;
-    const closeOnOutsidePointer = (event: PointerEvent) => {
-      if (panelRef.current && !panelRef.current.contains(event.target as Node)) onClose();
+    const dragThresholdPx = 6;
+    let activePointer: { id: number; x: number; y: number; moved: boolean } | null = null;
+    let closeTimer: number | undefined;
+
+    const cancelPendingClose = () => {
+      if (closeTimer === undefined) return;
+      window.clearTimeout(closeTimer);
+      closeTimer = undefined;
     };
-    document.addEventListener('pointerdown', closeOnOutsidePointer);
-    return () => document.removeEventListener('pointerdown', closeOnOutsidePointer);
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (panelRef.current?.contains(event.target as Node)) {
+        cancelPendingClose();
+        activePointer = null;
+        return;
+      }
+      // A second press in a double-click sequence may begin the orbit drag.
+      cancelPendingClose();
+      activePointer = { id: event.pointerId, x: event.clientX, y: event.clientY, moved: false };
+    };
+
+    const onPointerMove = (event: PointerEvent) => {
+      if (!activePointer || event.pointerId !== activePointer.id) return;
+      if (Math.hypot(event.clientX - activePointer.x, event.clientY - activePointer.y) < dragThresholdPx) return;
+      activePointer.moved = true;
+      // OrbitControls owns the drag; a drag is not an outside click.
+      cancelPendingClose();
+    };
+
+    const onPointerUp = (event: PointerEvent) => {
+      if (!activePointer || event.pointerId !== activePointer.id) return;
+      const wasDrag = activePointer.moved;
+      activePointer = null;
+      if (wasDrag) return;
+
+      // Wait briefly so a second click can turn this into a double-click-and-drag.
+      closeTimer = window.setTimeout(() => {
+        closeTimer = undefined;
+        onClose();
+      }, 300);
+    };
+
+    const onPointerCancel = (event: PointerEvent) => {
+      if (activePointer?.id === event.pointerId) activePointer = null;
+    };
+
+    document.addEventListener('pointerdown', onPointerDown, true);
+    document.addEventListener('pointermove', onPointerMove, true);
+    document.addEventListener('pointerup', onPointerUp, true);
+    document.addEventListener('pointercancel', onPointerCancel, true);
+    return () => {
+      cancelPendingClose();
+      document.removeEventListener('pointerdown', onPointerDown, true);
+      document.removeEventListener('pointermove', onPointerMove, true);
+      document.removeEventListener('pointerup', onPointerUp, true);
+      document.removeEventListener('pointercancel', onPointerCancel, true);
+    };
   }, [bodyId, onClose]);
 
   if (!body) return null;
