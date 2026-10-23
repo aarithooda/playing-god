@@ -2,6 +2,8 @@
 Status: todo / in progress / blocked / done. Keep tasks small and independently testable.
 
 ## NEXT ACTION
+B1 diagnostics merged (2026-10-24, T-011; top of `STATUS.md`). Next product step: T-012, the diagnostics panel (frontend owner). Older text follows.
+
 Stabilized baseline (2026-10-24): see the top of `STATUS.md`. D-011/D-012 accepted; milestone closed. Local frontend dependency and backend connection recovery are complete (details in `STATUS.md`); no application dependency manifest change was needed. Non-blocking backlog: browser E2E (T-010), larger-N performance, tree modes, three-body reference, bundle code-splitting, Node 20 Actions notice. Next: product milestone. Older text below is history.
 
 Review/merge `feature/production-rebound-simulation` (production engine done: P-001, P-002 and T-007 implemented; P-004 explained). Then compare `origin/validation/physics-first-principles`; frontend integrates against `API_CONTRACT.md`. Older text follows: start **P-001** (production collision/merger layer, spec in `PHYSICS_SPIKE.md`). Vaibhav: independent re-check of the energy/angular-momentum accounting and the P-003 stress tests.
@@ -46,6 +48,8 @@ Review/merge `feature/production-rebound-simulation` (production engine done: P-
 | T-006 | API contract v1 + minimal API (healthz, state, create body) | high | done (commit `feat: add API contract v1 ...` on the topic branch) | lead | — | `API_CONTRACT.md`; API/health tests pass |
 | T-007 | Implement planned endpoints (PATCH/DELETE bodies first), then start/pause/step/reset/events | high | done 2026-10-23: PATCH/DELETE/step/reset/events implemented; start/pause withdrawn (Play = client step loop) | backend dev | T-006; sim endpoints need D-008 | Contract rows flip to ✅ with tests |
 | T-008 | Resolve Vite `/api` rewrite vs `/api/v1` backend paths | high | done (frontend proxy forwards unchanged; verified in browser 2026-10-24) | frontend owner | T-006 | Frontend reaches `/api/v1/simulation/state`. (The 11 failing spike tests mentioned earlier are fixed: `pytest` is 88 passed.) |
+| T-011 | B1: system diagnostics in the state response (backend `compute_diagnostics`, `diagnostics` field) and frontend data path (types, strict parser, view model) | high | done 2026-10-24 (D-013 accepted; PRs #1 `d2352b0`, #2 `3ca349e`; pytest 259, vitest 69) | lead + Vaibhav (physics review) + Nikhil (consumer) | T-007 | merged with CI green |
+| T-012 | B1 UI: diagnostics panel (units, "about origin" label, `null` as Undefined, re-baseline drift on events/edits/reset) | medium | todo (frontend owner's UI area: `App.tsx`/inspector) | Nikhil | T-011 | panel shown with tests; no frontend physics |
 
 ### Remote branch inventory — 2026-10-23
 Fetched and created local tracking refs for `feature/m0-rebound-physics-api` (Aarit) and `codex/3drender` (Nikhil). Their work remains unmerged; branch-local test/status claims are not main verification. See HANDOFF/STATUS for changed files and current tips. M0 task statuses on main remain unchanged pending review/integration.

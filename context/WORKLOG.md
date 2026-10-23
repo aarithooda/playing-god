@@ -143,3 +143,9 @@
 - Changed: installed the declared backend requirements (including REBOUND 5.2.2) and started Uvicorn at `127.0.0.1:8000`.
 - Verification: backend `/healthz` and `/api/v1/simulation/state`, plus both same routes through the Vite proxy at `http://localhost:5173`, returned HTTP 200. Initial state is paused at 0 s with no bodies.
 - No application source, manifest, or lockfile changed; backend server remains running in this app session.
+
+## 2026-10-24 — B1 scientific diagnostics merged (Claude Sonnet 5.5)
+- Designed (proposal, then owner approval), implemented and merged the diagnostics contract (D-013): pure `backend/diagnostics.py::compute_diagnostics` (fsum, order-independent, `null` for undefined/overflow, +0.0 never -0.0), wired into `SimulationService._snapshot` so it is atomic with `bodies`; frontend data path (types, strict parser, view model), no UI.
+- Review: Vaibhav approved the physics; his P3 (NaN/inf `potentialEnergyJ` for an unusable `g` in the pure helper) fixed in `8405ac2` with 16 regression tests. Nikhil approved the consumer side and suggested `Diagnostics.version: Literal[1]` (adopted). A live response also exposed `-0.0` for a single body; fixed and tested.
+- Findings recorded: K+U is not conserved across a merger and orbital L only together with booked spin; the `heat_J` ledger stays server-private; deleting the last body makes REBOUND warn "Last particle removed" (harmless, pinned by a `pytest.warns` test). Measured cost at N=200: ~3.7 ms.
+- Merge: PR #1 -> `d2352b0`, PR #2 retargeted to `main` and merged -> `3ca349e`. Fresh runs on `3ca349e`: pytest 259 passed, tsc clean, vitest 69 passed, build OK; GitHub CI green on both merge points. No diagnostics UI and no Experiment 01 were started.

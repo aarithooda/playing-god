@@ -1,6 +1,11 @@
 # Status
 _Concise authoritative snapshot. Update after every meaningful session._
 
+## B1 scientific diagnostics MERGED (2026-10-24) — newest
+- **Merged to `main`:** PR #1 backend (`d2352b0`) then PR #2 frontend data path (`3ca349e`); D-013 accepted. Every state/step/reset response now carries `diagnostics` (version 1: total mass, momentum, kinetic and potential energy, angular momentum about the origin, booked merger spin; `null` for undefined values). Spec: `API_CONTRACT.md` "Diagnostics". Frontend: types, strict parser and view-model pass-through only.
+- **Verified on `main` `3ca349e`:** `pytest` 259 passed (1 Starlette/httpx deprecation warning), `tsc` clean, `vitest` 69 passed (7 files), `npm run build` OK; GitHub CI green for the `main` push (`d2352b0`) and for PR #2 against `main`. Evidence categories: analytical/oracle physics tests = pytest; independent physics review = Vaibhav (PR #1). **Not existing:** diagnostics UI, browser E2E.
+- **Not done / next:** the diagnostics panel (needs the frontend owner's UI area: inspector or info panel, units, "about origin" label, `null` shown as "Undefined", re-baseline any drift readout on events, edits and reset); K+U is not conserved across mergers. Deferred in the contract: centre of mass, per-body fields, energy-loss ledger, orbital elements.
+
 ## Backend connection restored (2026-10-24)
 - The frontend had stayed at “connecting to the simulation backend” because the backend process was unresponsive. A clean restart revealed `ModuleNotFoundError: No module named 'rebound'` in this checkout's `.venv`.
 - Installed declared backend dependencies from `backend/requirements.txt` (REBOUND 5.2.2) and started Uvicorn at `127.0.0.1:8000`. Backend `/healthz`, backend `/api/v1/simulation/state`, and both routes through Vite at `http://localhost:5173` returned HTTP 200. State begins paused at 0 s with no bodies.
