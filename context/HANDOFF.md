@@ -1,5 +1,9 @@
 # Handoff (latest — rewrite at end of each session)
 
+## Restore starfield zoom parallax without annular seams (2026-10-24, Codex) — latest
+1. The starfield is again world-origin-centered and distributed through one continuous radial volume (300–10,000 scene units), restoring parallax/zoom as the camera moves through it. It renders as a background behind opaque body meshes; camera far range includes the full star volume.
+2. The maximum zoom-out still keeps the displayed-body bounding sphere at 6% of canvas height; empty scenes retain a finite 2000-scene-unit limit.
+3. `npm run build` passed (640 modules); existing >500 kB chunk warning remains. No test suite or browser E2E was run. Changes are on `bugfix/body-inspector-close`; not merged.
 ## Seamless starfield and visible zoom limit (2026-10-24, Codex) — latest
 1. Replaced sparse, differently-dense star annuli with a single camera-centered celestial sphere; it stays around the viewer through zoom movement without shell boundaries and renders behind bodies.
 2. Zoom-out now stops with the displayed-body bounding sphere at 6% of canvas height, so the system remains visible and identifiable. Empty scenes keep a finite 2000-scene-unit limit.

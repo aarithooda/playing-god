@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Stars } from '@react-three/drei';
-import { Group, PerspectiveCamera, Plane, Points, Raycaster, Vector2, Vector3 } from 'three';
+import { PerspectiveCamera, Plane, Points, Raycaster, Vector2, Vector3 } from 'three';
 import { CelestialBody } from './CelestialBody';
 import { DEFAULT_CAMERA_POSITION, type ScenePosition } from '../../sim/renderTransform';
 import type { SceneBody } from '../../sim/viewModel';
@@ -14,7 +14,9 @@ export interface FocusRequest {
 
 const FOCUS_SCREEN_HEIGHT_FRACTION = 0.25;
 const BODY_CLOUD_SCREEN_HEIGHT_FRACTION = 0.06;
-const STAR_SKY_RADIUS = 900;
+const STAR_FIELD_INNER_RADIUS = 300;
+const STAR_FIELD_OUTER_RADIUS = 10000;
+const STAR_FIELD_FAR_MARGIN = 100;
 const POINT_ZOOM_DISTANCE = 2000;
 
 function focusDistanceForScreenHeight(radius: number, camera: PerspectiveCamera): number {
@@ -47,10 +49,8 @@ interface OrbitTarget {
   update: () => void;
 }
 
-/** A camera-centered celestial sphere gives a seamless starfield at every zoom distance. */
+/** One origin-centered depth volume gives continuous stars with natural camera parallax. */
 const ContinuousStarfield: React.FC = () => {
-  const camera = useThree((s) => s.camera);
-  const group = useRef<Group>(null);
   const stars = useRef<Points>(null);
 
   useEffect(() => {
@@ -65,14 +65,17 @@ const ContinuousStarfield: React.FC = () => {
     });
   }, []);
 
-  useFrame(() => {
-    group.current?.position.copy(camera.position);
-  });
-
   return (
-    <group ref={group}>
-      <Stars ref={stars} radius={STAR_SKY_RADIUS} depth={0} count={20000} factor={7} saturation={0} fade speed={1} />
-    </group>
+    <Stars
+      ref={stars}
+      radius={STAR_FIELD_INNER_RADIUS}
+      depth={STAR_FIELD_OUTER_RADIUS - STAR_FIELD_INNER_RADIUS}
+      count={20000}
+      factor={7}
+      saturation={0}
+      fade
+      speed={1}
+    />
   );
 };
 
@@ -146,7 +149,10 @@ const CameraRig: React.FC<{ frameEpoch: number; focus?: FocusRequest; bodies: Sc
     controls.maxDistance = pointDistance;
 
     // Keep distant bodies inside the camera's far plane until they reach the point-size limit.
-    const requiredFar = Math.max(2000, pointDistance + extent * 2);
+    const requiredFar = Math.max(
+      STAR_FIELD_OUTER_RADIUS + STAR_FIELD_FAR_MARGIN,
+      pointDistance + extent * 2,
+    );
     if (Math.abs(perspectiveCamera.far - requiredFar) > requiredFar * 1e-6) {
       perspectiveCamera.far = requiredFar;
       perspectiveCamera.updateProjectionMatrix();

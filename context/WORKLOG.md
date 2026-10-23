@@ -233,3 +233,10 @@
 - Changed: replaced layered Drei `Stars` shells with one camera-centered spherical starfield rendered behind body meshes, avoiding shell transitions as the view moves. Changed the zoom cap from a 1 px cloud diameter to 6% of the viewport height. The camera far plane continues to expand to include the body set at that cap.
 - Verification: `npm run build` passed (640 modules); existing >500 kB bundle warning remains. No tests or browser E2E were run.
 - Branch: `bugfix/body-inspector-close`; source commit `af7a810` is pushed to origin. Not merged.
+
+## 2026-10-24 — Restore zoom parallax in continuous starfield
+- Owner/AI: Codex
+- Goal: retain a continuous background while restoring the starfield's visible zoom effect.
+- Changed: anchored a single Drei `Stars` point volume at the universe origin, spanning 300–10,000 scene units. The stars now show perspective parallax as the camera moves through the volume; `renderOrder=-1` and disabled depth testing keep the field behind opaque bodies. Camera far range includes the star volume. The 6% body-cloud zoom limit remains.
+- Verification: `npm run build` passed (640 modules); existing >500 kB bundle warning remains. No tests or browser E2E were run.
+- Branch: `bugfix/body-inspector-close`; changes are local and need commit/push. Not merged.

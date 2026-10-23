@@ -1,6 +1,10 @@
 # Status
 _Concise authoritative snapshot. Update after every meaningful session._
 
+## Restore starfield zoom parallax without annular seams (2026-10-24)
+- Replaced the camera-centered star sphere with a single world-origin-centered radial star volume from 300 to 10,000 scene units. Stars now move with perspective as the camera zooms through the scene; there are no separate shells or transitions. The point cloud renders behind bodies, and the camera far plane includes the volume.
+- Maximum zoom-out still keeps the displayed-body bounding sphere at 6% of canvas height; empty scenes retain a finite 2000-scene-unit cap.
+- `npm run build` passed (640 modules; existing >500 kB warning). No tests or browser E2E were run. Branch: `bugfix/body-inspector-close`; not merged.
 ## Seamless starfield and visible zoom limit (2026-10-24)
 - Replaced separately rendered, variable-density annular layers with one camera-centered celestial sphere, rendered behind bodies. The field stays continuous as the camera moves, with no shell transitions.
 - Maximum zoom-out now keeps the displayed-body bounding sphere at 6% of canvas height; empty scenes retain a finite 2000-scene-unit cap.
