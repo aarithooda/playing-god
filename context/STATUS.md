@@ -1,6 +1,10 @@
 # Status
 _Concise authoritative snapshot. Update after every meaningful session._
 
+## Collision-free body creation defaults (2026-10-24)
+- Create form now derives an automatically clear position from the current body positions/radii and the requested radius. Automatic placement refreshes as those inputs change; manually edited position coordinates are preserved, so backend overlap validation still reports user-entered collisions.
+- `npm run build` passed (640 modules; existing >500 kB bundle warning). Test suite not run. Source commit `526c2a7` is pushed to `bugfix/body-inspector-close`.
+
 ## Selected-body inspector close control (2026-10-24)
 - Added an accessible 24×24 px close button beside the inspector title. It clears the selected body from App state, hiding the inspector; selecting a body opens it again.
 - `npm run build` passed (640 modules; the existing >500 kB bundle-size warning remains). Change is on `bugfix/body-inspector-close`, based on latest `origin/main`; not merged. Earlier `frontend/close-body-inspector` branch remains intact.

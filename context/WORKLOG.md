@@ -157,3 +157,10 @@
 - Changed: created `bugfix/body-inspector-close` from latest `origin/main` and cherry-picked the close-button commit. Current handoff/status/task notes now identify it as the active branch.
 - Preserved: existing `frontend/close-body-inspector` branch was not modified or deleted.
 - Verification: branch is based on `origin/main` and contains the close-button commit. No additional build/test was needed; source is unchanged from the already-built commit.
+
+## 2026-10-24 — Avoid overlap in automatic body defaults
+- Owner/AI: Codex
+- Goal: allow consecutive body creation without the repeated default position causing an overlap conflict, while preserving validation for manually selected positions.
+- Changed: added a placement helper that derives a clear default from existing spherical bodies and the new body's radius. The create form recalculates while placement is automatic and freezes it after the user edits a coordinate. Backend validation remains authoritative for manual overlap attempts.
+- Verification: `npm run build` passed (640 modules transformed); existing large-chunk warning remains. Test suite not run.
+- Branch: `bugfix/body-inspector-close`; source commit `526c2a7` pushed. Not merged.

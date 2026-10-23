@@ -1,5 +1,10 @@
 # Handoff (latest — rewrite at end of each session)
 
+## Collision-free body creation defaults (2026-10-24, Codex) — latest
+1. On `bugfix/body-inspector-close`, the create form now chooses a position outside existing body spheres using their current positions/radii and the requested new radius. It refreshes automatic positions when the body set or radius changes; once the user edits any position coordinate, it preserves that choice and backend overlap errors remain visible.
+2. `npm run build` passed (640 modules; existing >500 kB bundle warning). No test suite run. Source commit `526c2a7` is pushed to origin.
+3. See `STATUS.md`, `TASKS.md`, and `WORKLOG.md`.
+
 ## Close button for selected-body inspector (2026-10-24, Codex) — latest
 1. The close-button fix is on `bugfix/body-inspector-close`, based on latest `origin/main`; the commit was copied from `frontend/close-body-inspector`. The older branch remains intact.
 2. It adds a compact accessible × button beside the Body Inspector title. It clears `selectedBodyId` and closes the inspector; selecting a body still opens it. No outside-click behavior added.
