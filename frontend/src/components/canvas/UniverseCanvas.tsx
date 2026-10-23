@@ -1,6 +1,7 @@
-import React, { useEffect } from 'react';
-import { Canvas, useThree } from '@react-three/fiber';
+import React, { useEffect, useRef } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Stars } from '@react-three/drei';
+import { Vector3 } from 'three';
 import { CelestialBody } from './CelestialBody';
 import { DEFAULT_CAMERA_POSITION, type ScenePosition } from '../../sim/renderTransform';
 import type { SceneBody } from '../../sim/viewModel';
@@ -31,9 +32,17 @@ interface OrbitTarget {
 const CameraRig: React.FC<{ frameEpoch: number; focus?: FocusRequest }> = ({ frameEpoch, focus }) => {
   const camera = useThree((s) => s.camera);
   const controls = useThree((s) => s.controls) as unknown as OrbitTarget | null;
+  const animation = useRef<{
+    elapsed: number;
+    startPosition: Vector3;
+    endPosition: Vector3;
+    startTarget: Vector3;
+    endTarget: Vector3;
+  } | null>(null);
 
   useEffect(() => {
     camera.position.set(...DEFAULT_CAMERA_POSITION);
+    animation.current = null;
     if (controls) {
       controls.target.set(0, 0, 0);
       controls.update();
@@ -54,16 +63,32 @@ const CameraRig: React.FC<{ frameEpoch: number; focus?: FocusRequest }> = ({ fra
     const minimumDistance = Math.max(focus.radius * 2.5, 1.5);
     const focusedDistance = distance > minimumDistance ? Math.max(distance * 0.9, minimumDistance) : distance;
     const zoom = focusedDistance / distance;
-    camera.position.set(
-      x + offsetX * zoom,
-      y + offsetY * zoom,
-      z + offsetZ * zoom,
-    );
-    controls.target.set(x, y, z);
-    controls.update();
+    animation.current = {
+      elapsed: 0,
+      startPosition: camera.position.clone(),
+      endPosition: new Vector3(x + offsetX * zoom, y + offsetY * zoom, z + offsetZ * zoom),
+      startTarget: new Vector3(controls.target.x, controls.target.y, controls.target.z),
+      endTarget: new Vector3(x, y, z),
+    };
     // Only a new focus request should move the camera, not every body movement.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focus?.nonce]);
+  }, [focus?.nonce, controls]);
+
+  useFrame((_, delta) => {
+    const motion = animation.current;
+    if (!motion || !controls) return;
+    motion.elapsed = Math.min(motion.elapsed + delta, 0.65);
+    const t = motion.elapsed / 0.65;
+    const eased = t * t * (3 - 2 * t);
+    camera.position.lerpVectors(motion.startPosition, motion.endPosition, eased);
+    controls.target.set(
+      motion.startTarget.x + (motion.endTarget.x - motion.startTarget.x) * eased,
+      motion.startTarget.y + (motion.endTarget.y - motion.startTarget.y) * eased,
+      motion.startTarget.z + (motion.endTarget.z - motion.startTarget.z) * eased,
+    );
+    controls.update();
+    if (t >= 1) animation.current = null;
+  });
 
   return null;
 };

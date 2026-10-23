@@ -1,5 +1,10 @@
 # Handoff (latest — rewrite at end of each session)
 
+## Visible body placement and smooth focus (2026-10-24, Codex) — latest
+1. On `bugfix/body-inspector-close`, automatic create positions are now checked against both SI collision radii and displayed sphere radii using the post-create `fitTransform`; the search stride accounts for large physical radii. This addresses visually overlapping bodies caused by the renderer's logarithmically exaggerated sizes.
+2. Camera focus now eases the camera and OrbitControls target over 0.65 s with smoothstep interpolation. Frontend checks: 57 Vitest tests passed; `npm run build` passed (existing >500 kB chunk warning). No browser E2E run.
+3. Code changes are local and still need commit/push. Branch is not merged. See `STATUS.md`, `TASKS.md`, and `WORKLOG.md`.
+
 ## Body single-click and double-click focus (2026-10-24, Codex) — latest
 1. On `bugfix/body-inspector-close`, single click still selects a body and opens its inspector; double-click additionally focuses the camera on it.
 2. Focus recenters OrbitControls and moves 10% closer per request, stopping at 2.5× the body's displayed radius (minimum 1.5 scene units). `npm run build` passed (640 modules; existing >500 kB warning). No test suite run.

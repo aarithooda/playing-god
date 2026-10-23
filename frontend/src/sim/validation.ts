@@ -3,6 +3,7 @@
 import { LIMITS } from "../api/types";
 import type { BodyCreateDto, BodyUpdateDto } from "../api/types";
 import type { BodyView } from "./viewModel";
+import { displayRadiusUnits, fitTransform, toScenePosition } from "./renderTransform";
 
 export const FIELD_KEYS = ["name", "mass", "radius", "px", "py", "pz", "vx", "vy", "vz", "color"] as const;
 export type FieldKey = (typeof FIELD_KEYS)[number];
@@ -171,69 +172,70 @@ export const NEW_BODY_DEFAULTS: FormValues = {
 };
 
 /**
- * Gives the create form an automatically chosen position outside every current body's sphere.
- * Try the closest free point on each coordinate axis first; the normal case is a small offset
- * from the familiar Earth-orbit default. The backend still validates every submitted position.
+ * Gives the create form a position clear of both physical collision radii and the exaggerated
+ * display spheres. The scene refits after creation, so each candidate is checked using the
+ * transform that will be used for the complete post-create body set.
  */
 export function defaultsForNewBody(bodies: readonly BodyView[], radiusText = NEW_BODY_DEFAULTS.radius): FormValues {
   const parsedRadius = Number(radiusText);
   const radius = Number.isFinite(parsedRadius) && parsedRadius > 0 ? parsedRadius : Number(NEW_BODY_DEFAULTS.radius);
   const origin = { x: Number(NEW_BODY_DEFAULTS.px), y: 0, z: 0 };
   if (bodies.length === 0) return { ...NEW_BODY_DEFAULTS };
-
-  const gapFor = (body: BodyView) => Math.max(1, (radius + body.radiusM) * 0.1);
-  const isFree = (position: { x: number; y: number; z: number }) =>
-    bodies.every((body) => {
-      const dx = position.x - body.positionM.x;
-      const dy = position.y - body.positionM.y;
-      const dz = position.z - body.positionM.z;
-      return Math.hypot(dx, dy, dz) >= radius + body.radiusM + gapFor(body);
-    });
-
-  const choices: Array<{ position: typeof origin; distanceSquared: number }> = [];
-  const axes = ["x", "y", "z"] as const;
-  for (const axis of axes) {
-    const base = origin[axis];
-    const positive = Math.max(base, ...bodies.map((body) => body.positionM[axis] + radius + body.radiusM + gapFor(body)));
-    const negative = Math.min(base, ...bodies.map((body) => body.positionM[axis] - radius - body.radiusM - gapFor(body)));
-    for (const coordinate of [positive, negative]) {
-      if (!Number.isFinite(coordinate) || Math.abs(coordinate) > LIMITS.maxPositionM) continue;
-      const position = { ...origin, [axis]: coordinate };
-      if (!isFree(position)) continue;
-      const dx = position.x - origin.x;
-      const dy = position.y - origin.y;
-      const dz = position.z - origin.z;
-      choices.push({ position, distanceSquared: dx * dx + dy * dy + dz * dz });
-    }
+  const displayRadius = displayRadiusUnits(radius);
+  const displayGap = 1.5;
+  const initialScale = fitTransform(bodies.map((body) => body.positionM)).metersPerUnit;
+  const largestPhysicalRadius = Math.max(radius, ...bodies.map((body) => body.radiusM));
+  const largestDisplayRadius = Math.max(displayRadius, ...bodies.map((body) => displayRadiusUnits(body.radiusM)));
+  const stride = Math.max(
+    1.1 * (radius + largestPhysicalRadius),
+    (displayRadius + largestDisplayRadius + displayGap) * initialScale,
+  );
+  const directions: Array<[number, number, number]> = [];
+  for (const dx of [-1, 0, 1]) for (const dy of [-1, 0, 1]) for (const dz of [-1, 0, 1]) {
+    if (dx === 0 && dy === 0 && dz === 0) continue;
+    const norm = Math.hypot(dx, dy, dz);
+    directions.push([dx / norm, dy / norm, dz / norm]);
   }
 
-  // A crowded scene can block the axis candidates. Search a bounded set of diagonal placements
-  // before falling back to the origin default; the backend remains the final overlap authority.
-  if (choices.length === 0) {
-    const largestRadius = Math.max(radius, ...bodies.map((body) => body.radiusM));
-    const stride = 2.2 * (radius + largestRadius);
-    for (let ring = 1; ring <= 256 && choices.length === 0; ring += 1) {
-      for (const dx of [-1, 0, 1]) {
-        for (const dy of [-1, 0, 1]) {
-          for (const dz of [-1, 0, 1]) {
-            if (dx === 0 && dy === 0 && dz === 0) continue;
-            const norm = Math.hypot(dx, dy, dz);
-            const distance = stride * ring;
-            const position = {
-              x: origin.x + (dx / norm) * distance,
-              y: origin.y + (dy / norm) * distance,
-              z: origin.z + (dz / norm) * distance,
-            };
-            if (Object.values(position).some((coordinate) => Math.abs(coordinate) > LIMITS.maxPositionM)) continue;
-            if (isFree(position)) {
-              choices.push({ position, distanceSquared: distance * distance });
-            }
-          }
-        }
+  let position: typeof origin | undefined;
+  for (let ring = 1; ring <= 512 && !position; ring += 1) {
+    const distance = ring * stride;
+    for (const [dx, dy, dz] of directions) {
+      const candidate = {
+        x: origin.x + dx * distance,
+        y: origin.y + dy * distance,
+        z: origin.z + dz * distance,
+      };
+      if (Object.values(candidate).some((coordinate) => Math.abs(coordinate) > LIMITS.maxPositionM)) continue;
+
+      const candidateTransform = fitTransform([...bodies.map((body) => body.positionM), candidate]);
+      const candidateScene = toScenePosition(candidate, candidateTransform);
+      const physicallyClear = bodies.every((body) => {
+        const distanceM = Math.hypot(
+          candidate.x - body.positionM.x,
+          candidate.y - body.positionM.y,
+          candidate.z - body.positionM.z,
+        );
+        return distanceM >= radius + body.radiusM + Math.max(1, (radius + body.radiusM) * 0.1);
+      });
+      const visiblyClear = bodies.every((body) => {
+        const bodyScene = toScenePosition(body.positionM, candidateTransform);
+        const distanceUnits = Math.hypot(
+          candidateScene[0] - bodyScene[0],
+          candidateScene[1] - bodyScene[1],
+          candidateScene[2] - bodyScene[2],
+        );
+        return distanceUnits >= displayRadius + displayRadiusUnits(body.radiusM) + displayGap;
+      });
+      if (physicallyClear && visiblyClear) {
+        position = candidate;
+        break;
       }
     }
   }
 
-  const position = choices.sort((a, b) => a.distanceSquared - b.distanceSquared)[0]?.position ?? origin;
+  // Extremely crowded scenes near the configured coordinate bounds can exhaust the search.
+  // Keep a deterministic fallback; the backend still rejects any actual physical overlap.
+  position ??= origin;
   return { ...NEW_BODY_DEFAULTS, px: String(position.x), py: String(position.y), pz: String(position.z) };
 }

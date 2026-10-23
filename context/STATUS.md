@@ -1,6 +1,11 @@
 # Status
 _Concise authoritative snapshot. Update after every meaningful session._
 
+## Visible body placement and smooth focus (2026-10-24)
+- Auto-placement now chooses a default clear of both physical body radii and visually exaggerated render radii, evaluated using the transform after adding the candidate. Search stride accounts for very large body radii; a test covers four consecutive creations and a large-radius case.
+- Focus movement interpolates the camera and orbit target smoothly over 0.65 s.
+- Frontend: 57 Vitest tests passed; `npm run build` passed (existing large-chunk warning). No browser E2E run. Changes are local on `bugfix/body-inspector-close`, not yet committed or pushed.
+
 ## Body single-click and double-click focus (2026-10-24)
 - Single-click selects the body and opens the inspector; double-click also recenters the camera on that body and zooms 10% closer, with a radius-based minimum distance to prevent zooming inside it.
 - `npm run build` passed (640 modules; existing >500 kB bundle warning). Test suite not run. Commit `82d0dcb` is pushed to `origin/bugfix/body-inspector-close`; not merged.

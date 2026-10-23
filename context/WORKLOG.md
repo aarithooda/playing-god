@@ -171,3 +171,10 @@
 - Changed: `CelestialBody` now forwards double-click separately from click selection. `App` routes focus requests through `UniverseCanvas`; `CameraRig` recenters on the body and moves 10% closer per focus, with a display-radius-based minimum distance.
 - Verification: `npm run build` passed (640 modules transformed); existing large-chunk warning remains. Test suite not run.
 - Branch: `bugfix/body-inspector-close`; commit `82d0dcb` pushed to origin. This branch also carries the prior dynamic-default fix.
+
+## 2026-10-24 — Fix visible placement and smooth camera focus
+- Owner/AI: Codex
+- Goal: place newly created bodies so their rendered spheres do not overlap, and animate camera focus.
+- Changed: create defaults now check physical radii and rendered radii after the post-create fit transform, using a stride scaled for large bodies. Camera and orbit target now smoothstep to the focused body over 0.65 s.
+- Verification: frontend Vitest 57/57 passed; `npm run build` passed with the existing large-chunk warning. Browser E2E not run.
+- Branch: `bugfix/body-inspector-close`; code and context changes are local and need commit/push. Not merged.
