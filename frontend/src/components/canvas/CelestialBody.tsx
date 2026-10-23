@@ -1,5 +1,8 @@
-import React from 'react';
+import React, { useRef } from 'react';
+import { useFrame } from '@react-three/fiber';
 import { Sphere } from '@react-three/drei';
+import { Group, PerspectiveCamera } from 'three';
+import { bodyDisplayScale } from '../../sim/bodyVisibility';
 
 interface CelestialBodyProps {
   position: [number, number, number];
@@ -18,25 +21,37 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
   isSelected = false,
   onClick,
 }) => {
+  const body = useRef<Group>(null);
+
+  // Display-only: lift the body to a minimum on-screen size when zoomed far out (sim/bodyVisibility.ts).
+  useFrame(({ camera, size }) => {
+    if (!body.current || !(camera as PerspectiveCamera).isPerspectiveCamera) return;
+    const [x, y, z] = position;
+    const distance = Math.hypot(camera.position.x - x, camera.position.y - y, camera.position.z - z);
+    body.current.scale.setScalar(bodyDisplayScale(radius, distance, (camera as PerspectiveCamera).fov, size.height));
+  });
+
   return (
     <group position={position} onClick={(e) => {
       e.stopPropagation();
       onClick?.();
     }}>
-      <Sphere args={[radius, 32, 32]}>
-        <meshStandardMaterial
-          color={color}
-          emissive={isSelected ? color : 'black'}
-          emissiveIntensity={isSelected ? 0.5 : 0}
-        />
-      </Sphere>
-      {/* Selection ring for better visibility */}
-      {isSelected && (
-        <mesh rotation={[Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[radius * 1.1, radius * 1.2, 32]} />
-          <meshBasicMaterial color="white" side={2} />
-        </mesh>
-      )}
+      <group ref={body}>
+        <Sphere args={[radius, 32, 32]}>
+          <meshStandardMaterial
+            color={color}
+            emissive={isSelected ? color : 'black'}
+            emissiveIntensity={isSelected ? 0.5 : 0}
+          />
+        </Sphere>
+        {/* Selection ring for better visibility */}
+        {isSelected && (
+          <mesh rotation={[Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[radius * 1.1, radius * 1.2, 32]} />
+            <meshBasicMaterial color="white" side={2} />
+          </mesh>
+        )}
+      </group>
     </group>
   );
 };
