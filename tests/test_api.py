@@ -2,7 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import app
-from backend.store import SimulationStore, get_store
+from backend.simulation import SimulationService, get_service
 
 VALID = {
     "name": "Earth",
@@ -17,8 +17,8 @@ VALID = {
 @pytest.fixture
 def client():
     """Fresh in-memory store per test, injected via dependency override (no reset endpoint)."""
-    fresh = SimulationStore()
-    app.dependency_overrides[get_store] = lambda: fresh
+    fresh = SimulationService()
+    app.dependency_overrides[get_service] = lambda: fresh
     yield TestClient(app)
     app.dependency_overrides.clear()
 
@@ -50,7 +50,7 @@ def test_create_and_retrieve_body(client):
 
 def test_body_id_is_stable_and_unique(client):
     a = post(client).json()
-    b = post(client, name="Moon").json()
+    b = post(client, name="Moon", positionM={"x": 1.496e11 + 3.844e8, "y": 0.0, "z": 0.0}).json()
     assert a["id"] != b["id"]
     first = client.get("/api/v1/simulation/state").json()["bodies"]
     second = client.get("/api/v1/simulation/state").json()["bodies"]
