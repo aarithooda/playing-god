@@ -1,5 +1,11 @@
 # Handoff (latest — rewrite at end of each session)
 
+## Backend connection restored (2026-10-24, Codex) — latest
+1. Frontend showed “connecting to the simulation backend” because the backend process was unresponsive. A clean restart failed with `ModuleNotFoundError: No module named 'rebound'` in this checkout's `.venv`.
+2. Installed the declared dependency set with `.venv/Scripts/python.exe -m pip install -r backend/requirements.txt` (REBOUND 5.2.2), then started Uvicorn at `127.0.0.1:8000`.
+3. Verified HTTP 200 for backend `/healthz`, `/api/v1/simulation/state`, and matching frontend-proxied `/healthz` and `/api/v1/simulation/state`. State is paused at 0 s with no bodies. Server remains running in this app session; no application source or manifest changed.
+4. See `STATUS.md` and `WORKLOG.md`.
+
 ## Frontend local dependency recovery (2026-10-24, Codex) — latest
 1. The import-analysis error for `@react-three/fiber` came from incomplete local `frontend/node_modules`; both Fiber and Drei were already in `package.json` and `package-lock.json`.
 2. Stopped the two Vite processes from this checkout because they held `esbuild.exe`, ran `npm ci` (243 packages), and confirmed `npm run build` succeeds. The frontend is running at `http://localhost:5173/` (HTTP 200).

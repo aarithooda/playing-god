@@ -1,6 +1,11 @@
 # Status
 _Concise authoritative snapshot. Update after every meaningful session._
 
+## Backend connection restored (2026-10-24)
+- The frontend had stayed at “connecting to the simulation backend” because the backend process was unresponsive. A clean restart revealed `ModuleNotFoundError: No module named 'rebound'` in this checkout's `.venv`.
+- Installed declared backend dependencies from `backend/requirements.txt` (REBOUND 5.2.2) and started Uvicorn at `127.0.0.1:8000`. Backend `/healthz`, backend `/api/v1/simulation/state`, and both routes through Vite at `http://localhost:5173` returned HTTP 200. State begins paused at 0 s with no bodies.
+- No tracked application source or dependency manifests changed; server is running in this app session.
+
 ## Frontend local dependency recovery (2026-10-24)
 - Fixed local Vite import-analysis failure for `@react-three/fiber`: `frontend/package.json` and lockfile already declared Fiber/Drei; the local `node_modules` install was incomplete and Vite held `esbuild.exe` open. Stopped the two Vite processes for this checkout, ran `npm ci` successfully (243 packages), then `npm run build` passed (640 modules; existing >500 kB chunk warning).
 - Frontend is running at `http://localhost:5173/` and returns HTTP 200. This is a local environment repair; no application source or dependency manifest changed. `npm ci` reported 6 audit vulnerabilities (3 moderate, 1 high, 2 critical); not auto-fixed.

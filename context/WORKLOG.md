@@ -135,3 +135,11 @@
 - Removed local worktrees/branches whose commits are already ancestors of `main`: `codex/3drender`, `feature/m0-rebound-physics-api`, `m0-collision-validation`, `validation/physics-first-principles`, and `validation/production-physics-review`.
 - Confirmed `feature/frontend-api-integration` is fully merged and has no open PR; deleted its remote branch name. Only remote `main` remains. Stopped the old Vite server on port 5174; main frontend on 5173 and backend on 8000 remain running.
 - Attempted to remove the separate uncommitted `C:\Users\calli\code\playing-god-t3` research repository, but the filesystem safety policy rejected recursive deletion. Left that directory and its untracked files untouched; it is the only extra project directory still present under `C:\Users\calli\code`.
+
+## 2026-10-24 — Restore frontend/backend connection
+- Owner/AI: Codex
+- Goal: resolve the frontend remaining at “connecting to the simulation backend”.
+- Finding: the existing backend process accepted connections but did not answer requests. A clean restart exposed `ModuleNotFoundError: No module named 'rebound'` in this checkout's `.venv`; REBOUND was already declared in `backend/requirements.txt`.
+- Changed: installed the declared backend requirements (including REBOUND 5.2.2) and started Uvicorn at `127.0.0.1:8000`.
+- Verification: backend `/healthz` and `/api/v1/simulation/state`, plus both same routes through the Vite proxy at `http://localhost:5173`, returned HTTP 200. Initial state is paused at 0 s with no bodies.
+- No application source, manifest, or lockfile changed; backend server remains running in this app session.
