@@ -1,6 +1,13 @@
 # Status
 _Concise authoritative snapshot. Update after every meaningful session._
 
+## Integrated `main` (2026-10-24, integration session) — newest, authoritative
+- **Integrated:** production REBOUND/IAS15 backend (`feature/production-rebound-simulation`, includes the M0 branch) and the React/Three.js frontend wired to the API (`feature/frontend-api-integration`, includes Nikhil's `codex/3drender`) are both in `main`. The sections below describe the pre-merge branches; where they say "not pushed / not merged" they are historical.
+- **Verified on integrated main:** `pytest` 149 passed (3 known warnings); `npx tsc --noEmit` clean; `npx vitest run` 55/55; `npm run build` OK (warns that the main chunk is ~1.07 MB > 500 kB: Three.js, not yet code-split).
+- **Browser journey verified manually (Playwright, 2026-10-24):** load, create bodies (SI values), select/inspect, edit name+mass (backend state updated), Step / Play / Pause, Delete, Reset, head-on merger (event shown in Event History), backend killed (error banner then "Backend: unreachable"; recovers on restart), 800x600 and 1440x900 layouts.
+- **Run:** backend `.venv/Scripts/python.exe -m uvicorn backend.main:app --port 8000`; frontend `cd frontend && npm ci && npm run dev` (proxy forwards `/api` and `/healthz` to `BACKEND_URL`, default `http://127.0.0.1:8000`).
+- **Known issues / follow-ups:** at 800x600 the centered title card slightly overlaps the Simulation panel (the inspector/control-panel overlap was fixed); frontend validation bounds duplicate backend rules; main JS chunk >500 kB; unmerged teammate branches `validation/physics-first-principles` and `validation/production-physics-review` (Codex validation work) remain for their owner; P-003 stress tests still todo; no CI (T-004).
+
 ## Backend physics (branch `feature/production-rebound-simulation`, 2026-10-23, local only: not pushed, not merged)
 - **Done:** production REBOUND/IAS15 service (`backend/simulation.py`), merger layer (`backend/collisions.py`), endpoints state, POST/PATCH/DELETE bodies, step, reset, events (`API_CONTRACT.md` matches the code). `rebound` is in `backend/requirements.txt`; `backend/store.py` was replaced by `simulation.py`.
 - **Tests (fresh run):** `pytest` -> **149 passed, 3 warnings** (88 earlier + 61 new: 23 service/physics, 38 API simulation cases). The 3 warnings are the Starlette/httpx deprecation and two IAS15 non-convergence RuntimeWarnings inside the old spike tests; the production tests pass with `-W error::RuntimeWarning` (91 passed).

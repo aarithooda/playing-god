@@ -84,3 +84,8 @@
 - Built on codex/3drender + local merge of origin/main. Added typed API client, SI view model, explicit render transform, `useSimulation` hook, live inspector/create/delete, backend events, Vite proxy without `/api` rewrite (also proxies `/healthz`). See `frontend/README.md`.
 - Coded against `backend/models.py` at backend commit `8d7ab36` (`feature/production-rebound-simulation`); that branch's `API_CONTRACT.md` was checked at integration time (2026-10-24) and already documents step/reset/events/PATCH/DELETE as implemented; the earlier note calling it stale was incorrect.
 - Verified: tsc, 55 vitest tests, `npm run build`, and a manual browser run against a backend served from an export of `8d7ab36` (create, select, PATCH, Play/Pause, single Step, DELETE, Reset, merger event, disconnected state).
+
+## 2026-10-24 — Integration into main (Claude Sonnet 5.5)
+- Realigned local `main` to `origin/main` (old local commit kept on `backup/local-main-2dfc8ac`), fast-forwarded to `feature/production-rebound-simulation`, merged `feature/frontend-api-integration` (only conflict: this file; kept both entries and corrected the wrong 'API contract is stale' note).
+- Verified on main: pytest 149 passed; tsc OK; vitest 55/55; build OK (chunk-size warning). Manual Playwright browser journey passed against a backend on port 8010 (port 8000 was held by another process, left untouched).
+- Fixed the Body Inspector overlapping the control panel at 800x600 (`BodyInspector.tsx` maxHeight, no minHeight). Title card still overlaps the control panel at 800 px: follow-up.

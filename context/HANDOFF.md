@@ -1,5 +1,12 @@
 # Handoff (latest — rewrite at end of each session)
 
+## Integration session (2026-10-24, Claude Sonnet 5.5) — newest
+1. `main` now contains backend + frontend (backend fast-forwarded, frontend merged with a merge commit; history preserved). Older local `main` commit `2dfc8ac` (superseded duplicate of the API commit) is kept on local branch `backup/local-main-2dfc8ac`.
+2. Checks and the manual browser journey are recorded at the top of `STATUS.md`. Run commands are there too.
+3. Do first: review the two Codex validation branches (`origin/validation/production-physics-review` is based on the production backend and adds tests under `tests/validation/`; not merged, owner not confirmed finished); P-003 stress tests; title/panel overlap at 800x600; code-split the 3D bundle; add CI.
+4. Sections below are earlier handoffs; statements like "not pushed/not merged" are historical.
+
+---
 ## Backend physics session (2026-10-23, Claude Sonnet 5.5) — newest
 1. **Branch:** `feature/production-rebound-simulation` (from `feature/m0-rebound-physics-api` + local merge of `origin/main` docs). Not pushed, not merged. The frontend session works in a separate worktree (`Playing God-frontend`).
 2. **Implemented:** production engine and API per `API_CONTRACT.md`; 149 tests pass. Details in `STATUS.md` (top section) and `WORKLOG.md`.
