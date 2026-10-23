@@ -25,7 +25,7 @@ Source of truth for schemas: `backend/models.py` (Pydantic); behaviour: `backend
 `{"status": "paused" | "running", "simulationTimeS": number, "bodies": [Body], "diagnostics": Diagnostics}` — bodies in creation order (a merge survivor keeps its place in the order). **`status` is always `"paused"`**: the server never advances time on its own. Play is the client calling `POST /simulation/step` repeatedly; Pause is it stopping. `"running"` is reserved and never returned.
 
 ### Diagnostics
-Every SimulationState (state, step and reset responses; not the body or events endpoints) carries `diagnostics`, computed from the **same** body list and under the same lock as `bodies`, so it describes exactly that state (D-013). Model: point masses, Newtonian gravity, G = 6.67430e-11, one inertial right-handed frame (D-010).
+Every SimulationState (state, step and reset responses; not the body or events endpoints) carries `diagnostics`, computed from the **same** body list and under the same lock as `bodies`, so it describes exactly that state (D-013). Model: point masses, Newtonian gravity, G = 6.67430e-11, one inertial right-handed frame (D-010). The JSON below uses illustrative values, not output of a particular run.
 ```json
 {"diagnostics":{"version":1,"totalMassKg":3000.0,"totalMomentumKgMPerS":{"x":0.0,"y":0.0,"z":0.0},
  "kineticEnergyJ":1333.3,"potentialEnergyJ":-0.00013,
