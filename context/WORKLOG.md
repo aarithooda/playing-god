@@ -150,3 +150,10 @@
 - Changed: `BodyInspector` now renders a compact accessible × button; `App` clears `selectedBodyId` on close, hiding the panel. Selecting a body continues to open it.
 - Verification: `npm run build` passed (640 modules transformed). Existing main bundle >500 kB warning remains. Test suite not run.
 - Branch: `frontend/close-body-inspector`; not merged.
+
+## 2026-10-24 — Copy inspector fix to bug-fix branch
+- Owner/AI: Codex
+- Goal: create a dedicated bug-fix branch containing the inspector close-button change.
+- Changed: created `bugfix/body-inspector-close` from latest `origin/main` and cherry-picked the close-button commit. Current handoff/status/task notes now identify it as the active branch.
+- Preserved: existing `frontend/close-body-inspector` branch was not modified or deleted.
+- Verification: branch is based on `origin/main` and contains the close-button commit. No additional build/test was needed; source is unchanged from the already-built commit.
