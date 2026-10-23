@@ -72,7 +72,7 @@ export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDe
   };
 
   return (
-    <div style={{ ...panelStyle, position: 'absolute', bottom: '20px', right: '20px', width: '280px', maxHeight: '70vh', overflowY: 'auto' }}>
+    <div style={{ ...panelStyle, position: 'absolute', bottom: '20px', right: '20px', width: '280px', maxHeight: 'calc(100vh - 310px)', minHeight: '200px', overflowY: 'auto' }}>
       <h3 style={{ margin: '0 0 12px 0', fontSize: '16px' }}>Body Inspector</h3>
       <p style={{ fontSize: '11px', opacity: 0.55, margin: '0 0 10px 0' }}>
         {body.id} · speed {formatNumber(body.speedMPerS)} m/s · SI units

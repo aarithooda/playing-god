@@ -40,6 +40,8 @@ describe("render transform", () => {
   it("falls back to the default scale when there is nothing to fit", () => {
     expect(fitTransform([]).metersPerUnit).toBe(DEFAULT_METERS_PER_UNIT);
     expect(fitTransform([{ x: 0, y: 0, z: 0 }]).metersPerUnit).toBe(DEFAULT_METERS_PER_UNIT);
+    // A lone body that has drifted a few km from the origin must not collapse the scale to ~1 m/unit.
+    expect(fitTransform([{ x: 4_000, y: -2_500, z: 0 }]).metersPerUnit).toBe(DEFAULT_METERS_PER_UNIT);
   });
 
   it("keeps small bodies visible: display radius is log-scaled and clamped", () => {

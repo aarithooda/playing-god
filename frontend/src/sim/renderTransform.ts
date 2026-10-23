@@ -25,6 +25,8 @@ export interface RenderTransform {
 export const FIT_EXTENT_UNITS = 40;
 /** Used when there is nothing to fit (about 1 AU ~ 30 units). */
 export const DEFAULT_METERS_PER_UNIT = 5e9;
+/** Extents below this (e.g. a lone body drifting a few km from the origin) are not worth fitting to. */
+export const MIN_FIT_EXTENT_M = 1e7;
 export const MIN_DISPLAY_RADIUS = 0.3;
 export const MAX_DISPLAY_RADIUS = 6;
 
@@ -55,7 +57,7 @@ function niceCeil(x: number): number {
 export function fitTransform(positions: Vec3[]): RenderTransform {
   let extent = 0;
   for (const p of positions) extent = Math.max(extent, Math.abs(p.x), Math.abs(p.y), Math.abs(p.z));
-  if (!(extent > 0)) return { metersPerUnit: DEFAULT_METERS_PER_UNIT };
+  if (!(extent > MIN_FIT_EXTENT_M)) return { metersPerUnit: DEFAULT_METERS_PER_UNIT };
   return { metersPerUnit: niceCeil(extent / FIT_EXTENT_UNITS) };
 }
 

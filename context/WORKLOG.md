@@ -44,3 +44,8 @@
 - GitHub reports no PRs for the repository. Updated handoff/status/tasks for review; no code changes or app tests.
 
 - Follow-up: materialized both fetched teammate tips in separate clean worktrees: C:\Users\calli\code\playing-god-feature-m0-rebound-physics-api and C:\Users\calli\code\playing-god-codex-3drender. No existing worktree or branch pointer was changed. Current divergence from main: Aarit 6 branch-only / 1 main-only; Nikhil 1 branch-only / 5 main-only.
+
+## 2026-10-24 — Frontend API integration (branch feature/frontend-api-integration, local only)
+- Built on codex/3drender + local merge of origin/main. Added typed API client, SI view model, explicit render transform, `useSimulation` hook, live inspector/create/delete, backend events, Vite proxy without `/api` rewrite (also proxies `/healthz`). See `frontend/README.md`.
+- Coded against `backend/models.py` at backend commit `8d7ab36` (`feature/production-rebound-simulation`); that branch's `API_CONTRACT.md` still says step/reset/events/PATCH/DELETE are "planned" (stale doc, to be fixed by the backend owner).
+- Verified: tsc, 55 vitest tests, `npm run build`, and a manual browser run against a backend served from an export of `8d7ab36` (create, select, PATCH, Play/Pause, single Step, DELETE, Reset, merger event, disconnected state).

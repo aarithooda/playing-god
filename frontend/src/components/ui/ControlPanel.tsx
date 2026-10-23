@@ -66,8 +66,10 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     setServerError(null);
     const result = await onCreate(parsed.value);
     setBusy(false);
-    if (result.ok) setCreating(false);
-    else setServerError(result.error);
+    if (result.ok) {
+      setCreating(false);
+      setValues(NEW_BODY_DEFAULTS);
+    } else setServerError(result.error);
   };
 
   return (
