@@ -42,3 +42,6 @@ Review and merge `feature/m0-rebound-physics-api` (PR into `main`), merge or com
 | T-006 | API contract v1 + minimal API (healthz, state, create body) | high | done (commit `feat: add API contract v1 ...` on the topic branch) | lead | — | `API_CONTRACT.md`; API/health tests pass |
 | T-007 | Implement planned endpoints (PATCH/DELETE bodies first), then start/pause/step/reset/events | high | todo | backend dev | T-006; sim endpoints need D-008 | Contract rows flip to ✅ with tests |
 | T-008 | Resolve Vite `/api` rewrite vs `/api/v1` backend paths | high | todo | frontend owner | T-006 | Frontend reaches `/api/v1/simulation/state`. (The 11 failing spike tests mentioned earlier are fixed: `pytest` is 88 passed.) |
+
+### Remote branch inventory — 2026-10-23
+Fetched and created local tracking refs for `feature/m0-rebound-physics-api` (Aarit) and `codex/3drender` (Nikhil). Their work remains unmerged; branch-local test/status claims are not main verification. See HANDOFF/STATUS for changed files and current tips. M0 task statuses on main remain unchanged pending review/integration.
