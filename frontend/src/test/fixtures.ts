@@ -1,0 +1,59 @@
+// Test-only fixtures (never imported by production code).
+import type { ApiClient } from "../api/client";
+import type { BodyDto, SimulationEventDto, SimulationStateDto, StepResponseDto } from "../api/types";
+
+export const sun: BodyDto = {
+  id: "body-aaaaaaaaaaaa",
+  name: "Sun",
+  massKg: 1.989e30,
+  radiusM: 6.957e8,
+  positionM: { x: 0, y: 0, z: 0 },
+  velocityMPerS: { x: 0, y: 0, z: 0 },
+  colorHex: "#fdb813",
+};
+
+export const earth: BodyDto = {
+  id: "body-bbbbbbbbbbbb",
+  name: "Earth",
+  massKg: 5.972e24,
+  radiusM: 6.371e6,
+  positionM: { x: 1.496e11, y: 0, z: 0 },
+  velocityMPerS: { x: 0, y: 29780, z: 0 },
+  colorHex: "#3b82f6",
+};
+
+export const mergerEvent: SimulationEventDto = {
+  id: "evt-1",
+  type: "merger",
+  simulationTimeS: 7200,
+  estimatedContactTimeS: 7000,
+  bodyIds: [sun.id, earth.id],
+  resultBodyId: sun.id,
+  resultMassKg: 1.989e30 + 5.972e24,
+  relativeSpeedMPerS: 29780,
+  kineticEnergyLostJ: 1e33,
+  spinAddedKgM2PerS: { x: 0, y: 0, z: 1e40 },
+};
+
+export function state(bodies: BodyDto[], t = 0): SimulationStateDto {
+  return { status: "paused", simulationTimeS: t, bodies };
+}
+
+export function stepResponse(bodies: BodyDto[], t: number, events: SimulationEventDto[] = []): StepResponseDto {
+  return { ...state(bodies, t), advancedS: 100, events };
+}
+
+/** A scriptable in-memory ApiClient; tests override the methods they care about. */
+export function fakeClient(overrides: Partial<ApiClient> = {}): ApiClient {
+  return {
+    health: async () => true,
+    getState: async () => state([sun, earth]),
+    createBody: async (b) => ({ id: "body-new", ...b }),
+    updateBody: async (id, patch) => ({ ...sun, ...patch, id }),
+    deleteBody: async () => undefined,
+    step: async () => stepResponse([sun, earth], 100),
+    reset: async () => state([]),
+    getEvents: async () => [],
+    ...overrides,
+  };
+}

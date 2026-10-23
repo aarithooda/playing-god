@@ -1,95 +1,93 @@
-import React from 'react';
-
-interface BodyProps {
-  name: string;
-  mass: number;
-  radius: number;
-  position: [number, number, number];
-  velocity: [number, number, number];
-}
+import React, { useEffect, useState } from 'react';
+import type { BodyUpdateDto } from '../../api/types';
+import type { ActionResult } from '../../sim/useSimulation';
+import { formatNumber } from '../../sim/format';
+import {
+  parseBodyEdits,
+  valuesFromBody,
+  type FieldErrors,
+  type FieldKey,
+  type FormValues,
+} from '../../sim/validation';
+import type { BodyView } from '../../sim/viewModel';
+import { BodyFields } from './BodyFields';
+import { btnStyle, errorTextStyle, panelStyle } from './styles';
 
 interface BodyInspectorProps {
-  body: BodyProps | null;
-  onUpdate: (updates: Partial<BodyProps>) => void;
+  /** Confirmed backend state of the selected body (null when nothing is selected). */
+  body: BodyView | null;
+  onSave: (id: string, patch: BodyUpdateDto) => Promise<ActionResult>;
+  onDelete: (id: string) => Promise<ActionResult>;
+  onFocus: (id: string) => void;
 }
 
-export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onUpdate }) => {
+/**
+ * Edits go into a draft that holds only the fields the user changed; every other field follows the
+ * confirmed (live) backend value. Saving sends a PATCH and clears the draft; the shown values then come
+ * from the refreshed authoritative state, never from the draft.
+ */
+export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDelete, onFocus }) => {
+  const [draft, setDraft] = useState<Partial<FormValues>>({});
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [serverError, setServerError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const bodyId = body?.id;
+  useEffect(() => {
+    setDraft({});
+    setErrors({});
+    setServerError(null);
+  }, [bodyId]);
+
   if (!body) return null;
 
+  const confirmed = valuesFromBody(body, formatNumber);
+  const shown: FormValues = { ...confirmed, ...draft };
+  const dirty = Object.keys(draft).length > 0;
+
+  const change = (key: FieldKey, value: string) => {
+    setDraft((d) => ({ ...d, [key]: value }));
+    setErrors((e) => ({ ...e, [key]: undefined }));
+  };
+
+  const save = async () => {
+    const parsed = parseBodyEdits(draft, body);
+    if (!parsed.ok) {
+      setErrors(parsed.errors);
+      return;
+    }
+    setBusy(true);
+    setServerError(null);
+    const result = await onSave(body.id, parsed.value);
+    setBusy(false);
+    if (result.ok) setDraft({});
+    else setServerError(result.error);
+  };
+
+  const remove = async () => {
+    setBusy(true);
+    const result = await onDelete(body.id);
+    setBusy(false);
+    if (!result.ok) setServerError(result.error);
+  };
+
   return (
-    <div style={{
-      position: 'absolute',
-      bottom: '20px',
-      right: '20px',
-      width: '250px',
-      pointerEvents: 'auto',
-      background: 'rgba(0, 0, 0, 0.8)',
-      padding: '15px',
-      borderRadius: '8px',
-      border: '1px solid #444',
-      color: 'white',
-      fontFamily: 'sans-serif'
-    }}>
-      <h3 style={{ margin: '0 0 15px 0', fontSize: '16px' }}>Body Inspector</h3>
+    <div style={{ ...panelStyle, position: 'absolute', bottom: '20px', right: '20px', width: '280px', maxHeight: '70vh', overflowY: 'auto' }}>
+      <h3 style={{ margin: '0 0 12px 0', fontSize: '16px' }}>Body Inspector</h3>
+      <p style={{ fontSize: '11px', opacity: 0.55, margin: '0 0 10px 0' }}>
+        {body.id} · speed {formatNumber(body.speedMPerS)} m/s · SI units
+      </p>
 
-      <div style={fieldGroup}>
-        <label style={labelStyle}>Name</label>
-        <input
-          style={inputStyle}
-          value={body.name}
-          onChange={(e) => onUpdate({ name: e.target.value })}
-        />
-      </div>
+      <BodyFields values={shown} errors={errors} onChange={change} idPrefix="inspect" />
 
-      <div style={fieldGroup}>
-        <label style={labelStyle}>Mass (kg)</label>
-        <input
-          style={inputStyle}
-          type="number"
-          value={body.mass}
-          onChange={(e) => onUpdate({ mass: parseFloat(e.target.value) || 0 })}
-        />
-      </div>
+      {serverError && <p role="alert" style={errorTextStyle}>{serverError}</p>}
 
-      <div style={fieldGroup}>
-        <label style={labelStyle}>Radius (km)</label>
-        <input
-          style={inputStyle}
-          type="number"
-          value={body.radius}
-          onChange={(e) => onUpdate({ radius: parseFloat(e.target.value) || 0 })}
-        />
-      </div>
-
-      <div style={{ marginTop: '15px', borderTop: '1px solid #333', paddingTop: '10px' }}>
-        <p style={{ fontSize: '11px', opacity: 0.6, margin: '0 0 5px 0' }}>Position (X, Y, Z)</p>
-        <div style={{ display: 'flex', gap: '5px' }}>
-          {body.position.map((val, i) => (
-            <input key={i} style={inputStyle} type="number" value={val} readOnly />
-          ))}
-        </div>
+      <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+        <button style={btnStyle} onClick={save} disabled={!dirty || busy}>Apply</button>
+        <button style={btnStyle} onClick={() => { setDraft({}); setErrors({}); setServerError(null); }} disabled={!dirty || busy}>Revert</button>
+        <button style={btnStyle} onClick={() => onFocus(body.id)}>Focus</button>
+        <button style={{ ...btnStyle, borderColor: '#a33' }} onClick={remove} disabled={busy}>Delete</button>
       </div>
     </div>
   );
-};
-
-const fieldGroup: React.CSSProperties = {
-  marginBottom: '12px',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '4px'
-};
-
-const labelStyle: React.CSSProperties = {
-  fontSize: '12px',
-  opacity: 0.7
-};
-
-const inputStyle: React.CSSProperties = {
-  background: '#222',
-  border: '1px solid #444',
-  color: 'white',
-  padding: '4px',
-  borderRadius: '4px',
-  fontSize: '13px'
 };
