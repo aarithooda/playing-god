@@ -39,7 +39,7 @@ Every SimulationState (state, step and reset responses; not the body or events e
 | `potentialEnergyJ` | J | −G Σᵢ<ⱼ mᵢmⱼ/‖rᵢ−rⱼ‖, zero at infinite separation (negative) |
 | `angularMomentumAboutOriginKgM2PerS` | kg·m²/s | Σ mᵢ rᵢ×vᵢ about the fixed simulation origin (0,0,0), **not** the centre of mass |
 | `bookedSpinKgM2PerS` | kg·m²/s | Σ of the spin vectors booked by mergers for the bodies that still exist (bookkeeping: no rotation dynamics, no spin energy) |
-| `version` | — | Semantics version (1). Additive fields do not bump it; redefining a field does. |
+| `version` | — | Semantics version, always `1` (typed `Literal[1]` in the response model and the OpenAPI document). Additive fields do not bump it; redefining a field does. |
 
 - **Undefined values:** each quantity is a finite number or JSON `null`; a vector is all-or-nothing. NaN/Infinity are never emitted. Empty and single-body systems are defined (empty sums are 0, U = 0). `potentialEnergyJ` is `null` if two centres coincide (the API cannot create this) or on overflow; any other quantity is `null` only on overflow.
 - **Derive in the client:** total mechanical energy K+U, speed ‖v‖, distance between bodies, orbital + booked angular momentum (`angularMomentumAboutOrigin + bookedSpin`).
