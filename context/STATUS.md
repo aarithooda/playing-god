@@ -1,6 +1,10 @@
 # Status
 _Concise authoritative snapshot. Update after every meaningful session._
 
+## Remove selected-body ring (2026-10-24)
+- Removed the standalone white ring mesh around selected bodies. Body selection, inspector behavior, focus gestures, and the existing subtle emissive highlight remain unchanged.
+- `npm run build` passed (641 modules; existing >500 kB warning). Tests and browser E2E were not run. Changes are ready to commit and push to `origin/bugfix/body-inspector-close`; not merged.
+
 ## Keep inspector open on body clicks (2026-10-24)
 - Direct presses on a body mesh no longer close the inspector. A window-capture raycast marks body-hit pointer events before the inspector's document handler; outside clicks elsewhere still close, and drag gestures remain exempt.
 - `npm run build` passed (641 modules; existing >500 kB warning). Tests and browser E2E were not run. Source commit `336ab26` is pushed to `origin/bugfix/body-inspector-close`; not merged.

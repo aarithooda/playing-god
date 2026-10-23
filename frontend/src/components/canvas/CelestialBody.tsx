@@ -35,13 +35,6 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
           emissiveIntensity={isSelected ? 0.5 : 0}
         />
       </Sphere>
-      {/* Selection ring for better visibility */}
-      {isSelected && (
-        <mesh rotation={[Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[radius * 1.1, radius * 1.2, 32]} />
-          <meshBasicMaterial color="white" side={2} />
-        </mesh>
-      )}
     </group>
   );
 };

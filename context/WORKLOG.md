@@ -268,3 +268,9 @@
 - Changed: added a window-capture raycast that tags pointer events hitting displayed body spheres. The inspector ignores those marked events; its existing drag threshold and delayed outside-click close remain in place.
 - Verification: `npm run build` passed (641 modules); existing >500 kB chunk warning remains. Tests and browser E2E were not run.
 - Branch: `bugfix/body-inspector-close`; changes are local and need commit/push. Not merged.
+## 2026-10-24 — Remove selected-body ring
+- Owner/AI: Codex
+- Goal: remove the white ring displayed around a selected body while preserving ordinary selection.
+- Changed: removed the conditional ring mesh from `CelestialBody`; selection state, click handlers, inspector/focus behavior, and subtle emissive selection highlight remain unchanged.
+- Verification: `npm run build` passed (641 modules); the existing >500 kB chunk warning remains. Tests and browser E2E were not run.
+- Branch: `bugfix/body-inspector-close`; source and context changes are ready to commit and push, not merged.
