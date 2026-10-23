@@ -45,3 +45,6 @@ Review/merge `feature/production-rebound-simulation` (production engine done: P-
 
 ### Remote branch inventory — 2026-10-23
 Fetched and created local tracking refs for `feature/m0-rebound-physics-api` (Aarit) and `codex/3drender` (Nikhil). Their work remains unmerged; branch-local test/status claims are not main verification. See HANDOFF/STATUS for changed files and current tips. M0 task statuses on main remain unchanged pending review/integration.
+
+### Independent production physics review — 2026-10-24
+On isolated branch `validation/production-physics-review`, 11 new analytical/reference checks passed against `feature/production-rebound-simulation`; the complete branch suite passed 160 tests with 3 warnings. This does not close P-003: the review recommends additional strongly curved non-radial and three-body cases, connected clusters of >3 simultaneous mergers, seed/order variation, and testing the 2000-chunk cap. See `context/PRODUCTION_PHYSICS_INDEPENDENT_VALIDATION.md`.

@@ -89,3 +89,11 @@
 - Realigned local `main` to `origin/main` (old local commit kept on `backup/local-main-2dfc8ac`), fast-forwarded to `feature/production-rebound-simulation`, merged `feature/frontend-api-integration` (only conflict: this file; kept both entries and corrected the wrong 'API contract is stale' note).
 - Verified on main: pytest 149 passed; tsc OK; vitest 55/55; build OK (chunk-size warning). Manual Playwright browser journey passed against a backend on port 8010 (port 8000 was held by another process, left untouched).
 - Fixed the Body Inspector overlapping the control panel at 800x600 (`BodyInspector.tsx` maxHeight, no minHeight). Title card still overlaps the control panel at 800 px: follow-up.
+
+## 2026-10-24 — Independent production physics validation
+- Reviewer: Codex; branch `validation/production-physics-review` based on `feature/production-rebound-simulation` at `af3b29a`; no production implementation edited.
+- Added independent Newton/Kepler/energy/angular-momentum/radial-fall checks and collision edge fixtures under `tests/validation/`; created a branch-local Python 3.12 environment with the branch's declared dependencies (REBOUND 5.2.2).
+- Independent suite: 11 passed. Full suite: 160 passed, 3 warnings. IAS15 non-convergence was logged in the steep radial-fall and 1e16:1 mass-ratio independent cases; two REBOUND RuntimeWarnings remain in legacy spike tests and one Starlette/httpx deprecation was reported.
+- Results: acceleration relative error 3.06e-8; one-period orbit relative position error 1.34e-15, energy drift 4.35e-16, angular-momentum drift 1.82e-16; head-on/grazing merger momentum, contact-state KE and spin ledger matched independent calculations. Swept high-speed collision, near miss, exact tangency, two simultaneous pairs and one three-body chain were exercised.
+- Limitations recorded: estimated contact time is null for exact tangency and the second same-step triple-chain merger; detection timestamp can lag contact; binary64 rounds away 1 kg when added to 1e16 kg; 0.49c is a numerical stress case only, not physically valid Newtonian input.
+- Full report: `context/PRODUCTION_PHYSICS_INDEPENDENT_VALIDATION.md`. Production code and `main` unchanged; review branch remains separate.
