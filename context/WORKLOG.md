@@ -97,3 +97,11 @@
 - Results: acceleration relative error 3.06e-8; one-period orbit relative position error 1.34e-15, energy drift 4.35e-16, angular-momentum drift 1.82e-16; head-on/grazing merger momentum, contact-state KE and spin ledger matched independent calculations. Swept high-speed collision, near miss, exact tangency, two simultaneous pairs and one three-body chain were exercised.
 - Limitations recorded: estimated contact time is null for exact tangency and the second same-step triple-chain merger; detection timestamp can lag contact; binary64 rounds away 1 kg when added to 1e16 kg; 0.49c is a numerical stress case only, not physically valid Newtonian input.
 - Full report: `context/PRODUCTION_PHYSICS_INDEPENDENT_VALIDATION.md`. Production code and `main` unchanged; review branch remains separate.
+
+## 2026-10-23 — Independent first-principles physics reference
+- Owner/AI: Codex, independent computational-physics review.
+- Goal: derive expected SI gravity, merger, collision geometry, checkpoint and tolerance checks without consulting another reviewer's calculations or engine outputs.
+- Changed: added `context/INDEPENDENT_PHYSICS_REVIEW.md` and standard-library-only `context/independent_reference.py`; refreshed STATUS/HANDOFF and added a note to TASKS.
+- Calculation: `python context/independent_reference.py` ran and printed the worked examples. This is not an application test or an engine test.
+- Not done: no REBOUND execution, checkpoint experiment, task closure, or D-003 decision. M0.1 agreement and cross-review remain outstanding.
+- Git: docs/calculation only on `validation/physics-first-principles`, based on latest pulled origin/main; local main package.json change was left untouched.
