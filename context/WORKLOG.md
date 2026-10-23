@@ -34,3 +34,5 @@
 - Pushed `validation/physics-first-principles` commit `a6540f0`; branch now tracks origin. No PR created.
 - Updated this handoff/status to reflect the authenticated Git setup and pushed independent review branch.
 - Preserved the existing uncommitted `frontend/package.json` edit; only context files were staged for the main docs commits.
+
+- Follow-up: pushed docs-only main context commits `b2dd01f` and `bca9ab0`; main now tracks origin. The existing package.json edit remains uncommitted and untouched.
