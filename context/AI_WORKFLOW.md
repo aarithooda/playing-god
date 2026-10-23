@@ -1,5 +1,5 @@
 # AI Workflow Protocol (mandatory)
-Applies to every AI model and every person using one.
+Applies to every AI model and every person using one. Team-level rules (ownership, branches, PRs): `TEAM_WORKFLOW.md`. Current milestone: M0 in `TASKS.md` / `PHYSICS_SPIKE.md`.
 
 ## Start of session
 1. Read `context/HANDOFF.md`, `STATUS.md`, `TASKS.md`.

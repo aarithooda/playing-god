@@ -12,3 +12,35 @@
 - Owner/AI: project lead / Claude Sonnet 5.5
 - Installed gh 2.103.0 via winget; user ran `gh auth login`; created private repo aarithooda/playing-god and pushed `main` (tracking set).
 - Docs-only follow-up commit updates STATUS/HANDOFF/TASKS.
+
+## 2026-10-23 — Team workflow and M0 plan (docs only)
+- Owner/AI: project lead / Claude Sonnet 5.5
+- Goal: collaboration system and testable plan for the physics spike.
+- Changed: added `TEAM_WORKFLOW.md`, `PHYSICS_SPIKE.md`; added M0 to `TASKS.md` (T-001 superseded, T-005 added); updated STATUS, HANDOFF, DECISIONS (D-004), AI_WORKFLOW, README; repo made public.
+- Tests: `pytest` rerun after doc changes (result in STATUS). No code changed; no M0 experiments run.
+- Commit: not yet committed (awaiting review).
+
+## 2026-10-23 — GitHub CLI setup
+- Owner/AI: Codex.
+- Goal: install GitHub CLI for repository operations.
+- Changed: machine installed GitHub CLI 2.103.0 with winget; executable at `C:\Program Files\GitHub CLI\gh.exe`; machine PATH contains its directory.
+- Verified: executable reports 2.103.0. `gh auth status` reports no logged-in GitHub host; no authentication flow was started. Current process PATH has not refreshed.
+- Repo sync: fetched origin; `main` is aligned with `origin/main` at `ad4bd59`. Existing `frontend/package.json` change preserved.
+- Pending: local review branch `validation/physics-first-principles` commit `a6540f0` remains unpushed pending GitHub authentication.
+
+## 2026-10-23 — GitHub auth and review branch sync
+- Owner/AI: Codex.
+- Verified GitHub CLI login as `biscuitfab`; ran `gh auth setup-git` and Git fetch succeeded.
+- Pushed `validation/physics-first-principles` commit `a6540f0`; branch now tracks origin. No PR created.
+- Updated this handoff/status to reflect the authenticated Git setup and pushed independent review branch.
+- Preserved the existing uncommitted `frontend/package.json` edit; only context files were staged for the main docs commits.
+
+- Follow-up: pushed docs-only main context commits `b2dd01f` and `bca9ab0`; main now tracks origin. The existing package.json edit remains uncommitted and untouched.
+
+## 2026-10-23 — Fetched teammate branches
+- Fetched origin and found new branches: `feature/m0-rebound-physics-api` at `14af4f4` and `codex/3drender` at `397e563`.
+- Created local tracking refs at exact remote tips; did not checkout, merge, rebase, or reset any branch. Main remained on `47c1bfb`; existing package.json edit preserved.
+- Inspected branch commit summaries, file lists, and Aarit branch context. Its STATUS reports 88 pytest passes and frontend build OK; these were not independently rerun.
+- GitHub reports no PRs for the repository. Updated handoff/status/tasks for review; no code changes or app tests.
+
+- Follow-up: materialized both fetched teammate tips in separate clean worktrees: C:\Users\calli\code\playing-god-feature-m0-rebound-physics-api and C:\Users\calli\code\playing-god-codex-3drender. No existing worktree or branch pointer was changed. Current divergence from main: Aarit 6 branch-only / 1 main-only; Nikhil 1 branch-only / 5 main-only.

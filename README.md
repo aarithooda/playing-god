@@ -34,4 +34,4 @@ cd frontend && npm run build    # type-check + production build
 ```
 
 ## Context workflow (humans and AI models)
-Shared project memory lives in `context/`. Before any AI-assisted session read, in order: `HANDOFF.md`, `STATUS.md`, `TASKS.md`, then relevant parts of `PROJECT_BRIEF.md`, `ARCHITECTURE.md`, `DECISIONS.md`. At the end of a session update STATUS, TASKS, WORKLOG, HANDOFF (and DECISIONS if needed). Full protocol: `context/AI_WORKFLOW.md`.
+Shared project memory lives in `context/`. Before any AI-assisted session read, in order: `HANDOFF.md`, `STATUS.md`, `TASKS.md`, then relevant parts of `PROJECT_BRIEF.md`, `ARCHITECTURE.md`, `DECISIONS.md`. At the end of a session update STATUS, TASKS, WORKLOG, HANDOFF (and DECISIONS if needed). Full protocol: `context/AI_WORKFLOW.md`. Team rules: `context/TEAM_WORKFLOW.md`. Current milestone (M0, physics-engine feasibility spike): `context/PHYSICS_SPIKE.md`.
