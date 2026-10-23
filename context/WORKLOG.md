@@ -27,3 +27,10 @@
 - Verified: executable reports 2.103.0. `gh auth status` reports no logged-in GitHub host; no authentication flow was started. Current process PATH has not refreshed.
 - Repo sync: fetched origin; `main` is aligned with `origin/main` at `ad4bd59`. Existing `frontend/package.json` change preserved.
 - Pending: local review branch `validation/physics-first-principles` commit `a6540f0` remains unpushed pending GitHub authentication.
+
+## 2026-10-23 — GitHub auth and review branch sync
+- Owner/AI: Codex.
+- Verified GitHub CLI login as `biscuitfab`; ran `gh auth setup-git` and Git fetch succeeded.
+- Pushed `validation/physics-first-principles` commit `a6540f0`; branch now tracks origin. No PR created.
+- Updated this handoff/status to reflect the authenticated Git setup and pushed independent review branch.
+- Preserved the existing uncommitted `frontend/package.json` edit; only context files were staged for the main docs commits.
