@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { earth, mergerEvent, state, sun } from "../test/fixtures";
+import { diagnostics, earth, mergerEvent, state, sun } from "../test/fixtures";
 import { formatDuration, formatNumber } from "./format";
 import { mergeEvents, toBodyView, toEventView, toSceneBody, toSimulationView } from "./viewModel";
 
@@ -60,5 +60,11 @@ describe("formatting", () => {
     expect(formatDuration(7200)).toBe("2 h");
     expect(formatDuration(86400 * 3.5)).toBe("3.5 d");
     expect(formatDuration(3.156e7)).toBe("1 yr");
+  });
+});
+
+describe("toSimulationView diagnostics", () => {
+  it("passes the backend diagnostics through unchanged", () => {
+    expect(toSimulationView(state([earth])).diagnostics).toEqual(diagnostics);
   });
 });

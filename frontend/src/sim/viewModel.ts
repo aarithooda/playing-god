@@ -1,6 +1,6 @@
 // DTO -> view model mapping. Physical quantities keep their SI names and values; the view model only
 // adds derived read-only values (speed). Scene (render) values are produced separately by toSceneBody.
-import type { BodyDto, SimulationEventDto, SimulationStateDto, SimulationStatus, Vec3 } from "../api/types";
+import type { BodyDto, DiagnosticsDto, SimulationEventDto, SimulationStateDto, SimulationStatus, Vec3 } from "../api/types";
 import {
   displayRadiusUnits,
   toScenePosition,
@@ -24,6 +24,8 @@ export interface SimulationView {
   status: SimulationStatus;
   simulationTimeS: number;
   bodies: BodyView[];
+  /** Backend-computed system diagnostics, passed through unchanged (never recomputed in the frontend). */
+  diagnostics: DiagnosticsDto;
 }
 
 export interface SceneBody {
@@ -54,6 +56,7 @@ export function toSimulationView(dto: SimulationStateDto): SimulationView {
     status: dto.status,
     simulationTimeS: dto.simulationTimeS,
     bodies: dto.bodies.map(toBodyView),
+    diagnostics: dto.diagnostics,
   };
 }
 
