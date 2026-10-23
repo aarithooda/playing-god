@@ -11,7 +11,7 @@ Source of truth for schemas: `backend/models.py` (Pydantic); behaviour: `backend
 - **Colors:** `#RRGGBB` (6 hex digits, case-insensitive; stored as sent).
 - **Unknown request fields are rejected** (422).
 - **Request bounds (422 outside):** `massKg` ∈ (0, 1e45]; `radiusM` ∈ (0, 1e15]; each `positionM` component |.| ≤ 1e18; each `velocityMPerS` component |.| ≤ 299792458 and total speed < c; `dtS` ∈ [1e-6, 1e8]; `name` 1–64 chars. Responses are not bounded: evolved state is reported as the engine has it.
-- **Error shapes:** 422 `{"detail": [{"loc": ["body","massKg"], "msg": "...", "type": "greater_than"}]}` (validation); 404 / 409 / 500 `{"detail": "<message>"}`.
+- **Error shapes:** 422 `{"detail": [{"loc": ["body","massKg"], "msg": "...", "type": "greater_than"}]}` (validation); 404 / 409 / 500 / 503 `{"detail": "<message>"}`.
 - **Base path:** backend serves `/api/v1/...` itself. Note: the Vite dev proxy currently *strips* `/api` (see Assumptions).
 
 ### Body
@@ -62,14 +62,15 @@ Response 200: SimulationState plus
 {"status":"paused","simulationTimeS":3600.0,"bodies":[...],"advancedS":3600.0,"events":[Event, ...]}
 ```
 `events` holds only events that occurred during this call (merged-away bodies are already missing from `bodies`; use `events[].bodyIds`). `advancedS` equals `dtS` up to rounding.
-The step is transactional: if the engine raises, a collision callback fails or any state becomes non-finite, the state from before the call is restored and the response is **500** `{"detail":"simulation step failed and was rolled back: ..."}`. Requests are serialized by a lock (concurrent steps queue, never interleave). A step is not interruptible (see limitations).
-Errors: 422 bad `dtS`; 500 as above. There is no 409 "running" case: the server never runs by itself.
+The step is transactional: if the engine raises, a collision callback fails or any state becomes non-finite, the state from before the call is restored and the response is **500** `{"detail":"simulation step failed and was rolled back: ..."}`. Requests are serialized by a lock (concurrent steps queue, never interleave).
+**Wall-clock budget:** a step that has not finished within `PG_STEP_TIME_LIMIT_S` seconds (default 10) is stopped (checked between chunks and, through REBOUND's heartbeat, after every internal step, so a stalled engine is stopped too), rolled back exactly like a failed step, and answered **503** `{"detail":"step exceeded its 10 s wall-clock budget; state was not advanced (retry with a smaller dtS)"}`. Time, bodies, events and event ids are those from before the request. The replay after a rollback uses a different internal step grid (same physics to integrator accuracy, not bitwise identical; event detection timestamps can move by one internal step). An empty simulation is never timed out.
+Errors: 422 bad `dtS`; 500 rolled back; 503 wall-clock budget exceeded (both leave the state untouched; the client should stop Play and may retry with a smaller `dtS`). There is no 409 "running" case: the server never runs by itself.
 
 ### ✅ `POST /api/v1/simulation/reset`
 Remove all bodies and events, time back to 0. Deterministic: the same inputs afterwards give the same results as a fresh server. Response 200: `{"status":"paused","simulationTimeS":0.0,"bodies":[]}`. Body ids are never reused; event ids continue counting.
 
 ### ✅ `GET /api/v1/events`
-Response 200 `{"events":[Event, ...]}`, oldest first (latest 1000 since the last reset).
+Response 200 `{"events":[Event, ...]}`, oldest first (latest 1000 since the last reset). Verified by `tests/test_events_endpoint.py`: empty shape, field set and values of head-on and grazing mergers, null `estimatedContactTimeS` at exact tangency, agreement with the step response, persistence across quiet steps and body edits/deletes, reset (log cleared, ids keep counting), rolled-back and timed-out steps (no event, id not consumed), the 1000-event cap, cascades. Only GET is allowed (405 otherwise).
 
 ### Withdrawn / planned
 - `POST /simulation/start` and `/simulation/pause`: **not implemented and no longer planned**; Play/Pause is client-side scheduling of `step` requests.
@@ -84,10 +85,13 @@ Response 200 `{"events":[Event, ...]}`, oldest first (latest 1000 since the last
 ## Physics limitations
 - A merge does not conserve kinetic+potential energy or modelled angular momentum; both are bookkept (event fields, server ledgers) but no spin dynamics exist.
 - Event times are detection times at integrator-step granularity; contact time is an estimate.
-- `line` detection assumes near-straight motion inside a chunk. Untested: very tight binaries or close three-body encounters with large dt, more than 3 simultaneous collisions, mass ratios beyond 1e11:1, latency at large N (IAS15 is O(N²); M0 measured ~5e2–1e3 steps/s at N=100).
+- `line` detection assumes near-straight motion inside a chunk. Stress-tested (P-003, `tests/test_stress_p003.py`): eccentric and grazing bound binaries (e up to 0.9), a hyperbolic flyby, 4–12 simultaneous collisions, mass ratios up to 2e30:1 and a 1e17:1 merger. Still untested: close three-body encounters against an independent high-resolution reference, tree collision modes, N beyond 200.
+- Latency (measured 2026-10-24, one core, no collisions): N=100: 0.05 s for dtS=1e5, 2.0 s for dtS=1e7; N=200: 0.2 s for dtS=1e5 and >10 s (cut off by the budget, a 503) for dtS=1e7. The cost is ~2000 chunks × O(N²).
+- **Binary64 mass resolution:** at mass ratios ≳ 1e16:1 the light body's mass is below the heavy body's ulp, so the remnant mass is not the exact sum (momentum is still conserved to round-off). The sum is exact while it is an integer number of kg below 2^53 (~9.0e15).
 - Doubles resolve ~3e-5 m at 1 AU, limiting collision-geometry accuracy for small bodies far from the origin.
 - Two centres coinciding exactly mid-step (measure zero) end in a merge or a rolled-back 500, never in silent corruption (tested for one geometry).
-- A step has no wall-clock limit. Very small radii with very close non-colliding encounters can make IAS15 take very many tiny steps.
+- Very small radii with very close non-colliding encounters can make IAS15 take very many tiny steps; the wall-clock budget turns that into a 503 instead of a hang.
+- **REBOUND defect worked around (D-011):** with REBOUND 5.2.2's default step-size criterion a body whose net force cancels by symmetry (e.g. three equal masses at rest on a line) makes `integrate` never return. The service selects the GLOBAL criterion instead, which handles all tested symmetric layouts (lines of 3 and 5, 3x3 grid, ring, cube).
 - State is in-memory, single process, lost on restart; no authentication; at most 200 bodies.
 
 ## Assumptions / known issues

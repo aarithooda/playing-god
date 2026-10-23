@@ -29,9 +29,10 @@ cd frontend && npm run dev
 
 ## Test
 ```bash
-pytest                          # from repo root, venv active
-cd frontend && npm run build    # type-check + production build
+python -m pytest                # from repo root, venv active: unit, API, stress, validation, spike, live-server smoke
+cd frontend && npm run typecheck && npm test && npm run build   # tsc, vitest, production build
 ```
+CI (`.github/workflows/ci.yml`) runs exactly these on every push to `main` and every pull request. `tests/smoke/` starts a real uvicorn and drives the API over HTTP (API-only; there is no automated browser test). A step is cut off after `PG_STEP_TIME_LIMIT_S` seconds (default 10) with HTTP 503 and rolled back.
 The M0 physics spike tests (`tests/spike/`) need REBOUND and skip themselves without it: `pip install -r backend/experiments/requirements.txt`. Results and decision: `context/PHYSICS_SPIKE.md`.
 
 ## License

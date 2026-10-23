@@ -2,6 +2,8 @@
 Status: todo / in progress / blocked / done. Keep tasks small and independently testable.
 
 ## NEXT ACTION
+Stabilized baseline (2026-10-24): see the top of `STATUS.md`. Next: confirm D-011/D-012, code-split the bundle, optional browser E2E (T-010). Older text below is history.
+
 Review/merge `feature/production-rebound-simulation` (production engine done: P-001, P-002 and T-007 implemented; P-004 explained). Then compare `origin/validation/physics-first-principles`; frontend integrates against `API_CONTRACT.md`. Older text follows: start **P-001** (production collision/merger layer, spec in `PHYSICS_SPIKE.md`). Vaibhav: independent re-check of the energy/angular-momentum accounting and the P-003 stress tests.
 
 ## M0 — Physics Engine Feasibility Spike
@@ -26,8 +28,8 @@ Review/merge `feature/production-rebound-simulation` (production engine done: P-
 |---|---|---|---|---|---|---|
 | P-001 | Production collision/merger layer per the spec in `PHYSICS_SPIKE.md` (IAS15, `line`, seeded, name ids, ledgers, reset after merge, re-register after restore) | high | done (backend/collisions.py + backend/simulation.py; tests/test_simulation_service.py) | lead | D-008 | spike tests ported against the production module; no spike code imported by the app |
 | P-002 | Step-cap policy: integrate in frame chunks with a_rel·dt²/8 ≪ contact distance | high | done (chunking in SimulationService._advance; curvature + radial-infall tests) | lead | P-001 | test with curved close encounters passes |
-| P-003 | Stress the untested items (strongly curved paths, tree/linetree, >3 simultaneous bodies, many collisions per step, tangency policy, extreme mass ratios) | medium | todo | Vaibhav | M0.4 | results appended to `PHYSICS_SPIKE.md` |
-| P-004 | Understand the IAS15 non-convergence RuntimeWarning after a merge with capped chunks (F10) | medium | partly: no IAS15 non-convergence warning in any production test (run with -W error::RuntimeWarning); cause of the spike warning not isolated; production logs any REBOUND warning | lead | P-001 | explained and either fixed or documented |
+| P-003 | Stress the untested items (strongly curved paths, tree/linetree, >3 simultaneous bodies, many collisions per step, tangency policy, extreme mass ratios) | medium | done 2026-10-24 except tree/linetree modes (not used by the app) and a high-resolution three-body reference: `tests/test_stress_p003.py` (16 tests), results in `PHYSICS_SPIKE.md` | stabilization session | M0.4 | results appended to `PHYSICS_SPIKE.md` |
+| P-004 | Understand the IAS15 non-convergence RuntimeWarning after a merge with capped chunks (F10) | medium | done 2026-10-24: cause = a lone remnant has zero acceleration so IAS15's convergence test is 0/0; fixed in production by exact drift, pinned by `tests/test_step_guard.py`; spike tests ignore only that message | lead | P-001 | explained and either fixed or documented |
 | P-005 | License and third-party notices | high | done: GPL-3.0-only, `LICENSE`, `THIRD_PARTY_NOTICES.md` (re-check when dependencies change; add Three.js) | project lead | M0.7 | D-009 accepted |
 
 ## Other tasks
@@ -37,7 +39,9 @@ Review/merge `feature/production-rebound-simulation` (production engine done: P-
 | T-001 | Physics-engine feasibility spike | — | superseded by M0 | — | — | — |
 | T-002 | GitHub remote and push baseline | high | done | lead | T-000 | `main` tracks `origin/main` (repo is public) |
 | T-003 | Decide units and coordinate conventions | high | done (SI D-007, right-handed Cartesian D-010; origin chosen per scenario) | lead, Vaibhav | M0.1 | recorded in DECISIONS.md |
-| T-004 | Add CI (pytest + frontend build) | medium | todo | integration dev | T-000 | CI green on main |
+| T-004 | Add CI (pytest + frontend build) | medium | done 2026-10-24: `.github/workflows/ci.yml` (pytest, tsc, vitest, build), green on main | integration dev | T-000 | CI green on main |
+| T-009 | Per-step wall-clock budget and engine-stall protection | high | done 2026-10-24 (D-011, D-012; HTTP 503) | stabilization session | — | stalled or slow steps roll back |
+| T-010 | Automated browser E2E test | low | todo (only the API-only smoke test exists, `tests/smoke/`) | integration dev | T-004 | Playwright journey in CI |
 | T-005 | Collaborators and workflow | high | collaborators added 2026-10-23; workflow confirmation by all four pending | lead | T-000 | All four confirm `TEAM_WORKFLOW.md` |
 | T-006 | API contract v1 + minimal API (healthz, state, create body) | high | done (commit `feat: add API contract v1 ...` on the topic branch) | lead | — | `API_CONTRACT.md`; API/health tests pass |
 | T-007 | Implement planned endpoints (PATCH/DELETE bodies first), then start/pause/step/reset/events | high | done 2026-10-23: PATCH/DELETE/step/reset/events implemented; start/pause withdrawn (Play = client step loop) | backend dev | T-006; sim endpoints need D-008 | Contract rows flip to ✅ with tests |

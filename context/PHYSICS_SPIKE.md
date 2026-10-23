@@ -122,7 +122,7 @@ Collision search ('direct' and 'line') added no measurable cost relative to the 
 | F7 | IAS15 after a particle removal/merge injects momentum error (5e-9 relative with a 1e11 kg neighbour) because stale predictor coefficients no longer satisfy Σ m b = 0; built-in merge has it | re-select the integrator (`sim.integrator = "ias15"`) inside the resolver after a merge; dp 9.3e-6 → 4.5e-13 (`test_three_body_…`) |
 | F8 | REBOUND reports a collision only at the end of the step and gives no in-step time (collision struct has only p1, p2, gb, ri) | straight-line backward estimate (`contact_time_estimate`), exact for gravity-free motion; curvature error a_rel dt²/8 otherwise |
 | F9 | Exceptions raised inside a Python resolver are swallowed by ctypes (printed, callback returns 0) | the layer wraps its body, stores tracebacks in `errors`; tests assert `errors == []` |
-| F10 | `RuntimeWarning: predictor corrector loops in IAS15 did not converge` appeared once after a merge when stepping in capped chunks (2-body analytic case; none without chunking); results stayed within tolerance | **unresolved**, see risks |
+| F10 | `RuntimeWarning: predictor corrector loops in IAS15 did not converge` appeared once after a merge when stepping in capped chunks | **resolved 2026-10-24**: lone remnant, a=0 so the convergence ratio is 0/0 (spurious); production drifts a lone body exactly |
 | F11 | Resolver not restored from a checkpoint; REBOUND warns, then halts with `Collision` on first overlap | re-register after every restore (`test_restore_without_resolver_halts…`) |
 
 ## M0 acceptance criteria
@@ -152,3 +152,18 @@ REBOUND 5.2.2 declares **GPL-3.0-only** (installed package metadata, `License-Ex
 
 ## Fallback (if the sign-off or the license decision rejects REBOUND)
 A small in-house N-body core (IAS15-class or leapfrog with substeps, our own swept-sphere `line` test and the same merger layer), validated against the same tests in `tests/spike/`. The merger layer, the contact-time estimate, the ledgers and almost all tests are engine-independent and carry over. Choose it only after recording why REBOUND failed.
+
+## P-003 stress results (2026-10-24, `tests/test_stress_p003.py`, production service, IAS15 GLOBAL, `line`)
+Tolerances: orbits 1e-9 a position / 1e-10 E,L; merger momentum 1e-12 (1e-11 cascades) relative; contact-time estimate <= 0.02 R / v_contact; references are closed forms (Kepler, vis-viva, hyperbolic Kepler, conservation laws).
+| Scenario | Result |
+|---|---|
+| e=0.6 binary, 3 periods | pass; closes, E and L conserved |
+| e=0.9, periapsis 100 m < R=150 m | pass; one merger, estimate within bound of the Kepler time; detection lags contact by an internal step (seconds), speed between v(R) and v(periapsis) |
+| periapsis 1.05 R and 1.5 R, 3 periods in one request | pass; no false merger |
+| hyperbolic flyby, 1e24:1, v_inf = 5 km/s | pass; position 1e-8 r0, E and L 1e-9 |
+| 1000 orbits in one request (chunk cap binds) | pass; E, L 1e-8 |
+| ring of 4/6/12, seeded 10-body collapse, 5 simultaneous pairs, 4-body chain | pass; n-1 events, mass exact, momentum <= 1e-11, reproducible |
+| 2e30:1 circular orbit | pass; returns within 1e-8 a |
+| 1e12:1 merger (both creation orders) | pass; mass exactly 1e12+1 |
+| 1e17:1 merger | pass with the documented limitation: mass within one ulp (1 kg lost), momentum conserved |
+No failures. Not covered: tree collision modes, close three-body encounters against a high-resolution reference, N>200. Found while testing: the IAS15 stall for symmetric collinear layouts (D-011).
