@@ -1,5 +1,9 @@
 # Handoff (latest — rewrite at end of each session)
 
+## Keep inspector open on body clicks (2026-10-24, Codex) — latest
+1. Direct canvas presses that ray-hit a displayed body are marked before the inspector's document capture handler. Body clicks no longer dismiss the inspector; clicks elsewhere retain click-away dismissal, and drags continue to keep it open for camera orbit.
+2. `npm run build` passed (641 modules); existing >500 kB chunk warning remains. Tests and browser E2E were not run.
+3. Changes are on `bugfix/body-inspector-close`; commit/push pending.
 ## Keep body inspector open during camera drag (2026-10-24, Codex) — latest
 1. Outside-pointer dismissal now waits for pointer-up and closes after a 300 ms double-click window only if movement stayed under 6 px. Dragging on the canvas therefore keeps the inspector open while OrbitControls rotates around the focused body; a normal outside click still dismisses it.
 2. `npm run build` passed (640 modules); existing >500 kB chunk warning remains. Tests and browser E2E were not run.

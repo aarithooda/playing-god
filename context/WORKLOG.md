@@ -261,3 +261,10 @@
 - Changed: outside-pointer handling tracks pointer movement and only schedules close after a click release under a 6 px movement threshold. The 300 ms delay lets a second press cancel the pending close so double-click-and-drag works; ordinary outside clicks still close the inspector.
 - Verification: `npm run build` passed (640 modules); existing >500 kB chunk warning remains. Tests and browser E2E were not run.
 - Branch: `bugfix/body-inspector-close`; source commit `1ac2115` is pushed to origin. Not merged.
+
+## 2026-10-24 — Keep inspector open on body clicks
+- Owner/AI: Codex
+- Goal: allow clicking bodies while the inspector is open without dismissing the inspector, while preserving click-away elsewhere.
+- Changed: added a window-capture raycast that tags pointer events hitting displayed body spheres. The inspector ignores those marked events; its existing drag threshold and delayed outside-click close remain in place.
+- Verification: `npm run build` passed (641 modules); existing >500 kB chunk warning remains. Tests and browser E2E were not run.
+- Branch: `bugfix/body-inspector-close`; changes are local and need commit/push. Not merged.

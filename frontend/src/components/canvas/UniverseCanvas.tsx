@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Stars } from '@react-three/drei';
-import { PerspectiveCamera, Plane, Raycaster, Vector2, Vector3 } from 'three';
+import { PerspectiveCamera, Plane, Raycaster, Sphere, Vector2, Vector3 } from 'three';
 import { CelestialBody } from './CelestialBody';
 import { DEFAULT_CAMERA_POSITION, type ScenePosition } from '../../sim/renderTransform';
+import { markBodyPointerEvent } from '../../sim/pointerEvents';
 import type { SceneBody } from '../../sim/viewModel';
 
 export interface FocusRequest {
@@ -42,6 +43,41 @@ interface OrbitTarget {
   target: { x: number; y: number; z: number; set: (x: number, y: number, z: number) => void };
   update: () => void;
 }
+
+/** Mark direct canvas presses on a body before the inspector's document listener handles them. */
+const BodyPointerMarker: React.FC<{ bodies: SceneBody[] }> = ({ bodies }) => {
+  const camera = useThree((s) => s.camera);
+  const gl = useThree((s) => s.gl);
+  const raycaster = useMemo(() => new Raycaster(), []);
+  const pointer = useMemo(() => new Vector2(), []);
+  const sphere = useMemo(() => new Sphere(new Vector3(), 0), []);
+
+  useEffect(() => {
+    const canvas = gl.domElement;
+    const markBodyPress = (event: PointerEvent) => {
+      if (event.target !== canvas || event.button !== 0) return;
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+      pointer.set(
+        ((event.clientX - rect.left) / rect.width) * 2 - 1,
+        -((event.clientY - rect.top) / rect.height) * 2 + 1,
+      );
+      raycaster.setFromCamera(pointer, camera);
+      const hitBody = bodies.some((body) => {
+        sphere.center.set(...body.position);
+        sphere.radius = body.radius;
+        return raycaster.ray.intersectsSphere(sphere);
+      });
+      if (hitBody) markBodyPointerEvent(event);
+    };
+
+    // Window capture runs before BodyInspector's document capture listener.
+    window.addEventListener('pointerdown', markBodyPress, true);
+    return () => window.removeEventListener('pointerdown', markBodyPress, true);
+  }, [bodies, camera, gl, pointer, raycaster, sphere]);
+
+  return null;
+};
 
 /** Camera framing/focus lives inside the Canvas so it can reach the camera and OrbitControls. */
 const CameraRig: React.FC<{ frameEpoch: number; focus?: FocusRequest }> = ({ frameEpoch, focus }) => {
@@ -245,6 +281,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
           />
         ))}
 
+        <BodyPointerMarker bodies={bodies} />
         <PlacementCursor active={placementMode} radius={placementRadius} onConfirm={onPlacementConfirm} onCancel={onPlacementCancel} />
         <OrbitControls makeDefault enabled={!placementMode} />
         <CameraRig frameEpoch={frameEpoch} focus={focus} />

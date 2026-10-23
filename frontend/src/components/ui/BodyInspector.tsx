@@ -10,6 +10,7 @@ import {
   type FormValues,
 } from '../../sim/validation';
 import type { BodyView } from '../../sim/viewModel';
+import { isBodyPointerEvent } from '../../sim/pointerEvents';
 import { BodyFields } from './BodyFields';
 import { btnStyle, errorTextStyle, panelStyle } from './styles';
 
@@ -54,6 +55,11 @@ export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDe
     };
 
     const onPointerDown = (event: PointerEvent) => {
+      if (isBodyPointerEvent(event)) {
+        cancelPendingClose();
+        activePointer = null;
+        return;
+      }
       if (panelRef.current?.contains(event.target as Node)) {
         cancelPendingClose();
         activePointer = null;
