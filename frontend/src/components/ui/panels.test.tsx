@@ -1,0 +1,155 @@
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { earth, mergerEvent, sun } from "../../test/fixtures";
+import { toBodyView, toEventView } from "../../sim/viewModel";
+import { BodyInspector } from "./BodyInspector";
+import { ControlPanel } from "./ControlPanel";
+import { EventTimeline } from "./EventTimeline";
+
+afterEach(cleanup);
+
+const ok = async (..._args: unknown[]) => ({ ok: true }) as const;
+
+describe("BodyInspector", () => {
+  it("renders nothing without a selection", () => {
+    const { container } = render(<BodyInspector body={null} onSave={ok} onDelete={ok} onFocus={() => {}} />);
+    expect(container.innerHTML).toBe("");
+  });
+
+  it("labels radius in metres and shows the confirmed SI values", () => {
+    render(<BodyInspector body={toBodyView(earth)} onSave={ok} onDelete={ok} onFocus={() => {}} />);
+    expect((screen.getByLabelText("Radius (m)") as HTMLInputElement).value).toBe("6.371e6");
+    expect(screen.queryByText(/km/)).toBeNull();
+    expect((screen.getByLabelText("Mass (kg)") as HTMLInputElement).value).toBe("5.972e24");
+  });
+
+  it("PATCHes only the edited field and clears the draft on success", async () => {
+    const onSave = vi.fn(ok);
+    render(<BodyInspector body={toBodyView(earth)} onSave={onSave} onDelete={ok} onFocus={() => {}} />);
+    const mass = screen.getByLabelText("Mass (kg)") as HTMLInputElement;
+    fireEvent.change(mass, { target: { value: "7.3e22" } });
+    fireEvent.click(screen.getByText("Apply"));
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(earth.id, { massKg: 7.3e22 }));
+    await waitFor(() => expect(mass.value).toBe("5.972e24")); // back to confirmed state
+  });
+
+  it("validates locally and does not call the API for invalid input", () => {
+    const onSave = vi.fn(ok);
+    render(<BodyInspector body={toBodyView(earth)} onSave={onSave} onDelete={ok} onFocus={() => {}} />);
+    fireEvent.change(screen.getByLabelText("Radius (m)"), { target: { value: "-3" } });
+    fireEvent.click(screen.getByText("Apply"));
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByText(/Must be > 0/)).toBeTruthy();
+  });
+
+  it("keeps the draft and shows the server error when the backend rejects the edit", async () => {
+    const onSave = vi.fn(async (..._args: unknown[]) => ({ ok: false, error: "massKg: too large" }) as const);
+    render(<BodyInspector body={toBodyView(earth)} onSave={onSave} onDelete={ok} onFocus={() => {}} />);
+    const mass = screen.getByLabelText("Mass (kg)") as HTMLInputElement;
+    fireEvent.change(mass, { target: { value: "1e30" } });
+    fireEvent.click(screen.getByText("Apply"));
+    await screen.findByText("massKg: too large");
+    expect(mass.value).toBe("1e30");
+  });
+
+  it("untouched fields follow live backend updates while a draft field is preserved", () => {
+    const { rerender } = render(<BodyInspector body={toBodyView(earth)} onSave={ok} onDelete={ok} onFocus={() => {}} />);
+    fireEvent.change(screen.getByLabelText("Mass (kg)"), { target: { value: "123" } });
+    const moved = { ...toBodyView(earth), positionM: { x: 1e11, y: 2e10, z: 0 } };
+    rerender(<BodyInspector body={moved} onSave={ok} onDelete={ok} onFocus={() => {}} />);
+    expect((screen.getByLabelText("Mass (kg)") as HTMLInputElement).value).toBe("123");
+    expect((screen.getByLabelText("Position (m) X") as HTMLInputElement).value).toBe("1e11");
+    expect((screen.getByLabelText("Position (m) Y") as HTMLInputElement).value).toBe("2e10");
+  });
+
+  it("Delete calls onDelete with the body id", async () => {
+    const onDelete = vi.fn(ok);
+    render(<BodyInspector body={toBodyView(sun)} onSave={ok} onDelete={onDelete} onFocus={() => {}} />);
+    fireEvent.click(screen.getByText("Delete"));
+    await waitFor(() => expect(onDelete).toHaveBeenCalledWith(sun.id));
+  });
+});
+
+describe("ControlPanel", () => {
+  const base = {
+    playing: false,
+    stepping: false,
+    canRun: true,
+    disabled: false,
+    simulationTimeS: 3600,
+    speedExp: 5,
+    stepSeconds: 1e5,
+    onSpeedChange: () => {},
+    onPlay: () => {},
+    onPause: () => {},
+    onStep: () => {},
+    onReset: () => {},
+    onFit: () => {},
+    onCreate: ok,
+  };
+
+  it("wires Play / Pause / Step / Reset to handlers", () => {
+    const h = { onPlay: vi.fn(), onPause: vi.fn(), onStep: vi.fn(), onReset: vi.fn() };
+    const { rerender } = render(<ControlPanel {...base} {...h} />);
+    fireEvent.click(screen.getByText("Play"));
+    fireEvent.click(screen.getByText("Step Forward"));
+    fireEvent.click(screen.getByText("Reset Universe"));
+    expect([h.onPlay, h.onStep, h.onReset].map((f) => f.mock.calls.length)).toEqual([1, 1, 1]);
+    rerender(<ControlPanel {...base} {...h} playing />);
+    fireEvent.click(screen.getByText("Pause"));
+    expect(h.onPause).toHaveBeenCalledTimes(1);
+  });
+
+  it("disables Play and Step when there is nothing to simulate", () => {
+    render(<ControlPanel {...base} canRun={false} />);
+    expect((screen.getByText("Play") as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByText("Step Forward") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("creates a body from validated SI inputs", async () => {
+    const onCreate = vi.fn(ok);
+    render(<ControlPanel {...base} onCreate={onCreate} />);
+    fireEvent.click(screen.getByText("Add body…"));
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Moon" } });
+    fireEvent.change(screen.getByLabelText("Mass (kg)"), { target: { value: "7.342e22" } });
+    fireEvent.click(screen.getByText("Create"));
+    await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
+    expect(onCreate.mock.calls[0][0]).toMatchObject({
+      name: "Moon",
+      massKg: 7.342e22,
+      radiusM: 6.371e6,
+      positionM: { x: 1.496e11, y: 0, z: 0 },
+      velocityMPerS: { x: 0, y: 29780, z: 0 },
+    });
+  });
+
+  it("does not call the API for an invalid new body and shows backend rejections", async () => {
+    const onCreate = vi.fn(async (..._args: unknown[]) => ({ ok: false, error: "name: too long" }) as const);
+    render(<ControlPanel {...base} onCreate={onCreate} />);
+    fireEvent.click(screen.getByText("Add body…"));
+    fireEvent.change(screen.getByLabelText("Mass (kg)"), { target: { value: "0" } });
+    fireEvent.click(screen.getByText("Create"));
+    expect(onCreate).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText("Mass (kg)"), { target: { value: "1e20" } });
+    fireEvent.click(screen.getByText("Create"));
+    await screen.findByText("name: too long");
+  });
+});
+
+describe("EventTimeline", () => {
+  it("shows an empty state with no fabricated events", () => {
+    render(<EventTimeline events={[]} bodyName={(id) => id} />);
+    expect(screen.getByText("No events yet.")).toBeTruthy();
+    expect(screen.queryAllByTestId("event-item")).toHaveLength(0);
+  });
+
+  it("renders real merger events with names, simulation time, and result mass", () => {
+    const names: Record<string, string> = { [sun.id]: "Sun", [earth.id]: "Earth" };
+    render(<EventTimeline events={[toEventView(mergerEvent)]} bodyName={(id) => names[id] ?? id} />);
+    const item = screen.getByTestId("event-item");
+    expect(item.textContent).toContain("MERGER");
+    expect(item.textContent).toContain("Earth merged into Sun");
+    expect(item.textContent).toContain("t = 2 h");
+    expect(item.textContent).toContain("1.989e+30 kg");
+  });
+});

@@ -79,3 +79,8 @@
 - Added `backend/collisions.py` (merge layer ported from the spike, no spike imports), `backend/simulation.py` (service: REBOUND ids by `name`, chunked transactional steps, events, reset), new models/bounds, endpoints PATCH/DELETE bodies, step, reset, events; removed `backend/store.py`; `rebound` added to `backend/requirements.txt`.
 - Tests: `tests/test_simulation_service.py`, `tests/test_api_simulation.py`; one existing test (`test_body_id_is_stable_and_unique`) now places the second body at a distinct position because overlapping creation returns 409; `tests/test_api.py` imports renamed to the new service. No tests deleted or weakened.
 - Result: `pytest` 149 passed, 3 warnings (spike + Starlette).
+
+## 2026-10-24 — Frontend API integration (branch feature/frontend-api-integration, local only)
+- Built on codex/3drender + local merge of origin/main. Added typed API client, SI view model, explicit render transform, `useSimulation` hook, live inspector/create/delete, backend events, Vite proxy without `/api` rewrite (also proxies `/healthz`). See `frontend/README.md`.
+- Coded against `backend/models.py` at backend commit `8d7ab36` (`feature/production-rebound-simulation`); that branch's `API_CONTRACT.md` was checked at integration time (2026-10-24) and already documents step/reset/events/PATCH/DELETE as implemented; the earlier note calling it stale was incorrect.
+- Verified: tsc, 55 vitest tests, `npm run build`, and a manual browser run against a backend served from an export of `8d7ab36` (create, select, PATCH, Play/Pause, single Step, DELETE, Reset, merger event, disconnected state).
