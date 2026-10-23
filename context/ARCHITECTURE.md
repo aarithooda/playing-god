@@ -27,10 +27,10 @@ JSON over HTTP (WebSocket/streaming to be decided); explicit units in schema/fie
 | FastAPI, uvicorn, pytest, httpx | installed, used |
 | React 18, Vite 5, TypeScript 5 | installed, used |
 | Three.js | **not installed** (add with first 3D feature) |
-| REBOUND 5.2.2 | installed locally for the M0 experiment only (`backend/experiments/requirements.txt`); NOT in `backend/requirements.txt`, not used by the app; GPL-3.0-only (D-009 open); accepted with a custom collision layer (D-008); GPL-3.0-only, project licensed GPL-3.0-only (D-009) |
+| REBOUND 5.2.2 | installed locally for the M0 experiment only (`backend/experiments/requirements.txt`); NOT in `backend/requirements.txt`, not used by the app; GPL-3.0-only; accepted with a custom collision layer (D-008); the project is licensed GPL-3.0-only (D-009) |
 
 ## Physics engine integration constraints [Accepted in D-008; not yet implemented in the app]
 SI units with `sim.G = 6.67430e-11` set explicitly (D-007); right-handed Cartesian coordinates (D-010). IAS15 integrator (WHFast is unsafe near collisions); `collision = "line"`; fixed `rand_seed`; own resolver that merges, books heat and spin ledgers, re-selects IAS15 after each merge and never raises; bodies identified by `name`, never by array index; resolver re-registered and ledgers rebuilt after every checkpoint restore; stepping in frame-sized chunks capped so that a_rel·dt²/8 ≪ contact distance; REBOUND reports collisions only at step ends (event time is estimated by us); the API must expose merge/collision events with the ledgers. See `PHYSICS_SPIKE.md`.
 
 ## Known limitations
-No simulation, API limited to the endpoints marked ✅ in `API_CONTRACT.md`, no frontend tests, no CI, units/coordinates undecided. Engine choice awaits the feasibility spike.
+No simulation, API limited to the endpoints marked ✅ in `API_CONTRACT.md`, no frontend tests, no CI. Units (SI, D-007) and coordinates (D-010) are decided; the engine (D-008) is chosen but not yet integrated (P-001). Collision-detection and convergence limitations: `PHYSICS_SPIKE.md`.

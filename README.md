@@ -2,7 +2,7 @@
 
 Interactive, browser-based 3D gravitational universe sandbox (inspired by Universe Sandbox), built for a 36-hour hackathon. The Python backend owns the authoritative physics state; the React/Three.js frontend renders it.
 
-**Status: initialization only** — placeholder page + `/health` endpoint. No simulation yet. See `context/STATUS.md`.
+**Status:** placeholder page, in-memory API v1 (no physics yet) and a completed physics-engine feasibility spike (M0). See `context/STATUS.md`.
 
 ## Prerequisites
 Node.js 20+, npm, Python 3.11+, Git.
