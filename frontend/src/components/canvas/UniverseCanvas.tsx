@@ -12,7 +12,7 @@ export interface FocusRequest {
   radius: number;
 }
 
-const FOCUS_DISTANCE_UNITS = 70;
+const FOCUS_DISTANCE_UNITS = 66;
 
 interface UniverseCanvasProps {
   bodies: SceneBody[];
