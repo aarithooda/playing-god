@@ -54,12 +54,16 @@ def body(name, m, r, x, vx=0.0):
             "velocityMPerS": {"x": vx, "y": 0.0, "z": 0.0}, "colorHex": "#44aaff"}
 
 
+EMPTY_DIAGNOSTICS = {"version": 1, "totalMassKg": 0.0, "totalMomentumKgMPerS": {"x": 0.0, "y": 0.0, "z": 0.0}, "kineticEnergyJ": 0.0, "potentialEnergyJ": 0.0,
+         "angularMomentumAboutOriginKgM2PerS": {"x": 0.0, "y": 0.0, "z": 0.0}, "bookedSpinKgM2PerS": {"x": 0.0, "y": 0.0, "z": 0.0}}
+
+
 def test_full_api_journey_over_http(server):
     with httpx.Client(base_url=server, timeout=30) as c:
         assert c.get("/health").json() == {"status": "ok"}
         c.post("/api/v1/simulation/reset")
         state = c.get("/api/v1/simulation/state").json()
-        assert state == {"status": "paused", "simulationTimeS": 0.0, "bodies": []}
+        assert state == {"status": "paused", "simulationTimeS": 0.0, "bodies": [], "diagnostics": EMPTY_DIAGNOSTICS}
 
         a = c.post("/api/v1/bodies", json=body("A", 2000.0, 1.0, -100.0, 1.0))
         b = c.post("/api/v1/bodies", json=body("B", 1000.0, 0.8, 100.0, -1.0))

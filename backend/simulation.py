@@ -31,6 +31,7 @@ import warnings
 import rebound
 
 from backend.collisions import MergeResolver, select_ias15
+from backend.diagnostics import compute_diagnostics
 from backend.models import (MAX_BODIES, Body, BodyCreate, BodyUpdate, Event, Position3, SimulationState,
                             StepResponse, Vec3)
 
@@ -129,7 +130,12 @@ class SimulationService:
         by_id = self._particles_by_id()
         # Bodies are returned in creation order regardless of REBOUND's internal array order.
         bodies = [self._body(i, by_id[i]) for i in self._meta]
-        return SimulationState(status="paused", simulationTimeS=self._sim.t, bodies=bodies)
+        # Same particle read as `bodies`, under the caller's lock: the diagnostics describe exactly this state.
+        diagnostics = compute_diagnostics(
+            [(b.massKg, (b.positionM.x, b.positionM.y, b.positionM.z),
+              (b.velocityMPerS.x, b.velocityMPerS.y, b.velocityMPerS.z)) for b in bodies],
+            [self._resolver.spin[i] for i in self._meta if i in self._resolver.spin], G_SI)
+        return SimulationState(status="paused", simulationTimeS=self._sim.t, bodies=bodies, diagnostics=diagnostics)
 
     # ---------- CRUD ----------
     def add_body(self, data: BodyCreate) -> Body:

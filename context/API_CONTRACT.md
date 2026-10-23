@@ -22,7 +22,33 @@ Source of truth for schemas: `backend/models.py` (Pydantic); behaviour: `backend
 `name`: 1–64 chars (display only; ids identify bodies).
 
 ### SimulationState
-`{"status": "paused" | "running", "simulationTimeS": number, "bodies": [Body]}` — bodies in creation order (a merge survivor keeps its place in the order). **`status` is always `"paused"`**: the server never advances time on its own. Play is the client calling `POST /simulation/step` repeatedly; Pause is it stopping. `"running"` is reserved and never returned.
+`{"status": "paused" | "running", "simulationTimeS": number, "bodies": [Body], "diagnostics": Diagnostics}` — bodies in creation order (a merge survivor keeps its place in the order). **`status` is always `"paused"`**: the server never advances time on its own. Play is the client calling `POST /simulation/step` repeatedly; Pause is it stopping. `"running"` is reserved and never returned.
+
+### Diagnostics
+Every SimulationState (state, step and reset responses; not the body or events endpoints) carries `diagnostics`, computed from the **same** body list and under the same lock as `bodies`, so it describes exactly that state (D-013). Model: point masses, Newtonian gravity, G = 6.67430e-11, one inertial right-handed frame (D-010). The JSON below uses illustrative values, not output of a particular run.
+```json
+{"diagnostics":{"version":1,"totalMassKg":3000.0,"totalMomentumKgMPerS":{"x":0.0,"y":0.0,"z":0.0},
+ "kineticEnergyJ":1333.3,"potentialEnergyJ":-0.00013,
+ "angularMomentumAboutOriginKgM2PerS":{"x":0.0,"y":0.0,"z":-666.7},"bookedSpinKgM2PerS":{"x":0.0,"y":0.0,"z":0.0}}}
+```
+| Field | Units | Definition |
+|---|---|---|
+| `totalMassKg` | kg | Σ mᵢ |
+| `totalMomentumKgMPerS` | kg·m/s | Σ mᵢvᵢ |
+| `kineticEnergyJ` | J | Σ ½mᵢ‖vᵢ‖² |
+| `potentialEnergyJ` | J | −G Σᵢ<ⱼ mᵢmⱼ/‖rᵢ−rⱼ‖, zero at infinite separation (negative) |
+| `angularMomentumAboutOriginKgM2PerS` | kg·m²/s | Σ mᵢ rᵢ×vᵢ about the fixed simulation origin (0,0,0), **not** the centre of mass |
+| `bookedSpinKgM2PerS` | kg·m²/s | Σ of the spin vectors booked by mergers for the bodies that still exist (bookkeeping: no rotation dynamics, no spin energy) |
+| `version` | — | Semantics version, always `1` (typed `Literal[1]` in the response model and the OpenAPI document). Additive fields do not bump it; redefining a field does. |
+
+- **Undefined values:** each quantity is a finite number or JSON `null`; a vector is all-or-nothing. NaN/Infinity are never emitted. Empty and single-body systems are defined (empty sums are 0, U = 0). `potentialEnergyJ` is `null` if two centres coincide (the API cannot create this) or on overflow; any other quantity is `null` only on overflow.
+- **Derive in the client:** total mechanical energy K+U, speed ‖v‖, distance between bodies, orbital + booked angular momentum (`angularMomentumAboutOrigin + bookedSpin`).
+- **What is conserved (only when no body is added, patched or deleted, and no reset):** M and P through steps and mergers (≈1e-12 of Σ mᵢ‖vᵢ‖ for P; judge P against that scale, not ‖P‖); K+U between mergers (IAS15 drift ≈1e-10 relative in tests); L about the origin between mergers. A merger removes translational energy Q (`kineticEnergyLostJ`) and the pair's mutual potential, so **K+U is not conserved across a merger**, and moves μ(r_rel×v_rel) from orbital L into `bookedSpin`: **orbital L alone is not conserved across a merger, orbital L + booked spin is** (≈1e-6 in tests). Editing, adding, deleting or resetting changes the baseline; clients must re-baseline any drift display on those, on every event and after reset.
+- **Not a complete energy budget:** U is the mutual energy of point masses (equal to the exterior energy of non-overlapping spheres; it excludes self-gravity). Booked spin carries no rotational energy, so post-merger K+U understates the energy of a physical remnant.
+- **Precision:** sums use exactly-rounded `fsum` and are independent of body order. K and U can be ~1e33 J while K+U is ~1e29 J, so E carries an absolute error of ~2⁻⁵³·max(|K|,|U|). Doubles resolve ~3e-5 m at 1 AU, which limits U for close pairs far from the origin. L about the origin of a system far from it is dominated by bulk motion.
+- **Failed, timed-out and reset:** a 500/503 step returns no diagnostics and the next read equals the pre-step values bit for bit (booked spin included). Reset returns the empty-system zeros. Reading diagnostics does not change the simulation.
+- **Cost:** O(N²) pair sum; measured 3.7 ms median (compute) / 4.6 ms (whole snapshot) at N=200, no caching.
+- Deferred (not in v1): centre of mass and L about it, per-body spin/KE/momentum, the cumulative energy-loss ledger, orbital elements.
 
 ### Event
 ```json
@@ -42,7 +68,7 @@ Source of truth for schemas: `backend/models.py` (Pydantic); behaviour: `backend
 Liveness probe. (Legacy `GET /health` has the same response.) Response 200: `{"status":"ok"}`.
 
 ### ✅ `GET /api/v1/simulation/state`
-Authoritative snapshot (D-001). Response 200: SimulationState. Fresh server: `{"status":"paused","simulationTimeS":0.0,"bodies":[]}`.
+Authoritative snapshot (D-001). Response 200: SimulationState. Fresh server: `{"status":"paused","simulationTimeS":0.0,"bodies":[],"diagnostics":{<empty-system zeros>}}`.
 
 ### ✅ `POST /api/v1/bodies`
 Add a body at the current simulation time. Request: Body without `id`. Response **201**: the Body with its generated `id`.
@@ -59,7 +85,7 @@ Remove a body. Response 204, no body. Errors: 404 unknown id.
 Advance simulation time by `dtS` seconds using REBOUND IAS15 (bounds above; a larger request is a 422, so the client loops). Request `{"dtS": 3600.0}`.
 Response 200: SimulationState plus
 ```json
-{"status":"paused","simulationTimeS":3600.0,"bodies":[...],"advancedS":3600.0,"events":[Event, ...]}
+{"status":"paused","simulationTimeS":3600.0,"bodies":[...],"diagnostics":{...},"advancedS":3600.0,"events":[Event, ...]}
 ```
 `events` holds only events that occurred during this call (merged-away bodies are already missing from `bodies`; use `events[].bodyIds`). `advancedS` equals `dtS` up to rounding.
 The step is transactional: if the engine raises, a collision callback fails or any state becomes non-finite, the state from before the call is restored and the response is **500** `{"detail":"simulation step failed and was rolled back: ..."}`. Requests are serialized by a lock (concurrent steps queue, never interleave).
@@ -67,7 +93,7 @@ The step is transactional: if the engine raises, a collision callback fails or a
 Errors: 422 bad `dtS`; 500 rolled back; 503 wall-clock budget exceeded (both leave the state untouched; the client should stop Play and may retry with a smaller `dtS`). There is no 409 "running" case: the server never runs by itself.
 
 ### ✅ `POST /api/v1/simulation/reset`
-Remove all bodies and events, time back to 0. Deterministic: the same inputs afterwards give the same results as a fresh server. Response 200: `{"status":"paused","simulationTimeS":0.0,"bodies":[]}`. Body ids are never reused; event ids continue counting.
+Remove all bodies and events, time back to 0. Deterministic: the same inputs afterwards give the same results as a fresh server. Response 200: `{"status":"paused","simulationTimeS":0.0,"bodies":[],"diagnostics":{<empty-system zeros>}}`. Body ids are never reused; event ids continue counting.
 
 ### ✅ `GET /api/v1/events`
 Response 200 `{"events":[Event, ...]}`, oldest first (latest 1000 since the last reset). Verified by `tests/test_events_endpoint.py`: empty shape, field set and values of head-on and grazing mergers, null `estimatedContactTimeS` at exact tangency, agreement with the step response, persistence across quiet steps and body edits/deletes, reset (log cleared, ids keep counting), rolled-back and timed-out steps (no event, id not consumed), the 1000-event cap, cascades. Only GET is allowed (405 otherwise).
@@ -83,7 +109,7 @@ Response 200 `{"events":[Event, ...]}`, oldest first (latest 1000 since the last
 - Editing a body mid-simulation (mass/position/velocity/radius) restarts the integrator's internal state; conservation is not claimed across the edit itself.
 
 ## Physics limitations
-- A merge does not conserve kinetic+potential energy or modelled angular momentum; both are bookkept (event fields, server ledgers) but no spin dynamics exist.
+- A merge does not conserve kinetic+potential energy or orbital angular momentum; the orbital part is bookkept as spin (`bookedSpinKgM2PerS`, `Event.spinAddedKgM2PerS`) but no spin dynamics exist. The cumulative energy-loss ledger (`heat_J`) is server-private and not exposed.
 - Event times are detection times at integrator-step granularity; contact time is an estimate.
 - `line` detection assumes near-straight motion inside a chunk. Stress-tested (P-003, `tests/test_stress_p003.py`): eccentric and grazing bound binaries (e up to 0.9), a hyperbolic flyby, 4–12 simultaneous collisions, mass ratios up to 2e30:1 and a 1e17:1 merger. Still untested: close three-body encounters against an independent high-resolution reference, tree collision modes, N beyond 200.
 - Latency (measured 2026-10-24, one core, no collisions): N=100: 0.05 s for dtS=1e5, 2.0 s for dtS=1e7; N=200: 0.2 s for dtS=1e5 and >10 s (cut off by the budget, a 503) for dtS=1e7. The cost is ~2000 chunks × O(N²).
