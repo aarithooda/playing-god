@@ -4,7 +4,7 @@ _Concise authoritative snapshot. Update after every meaningful session._
 ## Bound zoom-out and repeating starfield shells (2026-10-24)
 - Zoom-out is capped when the full body-set bounding sphere projects to a 1 px diameter around the orbit target; camera far range expands dynamically to keep the bodies rendered through the cap. An empty scene uses a finite 2000-scene-unit cap.
 - The star background adds larger contiguous spherical shells as needed when the camera approaches the outer edge, so the annular field continues while zooming out.
-- `npm run build` passed (640 modules; existing >500 kB warning). No tests or browser E2E were run. Branch: `bugfix/body-inspector-close`; not merged.
+- `npm run build` passed (640 modules; existing >500 kB warning). No tests or browser E2E were run. Source commit `66e8fc3` is pushed to `origin/bugfix/body-inspector-close`; not merged.
 ## Dismiss body inspector on outside click (2026-10-24)
 - The inspector closes when the user presses anywhere outside its panel; clicks within it and the explicit close button remain supported.
 - `npm run build` passed with the existing >500 kB bundle warning. Frontend tests and browser E2E were not run.

@@ -225,4 +225,4 @@
 - Goal: stop zooming once all displayed bodies visually collapse to one point, while keeping the starfield around the scene during zoom-out.
 - Changed: `UniverseCanvas` computes the displayed-body bounding extent around the orbit target and sets the OrbitControls maximum distance for a one-pixel projected diameter. The perspective camera far plane grows to include the body cloud at that distance. The starfield now adds contiguous, geometrically expanding spherical shells when the camera approaches the current shell's outer edge.
 - Verification: `npm run build` passed (640 modules); existing >500 kB bundle warning remains. No tests or browser E2E were run.
-- Branch: `bugfix/body-inspector-close`; changes are local and need commit/push. Not merged.
+- Branch: `bugfix/body-inspector-close`; source commit `66e8fc3` is pushed to origin. Not merged.
