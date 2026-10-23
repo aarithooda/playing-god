@@ -121,3 +121,9 @@
 - Verified HEAD `b9f1a01` on `main`, clean, equal to origin. Fresh local run: pytest 204 passed (1 Starlette/httpx deprecation warning), `tsc` clean, vitest 55/55, build OK. CI green for `b9f1a01`.
 - Recorded acceptance (Vaibhav, relayed by the project lead) of D-011, D-012 and the two restated `tests/validation/` tolerances. No new analytical review was performed in this session.
 - Rollback guarantees confirmed present in `tests/test_step_guard.py` (state/time/events/event ids/ledgers restored, service continues, real stall stopped, 503); no new test needed.
+
+## 2026-10-24 — Local baseline cleanup (Codex)
+- Fetched origin and aligned the local `main` worktree to `8f3c37b`, the current clean milestone baseline. Removed the old uncommitted `frontend/package.json` `allowScripts` edit per the user's request.
+- Removed local worktrees/branches whose commits are already ancestors of `main`: `codex/3drender`, `feature/m0-rebound-physics-api`, `m0-collision-validation`, `validation/physics-first-principles`, and `validation/production-physics-review`.
+- Confirmed `feature/frontend-api-integration` is fully merged and has no open PR; deleted its remote branch name. Only remote `main` remains. Stopped the old Vite server on port 5174; main frontend on 5173 and backend on 8000 remain running.
+- Attempted to remove the separate uncommitted `C:\Users\calli\code\playing-god-t3` research repository, but the filesystem safety policy rejected recursive deletion. Left that directory and its untracked files untouched; it is the only extra project directory still present under `C:\Users\calli\code`.
