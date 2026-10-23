@@ -188,3 +188,13 @@
 
 ### Push follow-up
 - Code commit `f192a48` was pushed to `origin/bugfix/body-inspector-close`; context updates are being committed separately. Branch remains unmerged.
+
+## 2026-10-24 — Refine focus and make 3D placement exact and immediate
+- Owner/AI: Codex
+- Goal: reduce focus zoom, improve placement depth control, and create directly from the 3D click.
+- Changed: focus now settles at a fixed 70 scene units. Scroll depth sensitivity increased 30%. A placement click submits immediately; the preview and selected world coordinate use the same camera ray/plane intersection, and the scene scale is preserved on that create to prevent the visible body shifting after refit.
+- Verification: frontend Vitest 59/59 passed; production build passed with existing large-chunk warning. Browser E2E not run.
+- Branch: `bugfix/body-inspector-close`; source and context updates are local and need commit/push. Not merged.
+
+### Push follow-up
+- Source commit `ad8bdb3` was pushed to `origin/bugfix/body-inspector-close`; this context update is being committed separately. Branch remains unmerged.

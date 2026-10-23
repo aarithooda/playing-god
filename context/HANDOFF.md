@@ -1,9 +1,9 @@
 # Handoff (latest — rewrite at end of each session)
 
 ## Fixed-distance focus and 3D create placement (2026-10-24, Codex) — latest
-1. Focus now uses a repeatable viewing distance `max(4.5 × displayed radius, 8 scene units)`, so successive focus requests cannot progressively zoom in. Camera/target movement remains smooth.
-2. Create-form position fields offer “Choose position in 3D”. While active, a translucent gray, size-matched sphere follows a camera-facing placement plane; mouse wheel adjusts depth, click commits SI coordinates to the form, and Escape/button cancels. Orbit controls and body selection are suspended during placement.
-3. Frontend Vitest 59/59 passed; `npm run build` passed with the existing large-chunk warning. Browser E2E was not run. Code commit `f192a48` is pushed to `origin/bugfix/body-inspector-close`; not merged.
+1. Focus now animates to a fixed 70-scene-unit distance, a slight change from default framing. Repeated focus requests cannot progressively zoom in.
+2. Create-form 3D placement uses a translucent gray sphere on a camera-facing plane. Wheel depth sensitivity was raised 30%. Clicking computes the same ray-plane point as the preview and immediately creates the body; the scene scale is held for that layout update so the body remains exactly at the preview location. Escape/button cancels.
+3. Frontend Vitest 59/59 passed; `npm run build` passed with the existing large-chunk warning. Browser E2E was not run. Follow-up code commit `ad8bdb3` is pushed to `origin/bugfix/body-inspector-close`; not merged.
 
 ## Visible body placement and smooth focus (2026-10-24, Codex) — latest
 1. On `bugfix/body-inspector-close`, automatic create positions are now checked against both SI collision radii and displayed sphere radii using the post-create `fitTransform`; the search stride accounts for large physical radii. This addresses visually overlapping bodies caused by the renderer's logarithmically exaggerated sizes.
