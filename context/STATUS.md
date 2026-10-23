@@ -1,6 +1,11 @@
 # Status
 _Concise authoritative snapshot. Update after every meaningful session._
 
+## Slightly increase focus zoom (2026-10-24)
+- Fixed focus distance is now 66 scene units (previously 70), about 6% closer for the default framing; repeated focus taps still return to a fixed distance.
+- Frontend: 59 Vitest tests passed; `npm run build` passed with the existing >500 kB bundle warning. Browser E2E not run.
+- Source commit `efbc2ee` is pushed to `origin/bugfix/body-inspector-close`; not merged.
+
 ## Fixed-distance focus and 3D create placement (2026-10-24)
 - Each focus animates to a fixed 70-scene-unit viewing distance; repeated focusing does not zoom inward indefinitely, and the change from default framing is slight.
 - The create form's 3D position mode shows a translucent size-matched sphere on a camera-facing plane. Scroll sensitivity is 30% faster. Clicking immediately creates at the exact ray-plane point, and scene scaling is held during that create so the displayed body stays at the preview point.

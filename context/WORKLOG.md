@@ -198,3 +198,10 @@
 
 ### Push follow-up
 - Source commit `ad8bdb3` was pushed to `origin/bugfix/body-inspector-close`; this context update is being committed separately. Branch remains unmerged.
+
+## 2026-10-24 — Slightly increase focus zoom
+- Owner/AI: Codex
+- Goal: make the default focus view show the selected body a little larger.
+- Changed: reduced the fixed focus distance from 70 to 66 scene units (about 6% closer at the default framing); focus remains fixed so repeated taps do not zoom in progressively.
+- Verification: frontend Vitest 59/59 passed; `npm run build` passed with the existing large-chunk warning. Browser E2E not run.
+- Branch: `bugfix/body-inspector-close`; source commit `efbc2ee` pushed to origin. Not merged.
