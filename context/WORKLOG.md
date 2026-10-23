@@ -116,3 +116,8 @@
 - P-003 observed: e=0.6 binary over 3 periods E,L drift <1e-10; e=0.9 pericentre inside contact merges with the estimate within 0.02R/v of the Kepler time; near-miss orbits (5%, 50% clearance) give no false merger; hyperbolic flyby matches the conic to 1e-8 r0; rings of 4/6/12 and a seeded 10-body collapse merge to one body with exact mass and 1e-11 momentum; five simultaneous pairs; 2e30:1 orbit closes; 1e12:1 merger exact; 1e17:1 loses 1 kg to binary64 as documented.
 - CI added and green on GitHub; a clean-venv install of `backend/requirements.txt` reproduced 204 passed. Manual browser check only (no automated browser test).
 - Process note: two `taskkill /IM python.exe` calls to clear hung test processes also ended any other python process of the user on this machine.
+
+## 2026-10-24 — Baseline closed (Claude Sonnet 5.5)
+- Verified HEAD `b9f1a01` on `main`, clean, equal to origin. Fresh local run: pytest 204 passed (1 Starlette/httpx deprecation warning), `tsc` clean, vitest 55/55, build OK. CI green for `b9f1a01`.
+- Recorded acceptance (Vaibhav, relayed by the project lead) of D-011, D-012 and the two restated `tests/validation/` tolerances. No new analytical review was performed in this session.
+- Rollback guarantees confirmed present in `tests/test_step_guard.py` (state/time/events/event ids/ledgers restored, service continues, real stall stopped, 503); no new test needed.

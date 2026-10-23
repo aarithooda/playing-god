@@ -2,7 +2,7 @@
 Status: todo / in progress / blocked / done. Keep tasks small and independently testable.
 
 ## NEXT ACTION
-Stabilized baseline (2026-10-24): see the top of `STATUS.md`. Next: confirm D-011/D-012, code-split the bundle, optional browser E2E (T-010). Older text below is history.
+Stabilized baseline (2026-10-24): see the top of `STATUS.md`. D-011/D-012 accepted; milestone closed. Non-blocking backlog: browser E2E (T-010), larger-N performance, tree modes, three-body reference, bundle code-splitting, Node 20 Actions notice. Next: product milestone. Older text below is history.
 
 Review/merge `feature/production-rebound-simulation` (production engine done: P-001, P-002 and T-007 implemented; P-004 explained). Then compare `origin/validation/physics-first-principles`; frontend integrates against `API_CONTRACT.md`. Older text follows: start **P-001** (production collision/merger layer, spec in `PHYSICS_SPIKE.md`). Vaibhav: independent re-check of the energy/angular-momentum accounting and the P-003 stress tests.
 
@@ -40,7 +40,7 @@ Review/merge `feature/production-rebound-simulation` (production engine done: P-
 | T-002 | GitHub remote and push baseline | high | done | lead | T-000 | `main` tracks `origin/main` (repo is public) |
 | T-003 | Decide units and coordinate conventions | high | done (SI D-007, right-handed Cartesian D-010; origin chosen per scenario) | lead, Vaibhav | M0.1 | recorded in DECISIONS.md |
 | T-004 | Add CI (pytest + frontend build) | medium | done 2026-10-24: `.github/workflows/ci.yml` (pytest, tsc, vitest, build), green on main | integration dev | T-000 | CI green on main |
-| T-009 | Per-step wall-clock budget and engine-stall protection | high | done 2026-10-24 (D-011, D-012; HTTP 503) | stabilization session | — | stalled or slow steps roll back |
+| T-009 | Per-step wall-clock budget and engine-stall protection | high | done 2026-10-24 (D-011, D-012 accepted; HTTP 503) | stabilization session | — | stalled or slow steps roll back |
 | T-010 | Automated browser E2E test | low | todo (only the API-only smoke test exists, `tests/smoke/`) | integration dev | T-004 | Playwright journey in CI |
 | T-005 | Collaborators and workflow | high | collaborators added 2026-10-23; workflow confirmation by all four pending | lead | T-000 | All four confirm `TEAM_WORKFLOW.md` |
 | T-006 | API contract v1 + minimal API (healthz, state, create body) | high | done (commit `feat: add API contract v1 ...` on the topic branch) | lead | — | `API_CONTRACT.md`; API/health tests pass |

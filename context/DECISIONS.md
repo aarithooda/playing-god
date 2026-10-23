@@ -81,12 +81,12 @@ Entry format: Date · Decision · Context/reason · Alternatives · Consequences
 - Date: 2026-10-24
 - Decision: every (re-)selection of IAS15 goes through `backend/collisions.py::select_ias15`, which sets `adaptive_mode = "global"` (REBOUND's default is PRS23).
 - Reason: with PRS23, `integrate` never returns when a body's net force cancels by symmetry (3 or 5 equal masses at rest on a line, 3x3 grid): the middle body's acceleration is round-off noise (~1e-29) and dt collapses to ~1e-18 s. Observed in pure REBOUND 5.2.2 and in the live backend (it wedged the process and its lock). GLOBAL completed every symmetric layout tried in ~10 steps; `min_dt`, INDIVIDUAL and AARSETH85 did not fix it.
-- Consequences: numerics differ slightly from the M0/validation runs (orbit closure error ~3.6e-14 of a instead of ~1e-15; detection timestamps move by one internal step). All 204 tests pass; two fixture tolerances in `tests/validation/` were restated from first principles. Needs confirmation by Vaibhav/lead (physics owner).
-- Status: proposed (implemented on main; pending owner confirmation)
+- Consequences: numerics differ slightly from the M0/validation runs (orbit closure error ~3.6e-14 of a instead of ~1e-15; detection timestamps move by one internal step). All 204 tests pass; two fixture tolerances in `tests/validation/` were restated from first principles. Confirmed by Vaibhav (see Status).
+- Status: accepted 2026-10-24 (Vaibhav, physics reviewer, as relayed by the project lead in the session request; the implementation, tests and evidence are unchanged). Implementation: `backend/collisions.py::select_ias15`, `backend/simulation.py` (heartbeat is part of D-012); tests: `tests/test_step_guard.py`, `tests/test_stress_p003.py`.
 
 ## D-012 — Wall-clock budget per step, HTTP 503
 - Date: 2026-10-24
 - Decision: a step exceeding `PG_STEP_TIME_LIMIT_S` (default 10 s) is stopped (between chunks and via REBOUND's heartbeat), rolled back through the existing transactional path and answered 503. Event ids of the rolled-back step are restored.
 - Reason: a hung engine holds the service lock forever; N=200 with dtS=1e7 takes >10 s. A failed step must never leave state partly advanced.
 - Consequences: a new error status for the frontend (already handled as a generic non-OK response); rollback rebuilds the engine, so replays use a different internal step grid. 10 s is a judgement call and configurable.
-- Status: proposed (implemented on main; pending owner confirmation)
+- Status: accepted 2026-10-24 (Vaibhav, as relayed by the project lead). Implementation: `SimulationService.step/_advance/_heartbeat/_restore` and the 503 handler in `backend/main.py`; tests: `tests/test_step_guard.py` (state, time, events, event ids and ledgers restored; service continues; real stall stopped; HTTP 503), `tests/test_events_endpoint.py`.

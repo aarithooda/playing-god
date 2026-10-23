@@ -1,9 +1,12 @@
 # Handoff (latest — rewrite at end of each session)
 
-## Stabilization session (2026-10-24, Claude Sonnet 5.5) — newest
+## Baseline closed (2026-10-24, Claude Sonnet 5.5) — newest
+0. D-011/D-012 and the two validation tolerances are accepted (Vaibhav). Baseline code `b9f1a01`; fresh checks and CI green (STATUS.md). Ready for the next product milestone; backlog items are non-blocking.
+
+### Stabilization session details
 1. **State:** `main` pushed, CI green, working tree clean. Numbers and details: top of `STATUS.md`, `WORKLOG.md`.
 2. **Branches:** retired local `backup/local-main-2dfc8ac` (its content is commit `0ce89a3`, already in main; old tip recoverable via reflog `2dfc8ac`) and remote `codex/3drender`, `validation/physics-first-principles`, `validation/production-physics-review` (their work was merged into main first: `tests/validation/`, `context/INDEPENDENT_PHYSICS_REVIEW.md`, `context/independent_reference.py`, `context/PRODUCTION_PHYSICS_INDEPENDENT_VALIDATION.md`). `feature/production-rebound-simulation` and `feature/m0-rebound-physics-api` no longer existed locally or on origin at the start (already contained in main). **Kept:** `feature/frontend-api-integration` (local, remote, worktree `../Playing God-frontend`): fully merged and clean, but a session titled "Playing God frontend-backend integration" was running. Retire it when that session is done: `git worktree remove "../Playing God-frontend"; git branch -d feature/frontend-api-integration; git push origin --delete feature/frontend-api-integration`.
-3. **Needs a human:** confirm D-011 (GLOBAL IAS15 criterion) and D-012 (10 s step budget, 503) with Vaibhav/lead; two fixture tolerances in `tests/validation/` were restated (see WORKLOG).
+3. **Decisions:** D-011 and D-012 accepted; the two restated fixture tolerances in `tests/validation/` accepted (see WORKLOG).
 4. **Do next:** code-split the 3D bundle; optional automated browser test (T-010); bump GitHub Actions versions (Node 20 deprecation); decide a policy for `estimatedContactTimeS = null`; latency work if N>=150 matters.
 5. **Do not change without investigation:** `select_ias15` (never assign `sim.integrator = "ias15"` directly: re-selecting resets the criterion to the stalling default), the heartbeat watchdog, the lone-body drift.
 6. Sections below are history.
