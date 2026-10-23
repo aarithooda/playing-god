@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
-import { OrbitControls, Stars } from '@react-three/drei';
+import { OrbitControls } from '@react-three/drei';
 import { CelestialBody } from './CelestialBody';
+import { StarfieldShell } from './StarfieldShell';
 import { DEFAULT_CAMERA_POSITION, type ScenePosition } from '../../sim/renderTransform';
 import type { SceneBody } from '../../sim/viewModel';
 
@@ -68,7 +69,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
       style={{ width: '100vw', height: '100vh', background: 'black' }}
     >
       <color attach="background" args={['#050505']} />
-      <Stars radius={300} depth={60} count={20000} factor={7} saturation={0} fade speed={1} />
+      <StarfieldShell />
 
       <ambientLight intensity={0.3} />
       <pointLight position={[10, 10, 10]} intensity={1} />
