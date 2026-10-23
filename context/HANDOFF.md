@@ -1,5 +1,11 @@
 # Handoff (latest — rewrite at end of each session)
 
+## Body single-click and double-click focus (2026-10-24, Codex) — latest
+1. On `bugfix/body-inspector-close`, single click still selects a body and opens its inspector; double-click additionally focuses the camera on it.
+2. Focus recenters OrbitControls and moves 10% closer per request, stopping at 2.5× the body's displayed radius (minimum 1.5 scene units). `npm run build` passed (640 modules; existing >500 kB warning). No test suite run.
+3. Both the dynamic body-placement fix and this interaction change are on the same bug-fix branch. Changes are local and need to be committed/pushed.
+4. See `STATUS.md`, `TASKS.md`, and `WORKLOG.md`.
+
 ## Collision-free body creation defaults (2026-10-24, Codex) — latest
 1. On `bugfix/body-inspector-close`, the create form now chooses a position outside existing body spheres using their current positions/radii and the requested new radius. It refreshes automatic positions when the body set or radius changes; once the user edits any position coordinate, it preserves that choice and backend overlap errors remain visible.
 2. `npm run build` passed (640 modules; existing >500 kB bundle warning). No test suite run. Source commit `526c2a7` is pushed to origin.

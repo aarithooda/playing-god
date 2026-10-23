@@ -7,7 +7,6 @@ import { EventTimeline } from "./components/ui/EventTimeline";
 import {
   fitTransform,
   DEFAULT_METERS_PER_UNIT,
-  toScenePosition,
   type RenderTransform,
 } from "./sim/renderTransform";
 import { useSimulation, type Health } from "./sim/useSimulation";
@@ -50,7 +49,14 @@ export default function App() {
 
   const focusBody = (id: string) => {
     const body = bodies.find((b) => b.id === id);
-    if (body) setFocus((f) => ({ nonce: (f?.nonce ?? 0) + 1, position: toScenePosition(body.positionM, transform) }));
+    if (body) {
+      const sceneBody = toSceneBody(body, transform);
+      setFocus((f) => ({
+        nonce: (f?.nonce ?? 0) + 1,
+        position: sceneBody.position,
+        radius: sceneBody.radius,
+      }));
+    }
   };
 
   const ready = loadStatus === "ready";
@@ -62,6 +68,7 @@ export default function App() {
         bodies={sceneBodies}
         selectedBodyId={selectedBodyId}
         onSelectBody={setSelectedBodyId}
+        onFocusBody={focusBody}
         frameEpoch={frameEpoch}
         focus={focus}
       />

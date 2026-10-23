@@ -1,6 +1,10 @@
 # Status
 _Concise authoritative snapshot. Update after every meaningful session._
 
+## Body single-click and double-click focus (2026-10-24)
+- Single-click selects the body and opens the inspector; double-click also recenters the camera on that body and zooms 10% closer, with a radius-based minimum distance to prevent zooming inside it.
+- `npm run build` passed (640 modules; existing >500 kB bundle warning). Test suite not run. Change is on `bugfix/body-inspector-close`, pending commit/push.
+
 ## Collision-free body creation defaults (2026-10-24)
 - Create form now derives an automatically clear position from the current body positions/radii and the requested radius. Automatic placement refreshes as those inputs change; manually edited position coordinates are preserved, so backend overlap validation still reports user-entered collisions.
 - `npm run build` passed (640 modules; existing >500 kB bundle warning). Test suite not run. Source commit `526c2a7` is pushed to `bugfix/body-inspector-close`.

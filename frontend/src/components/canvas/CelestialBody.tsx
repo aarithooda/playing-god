@@ -8,6 +8,7 @@ interface CelestialBodyProps {
   name: string;
   isSelected?: boolean;
   onClick?: () => void;
+  onDoubleClick?: () => void;
 }
 
 export const CelestialBody: React.FC<CelestialBodyProps> = ({
@@ -17,11 +18,15 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
   name,
   isSelected = false,
   onClick,
+  onDoubleClick,
 }) => {
   return (
     <group position={position} onClick={(e) => {
       e.stopPropagation();
       onClick?.();
+    }} onDoubleClick={(e) => {
+      e.stopPropagation();
+      onDoubleClick?.();
     }}>
       <Sphere args={[radius, 32, 32]}>
         <meshStandardMaterial

@@ -8,15 +8,17 @@ import type { SceneBody } from '../../sim/viewModel';
 export interface FocusRequest {
   nonce: number;
   position: ScenePosition;
+  radius: number;
 }
 
 interface UniverseCanvasProps {
   bodies: SceneBody[];
   selectedBodyId?: string;
   onSelectBody: (id: string) => void;
+  onFocusBody: (id: string) => void;
   /** Changing this resets the camera to the default framing (the scene was refitted). */
   frameEpoch: number;
-  /** Moves the orbit target to a body, keeping the camera's offset from the target. */
+  /** Moves the orbit target to a body and gently zooms in while preserving the camera direction. */
   focus?: FocusRequest;
 }
 
@@ -41,10 +43,21 @@ const CameraRig: React.FC<{ frameEpoch: number; focus?: FocusRequest }> = ({ fra
   useEffect(() => {
     if (!focus || !controls) return;
     const [x, y, z] = focus.position;
+    let offsetX = camera.position.x - controls.target.x;
+    let offsetY = camera.position.y - controls.target.y;
+    let offsetZ = camera.position.z - controls.target.z;
+    let distance = Math.hypot(offsetX, offsetY, offsetZ);
+    if (distance < 1e-9) {
+      [offsetX, offsetY, offsetZ] = DEFAULT_CAMERA_POSITION;
+      distance = Math.hypot(offsetX, offsetY, offsetZ);
+    }
+    const minimumDistance = Math.max(focus.radius * 2.5, 1.5);
+    const focusedDistance = distance > minimumDistance ? Math.max(distance * 0.9, minimumDistance) : distance;
+    const zoom = focusedDistance / distance;
     camera.position.set(
-      camera.position.x + x - controls.target.x,
-      camera.position.y + y - controls.target.y,
-      camera.position.z + z - controls.target.z,
+      x + offsetX * zoom,
+      y + offsetY * zoom,
+      z + offsetZ * zoom,
     );
     controls.target.set(x, y, z);
     controls.update();
@@ -59,6 +72,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
   bodies,
   selectedBodyId,
   onSelectBody,
+  onFocusBody,
   frameEpoch,
   focus,
 }) => {
@@ -83,6 +97,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
           name={body.name}
           isSelected={selectedBodyId === body.id}
           onClick={() => onSelectBody(body.id)}
+          onDoubleClick={() => onFocusBody(body.id)}
         />
       ))}
 

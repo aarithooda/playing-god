@@ -164,3 +164,10 @@
 - Changed: added a placement helper that derives a clear default from existing spherical bodies and the new body's radius. The create form recalculates while placement is automatic and freezes it after the user edits a coordinate. Backend validation remains authoritative for manual overlap attempts.
 - Verification: `npm run build` passed (640 modules transformed); existing large-chunk warning remains. Test suite not run.
 - Branch: `bugfix/body-inspector-close`; source commit `526c2a7` pushed. Not merged.
+
+## 2026-10-24 — Add body double-click focus and zoom
+- Owner/AI: Codex
+- Goal: select bodies with one click and focus/zoom to them on a double-click.
+- Changed: `CelestialBody` now forwards double-click separately from click selection. `App` routes focus requests through `UniverseCanvas`; `CameraRig` recenters on the body and moves 10% closer per focus, with a display-radius-based minimum distance.
+- Verification: `npm run build` passed (640 modules transformed); existing large-chunk warning remains. Test suite not run.
+- Branch: `bugfix/body-inspector-close`; interaction changes pending commit/push. This branch also carries the prior dynamic-default fix.
