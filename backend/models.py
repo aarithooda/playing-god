@@ -94,7 +94,7 @@ class Diagnostics(BaseModel):
     """System-level quantities of the exact state in `bodies` (definitions: backend/diagnostics.py, API_CONTRACT.md).
     Each value is finite or null (undefined / overflow); vectors are all-or-nothing."""
 
-    version: int
+    version: Literal[1]  # semantics version; bump together with backend/diagnostics.py and API_CONTRACT.md
     totalMassKg: float | None
     totalMomentumKgMPerS: Vec3 | None
     kineticEnergyJ: float | None

@@ -106,3 +106,27 @@ def test_error_responses_keep_their_shape_without_diagnostics(client):
     assert r.status_code == 503 and set(r.json()) == {"detail"}
     svc.step_time_limit_s = 10.0
     assert client.get("/api/v1/simulation/state").json()["simulationTimeS"] == 0.0  # untouched by the 503
+
+
+def test_diagnostics_version_is_pinned_to_the_supported_semantics_version():
+    """`Diagnostics.version` is Literal[1]: an unsupported version can neither be emitted nor accepted."""
+    from pydantic import ValidationError
+
+    from backend.diagnostics import DIAGNOSTICS_VERSION, compute_diagnostics
+    from backend.models import Diagnostics, SimulationState
+
+    good = compute_diagnostics([], [], 6.6743e-11)
+    assert DIAGNOSTICS_VERSION == 1 and Diagnostics(**good).version == 1
+    assert type(Diagnostics(**{**good, "version": True}).version) is int
+    for bad in (0, 2, "1", 1.5, None):  # (pydantic lets True through Literal[1], but it is normalized to the int 1)
+        with pytest.raises(ValidationError):
+            Diagnostics(**{**good, "version": bad})
+        with pytest.raises(ValidationError):  # the response model refuses to serialize it either
+            SimulationState(status="paused", simulationTimeS=0.0, bodies=[], diagnostics={**good, "version": bad})
+    schema = app.openapi()["components"]["schemas"]["Diagnostics"]["properties"]["version"]
+    assert schema.get("const") == 1 or schema.get("enum") == [1]  # published in the OpenAPI document
+
+
+def test_live_responses_carry_version_1(client):
+    assert client.get("/api/v1/simulation/state").json()["diagnostics"]["version"] == 1
+
