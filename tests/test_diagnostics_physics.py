@@ -217,3 +217,15 @@ def test_every_degenerate_case_is_strict_json():
              [(1e45, ZERO, ZERO), (1e45, (1e-300, 0.0, 0.0), ZERO)]]
     for c in cases:
         json.dumps(compute_diagnostics(c, [], G), allow_nan=False)
+
+
+def test_zero_quantities_are_positive_zero_never_negative_zero():
+    """-g * 0.0 is -0.0, which JSON would print as "-0.0" and a UI could show as "-0"."""
+    for bodies in ([], [(1.0, ZERO, ZERO)], [(1.0, (1.0, 0.0, 0.0), ZERO), (1.0, (-1.0, 0.0, 0.0), (0.0, 0.0, -0.0))]):
+        d = compute_diagnostics(bodies, [(-0.0, -0.0, -0.0)], G)
+        values = [d["totalMassKg"], d["kineticEnergyJ"], d["bookedSpinKgM2PerS"]["x"],
+                  d["angularMomentumAboutOriginKgM2PerS"]["z"], d["totalMomentumKgMPerS"]["y"]]
+        if len(bodies) < 2:
+            values.append(d["potentialEnergyJ"])
+        assert all(math.copysign(1.0, v) == 1.0 for v in values), (bodies, d)
+

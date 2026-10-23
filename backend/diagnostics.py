@@ -30,7 +30,7 @@ def _sum(terms: Iterable[float]) -> float | None:
         total = math.fsum(terms)
     except (OverflowError, ValueError):
         return None
-    return total if math.isfinite(total) else None
+    return total + 0.0 if math.isfinite(total) else None  # +0.0 turns a negative zero into 0.0
 
 
 def _vec_sum(rows: list[Vec]) -> dict[str, float] | None:
@@ -55,7 +55,7 @@ def _potential_energy(bodies: Sequence[BodyState], g: float) -> float | None:
                 return None  # coincident centres: undefined; non-finite positions: unusable
             terms.append(mi * mj / d)
     total = _sum(terms)
-    return None if total is None else -g * total
+    return None if total is None else -g * total + 0.0  # an empty or single-body sum is +0.0, never -0.0
 
 
 def compute_diagnostics(bodies: Sequence[BodyState], spins: Iterable[Vec], g: float) -> dict:
