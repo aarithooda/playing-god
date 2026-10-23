@@ -178,3 +178,13 @@
 - Changed: create defaults now check physical radii and rendered radii after the post-create fit transform, using a stride scaled for large bodies. Camera and orbit target now smoothstep to the focused body over 0.65 s.
 - Verification: frontend Vitest 57/57 passed; `npm run build` passed with the existing large-chunk warning. Browser E2E not run.
 - Branch: `bugfix/body-inspector-close`; code and context changes are local and need commit/push. Not merged.
+
+## 2026-10-24 — Add manual 3D body placement and fixed focus distance
+- Owner/AI: Codex
+- Goal: prevent repeated focus from zooming indefinitely and let users choose body positions in the scene.
+- Changed: focus requests return to `max(4.5 × display radius, 8 scene units)`. The create form now starts a camera-facing 3D placement mode with a translucent gray sphere matching the body display size; pointer movement previews, wheel adjusts depth, click commits the location to SI form fields, and Escape cancels. Added a regression test for the picked-position state handoff.
+- Verification: frontend Vitest 59/59 passed; production build passed with existing >500 kB chunk warning. Browser E2E not run.
+- Branch: `bugfix/body-inspector-close`; code and context changes are local and need commit/push. Not merged.
+
+### Push follow-up
+- Code commit `f192a48` was pushed to `origin/bugfix/body-inspector-close`; context updates are being committed separately. Branch remains unmerged.

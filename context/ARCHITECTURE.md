@@ -13,7 +13,7 @@ No physics/collision/events/checkpoint modules exist; add them only when a featu
 
 ## Responsibilities
 - **Backend [Implemented]**: FastAPI app (`main.py`, `models.py`) over `simulation.py` (`SimulationService`: one persistent REBOUND/IAS15 simulation owning the authoritative state, body-id ↔ particle `name` mapping, transactional chunked steps, events) and `collisions.py` (`line` detection + perfectly inelastic merger layer). Endpoints: health, state, body CRUD, step, reset, events (`API_CONTRACT.md`). In-memory, single process, CORS for `FRONTEND_ORIGIN` (default `http://localhost:5173`). The server never runs by itself; Play = client loop of bounded `step` calls. `backend/experiments/` is evidence code and is not imported by the app.
-- **Frontend [Implemented: placeholder only]**: React page showing "PLAYING GOD" and the backend health. Vite proxies `/api/*` to `http://127.0.0.1:8000` (prefix stripped). **[Proposed]** It will render backend state with Three.js and send user actions.
+- **Frontend [Implemented]**: React/TypeScript app with Three.js scene rendering of backend body state, simulation controls, body creation/inspection, single-click selection, double-click smooth focus at a fixed body-relative distance, and automatic or manual 3D body placement. Manual placement previews a gray size-matched sphere on a camera-facing plane and converts the chosen scene coordinate back to SI before submission. Vite proxies API requests to the backend. Backend state remains authoritative.
 
 ## Simulation data flow [Proposed]
 User action → frontend → API call → backend mutates/steps authoritative state → backend returns/streams a state snapshot plus events → frontend renders. The frontend must not simulate a second universe.

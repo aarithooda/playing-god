@@ -1,6 +1,11 @@
 # Status
 _Concise authoritative snapshot. Update after every meaningful session._
 
+## Fixed-distance focus and 3D create placement (2026-10-24)
+- Each body focus now moves to a fixed view distance of `max(4.5 × displayed radius, 8 scene units)`; repeated focusing does not zoom inward indefinitely.
+- The create form has a 3D position mode: translucent gray preview matches the new body's displayed size, pointer movement places it on a camera-facing plane, wheel adjusts depth, click writes the selected coordinates to the form, and Escape or the button cancels.
+- Frontend: 59 Vitest tests passed; `npm run build` passed (existing >500 kB bundle warning). Browser E2E not run. Code commit `f192a48` is pushed to `origin/bugfix/body-inspector-close`; not merged.
+
 ## Visible body placement and smooth focus (2026-10-24)
 - Auto-placement now chooses a default clear of both physical body radii and visually exaggerated render radii, evaluated using the transform after adding the candidate. Search stride accounts for very large body radii; a test covers four consecutive creations and a large-radius case.
 - Focus movement interpolates the camera and orbit target smoothly over 0.65 s.
