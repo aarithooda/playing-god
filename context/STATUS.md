@@ -1,11 +1,11 @@
 # Status
 _Concise authoritative snapshot. Update after every meaningful session._
 
-- **Phase:** Repository initialized; collaboration docs and M0 plan written; pre-implementation.
-- **Branch / commits:** `main` = `origin/main` at `b29c56a` plus uncommitted doc changes (see HANDOFF). Later commits: see `git log`.
-- **Works (verified 2026-10-23):** backend serves `GET /health` -> `{"status":"ok"}`; Vite dev server serves the PLAYING GOD page and proxies `/api/health` to the backend; `npm run build` succeeds.
-- **Tests:** `pytest` -> 1 passed (health endpoint; 1 Starlette/httpx deprecation warning).
-- **Not implemented:** everything else — simulation, physics engine, collisions, tidal model, checkpoints, Three.js scene, API contracts. M0 experiments have NOT been run; no M0 criterion is verified.
-- **Known risks/issues:** REBOUND suitability and license unverified; esbuild postinstall warning on `npm install` (build/dev still work); no frontend tests or CI; teammates not yet added as collaborators (T-005).
-- **GitHub:** public repo https://github.com/aarithooda/playing-god ; `main` tracks `origin/main`.
-- **Next milestone:** M0 — Physics Engine Feasibility Spike (`TASKS.md`, `PHYSICS_SPIKE.md`).
+- **Phase:** M0 physics-engine feasibility spike; analytical reference prepared, implementation still pre-simulation.
+- **Branch / source:** this review is on `validation/physics-first-principles`, based on the latest pulled `origin/main` commit `ad4bd59`.
+- **Verified this session:** Independent standard-library arithmetic script ran and printed the stated SI gravity, merger, and swept-line fixture values. See `context/INDEPENDENT_PHYSICS_REVIEW.md` and `context/independent_reference.py`.
+- **Not verified:** no REBOUND engine run, no collision callback/merge experiment, no checkpoint/restore experiment, no performance/license review, no code implementation.
+- **Tasks:** M0.1 agreement and M0.2/M0.3 experiments remain open; independent M0.2 derivation draft is available for cross-review. Do not treat the engine as passed or D-003 as accepted.
+- **Tests:** no application tests run; calculation script execution is not an application test.
+- **Known risks:** close encounters and collision event localization remain unvalidated; collisions can discard angular momentum if the remnant has no spin state.
+- **Next milestone:** agree M0.1 conventions/tolerances; compare the derivation, then run the prescribed M0 fixtures.

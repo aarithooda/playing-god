@@ -30,3 +30,6 @@ Start **M0** (below): read `PHYSICS_SPIKE.md`, agree units/conventions (M0.1), t
 | T-003 | Decide units and coordinate conventions (finalized after M0.1) | high | todo | lead, Vaibhav | M0.1 | Accepted entry in DECISIONS.md |
 | T-004 | Add CI (pytest + frontend build) | medium | todo | integration dev | T-000 | CI green on main |
 | T-005 | Invite teammates as collaborators; agree branch/PR rules from `TEAM_WORKFLOW.md` | high | todo | lead | T-000 | All four can push branches; workflow confirmed by everyone |
+
+### Independent reference note — 2026-10-23
+The first-principles SI derivation and analytic fixture values are recorded in `context/INDEPENDENT_PHYSICS_REVIEW.md`, with an engine-independent calculator at `context/independent_reference.py`. This is a review artifact, not completion of M0.2: M0.1 conventions/tolerances and team cross-review remain prerequisites; no REBOUND results are implied.

@@ -19,3 +19,11 @@
 - Changed: added `TEAM_WORKFLOW.md`, `PHYSICS_SPIKE.md`; added M0 to `TASKS.md` (T-001 superseded, T-005 added); updated STATUS, HANDOFF, DECISIONS (D-004), AI_WORKFLOW, README; repo made public.
 - Tests: `pytest` rerun after doc changes (result in STATUS). No code changed; no M0 experiments run.
 - Commit: not yet committed (awaiting review).
+
+## 2026-10-23 — Independent first-principles physics reference
+- Owner/AI: Codex, independent computational-physics review.
+- Goal: derive expected SI gravity, merger, collision geometry, checkpoint and tolerance checks without consulting another reviewer's calculations or engine outputs.
+- Changed: added `context/INDEPENDENT_PHYSICS_REVIEW.md` and standard-library-only `context/independent_reference.py`; refreshed STATUS/HANDOFF and added a note to TASKS.
+- Calculation: `python context/independent_reference.py` ran and printed the worked examples. This is not an application test or an engine test.
+- Not done: no REBOUND execution, checkpoint experiment, task closure, or D-003 decision. M0.1 agreement and cross-review remain outstanding.
+- Git: docs/calculation only on `validation/physics-first-principles`, based on latest pulled origin/main; local main package.json change was left untouched.
