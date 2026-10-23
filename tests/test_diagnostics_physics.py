@@ -229,3 +229,28 @@ def test_zero_quantities_are_positive_zero_never_negative_zero():
             values.append(d["potentialEnergyJ"])
         assert all(math.copysign(1.0, v) == 1.0 for v in values), (bodies, d)
 
+
+PAIR = [(1.0, ZERO, ZERO), (2.0, (1.0, 0.0, 0.0), ZERO)]
+
+
+@pytest.mark.parametrize("bodies", [[], PAIR[:1], PAIR], ids=["empty", "single", "pair"])
+@pytest.mark.parametrize("bad_g", [math.nan, math.inf, -math.inf, 1e308, -1e308])
+def test_unusable_gravitational_constant_gives_none_never_nan_or_inf(bodies, bad_g):
+    """A NaN/infinite `g`, or a finite `g` whose product with the pair sum overflows, must not leak into the result
+    (NaN would also fail JSON serialization): only potentialEnergyJ depends on `g`, and it becomes undefined."""
+    d = compute_diagnostics(bodies, [], bad_g)
+    # with a pair, every listed g fails (non-finite, or 1e308 * pair sum overflows); with no pair only a
+    # non-finite g does, because a finite g times an empty sum is a well-defined 0.0
+    undefined = len(bodies) == 2 or not math.isfinite(bad_g)
+    assert d["potentialEnergyJ"] is (None if undefined else d["potentialEnergyJ"])
+    if not undefined:
+        assert d["potentialEnergyJ"] == 0.0
+    others = {k: v for k, v in d.items() if k != "potentialEnergyJ"}
+    assert others == {k: v for k, v in compute_diagnostics(bodies, [], G).items() if k != "potentialEnergyJ"}
+    json.dumps(d, allow_nan=False)
+
+
+def test_valid_gravitational_constant_is_unchanged_by_the_guard():
+    d = compute_diagnostics(PAIR, [], G)
+    assert d["potentialEnergyJ"] == -G * 2.0 / 1.0
+

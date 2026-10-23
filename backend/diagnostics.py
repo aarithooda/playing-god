@@ -55,7 +55,10 @@ def _potential_energy(bodies: Sequence[BodyState], g: float) -> float | None:
                 return None  # coincident centres: undefined; non-finite positions: unusable
             terms.append(mi * mj / d)
     total = _sum(terms)
-    return None if total is None else -g * total + 0.0  # an empty or single-body sum is +0.0, never -0.0
+    if total is None:
+        return None
+    energy = -g * total + 0.0  # an empty or single-body sum is +0.0, never -0.0
+    return energy if math.isfinite(energy) else None  # a NaN/inf `g`, or g*total overflowing, is undefined, not a value
 
 
 def compute_diagnostics(bodies: Sequence[BodyState], spins: Iterable[Vec], g: float) -> dict:
