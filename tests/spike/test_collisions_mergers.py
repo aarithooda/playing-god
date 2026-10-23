@@ -10,6 +10,14 @@ import pytest
 
 pytest.importorskip("rebound")
 
+# Two tests here (the `merger` fixture and `test_builtin_merge...`) end with a single remnant drifting for 40 s,
+# and REBOUND's IAS15 then reports "predictor corrector loops did not converge". It is spurious: with one body the
+# acceleration is exactly zero and IAS15's convergence ratio is 0/0 (diagnosis and minimal repro:
+# tests/test_step_guard.py::test_rebound_ias15_reports_nonconvergence_for_a_single_force_free_body, task P-004).
+# The production service avoids it by advancing a lone body analytically. Only this message is ignored, and only
+# here; pytest.ini turns every other RuntimeWarning into an error.
+pytestmark = pytest.mark.filterwarnings("ignore:At least 10 predictor corrector loops:RuntimeWarning")
+
 from backend.experiments import collision_spike as cs  # noqa: E402
 from backend.experiments.rebound_spike import G_SI, add, norm, scale, sub, vel  # noqa: E402
 

@@ -12,19 +12,25 @@ Model (decisions D-007, D-008, D-010; evidence in context/PHYSICS_SPIKE.md):
   <= 1% of the pair's contact distance, which is the condition under which `line` detection is reliable.
 - A step is transactional: state is captured first and restored if the engine raises, a collision callback fails or a
   non-finite value appears, so a failed step never leaves corrupted state.
+- A step also has a wall-clock budget (`step_time_limit_s`), checked between chunks and, through REBOUND's
+  heartbeat, after every internal step, so even a stalled `integrate` is stopped. Exceeding it raises
+  StepTimeoutError and takes the same rollback path, so a timed-out step advances nothing. The engine is rebuilt from
+  the saved state, so the replay uses a different internal step grid (same physics, not bitwise identical).
 - Structural edits (add/remove/patch) re-select IAS15 so no stale predictor state survives.
 - State is in-memory, single process, lost on restart; all methods are serialized by one lock.
 Known limits: see context/API_CONTRACT.md ("Physics limitations").
 """
 import logging
 import math
+import os
 import threading
+import time
 import uuid
 import warnings
 
 import rebound
 
-from backend.collisions import MergeResolver
+from backend.collisions import MergeResolver, select_ias15
 from backend.models import (MAX_BODIES, Body, BodyCreate, BodyUpdate, Event, Position3, SimulationState,
                             StepResponse, Vec3)
 
@@ -35,6 +41,8 @@ RAND_SEED = 12345
 CURVATURE_FRACTION = 0.01  # max chord deviation per chunk as a fraction of the contact distance
 MAX_CHUNKS_PER_STEP = 2000  # bounds wall time; if reached, chunks are longer than the 1% criterion asks
 MAX_EVENTS_KEPT = 1000
+# Wall-clock budget for one step request (seconds), checked between chunks; override with PG_STEP_TIME_LIMIT_S.
+DEFAULT_STEP_TIME_LIMIT_S = 10.0
 
 
 class NotFoundError(Exception):
@@ -49,10 +57,16 @@ class SimulationFailure(Exception):
     """The engine failed during a step; state was restored to what it was before the step."""
 
 
+class StepTimeoutError(SimulationFailure):
+    """The step exceeded its wall-clock budget; state was restored to what it was before the step."""
+
+
 class SimulationService:
     def __init__(self) -> None:
         self._lock = threading.RLock()
         self._event_seq = 0  # never reset, so event ids are never reused
+        self.step_time_limit_s = float(os.getenv("PG_STEP_TIME_LIMIT_S", DEFAULT_STEP_TIME_LIMIT_S))
+        self._clock = time.monotonic  # injectable for tests
         self._init_state()
 
     # ---------- construction / reset ----------
@@ -60,6 +74,8 @@ class SimulationService:
         self._meta: dict[str, tuple[str, str]] = {}  # id -> (display name, colourHex), creation order
         self._events: list[Event] = []
         self._pending: list[Event] = []  # events recorded since the last step started
+        self._deadline = math.inf  # monotonic time at which the running step must stop
+        self._timed_out = False
         self._resolver = MergeResolver(self._record_merge)
         self._sim = self._new_sim([], 0.0)
 
@@ -68,12 +84,13 @@ class SimulationService:
         sim.units = ("m", "s", "kg")
         sim.G = G_SI  # after `units`, which would otherwise set REBOUND's 6.67408e-11
         sim.rand_seed = RAND_SEED
-        sim.integrator = "ias15"
+        select_ias15(sim)
         sim.t = t
         for r in records:
             sim.add(**r)
         sim.collision = "line"
         sim.collision_resolve = self._resolver.resolve
+        sim.heartbeat = self._heartbeat  # watchdog: runs once per internal step, may stop a stalled integrate
         return sim
 
     def reset(self) -> SimulationState:
@@ -90,6 +107,14 @@ class SimulationService:
     def events(self) -> list[Event]:
         with self._lock:
             return list(self._events)
+
+    def _particle(self, body_id: str):
+        """Look a body up by scanning, not through REBOUND's name hash table: after a removal (every merger) the
+        table is stale and REBOUND emits "Name hash table needs repairs" on the next by-name access."""
+        for p in self._sim.particles:
+            if p.name == body_id:
+                return p
+        raise NotFoundError(f"unknown body id: {body_id}")
 
     def _particles_by_id(self) -> dict:
         return {p.name: p for p in self._sim.particles}
@@ -119,13 +144,13 @@ class SimulationService:
                           z=data.positionM.z, vx=data.velocityMPerS.x, vy=data.velocityMPerS.y,
                           vz=data.velocityMPerS.z, name=body_id)
             self._meta[body_id] = (data.name, data.colorHex)
-            self._sim.integrator = "ias15"  # reset integrator state after a structural change
-            return self._body(body_id, self._sim.particles[body_id])
+            select_ias15(self._sim)  # reset integrator state after a structural change
+            return self._body(body_id, self._particle(body_id))
 
     def update_body(self, body_id: str, patch: BodyUpdate) -> Body:
         with self._lock:
             self._require_known(body_id)
-            p = self._sim.particles[body_id]
+            p = self._particle(body_id)
             fields = patch.model_fields_set
             new_pos = patch.positionM if "positionM" in fields else Position3(x=p.x, y=p.y, z=p.z)
             new_radius = patch.radiusM if "radiusM" in fields else p.r
@@ -143,16 +168,16 @@ class SimulationService:
             self._meta[body_id] = (patch.name if "name" in fields else name,
                                    patch.colorHex if "colorHex" in fields else color)
             if fields & {"massKg", "radiusM", "positionM", "velocityMPerS"}:
-                self._sim.integrator = "ias15"
-            return self._body(body_id, self._sim.particles[body_id])
+                select_ias15(self._sim)
+            return self._body(body_id, self._particle(body_id))
 
     def delete_body(self, body_id: str) -> None:
         with self._lock:
             self._require_known(body_id)
-            self._sim.remove(self._sim.particles[body_id].index)
+            self._sim.remove(self._particle(body_id).index)
             del self._meta[body_id]
             self._resolver.spin.pop(body_id, None)
-            self._sim.integrator = "ias15"
+            select_ias15(self._sim)
 
     def _require_known(self, body_id: str) -> None:
         if body_id not in self._meta:
@@ -174,10 +199,15 @@ class SimulationService:
             self._pending = []
             t0 = self._sim.t
             try:
+                self._timed_out = False
+                self._deadline = self._clock() + self.step_time_limit_s
                 self._advance(t0 + dt_s)
                 self._verify_finite()
             except Exception as exc:  # noqa: BLE001 - restore, then report as one failure type
                 self._restore(before)
+                if isinstance(exc, StepTimeoutError):
+                    logger.warning("%s", exc)
+                    raise
                 logger.exception("simulation step failed; state restored")
                 raise SimulationFailure(f"simulation step failed and was rolled back: {exc}") from exc
             events = self._pending
@@ -186,6 +216,19 @@ class SimulationService:
             del self._events[:-MAX_EVENTS_KEPT]
             state = self._snapshot()
             return StepResponse(**state.model_dump(), advancedS=self._sim.t - t0, events=events)
+
+    def _heartbeat(self, sim_ptr) -> None:
+        """REBOUND calls this after every internal step. Past the deadline it stops `integrate`, which is the only
+        way to interrupt an engine stall (a step-size collapse never returns on its own)."""
+        if self._clock() > self._deadline:
+            self._timed_out = True
+            sim_ptr.contents.stop()
+
+    def _check_deadline(self) -> None:
+        if self._timed_out or self._clock() > self._deadline:
+            raise StepTimeoutError(
+                f"step exceeded its {self.step_time_limit_s:g} s wall-clock budget; "
+                "state was not advanced (retry with a smaller dtS)")
 
     def _advance(self, target: float) -> None:
         sim = self._sim
@@ -196,14 +239,28 @@ class SimulationService:
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             while sim.t < target:
+                self._check_deadline()
+                if sim.N == 1:
+                    self._drift_lone_body(target)  # no force acts: exact, and IAS15 would warn spuriously
+                    break
                 remaining = target - sim.t
                 chunk = max(self._chunk_limit(), floor)
                 nxt = target if chunk >= remaining * (1 - 1e-9) else sim.t + chunk
                 sim.integrate(nxt)
+                self._check_deadline()  # an integrate stopped by the watchdog returns early
                 if self._resolver.errors:
                     raise RuntimeError("collision resolver failed:\n" + self._resolver.errors[-1])
         for w in caught:
             logger.warning("REBOUND warning during step: %s", w.message)
+
+    def _drift_lone_body(self, target: float) -> None:
+        """A single body feels no force, so uniform motion is exact. REBOUND's IAS15 convergence test divides by
+        the acceleration norm, which is zero here, and then always reports non-convergence (context/WORKLOG.md)."""
+        sim = self._sim
+        dt = target - sim.t
+        p = sim.particles[0]
+        p.x, p.y, p.z = p.x + p.vx * dt, p.y + p.vy * dt, p.z + p.vz * dt
+        sim.t = target
 
     def _chunk_limit(self) -> float:
         """Longest chunk keeping a_rel*dt^2/8 <= CURVATURE_FRACTION * contact distance for every pair."""
@@ -251,6 +308,7 @@ class SimulationService:
         s = self._sim
         return {
             "t": s.t,
+            "event_seq": self._event_seq,  # ids of events from a rolled-back step were never seen: reuse them
             "records": [dict(m=p.m, r=p.r, x=p.x, y=p.y, z=p.z, vx=p.vx, vy=p.vy, vz=p.vz, name=p.name)
                         for p in s.particles],
             "meta": dict(self._meta),
@@ -260,6 +318,7 @@ class SimulationService:
 
     def _restore(self, cap: dict) -> None:
         self._meta = cap["meta"]
+        self._event_seq = cap["event_seq"]
         self._resolver.errors.clear()
         self._resolver.heat_J = cap["heat"]
         self._resolver.spin = cap["spin"]

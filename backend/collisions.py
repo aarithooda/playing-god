@@ -10,7 +10,7 @@ Spec: context/PHYSICS_SPIKE.md ("Decision: GO WITH CUSTOM COLLISION LAYER"). REB
   orbital angular momentum mu*(r_rel x v_rel) is booked as remnant `spin` (a bookkeeping vector only: no rotation
   or tidal model is implemented). Total kinetic+potential energy is NOT conserved by a merger.
 - IAS15 is re-selected after every merge because its predictor state is stale once a particle changed
-  (observed momentum error 5e-9 relative without it, ~1e-13 with it).
+  (observed momentum error 5e-9 relative without it, ~1e-13 with it). `select_ias15` is the only place that selects it.
 
 Exceptions inside a ctypes callback are swallowed by REBOUND, so `resolve` catches them, records the traceback in
 `errors` and returns 0 (keep both bodies). The caller must treat a non-empty `errors` list as a failed step.
@@ -20,6 +20,19 @@ import traceback
 from typing import Callable
 
 Vec = list[float]
+
+
+def select_ias15(sim) -> None:
+    """(Re-)select IAS15 with the GLOBAL step-size criterion.
+
+    Re-selecting resets IAS15's predictor state, which is what a structural change needs. REBOUND 5.2.2's default
+    step-size criterion (PRS23) is not used because it stalls forever when a body's net force cancels by symmetry
+    (three equal masses at rest on a line: the middle body's acceleration is round-off noise ~1e-29, the step size
+    collapses to ~1e-18 s and `integrate` never returns). The original criterion (GLOBAL, Rein & Spiegel 2015)
+    scales the step by the largest acceleration of the whole system and completes the same scenarios in ~10 steps.
+    Evidence: context/WORKLOG.md (2026-10-24 stabilization) and tests/test_step_guard.py."""
+    sim.integrator = "ias15"
+    sim.integrator.adaptive_mode = "global"
 
 
 def _sub(a: Vec, b: Vec) -> Vec:
@@ -87,7 +100,7 @@ class MergeResolver:
         try:
             rc = self._resolve(sim_ptr.contents, col)
             if rc != 0:
-                sim_ptr.contents.integrator = "ias15"  # reset stale predictor state (see module docstring)
+                select_ias15(sim_ptr.contents)  # reset stale predictor state (see module docstring)
             return rc
         except Exception:  # noqa: BLE001 - ctypes would swallow it; surface via `errors`
             self.errors.append(traceback.format_exc())
