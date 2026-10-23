@@ -115,3 +115,12 @@ Entry format: Date · Decision · Context/reason · Alternatives · Consequences
 - Conditions: CI (backend pytest and frontend tsc/vitest/build) must pass on the exact PR head being merged, checked immediately before merging; normal GitHub merge commit; no direct push to `main`, no force-push. The code is commit `7445312`; the PR head is that commit plus the docs-only commit that records this decision (no code differs). Local results at `7445312`: pytest 259 passed (isolated venv), tsc clean, vitest 117, build OK.
 - Scope of the exception: **PR #5 only.** It does not change, waive or weaken the review requirement for any other or future PR (including the remaining UI branches); `TEAM_WORKFLOW.md` is unchanged and contains no waiver. It does not extend or renew D-014, which covered PR #3 only.
 - Status: accepted 2026-10-24 by the project owner (Aarit), as a one-time exception.
+
+
+## D-016 — One-time owner exception: docs PR #6 merged without the normal independent review
+- Date: 2026-10-24
+- Decision: **a documented, one-PR-only exception to `TEAM_WORKFLOW.md`** ("Pull requests need one reviewer from another area and passing tests"). PR #6 (docs only: the `context/STATUS.md` and `context/WORKLOG.md` entries recording the merge of PR #5, branch `docs/starfield-zoom-merged`) is merged by project-owner decision **without** a recorded independent review. **No independent review was recorded**: GitHub shows no review or approval on the PR, and none occurred.
+- Reason: record the confirmed PR #5 merge on `main` so project status is accurate before the remaining UI branches are integrated.
+- Conditions: documentation only, no code; CI must pass on the exact PR head being merged, checked immediately before merging (head `0347d0a` plus the docs-only commit that records this decision); normal GitHub merge commit; no direct push to `main`, no force-push.
+- Scope of the exception: **PR #6 only.** It does not extend D-014 (PR #3) or D-015 (PR #5), and it does not change, waive or weaken the review requirement for any other or future PR. `TEAM_WORKFLOW.md` is unchanged.
+- Status: accepted 2026-10-24 by the project owner (Aarit), as a one-time exception.
