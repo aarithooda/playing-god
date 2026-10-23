@@ -66,7 +66,10 @@ export default function App() {
       <UniverseCanvas
         bodies={sceneBodies}
         selectedBodyId={selectedBodyId}
-        onSelectBody={setSelectedBodyId}
+        onSelectBody={(id) => {
+          setSelectedBodyId(id);
+          setIsSidebarExpanded(true);
+        }}
         frameEpoch={frameEpoch}
         focus={focus}
         leftInset={isEventSidebarExpanded ? SIDEBAR_EXPANDED_WIDTH : SIDEBAR_COLLAPSED_WIDTH}
