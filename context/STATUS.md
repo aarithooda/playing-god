@@ -3,7 +3,7 @@ _Concise authoritative snapshot. Update after every meaningful session._
 
 ## Keep inspector open on body clicks (2026-10-24)
 - Direct presses on a body mesh no longer close the inspector. A window-capture raycast marks body-hit pointer events before the inspector's document handler; outside clicks elsewhere still close, and drag gestures remain exempt.
-- `npm run build` passed (641 modules; existing >500 kB warning). Tests and browser E2E were not run. Changes are on `bugfix/body-inspector-close`; commit/push pending.
+- `npm run build` passed (641 modules; existing >500 kB warning). Tests and browser E2E were not run. Source commit `336ab26` is pushed to `origin/bugfix/body-inspector-close`; not merged.
 ## Keep inspector open during camera drag (2026-10-24)
 - Outside-click dismissal now distinguishes a click from a drag: it waits for pointer-up, ignores movement of at least 6 px, and allows a 300 ms double-click window before closing. OrbitControls can rotate the focused body without dismissing its inspector.
 - `npm run build` passed (640 modules; existing >500 kB warning). Tests and browser E2E were not run. Source commit `1ac2115` is pushed to `origin/bugfix/body-inspector-close`; not merged.
