@@ -1,7 +1,7 @@
 # Independent validation: production REBOUND physics
 
-**Date:** 2026-10-24  
-**Reviewer branch:** `validation/production-physics-review`, based on `feature/production-rebound-simulation` at `af3b29a`  
+**Date:** 2026-10-24
+**Reviewer branch:** `validation/production-physics-review`, based on `feature/production-rebound-simulation` at `af3b29a`
 **Scope:** read-only review of `backend/simulation.py` and `backend/collisions.py`; new checks are isolated in `tests/validation/`. No production implementation was edited.
 
 ## Method and assumptions
