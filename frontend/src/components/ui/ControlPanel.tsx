@@ -27,6 +27,7 @@ interface ControlPanelProps {
   onReset: () => void;
   onFit: () => void;
   onCreate: (body: BodyCreateDto) => Promise<ActionResult>;
+  isExpanded?: boolean;
 }
 
 export const ControlPanel: React.FC<ControlPanelProps> = ({
@@ -44,6 +45,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   onReset,
   onFit,
   onCreate,
+  isExpanded = true,
 }) => {
   const [creating, setCreating] = useState(false);
   const [values, setValues] = useState<FormValues>(NEW_BODY_DEFAULTS);
@@ -75,15 +77,17 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   return (
     <div style={{
       ...panelStyle,
-      position: 'absolute',
-      top: '20px',
-      right: '20px',
-      width: '250px',
-      maxHeight: '60vh',
+      width: '100%',
+      minWidth: 0,
+      boxSizing: 'border-box',
+      maxHeight: '100%',
       overflowY: 'auto',
       display: 'flex',
       flexDirection: 'column',
       gap: '10px',
+      visibility: isExpanded ? 'visible' : 'hidden',
+      opacity: isExpanded ? 1 : 0,
+      transition: 'opacity 0.2s ease',
     }}>
       <h3 style={{ margin: '0 0 4px 0', fontSize: '14px', opacity: 0.8 }}>Simulation</h3>
       <div style={{ fontSize: '11px', opacity: 0.6 }}>

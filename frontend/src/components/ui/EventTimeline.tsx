@@ -6,6 +6,7 @@ import { panelStyle } from './styles';
 interface EventTimelineProps {
   events: EventView[];
   bodyName: (id: string) => string;
+  inSidebar?: boolean;
 }
 
 /** Describes a backend event using only fields the API supplied. */
@@ -15,17 +16,18 @@ export function describeEvent(event: EventView, bodyName: (id: string) => string
     `at ${event.relativeSpeedMPerS.toPrecision(3)} m/s`;
 }
 
-export const EventTimeline: React.FC<EventTimelineProps> = ({ events, bodyName }) => {
+export const EventTimeline: React.FC<EventTimelineProps> = ({ events, bodyName, inSidebar = false }) => {
   const newestFirst = [...events].reverse();
   return (
     <div style={{
       ...panelStyle,
-      position: 'absolute',
-      top: '20px',
-      left: '20px',
-      width: '280px',
-      maxHeight: '400px',
+      position: inSidebar ? 'relative' : 'absolute',
+      top: inSidebar ? undefined : '20px',
+      left: inSidebar ? undefined : '20px',
+      width: inSidebar ? '100%' : '280px',
+      maxHeight: inSidebar ? 'calc(100vh - 100px)' : '400px',
       overflowY: 'auto',
+      boxSizing: 'border-box',
     }}>
       <h3 style={{ margin: '0 0 15px 0', fontSize: '14px', opacity: 0.8 }}>Event History</h3>
       {events.length === 0 ? (

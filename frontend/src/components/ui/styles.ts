@@ -2,7 +2,7 @@ import type React from 'react';
 
 export const panelStyle: React.CSSProperties = {
   pointerEvents: 'auto',
-  background: 'rgba(0, 0, 0, 0.75)',
+  background: 'transparent',
   padding: '15px',
   borderRadius: '8px',
   border: '1px solid #444',
@@ -42,3 +42,32 @@ export const fieldGroup: React.CSSProperties = {
 };
 
 export const errorTextStyle: React.CSSProperties = { color: '#ff7777', fontSize: '11px' };
+
+export const sidebarStyle: React.CSSProperties = {
+  position: 'absolute',
+  top: 0,
+  right: 0,
+  bottom: 0,
+  background: 'transparent',
+  borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
+  display: 'flex',
+  flexDirection: 'column',
+  overflow: 'hidden',
+  zIndex: 10,
+  transition: 'width 0.3s ease-in-out',
+};
+
+export const sidebarToggleStyle: React.CSSProperties = {
+  padding: '10px',
+  cursor: 'pointer',
+  background: 'transparent',
+  color: 'white',
+  border: 'none',
+  borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
+  fontSize: '18px',
+  width: '100%',
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  transition: 'background 0.2s',
+};

@@ -18,6 +18,9 @@ interface UniverseCanvasProps {
   frameEpoch: number;
   /** Moves the orbit target to a body, keeping the camera's offset from the target. */
   focus?: FocusRequest;
+  /** Pixel widths occupied by the overlaid sidebars; the scene stays centered in the remaining area. */
+  leftInset: number;
+  rightInset: number;
 }
 
 interface OrbitTarget {
@@ -61,11 +64,22 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
   onSelectBody,
   frameEpoch,
   focus,
+  leftInset,
+  rightInset,
 }) => {
   return (
     <Canvas
       camera={{ position: DEFAULT_CAMERA_POSITION, fov: 50, far: 2000 }}
-      style={{ width: '100vw', height: '100vh', background: 'black' }}
+      style={{
+        position: 'absolute',
+        // Keep rendering under transparent sidebars, while shifting the camera viewport's
+        // center toward the midpoint of the unobstructed area between them.
+        left: `${(leftInset - rightInset) / 2}px`,
+        width: '100vw',
+        height: '100vh',
+        background: 'black',
+        transition: 'left 0.3s ease-in-out',
+      }}
     >
       <color attach="background" args={['#050505']} />
       <Stars radius={300} depth={60} count={20000} factor={7} saturation={0} fade speed={1} />
