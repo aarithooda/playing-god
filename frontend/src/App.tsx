@@ -3,6 +3,7 @@ import { createApiClient } from "./api/client";
 import { UniverseCanvas, type FocusRequest } from "./components/canvas/UniverseCanvas";
 import { ControlPanel } from "./components/ui/ControlPanel";
 import { BodyInspector } from "./components/ui/BodyInspector";
+import { DiagnosticsPanel } from "./components/ui/DiagnosticsPanel";
 import { EventTimeline } from "./components/ui/EventTimeline";
 import {
   fitTransform,
@@ -147,6 +148,11 @@ export default function App() {
           {ready && bodies.length === 0 && (
             <p role="status" style={{ opacity: 0.7 }}>The universe is empty. Use "Add body…" to create one.</p>
           )}
+        </div>
+
+        {/* System diagnostics: bottom-left, collapsed by default */}
+        <div style={{ pointerEvents: "auto" }}>
+          <DiagnosticsPanel loadStatus={loadStatus} diagnostics={sim?.diagnostics ?? null} issue={sim?.diagnosticsIssue ?? null} />
         </div>
 
         {/* Bottom Section: Inspector */}

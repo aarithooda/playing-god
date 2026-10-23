@@ -25,7 +25,9 @@ export interface SimulationView {
   simulationTimeS: number;
   bodies: BodyView[];
   /** Backend-computed system diagnostics, passed through unchanged (never recomputed in the frontend). */
-  diagnostics: DiagnosticsDto;
+  diagnostics: DiagnosticsDto | null;
+  /** Why diagnostics are unavailable (null when present). */
+  diagnosticsIssue: string | null;
 }
 
 export interface SceneBody {
@@ -57,6 +59,7 @@ export function toSimulationView(dto: SimulationStateDto): SimulationView {
     simulationTimeS: dto.simulationTimeS,
     bodies: dto.bodies.map(toBodyView),
     diagnostics: dto.diagnostics,
+    diagnosticsIssue: dto.diagnosticsIssue,
   };
 }
 

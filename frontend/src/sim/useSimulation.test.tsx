@@ -2,7 +2,7 @@ import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../api/errors";
 import type { StepResponseDto } from "../api/types";
-import { earth, fakeClient, mergerEvent, state, stepResponse, sun } from "../test/fixtures";
+import { diagnostics, earth, fakeClient, mergerEvent, state, stepResponse, sun } from "../test/fixtures";
 import type { ApiClient } from "../api/client";
 import { useSimulation, type SimulationOptions } from "./useSimulation";
 
@@ -315,5 +315,40 @@ describe("useSimulation: reset and CRUD", () => {
     });
     expect(result.current.sim?.bodies).toHaveLength(1);
     expect(result.current.bodyName(earth.id)).toBe("Earth");
+  });
+});
+
+describe("useSimulation: diagnostics follow the authoritative responses", () => {
+  it("replaces diagnostics on load, step and reset, and drops them when a response has none", async () => {
+    const afterStep = { ...diagnostics, kineticEnergyJ: 42 };
+    const emptyDiag = { ...diagnostics, totalMassKg: 0, kineticEnergyJ: 0, potentialEnergyJ: 0 };
+    const client = fakeClient({
+      step: async () => ({ ...stepResponse([sun, earth], 100), diagnostics: afterStep }),
+      reset: async () => ({ ...state([]), diagnostics: emptyDiag }),
+    });
+    const { result } = renderHook(() => useSimulation(client, opts));
+    await flush();
+    expect(result.current.sim?.diagnostics).toEqual(diagnostics);
+    expect(result.current.sim?.diagnosticsIssue).toBeNull();
+    await act(async () => {
+      await result.current.stepOnce();
+    });
+    expect(result.current.sim?.diagnostics).toEqual(afterStep);
+    await act(async () => {
+      await result.current.reset();
+    });
+    expect(result.current.sim?.diagnostics).toEqual(emptyDiag); // zero is a value, kept as such
+    expect(result.current.sim?.bodies).toEqual([]);
+  });
+
+  it("keeps bodies visible and records the reason when diagnostics are missing", async () => {
+    const client = fakeClient({
+      getState: async () => ({ ...state([sun, earth]), diagnostics: null, diagnosticsIssue: "unsupported diagnostics version (2; this client understands 1)" }),
+    });
+    const { result } = renderHook(() => useSimulation(client, opts));
+    await flush();
+    expect(result.current.sim?.bodies).toHaveLength(2);
+    expect(result.current.sim?.diagnostics).toBeNull();
+    expect(result.current.sim?.diagnosticsIssue).toMatch(/unsupported diagnostics version/);
   });
 });

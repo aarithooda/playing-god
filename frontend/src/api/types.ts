@@ -48,7 +48,13 @@ export interface SimulationStateDto {
   status: SimulationStatus;
   simulationTimeS: number;
   bodies: BodyDto[];
-  diagnostics: DiagnosticsDto;
+  /**
+   * Backend diagnostics, or `null` when the response had none or they cannot be trusted (see `diagnosticsIssue`).
+   * A diagnostics problem never prevents the bodies from being shown.
+   */
+  diagnostics: DiagnosticsDto | null;
+  /** Why `diagnostics` is null (missing, unsupported version, malformed); null when diagnostics are present. */
+  diagnosticsIssue: string | null;
 }
 
 export interface SimulationEventDto {

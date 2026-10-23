@@ -99,10 +99,39 @@ describe("state and step responses with diagnostics", () => {
     expect(r.diagnostics).toEqual(diagnostics);
   });
 
-  it("a response without diagnostics is a clear invalid-response, not a silent default", () => {
-    const { diagnostics: _d, ...legacy } = state([sun]);
-    rejects(() => parseStateDto(legacy), "diagnostics");
-    rejects(() => parseStepResponse({ ...legacy, advancedS: 1, events: [] }), "diagnostics");
+  it("a response without diagnostics still parses, with diagnostics null and a reason (never a default)", () => {
+    const { diagnostics: _d, diagnosticsIssue: _i, ...legacy } = state([sun]);
+    const s = parseStateDto(legacy);
+    expect(s.bodies).toEqual([sun]);
+    expect(s.diagnostics).toBeNull();
+    expect(s.diagnosticsIssue).toMatch(/no diagnostics/);
+    const step = parseStepResponse({ ...legacy, advancedS: 1, events: [] });
+    expect(step.diagnostics).toBeNull();
+    expect(step.advancedS).toBe(1);
+  });
+
+  it("an unsupported diagnostics version is reported, not reinterpreted, and does not hide the bodies", () => {
+    const s = parseStateDto({ ...state([sun, earth]), diagnostics: { ...diagnostics, version: 2 } });
+    expect(s.bodies).toHaveLength(2);
+    expect(s.diagnostics).toBeNull();
+    expect(s.diagnosticsIssue).toMatch(/unsupported diagnostics version \(2/);
+    expect(parseStateDto({ ...state([sun]), diagnostics: { ...diagnostics, version: undefined } }).diagnosticsIssue)
+      .toMatch(/unsupported diagnostics version \(undefined/);
+  });
+
+  it("malformed diagnostics (wrong type, non-finite, partial vector) become unavailable with a reason", () => {
+    for (const bad of [
+      { ...diagnostics, kineticEnergyJ: "1" },
+      { ...diagnostics, potentialEnergyJ: NaN },
+      { ...diagnostics, bookedSpinKgM2PerS: { x: 0, y: 0 } },
+      "nope",
+      [],
+    ]) {
+      const s = parseStateDto({ ...state([sun]), diagnostics: bad });
+      expect(s.diagnostics).toBeNull();
+      expect(s.diagnosticsIssue).toBeTruthy();
+      expect(s.bodies).toEqual([sun]);
+    }
   });
 
   it("existing required fields are still required", () => {
