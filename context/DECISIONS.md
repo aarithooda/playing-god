@@ -92,8 +92,8 @@ Entry format: Date · Decision · Context/reason · Alternatives · Consequences
 - Status: accepted 2026-10-24 (Vaibhav, as relayed by the project lead). Implementation: `SimulationService.step/_advance/_heartbeat/_restore` and the 503 handler in `backend/main.py`; tests: `tests/test_step_guard.py` (state, time, events, event ids and ledgers restored; service continues; real stall stopped; HTTP 503), `tests/test_events_endpoint.py`.
 
 ## D-013 — System diagnostics embedded in the state response
-- Date: 2026-10-24 (proposed and implemented on `feature/b1-diagnostics`; pending owner review of the branch)
+- Date: 2026-10-24 (implemented on `feature/b1-diagnostics`; proposed to consumers, see Status)
 - Decision: `SimulationState.diagnostics` carries total mass, total momentum, kinetic energy, potential energy (point-mass, zero at infinity), angular momentum about the fixed origin, and the total booked merger spin, in SI, version 1. Undefined values are JSON `null`, never NaN/Infinity. Pure function `backend/diagnostics.py::compute_diagnostics`, called from `SimulationService._snapshot`; no caching.
 - Reason: embedding makes diagnostics atomic with `bodies` (one lock hold, one particle read) without a revision counter; the frontend parser ignores unknown keys. A separate endpoint was rejected because two requests cannot be made consistent. Measured 3.7 ms at N=200.
 - Consequences: six exact-shape test assertions changed. K+U is not conserved across mergers and orbital L is only conserved together with booked spin; clients re-baseline on events, edits and reset. Deferred: centre of mass, per-body fields, energy-loss ledger, orbital elements, conservation epoch.
-- Status: implemented; awaiting review.
+- Status: **proposed** (not accepted). Implemented and tested on `feature/b1-diagnostics`. Per `TEAM_WORKFLOW.md` it becomes `accepted` only after (1) an independent reviewer from another area approves the backend PR and (2) the frontend owner (Nikhil) agrees to consume `diagnostics` as specified in `API_CONTRACT.md`. The frontend data path (`frontend/b1-diagnostics`: types, strict parser, view model; no UI) is ready to stack on it.
