@@ -1,5 +1,13 @@
 # Worklog (chronological; append new entries at the bottom)
 
+## 2026-10-24 — Frontend local dependency recovery
+- Owner/AI: Codex
+- Goal: resolve Vite's failure to import `@react-three/fiber` and get the frontend running.
+- Finding: Fiber/Drei were already declared in package.json and package-lock.json, but the local install was incomplete. First `npm ci` failed because two Vite processes held `esbuild.exe`; after stopping those checkout-local Vite processes, `npm ci` installed 243 packages.
+- Verification: `npm ls @react-three/fiber @react-three/drei --depth=0` shows both packages; `npm run build` succeeded (640 modules; pre-existing chunk-size warning); `http://localhost:5173/` returned HTTP 200.
+- Risk: npm reported 6 audit vulnerabilities (3 moderate, 1 high, 2 critical); no `npm audit fix` run. No application source, dependency manifest, or lockfile changed.
+- Commit: context-only record pending sync.
+
 ## 2026-10-23 — Repository initialization
 - Owner/AI: project lead / Claude Sonnet 5.5 (Claude Code)
 - Goal: minimal runnable skeleton + shared context system + Git/GitHub.

@@ -1,6 +1,10 @@
 # Status
 _Concise authoritative snapshot. Update after every meaningful session._
 
+## Frontend local dependency recovery (2026-10-24)
+- Fixed local Vite import-analysis failure for `@react-three/fiber`: `frontend/package.json` and lockfile already declared Fiber/Drei; the local `node_modules` install was incomplete and Vite held `esbuild.exe` open. Stopped the two Vite processes for this checkout, ran `npm ci` successfully (243 packages), then `npm run build` passed (640 modules; existing >500 kB chunk warning).
+- Frontend is running at `http://localhost:5173/` and returns HTTP 200. This is a local environment repair; no application source or dependency manifest changed. `npm ci` reported 6 audit vulnerabilities (3 moderate, 1 high, 2 critical); not auto-fixed.
+
 ## Engineering baseline CLOSED (2026-10-24) — newest, authoritative
 - **Baseline code:** `main` at `b9f1a01` (docs-only commits may follow). **D-011 and D-012 accepted**, and Vaibhav accepted the two restated `tests/validation/` tolerances (accepted by the physics reviewer; the numerical evidence is the test runs below, not a new analytical derivation). Fresh local re-run on `b9f1a01`: pytest 204 passed (1 warning), `tsc` clean, vitest 55/55, build OK; CI green for `b9f1a01`.
 - Evidence categories: analytical/physics review = `context/INDEPENDENT_PHYSICS_REVIEW.md`, `PRODUCTION_PHYSICS_INDEPENDENT_VALIDATION.md`; automated numerical/API tests = pytest; manual browser check = one, not repeatable; **not existing:** automated browser E2E, large-N performance tests, tree collision modes, high-resolution three-body reference.

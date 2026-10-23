@@ -1,5 +1,10 @@
 # Handoff (latest — rewrite at end of each session)
 
+## Frontend local dependency recovery (2026-10-24, Codex) — latest
+1. The import-analysis error for `@react-three/fiber` came from incomplete local `frontend/node_modules`; both Fiber and Drei were already in `package.json` and `package-lock.json`.
+2. Stopped the two Vite processes from this checkout because they held `esbuild.exe`, ran `npm ci` (243 packages), and confirmed `npm run build` succeeds. The frontend is running at `http://localhost:5173/` (HTTP 200).
+3. No app source or manifest changed. npm reported 6 audit vulnerabilities (3 moderate, 1 high, 2 critical); no audit fix was applied. See `STATUS.md` and `WORKLOG.md`.
+
 ## Local baseline cleanup (2026-10-24, Codex) — latest
 1. Fetched `origin/main` at `8f3c37b` and aligned the local `main` checkout to it. Working tree is clean; the previous local-only `frontend/package.json` esbuild allowScripts edit was removed per the user's baseline-only request.
 2. Removed local worktrees and branches for `codex/3drender`, `feature/m0-rebound-physics-api`, `m0-collision-validation`, `validation/physics-first-principles`, and `validation/production-physics-review`. Their committed changes are ancestors of `main`.
