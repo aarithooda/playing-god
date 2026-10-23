@@ -7,3 +7,8 @@
 - Tests: `pytest` -> 1 passed (1 deprecation warning); `npm run build` OK; manual probe: backend `/health` ok, Vite page title PLAYING GOD, `/api/health` proxy ok.
 - Commit: baseline on `main` (hash via `git log`).
 - Remaining: GitHub push (see HANDOFF.md).
+
+## 2026-10-23 — GitHub setup
+- Owner/AI: project lead / Claude Sonnet 5.5
+- Installed gh 2.103.0 via winget; user ran `gh auth login`; created private repo aarithooda/playing-god and pushed `main` (tracking set).
+- Docs-only follow-up commit updates STATUS/HANDOFF/TASKS.
