@@ -1,6 +1,11 @@
 # Status
 _Concise authoritative snapshot. Update after every meaningful session._
 
+## Consistent on-screen focus size (2026-10-24)
+- Focusing targets a body silhouette at 25% of canvas height. The perspective projection determines distance from displayed radius and vertical FOV, so the apparent size is consistent across bodies.
+- Smooth focus behavior is retained. `npm run build` passed with the existing >500 kB bundle warning; no test suite or browser E2E was run.
+- Source commit `2ad5167` is pushed to `origin/bugfix/body-inspector-close`; not merged.
+
 ## Slightly increase focus zoom (2026-10-24)
 - Fixed focus distance is now 66 scene units (previously 70), about 6% closer for the default framing; repeated focus taps still return to a fixed distance.
 - Frontend: 59 Vitest tests passed; `npm run build` passed with the existing >500 kB bundle warning. Browser E2E not run.

@@ -205,3 +205,10 @@
 - Changed: reduced the fixed focus distance from 70 to 66 scene units (about 6% closer at the default framing); focus remains fixed so repeated taps do not zoom in progressively.
 - Verification: frontend Vitest 59/59 passed; `npm run build` passed with the existing large-chunk warning. Browser E2E not run.
 - Branch: `bugfix/body-inspector-close`; source commit `efbc2ee` pushed to origin. Not merged.
+
+## 2026-10-24 — Frame focused body to a consistent screen size
+- Owner/AI: Codex
+- Goal: make focus produce a specific apparent body size instead of moving each body to one fixed scene distance.
+- Changed: focus now smoothly frames the displayed sphere to 25% of the canvas height. Distance is derived from displayed radius and perspective-camera vertical field of view, so object size is consistent across bodies and repeated focus remains deterministic.
+- Verification: `npm run build` passed with the existing large-chunk warning. No test suite or browser E2E was run.
+- Branch: `bugfix/body-inspector-close`; source commit `2ad5167` pushed to origin. Not merged.

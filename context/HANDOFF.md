@@ -1,5 +1,10 @@
 # Handoff (latest — rewrite at end of each session)
 
+## Consistent on-screen focus size (2026-10-24, Codex) — latest
+1. Focus now targets a sphere silhouette occupying 25% of the canvas height. Camera distance is computed from the body's displayed radius and the perspective camera's vertical field of view, so small and large bodies reach the same apparent size.
+2. Focus still animates smoothly and returns to the same framing on every focus request. `npm run build` passed with the existing >500 kB bundle warning; no browser E2E or test suite was run.
+3. Source commit `2ad5167` is pushed to `origin/bugfix/body-inspector-close`; this branch remains unmerged.
+
 ## Slightly increase focus zoom (2026-10-24, Codex) — latest
 1. Fixed focus distance changed from 70 to 66 scene units, making focused bodies about 6% larger at the default framing while keeping focus repeatable.
 2. Frontend Vitest passed (59/59); `npm run build` passed with the existing >500 kB chunk warning. Browser E2E was not run.
