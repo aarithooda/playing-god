@@ -4,7 +4,7 @@ _Concise authoritative snapshot. Update after every meaningful session._
 ## Seamless starfield and visible zoom limit (2026-10-24)
 - Replaced separately rendered, variable-density annular layers with one camera-centered celestial sphere, rendered behind bodies. The field stays continuous as the camera moves, with no shell transitions.
 - Maximum zoom-out now keeps the displayed-body bounding sphere at 6% of canvas height; empty scenes retain a finite 2000-scene-unit cap.
-- `npm run build` passed (640 modules; existing >500 kB warning). No tests or browser E2E were run. Branch: `bugfix/body-inspector-close`; not merged.
+- `npm run build` passed (640 modules; existing >500 kB warning). No tests or browser E2E were run. Source commit `af7a810` is pushed to `origin/bugfix/body-inspector-close`; not merged.
 ## Bound zoom-out and repeating starfield shells (2026-10-24)
 - Zoom-out is capped when the full body-set bounding sphere projects to a 1 px diameter around the orbit target; camera far range expands dynamically to keep the bodies rendered through the cap. An empty scene uses a finite 2000-scene-unit cap.
 - The star background adds larger contiguous spherical shells as needed when the camera approaches the outer edge, so the annular field continues while zooming out.

@@ -232,4 +232,4 @@
 - Goal: remove visible boundaries between repeated star annuli and keep bodies distinguishable at maximum zoom-out.
 - Changed: replaced layered Drei `Stars` shells with one camera-centered spherical starfield rendered behind body meshes, avoiding shell transitions as the view moves. Changed the zoom cap from a 1 px cloud diameter to 6% of the viewport height. The camera far plane continues to expand to include the body set at that cap.
 - Verification: `npm run build` passed (640 modules); existing >500 kB bundle warning remains. No tests or browser E2E were run.
-- Branch: `bugfix/body-inspector-close`; changes are local and need commit/push. Not merged.
+- Branch: `bugfix/body-inspector-close`; source commit `af7a810` is pushed to origin. Not merged.
