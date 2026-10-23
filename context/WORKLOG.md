@@ -143,3 +143,10 @@
 - Changed: installed the declared backend requirements (including REBOUND 5.2.2) and started Uvicorn at `127.0.0.1:8000`.
 - Verification: backend `/healthz` and `/api/v1/simulation/state`, plus both same routes through the Vite proxy at `http://localhost:5173`, returned HTTP 200. Initial state is paused at 0 s with no bodies.
 - No application source, manifest, or lockfile changed; backend server remains running in this app session.
+
+## 2026-10-24 — Add close control to body inspector
+- Owner/AI: Codex
+- Goal: let users dismiss the selected-body menu with a small visible control.
+- Changed: `BodyInspector` now renders a compact accessible × button; `App` clears `selectedBodyId` on close, hiding the panel. Selecting a body continues to open it.
+- Verification: `npm run build` passed (640 modules transformed). Existing main bundle >500 kB warning remains. Test suite not run.
+- Branch: `frontend/close-body-inspector`; not merged.

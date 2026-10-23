@@ -2,7 +2,7 @@
 Status: todo / in progress / blocked / done. Keep tasks small and independently testable.
 
 ## NEXT ACTION
-Stabilized baseline (2026-10-24): see the top of `STATUS.md`. D-011/D-012 accepted; milestone closed. Local frontend dependency and backend connection recovery are complete (details in `STATUS.md`); no application dependency manifest change was needed. Non-blocking backlog: browser E2E (T-010), larger-N performance, tree modes, three-body reference, bundle code-splitting, Node 20 Actions notice. Next: product milestone. Older text below is history.
+Stabilized baseline (2026-10-24): see the top of `STATUS.md`. D-011/D-012 accepted; milestone closed. Selected-body inspector close control is implemented on `frontend/close-body-inspector` (not merged); local frontend dependency and backend connection recovery are complete. No dependency manifest change was needed. Non-blocking backlog: browser E2E (T-010), larger-N performance, tree modes, three-body reference, bundle code-splitting, Node 20 Actions notice. Next: product milestone. Older text below is history.
 
 Review/merge `feature/production-rebound-simulation` (production engine done: P-001, P-002 and T-007 implemented; P-004 explained). Then compare `origin/validation/physics-first-principles`; frontend integrates against `API_CONTRACT.md`. Older text follows: start **P-001** (production collision/merger layer, spec in `PHYSICS_SPIKE.md`). Vaibhav: independent re-check of the energy/angular-momentum accounting and the P-003 stress tests.
 

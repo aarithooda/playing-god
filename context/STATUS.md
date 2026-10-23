@@ -1,6 +1,10 @@
 # Status
 _Concise authoritative snapshot. Update after every meaningful session._
 
+## Selected-body inspector close control (2026-10-24)
+- Added an accessible 24×24 px close button beside the inspector title. It clears the selected body from App state, hiding the inspector; selecting a body opens it again.
+- `npm run build` passed (640 modules; the existing >500 kB bundle-size warning remains). Changes are on `frontend/close-body-inspector`, not merged.
+
 ## Backend connection restored (2026-10-24)
 - The frontend had stayed at “connecting to the simulation backend” because the backend process was unresponsive. A clean restart revealed `ModuleNotFoundError: No module named 'rebound'` in this checkout's `.venv`.
 - Installed declared backend dependencies from `backend/requirements.txt` (REBOUND 5.2.2) and started Uvicorn at `127.0.0.1:8000`. Backend `/healthz`, backend `/api/v1/simulation/state`, and both routes through Vite at `http://localhost:5173` returned HTTP 200. State begins paused at 0 s with no bodies.
