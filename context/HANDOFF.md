@@ -3,7 +3,7 @@
 ## Revert universe background zoom changes (2026-10-24, Codex) — latest
 1. Restored `UniverseCanvas` to its state at `3e03479`: the original Drei starfield (`radius=300`, `depth=60`, `count=20000`) and no custom maximum zoom-out/body-cloud cap or dynamic far-plane logic.
 2. All other fixes present by `3e03479` remain: inspector dismissal, focus framing/animation, body placement and earlier UI behavior.
-3. `npm run build` passed (640 modules; existing >500 kB chunk warning). No test suite or browser E2E was run. The rollback is pushed at the user's explicit request.
+3. `npm run build` passed (640 modules; existing >500 kB chunk warning). No test suite or browser E2E was run. Reversion commit `41dda60` is pushed to `origin/bugfix/body-inspector-close` at the user's request.
 ## Dismiss body inspector on outside click (2026-10-24, Codex) — latest
 1. The body inspector now closes on pointer-down anywhere outside its panel, while clicks inside the panel and its close button keep their existing behavior.
 2. `npm run build` passed with the existing >500 kB bundle warning. Frontend tests and browser E2E were not run.

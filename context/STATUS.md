@@ -3,7 +3,7 @@ _Concise authoritative snapshot. Update after every meaningful session._
 
 ## Universe background zoom changes reverted (2026-10-24)
 - Restored the pre-background-zoom implementation from `3e03479`: the original 20,000-star Drei background sphere at radius 300/depth 60, with no custom zoom cap or dynamic far-plane changes.
-- Other UI fixes through `3e03479` are retained. The rollback is pushed at the user's explicit request.
+- Other UI fixes through `3e03479` are retained. Reversion commit `41dda60` is pushed to `origin/bugfix/body-inspector-close` at the user's request.
 ## Dismiss body inspector on outside click (2026-10-24)
 - The inspector closes when the user presses anywhere outside its panel; clicks within it and the explicit close button remain supported.
 - `npm run build` passed with the existing >500 kB bundle warning. Frontend tests and browser E2E were not run.
