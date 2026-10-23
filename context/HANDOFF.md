@@ -1,21 +1,13 @@
 # Handoff (latest — rewrite at end of each session)
 
-## Restore starfield zoom parallax without annular seams (2026-10-24, Codex) — latest
-1. The starfield is again world-origin-centered and distributed through one continuous radial volume (300–10,000 scene units), restoring parallax/zoom as the camera moves through it. It renders as a background behind opaque body meshes; camera far range includes the full star volume.
-2. The maximum zoom-out still keeps the displayed-body bounding sphere at 6% of canvas height; empty scenes retain a finite 2000-scene-unit limit.
-3. `npm run build` passed (640 modules); existing >500 kB chunk warning remains. No test suite or browser E2E was run. Source commit `bae5301` is pushed to `origin/bugfix/body-inspector-close`; not merged.
-## Seamless starfield and visible zoom limit (2026-10-24, Codex) — latest
-1. Replaced sparse, differently-dense star annuli with a single camera-centered celestial sphere; it stays around the viewer through zoom movement without shell boundaries and renders behind bodies.
-2. Zoom-out now stops with the displayed-body bounding sphere at 6% of canvas height, so the system remains visible and identifiable. Empty scenes keep a finite 2000-scene-unit limit.
-3. `npm run build` passed (640 modules); existing >500 kB bundle warning remains. No test suite or browser E2E was run. Source commit `af7a810` is pushed to `origin/bugfix/body-inspector-close`; not merged.
-## Bound zoom-out and repeating starfield shells (2026-10-24, Codex) — latest
-1. Zoom-out now stops when the complete displayed body set projects to at most one pixel across, and the camera far plane expands to keep those bodies visible until then. Empty scenes retain a finite 2000-scene-unit limit.
-2. The starfield adds progressively larger contiguous spherical shells as the camera approaches the current outer shell, keeping annuli around the scene during zoom-out.
-3. `npm run build` passed (640 modules); existing >500 kB chunk warning remains. No test suite or browser E2E was run. Source commit `66e8fc3` is pushed to `origin/bugfix/body-inspector-close`; not merged.
+## Revert universe background zoom changes (2026-10-24, Codex) — latest
+1. Restored `UniverseCanvas` to its state at `3e03479`: the original Drei starfield (`radius=300`, `depth=60`, `count=20000`) and no custom maximum zoom-out/body-cloud cap or dynamic far-plane logic.
+2. All other fixes present by `3e03479` remain: inspector dismissal, focus framing/animation, body placement and earlier UI behavior.
+3. `npm run build` passed (640 modules; existing >500 kB chunk warning). No test suite or browser E2E was run. The rollback is pushed at the user's explicit request.
 ## Dismiss body inspector on outside click (2026-10-24, Codex) — latest
 1. The body inspector now closes on pointer-down anywhere outside its panel, while clicks inside the panel and its close button keep their existing behavior.
 2. `npm run build` passed with the existing >500 kB bundle warning. Frontend tests and browser E2E were not run.
-3. Source commit `3e03479` is pushed to `origin/bugfix/body-inspector-close`; not merged.
+3. Changes are on `bugfix/body-inspector-close`; to be committed and pushed.
 
 ## Consistent on-screen focus size (2026-10-24, Codex) — latest
 1. Focus now targets a sphere silhouette occupying 25% of the canvas height. Camera distance is computed from the body's displayed radius and the perspective camera's vertical field of view, so small and large bodies reach the same apparent size.

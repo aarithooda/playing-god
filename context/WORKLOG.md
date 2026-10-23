@@ -240,3 +240,17 @@
 - Changed: anchored a single Drei `Stars` point volume at the universe origin, spanning 300–10,000 scene units. The stars now show perspective parallax as the camera moves through the volume; `renderOrder=-1` and disabled depth testing keep the field behind opaque bodies. Camera far range includes the star volume. The 6% body-cloud zoom limit remains.
 - Verification: `npm run build` passed (640 modules); existing >500 kB bundle warning remains. No tests or browser E2E were run.
 - Branch: `bugfix/body-inspector-close`; source commit `bae5301` is pushed to origin. Not merged.
+
+## 2026-10-24 — Restore dense background universe and meaningful zoom limit
+- Owner/AI: Codex
+- Goal: restore a full, continuous star background while retaining enough zoom-out for a small but visible body system.
+- Changed: replaced the sparse origin-centered 300–10,000 scene-unit point volume with 80,000 stars on a spherical field centered at the OrbitControls target. The sphere scales continuously to remain around the camera, preserving close-range parallax while procedurally continuing with no outer edge or shell seam. Set the maximum displayed body-cloud height to 10% of the viewport and expanded the far plane to include the dynamic sphere.
+- Verification: `npm run build` passed (640 modules); existing >500 kB bundle warning remains. No tests or browser E2E were run.
+- Branch: `bugfix/body-inspector-close`, based on `c99d5ca`. Local only; not committed or pushed by instruction.
+
+## 2026-10-24 — Revert universe background zoom changes
+- Owner/AI: Codex
+- Goal: remove only the universe starfield/zoom-limit experiments while retaining unrelated UI fixes.
+- Changed: restored `frontend/src/components/canvas/UniverseCanvas.tsx` from `3e03479`, which retains the existing focus, placement, and inspector behavior but uses the original static Drei starfield and has no added zoom cap or dynamic far-plane logic. Updated current-state docs; older zoom experiments remain in this append-only log as history.
+- Verification: `npm run build` passed (640 modules; existing >500 kB chunk warning). No test suite or browser E2E was run.
+- Branch: `bugfix/body-inspector-close`; rollback was pushed at the user's explicit request.

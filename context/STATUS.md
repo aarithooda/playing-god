@@ -1,22 +1,13 @@
 # Status
 _Concise authoritative snapshot. Update after every meaningful session._
 
-## Restore starfield zoom parallax without annular seams (2026-10-24)
-- Replaced the camera-centered star sphere with a single world-origin-centered radial star volume from 300 to 10,000 scene units. Stars now move with perspective as the camera zooms through the scene; there are no separate shells or transitions. The point cloud renders behind bodies, and the camera far plane includes the volume.
-- Maximum zoom-out still keeps the displayed-body bounding sphere at 6% of canvas height; empty scenes retain a finite 2000-scene-unit cap.
-- `npm run build` passed (640 modules; existing >500 kB warning). No tests or browser E2E were run. Source commit `bae5301` is pushed to `origin/bugfix/body-inspector-close`; not merged.
-## Seamless starfield and visible zoom limit (2026-10-24)
-- Replaced separately rendered, variable-density annular layers with one camera-centered celestial sphere, rendered behind bodies. The field stays continuous as the camera moves, with no shell transitions.
-- Maximum zoom-out now keeps the displayed-body bounding sphere at 6% of canvas height; empty scenes retain a finite 2000-scene-unit cap.
-- `npm run build` passed (640 modules; existing >500 kB warning). No tests or browser E2E were run. Source commit `af7a810` is pushed to `origin/bugfix/body-inspector-close`; not merged.
-## Bound zoom-out and repeating starfield shells (2026-10-24)
-- Zoom-out is capped when the full body-set bounding sphere projects to a 1 px diameter around the orbit target; camera far range expands dynamically to keep the bodies rendered through the cap. An empty scene uses a finite 2000-scene-unit cap.
-- The star background adds larger contiguous spherical shells as needed when the camera approaches the outer edge, so the annular field continues while zooming out.
-- `npm run build` passed (640 modules; existing >500 kB warning). No tests or browser E2E were run. Source commit `66e8fc3` is pushed to `origin/bugfix/body-inspector-close`; not merged.
+## Universe background zoom changes reverted (2026-10-24)
+- Restored the pre-background-zoom implementation from `3e03479`: the original 20,000-star Drei background sphere at radius 300/depth 60, with no custom zoom cap or dynamic far-plane changes.
+- Other UI fixes through `3e03479` are retained. The rollback is pushed at the user's explicit request.
 ## Dismiss body inspector on outside click (2026-10-24)
 - The inspector closes when the user presses anywhere outside its panel; clicks within it and the explicit close button remain supported.
 - `npm run build` passed with the existing >500 kB bundle warning. Frontend tests and browser E2E were not run.
-- Source commit `3e03479` is pushed to `origin/bugfix/body-inspector-close`; not merged.
+- Changes are on `bugfix/body-inspector-close`; to be committed and pushed.
 
 ## Consistent on-screen focus size (2026-10-24)
 - Focusing targets a body silhouette at 25% of canvas height. The perspective projection determines distance from displayed radius and vertical FOV, so the apparent size is consistent across bodies.

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Stars } from '@react-three/drei';
-import { PerspectiveCamera, Plane, Points, Raycaster, Vector2, Vector3 } from 'three';
+import { PerspectiveCamera, Plane, Raycaster, Vector2, Vector3 } from 'three';
 import { CelestialBody } from './CelestialBody';
 import { DEFAULT_CAMERA_POSITION, type ScenePosition } from '../../sim/renderTransform';
 import type { SceneBody } from '../../sim/viewModel';
@@ -13,11 +13,6 @@ export interface FocusRequest {
 }
 
 const FOCUS_SCREEN_HEIGHT_FRACTION = 0.25;
-const BODY_CLOUD_SCREEN_HEIGHT_FRACTION = 0.06;
-const STAR_FIELD_INNER_RADIUS = 300;
-const STAR_FIELD_OUTER_RADIUS = 10000;
-const STAR_FIELD_FAR_MARGIN = 100;
-const POINT_ZOOM_DISTANCE = 2000;
 
 function focusDistanceForScreenHeight(radius: number, camera: PerspectiveCamera): number {
   // A sphere's projected silhouette is r / (sqrt(d² - r²) * tan(fov / 2))
@@ -45,42 +40,11 @@ interface UniverseCanvasProps {
 
 interface OrbitTarget {
   target: { x: number; y: number; z: number; set: (x: number, y: number, z: number) => void };
-  maxDistance: number;
   update: () => void;
 }
 
-/** One origin-centered depth volume gives continuous stars with natural camera parallax. */
-const ContinuousStarfield: React.FC = () => {
-  const stars = useRef<Points>(null);
-
-  useEffect(() => {
-    if (!stars.current) return;
-    // Draw the sky first so it remains a background even when bodies are farther
-    // from the camera than this finite celestial sphere.
-    stars.current.renderOrder = -1;
-    const materials = Array.isArray(stars.current.material) ? stars.current.material : [stars.current.material];
-    materials.forEach((material) => {
-      material.depthTest = false;
-      material.depthWrite = false;
-    });
-  }, []);
-
-  return (
-    <Stars
-      ref={stars}
-      radius={STAR_FIELD_INNER_RADIUS}
-      depth={STAR_FIELD_OUTER_RADIUS - STAR_FIELD_INNER_RADIUS}
-      count={20000}
-      factor={7}
-      saturation={0}
-      fade
-      speed={1}
-    />
-  );
-};
-
 /** Camera framing/focus lives inside the Canvas so it can reach the camera and OrbitControls. */
-const CameraRig: React.FC<{ frameEpoch: number; focus?: FocusRequest; bodies: SceneBody[] }> = ({ frameEpoch, focus, bodies }) => {
+const CameraRig: React.FC<{ frameEpoch: number; focus?: FocusRequest }> = ({ frameEpoch, focus }) => {
   const camera = useThree((s) => s.camera);
   const controls = useThree((s) => s.controls) as unknown as OrbitTarget | null;
   const animation = useRef<{
@@ -130,36 +94,8 @@ const CameraRig: React.FC<{ frameEpoch: number; focus?: FocusRequest; bodies: Sc
   }, [focus?.nonce, controls]);
 
   useFrame((_, delta) => {
-    if (!controls) return;
-
-    // Keep the whole body cloud identifiable: its bounding sphere remains 6% of
-    // the viewport height at the furthest allowed zoom-out.
-    const target = controls.target;
-    const extent = bodies.reduce((maxExtent, body) => {
-      const [x, y, z] = body.position;
-      const distance = Math.hypot(x - target.x, y - target.y, z - target.z);
-      return Math.max(maxExtent, distance + body.radius);
-    }, 0);
-    const perspectiveCamera = camera as PerspectiveCamera;
-    const scaledFraction = BODY_CLOUD_SCREEN_HEIGHT_FRACTION
-      * Math.tan((perspectiveCamera.fov * Math.PI) / 360);
-    const pointDistance = extent > 0
-      ? extent * Math.sqrt(1 + 1 / (scaledFraction * scaledFraction))
-      : POINT_ZOOM_DISTANCE;
-    controls.maxDistance = pointDistance;
-
-    // Keep distant bodies inside the camera's far plane until they reach the point-size limit.
-    const requiredFar = Math.max(
-      STAR_FIELD_OUTER_RADIUS + STAR_FIELD_FAR_MARGIN,
-      pointDistance + extent * 2,
-    );
-    if (Math.abs(perspectiveCamera.far - requiredFar) > requiredFar * 1e-6) {
-      perspectiveCamera.far = requiredFar;
-      perspectiveCamera.updateProjectionMatrix();
-    }
-
     const motion = animation.current;
-    if (!motion) return;
+    if (!motion || !controls) return;
     motion.elapsed = Math.min(motion.elapsed + delta, 0.65);
     const t = motion.elapsed / 0.65;
     const eased = t * t * (3 - 2 * t);
@@ -290,7 +226,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
         style={{ width: '100vw', height: '100vh', background: 'black', cursor: placementMode ? 'crosshair' : 'auto' }}
       >
         <color attach="background" args={['#050505']} />
-        <ContinuousStarfield />
+        <Stars radius={300} depth={60} count={20000} factor={7} saturation={0} fade speed={1} />
 
         <ambientLight intensity={0.3} />
         <pointLight position={[10, 10, 10]} intensity={1} />
@@ -311,7 +247,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
 
         <PlacementCursor active={placementMode} radius={placementRadius} onConfirm={onPlacementConfirm} onCancel={onPlacementCancel} />
         <OrbitControls makeDefault enabled={!placementMode} />
-        <CameraRig frameEpoch={frameEpoch} focus={focus} bodies={bodies} />
+        <CameraRig frameEpoch={frameEpoch} focus={focus} />
       </Canvas>
       {placementMode && (
         <div role="status" style={{
