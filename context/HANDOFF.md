@@ -41,7 +41,7 @@
 **Date:** 2026-10-23 · **By:** Claude Sonnet 5.5 for the project lead
 
 1. **Project:** PLAYING GOD — browser 3D gravitational sandbox (React/TS/Vite/Three.js frontend, FastAPI backend, backend owns physics state). See `PROJECT_BRIEF.md`.
-2. **Current state:** skeleton + API contract v1 (in-memory, no physics) + an M0 REBOUND spike (experiment code, not application code). Public repo https://github.com/aarithooda/playing-god. See `STATUS.md`.
+2. **Current state:** production REBOUND/IAS15 backend with merger layer, events, step budget (D-011/D-012) and system diagnostics (D-013), plus the React/Three.js frontend; see `STATUS.md`. Public repo https://github.com/aarithooda/playing-god. See `STATUS.md`.
 3. **Last completed milestone:** M0 (physics engine feasibility): decision accepted, **GO WITH CUSTOM COLLISION LAYER** (D-008); SI units (D-007), right-handed Cartesian (D-010), GPL-3.0-only (D-009). API milestone (contract v1 + minimal endpoints) integrated. All on branch `feature/m0-rebound-physics-api`.
 4. **In progress:** nothing. The topic branch was rebased on the latest `origin/main` and pushed (normal push); `main` is untouched. Awaiting review/merge.
 5. **Do first:** review/merge the branch into `main` via PR; compare `origin/validation/physics-first-principles` (independent review) with `PHYSICS_SPIKE.md`; then start P-001 (production collision layer) following the layer spec; keep P-002..P-004 in view.
