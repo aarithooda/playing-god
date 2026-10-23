@@ -20,6 +20,20 @@
 - Tests: `pytest` rerun after doc changes (result in STATUS). No code changed; no M0 experiments run.
 - Commit: not yet committed (awaiting review).
 
+## 2026-10-23 — M0 REBOUND spike, first evidence pass
+- Owner/AI: project lead / Claude Sonnet 5.5
+- Goal: smallest experiments on REBOUND: orbits, collision detection/tunnelling, merger, checkpoint, performance, license.
+- Added: `backend/experiments/{__init__,rebound_spike,requirements}`, `tests/spike/*`; updated PHYSICS_SPIKE (results), TASKS, STATUS, DECISIONS (D-006), ARCHITECTURE, HANDOFF.
+- Tests: `pytest` -> 15 passed (2 warnings, incl. REBOUND's warning about resetting function pointers after load). Experiment table: `python -m backend.experiments.rebound_spike`.
+- Notes: first E4 version had a misleading "passed_through" metric and too-short IAS15 window; both replaced. Early IAS15 'line' misses at v=20/50 were verified as true misses by independent closest-approach sampling.
+- Commit: none (awaiting review). Remaining: independent review, units/tolerance agreement, untested cases, license decision.
+
+## 2026-10-23 — API contract v1 + minimal API
+- Owner/AI: project lead / Claude Sonnet 5.5
+- Added: `context/API_CONTRACT.md`, `backend/models.py`, `backend/store.py`, `tests/test_api.py`; `backend/main.py` now serves `/healthz`, `GET /api/v1/simulation/state`, `POST /api/v1/bodies` (kept `/health`). In-memory store; tests isolate via `app.dependency_overrides[get_store]` (no public reset endpoint).
+- Tests: `pytest tests/test_api.py tests/test_health.py` -> 30 passed. Full `pytest` -> 33 passed, 11 FAILED in `tests/spike/` (pre-existing: uncommitted `rebound_spike.py` no longer has `orbit(dt=)`, `merger`, `tunnelling`, etc.; logic moved to untracked `collision_spike.py`; not touched here).
+- Not committed. Other endpoints in the contract are planned only.
+
 ## 2026-10-23 — GitHub CLI setup
 - Owner/AI: Codex.
 - Goal: install GitHub CLI for repository operations.
