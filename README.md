@@ -32,6 +32,12 @@ cd frontend && npm run dev
 pytest                          # from repo root, venv active
 cd frontend && npm run build    # type-check + production build
 ```
+The M0 physics spike tests (`tests/spike/`) need REBOUND and skip themselves without it: `pip install -r backend/experiments/requirements.txt`. Results and decision: `context/PHYSICS_SPIKE.md`.
+
+## License
+PLAYING GOD is licensed under the **GNU General Public License v3.0 only** (`GPL-3.0-only`); see [LICENSE](LICENSE). This is the team's project decision (D-009 in `context/DECISIONS.md`), made because the physics engine dependency is GPL-licensed; it is not legal advice.
+
+The physics engine candidate is **[REBOUND](https://github.com/hannorein/rebound)** (GPL-3.0-only, Hanno Rein et al.), currently used only by the M0 spike under `backend/experiments/` (`pip install -r backend/experiments/requirements.txt`). Third-party licenses and notices: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Context workflow (humans and AI models)
 Shared project memory lives in `context/`. Before any AI-assisted session read, in order: `HANDOFF.md`, `STATUS.md`, `TASKS.md`, then relevant parts of `PROJECT_BRIEF.md`, `ARCHITECTURE.md`, `DECISIONS.md`. At the end of a session update STATUS, TASKS, WORKLOG, HANDOFF (and DECISIONS if needed). Full protocol: `context/AI_WORKFLOW.md`. Team rules: `context/TEAM_WORKFLOW.md`. Current milestone (M0, physics-engine feasibility spike): `context/PHYSICS_SPIKE.md`.
