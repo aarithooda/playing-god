@@ -3,11 +3,11 @@
 **Date:** 2026-10-23 · **By:** Claude Sonnet 5.5 for the project lead
 
 1. **Project:** PLAYING GOD — browser 3D gravitational sandbox (React/TS/Vite/Three.js frontend, FastAPI backend, backend owns physics state). See `PROJECT_BRIEF.md`.
-2. **Current state:** Minimal runnable skeleton only (placeholder page, `GET /health`, one passing test). No simulation. See `STATUS.md`.
-3. **Last completed milestone:** T-000 repository initialization, baseline committed and pushed on `main`.
-4. **In progress:** nothing. Baseline pushed to private repo https://github.com/aarithooda/playing-god (`main` tracks `origin/main`).
-5. **Do first:** T-001, the physics-engine feasibility spike. Collaborators need access to the repo (invite them on GitHub).
-6. **Relevant files:** `context/*`, `backend/main.py`, `frontend/vite.config.ts`, `frontend/src/App.tsx`, `tests/test_health.py`.
+2. **Current state:** Minimal runnable skeleton (placeholder page, `GET /health`, one passing test). No simulation. Public repo: https://github.com/aarithooda/playing-god. See `STATUS.md`.
+3. **Last completed milestone:** T-000 initialization (pushed). Then this session wrote `TEAM_WORKFLOW.md`, `PHYSICS_SPIKE.md` and the M0 task plan (docs only).
+4. **In progress:** nothing coded. The doc changes from this session are uncommitted until the project lead reviews them.
+5. **Do first:** (a) T-005 — add teammates as collaborators and confirm `TEAM_WORKFLOW.md`. (b) M0.1 — project lead and Vaibhav agree units/conventions/tolerances. (c) Then M0.2 and M0.3 in parallel on separate branches.
+6. **Relevant files:** `context/TASKS.md` (M0), `context/PHYSICS_SPIKE.md`, `context/TEAM_WORKFLOW.md`, `context/DECISIONS.md`.
 7. **Commands:** `pytest` (root, venv active); `cd frontend && npm run build`; run services per `README.md`.
-8. **Do not change without investigation:** the backend-owns-state rule (D-001); do not add REBOUND or any engine until the T-001 spike is concluded (D-003 is only proposed).
-9. **Uncommitted changes / failures:** none after the baseline commit; no known failures. Minor: esbuild postinstall warning from npm; Starlette/httpx deprecation warning in pytest.
+8. **Do not change without investigation:** backend-owns-state rule (D-001). Do not add REBOUND to `requirements.txt` or build simulation features until M0 concludes (D-003 is only proposed).
+9. **Uncommitted changes / failures:** uncommitted documentation edits (see `git status`); no failures known. Minor: esbuild postinstall warning; Starlette/httpx deprecation warning in pytest.
