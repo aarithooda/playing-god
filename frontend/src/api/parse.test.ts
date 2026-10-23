@@ -1,0 +1,118 @@
+import { describe, expect, it } from "vitest";
+import { parseDiagnosticsDto, parseStateDto, parseStepResponse } from "./parse";
+import { ApiError } from "./errors";
+import { diagnostics, earth, mergerEvent, state, stepResponse, sun } from "../test/fixtures";
+
+const allNull = {
+  version: 1,
+  totalMassKg: null,
+  totalMomentumKgMPerS: null,
+  kineticEnergyJ: null,
+  potentialEnergyJ: null,
+  angularMomentumAboutOriginKgM2PerS: null,
+  bookedSpinKgM2PerS: null,
+};
+
+function rejects(fn: () => unknown, fragment: string) {
+  try {
+    fn();
+  } catch (e) {
+    expect(e).toBeInstanceOf(ApiError);
+    expect((e as ApiError).kind).toBe("invalid-response");
+    expect((e as ApiError).message).toContain(fragment);
+    return;
+  }
+  throw new Error(`expected a rejection mentioning "${fragment}"`);
+}
+
+describe("parseDiagnosticsDto", () => {
+  it("accepts a normal diagnostics object unchanged", () => {
+    expect(parseDiagnosticsDto(diagnostics)).toEqual(diagnostics);
+  });
+
+  it("accepts an empty-system object with zeros (zero is a value, not undefined)", () => {
+    const zero = { x: 0, y: 0, z: 0 };
+    const empty = { ...diagnostics, totalMassKg: 0, totalMomentumKgMPerS: zero, kineticEnergyJ: 0, potentialEnergyJ: 0 };
+    expect(parseDiagnosticsDto(empty)).toEqual(empty);
+  });
+
+  it("keeps explicit nulls as null for scalars and for whole vectors", () => {
+    expect(parseDiagnosticsDto(allNull)).toEqual(allNull);
+    const onlyPotentialUndefined = { ...diagnostics, potentialEnergyJ: null };
+    expect(parseDiagnosticsDto(onlyPotentialUndefined).potentialEnergyJ).toBeNull();
+    expect(parseDiagnosticsDto(onlyPotentialUndefined).kineticEnergyJ).toBe(diagnostics.kineticEnergyJ);
+  });
+
+  it("rejects missing or non-object diagnostics", () => {
+    rejects(() => parseDiagnosticsDto(undefined), "diagnostics");
+    rejects(() => parseDiagnosticsDto(null), "diagnostics");
+    rejects(() => parseDiagnosticsDto([]), "diagnostics");
+    rejects(() => parseDiagnosticsDto("x"), "diagnostics");
+  });
+
+  it("rejects an unsupported or missing schema version", () => {
+    rejects(() => parseDiagnosticsDto({ ...diagnostics, version: 2 }), "diagnostics.version");
+    rejects(() => parseDiagnosticsDto({ ...diagnostics, version: "1" }), "diagnostics.version");
+    const { version: _v, ...noVersion } = diagnostics;
+    rejects(() => parseDiagnosticsDto(noVersion), "diagnostics.version");
+  });
+
+  it("rejects a missing key (absent is not the same as an explicit null)", () => {
+    const { potentialEnergyJ: _p, ...noPotential } = diagnostics;
+    rejects(() => parseDiagnosticsDto(noPotential), "diagnostics.potentialEnergyJ");
+    const { bookedSpinKgM2PerS: _s, ...noSpin } = diagnostics;
+    rejects(() => parseDiagnosticsDto(noSpin), "diagnostics.bookedSpinKgM2PerS");
+  });
+
+  it("rejects malformed field types", () => {
+    rejects(() => parseDiagnosticsDto({ ...diagnostics, totalMassKg: "3" }), "diagnostics.totalMassKg");
+    rejects(() => parseDiagnosticsDto({ ...diagnostics, kineticEnergyJ: true }), "diagnostics.kineticEnergyJ");
+    rejects(() => parseDiagnosticsDto({ ...diagnostics, totalMomentumKgMPerS: [1, 2, 3] }), "diagnostics.totalMomentumKgMPerS");
+    rejects(() => parseDiagnosticsDto({ ...diagnostics, bookedSpinKgM2PerS: { x: 0, y: 0 } }), "diagnostics.bookedSpinKgM2PerS.z");
+    rejects(() => parseDiagnosticsDto({ ...diagnostics, bookedSpinKgM2PerS: { x: 0, y: "0", z: 0 } }), "bookedSpinKgM2PerS.y");
+  });
+
+  it("rejects non-finite numbers anywhere, like every other numeric field", () => {
+    for (const bad of [NaN, Infinity, -Infinity]) {
+      rejects(() => parseDiagnosticsDto({ ...diagnostics, potentialEnergyJ: bad }), "diagnostics.potentialEnergyJ");
+      rejects(
+        () => parseDiagnosticsDto({ ...diagnostics, angularMomentumAboutOriginKgM2PerS: { x: 0, y: bad, z: 0 } }),
+        "angularMomentumAboutOriginKgM2PerS.y",
+      );
+    }
+  });
+});
+
+describe("state and step responses with diagnostics", () => {
+  it("parseStateDto returns bodies, status, time and diagnostics", () => {
+    const s = parseStateDto(state([sun, earth], 42));
+    expect(s.bodies).toEqual([sun, earth]);
+    expect(s.simulationTimeS).toBe(42);
+    expect(s.status).toBe("paused");
+    expect(s.diagnostics).toEqual(diagnostics);
+  });
+
+  it("parseStepResponse keeps advancedS and events next to diagnostics", () => {
+    const r = parseStepResponse(stepResponse([sun], 100, [mergerEvent]));
+    expect(r.advancedS).toBe(100);
+    expect(r.events).toEqual([mergerEvent]);
+    expect(r.diagnostics).toEqual(diagnostics);
+  });
+
+  it("a response without diagnostics is a clear invalid-response, not a silent default", () => {
+    const { diagnostics: _d, ...legacy } = state([sun]);
+    rejects(() => parseStateDto(legacy), "diagnostics");
+    rejects(() => parseStepResponse({ ...legacy, advancedS: 1, events: [] }), "diagnostics");
+  });
+
+  it("existing required fields are still required", () => {
+    rejects(() => parseStateDto({ ...state([sun]), simulationTimeS: "0" }), "state.simulationTimeS");
+    rejects(() => parseStateDto({ ...state([sun]), status: "stopped" }), "state.status");
+    rejects(() => parseStateDto({ ...state([sun]), bodies: null }), "state.bodies");
+  });
+
+  it("ignores unknown extra keys (additive backend changes stay compatible)", () => {
+    const s = parseStateDto({ ...state([sun]), futureField: 1, diagnostics: { ...diagnostics, extra: 2 } });
+    expect(s.diagnostics).toEqual(diagnostics);
+  });
+});

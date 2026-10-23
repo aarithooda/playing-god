@@ -1,6 +1,6 @@
 // Test-only fixtures (never imported by production code).
 import type { ApiClient } from "../api/client";
-import type { BodyDto, SimulationEventDto, SimulationStateDto, StepResponseDto } from "../api/types";
+import type { BodyDto, DiagnosticsDto, SimulationEventDto, SimulationStateDto, StepResponseDto } from "../api/types";
 
 export const sun: BodyDto = {
   id: "body-aaaaaaaaaaaa",
@@ -35,8 +35,20 @@ export const mergerEvent: SimulationEventDto = {
   spinAddedKgM2PerS: { x: 0, y: 0, z: 1e40 },
 };
 
+export const zeroVec = { x: 0, y: 0, z: 0 };
+
+export const diagnostics: DiagnosticsDto = {
+  version: 1,
+  totalMassKg: 1.989e30 + 5.972e24,
+  totalMomentumKgMPerS: { x: 0, y: 1.7786e29, z: 0 },
+  kineticEnergyJ: 2.6e33,
+  potentialEnergyJ: -5.3e33,
+  angularMomentumAboutOriginKgM2PerS: { x: 0, y: 0, z: 2.66e40 },
+  bookedSpinKgM2PerS: zeroVec,
+};
+
 export function state(bodies: BodyDto[], t = 0): SimulationStateDto {
-  return { status: "paused", simulationTimeS: t, bodies };
+  return { status: "paused", simulationTimeS: t, bodies, diagnostics };
 }
 
 export function stepResponse(bodies: BodyDto[], t: number, events: SimulationEventDto[] = []): StepResponseDto {

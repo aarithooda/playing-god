@@ -25,10 +25,30 @@ export type BodyUpdateDto = Partial<BodyCreateDto>;
 
 export type SimulationStatus = "paused" | "running";
 
+/** Diagnostics semantics version this client understands (backend `DIAGNOSTICS_VERSION`). */
+export const DIAGNOSTICS_VERSION = 1;
+
+/**
+ * System-level quantities of exactly the state in `bodies` (backend/diagnostics.py, API_CONTRACT.md "Diagnostics").
+ * Each value is finite or `null` (undefined or overflowed); a vector is all-or-nothing. Computed by the backend only.
+ */
+export interface DiagnosticsDto {
+  version: typeof DIAGNOSTICS_VERSION;
+  totalMassKg: number | null;
+  totalMomentumKgMPerS: Vec3 | null;
+  kineticEnergyJ: number | null;
+  potentialEnergyJ: number | null;
+  /** About the fixed simulation origin (0,0,0), not the centre of mass. */
+  angularMomentumAboutOriginKgM2PerS: Vec3 | null;
+  /** Sum of spin booked by mergers (bookkeeping only; no rotation dynamics). */
+  bookedSpinKgM2PerS: Vec3 | null;
+}
+
 export interface SimulationStateDto {
   status: SimulationStatus;
   simulationTimeS: number;
   bodies: BodyDto[];
+  diagnostics: DiagnosticsDto;
 }
 
 export interface SimulationEventDto {

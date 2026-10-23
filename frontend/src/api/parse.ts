@@ -1,8 +1,10 @@
 // Runtime checks for backend responses. A malformed payload becomes an ApiError instead of
 // propagating NaN/undefined into the scene.
 import { ApiError } from "./errors";
+import { DIAGNOSTICS_VERSION } from "./types";
 import type {
   BodyDto,
+  DiagnosticsDto,
   EventListDto,
   SimulationEventDto,
   SimulationStateDto,
@@ -34,6 +36,32 @@ function vec3(v: unknown, what: string): Vec3 {
   return { x: num(o.x, `${what}.x`), y: num(o.y, `${what}.y`), z: num(o.z, `${what}.z`) };
 }
 
+/** A finite number or an explicit `null` (undefined quantity). `undefined` (missing key) is rejected. */
+function numOrNull(v: unknown, what: string): number | null {
+  return v === null ? null : num(v, what);
+}
+
+function vec3OrNull(v: unknown, what: string): Vec3 | null {
+  return v === null ? null : vec3(v, what);
+}
+
+export function parseDiagnosticsDto(v: unknown): DiagnosticsDto {
+  const o = obj(v, "diagnostics");
+  if (o.version !== DIAGNOSTICS_VERSION) bad(`diagnostics.version (${String(o.version)}, expected ${DIAGNOSTICS_VERSION})`);
+  return {
+    version: DIAGNOSTICS_VERSION,
+    totalMassKg: numOrNull(o.totalMassKg, "diagnostics.totalMassKg"),
+    totalMomentumKgMPerS: vec3OrNull(o.totalMomentumKgMPerS, "diagnostics.totalMomentumKgMPerS"),
+    kineticEnergyJ: numOrNull(o.kineticEnergyJ, "diagnostics.kineticEnergyJ"),
+    potentialEnergyJ: numOrNull(o.potentialEnergyJ, "diagnostics.potentialEnergyJ"),
+    angularMomentumAboutOriginKgM2PerS: vec3OrNull(
+      o.angularMomentumAboutOriginKgM2PerS,
+      "diagnostics.angularMomentumAboutOriginKgM2PerS",
+    ),
+    bookedSpinKgM2PerS: vec3OrNull(o.bookedSpinKgM2PerS, "diagnostics.bookedSpinKgM2PerS"),
+  };
+}
+
 export function parseBodyDto(v: unknown): BodyDto {
   const o = obj(v, "body");
   return {
@@ -56,6 +84,7 @@ export function parseStateDto(v: unknown): SimulationStateDto {
     status,
     simulationTimeS: num(o.simulationTimeS, "state.simulationTimeS"),
     bodies: (o.bodies as unknown[]).map(parseBodyDto),
+    diagnostics: parseDiagnosticsDto(o.diagnostics),
   };
 }
 
