@@ -1,5 +1,13 @@
 # Handoff (latest — rewrite at end of each session)
 
+## Independent production physics review (2026-10-24, Codex)
+1. **Branch:** `validation/production-physics-review`, based on `feature/production-rebound-simulation` at `af3b29a`; isolated worktree `C:\Users\calli\code\playing-god-production-physics-validation`. No production implementation changes.
+2. **Results:** 11 independent analytical fixtures passed; full suite 160 passed, 3 warnings. Details, exact values, tolerances and commands: `context/PRODUCTION_PHYSICS_INDEPENDENT_VALIDATION.md`.
+3. **Findings to retain:** IAS15 non-convergence logged for radial infall and a 1e16:1 collision; tangent and second same-step chain merger have no estimated contact time; binary64 rounds away 1 kg when added to 1e16 kg. Other exercised gravity, orbit, merger, spin, swept collision and near-miss fixtures agreed with references.
+4. **Next:** investigate warning policy and test strongly curved non-radial/three-body encounters, >3 connected simultaneous mergers, collision ordering across seeds and the chunk cap. Do not merge this review branch into production automatically.
+
+---
+
 ## Backend physics session (2026-10-23, Claude Sonnet 5.5) — newest
 1. **Branch:** `feature/production-rebound-simulation` (from `feature/m0-rebound-physics-api` + local merge of `origin/main` docs). Not pushed, not merged. The frontend session works in a separate worktree (`Playing God-frontend`).
 2. **Implemented:** production engine and API per `API_CONTRACT.md`; 149 tests pass. Details in `STATUS.md` (top section) and `WORKLOG.md`.

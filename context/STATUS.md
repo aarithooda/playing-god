@@ -1,6 +1,13 @@
 # Status
 _Concise authoritative snapshot. Update after every meaningful session._
 
+## Independent production physics review (2026-10-24; isolated branch)
+- Branch `validation/production-physics-review` is based on `feature/production-rebound-simulation` at `af3b29a`; production source was not edited.
+- New independent analytical fixtures: `tests/validation/test_independent_physics.py` — 11 passed. Full branch test suite: 160 passed, 3 warnings (Starlette/httpx deprecation + 2 legacy REBOUND spike warnings).
+- Agreement found for vector gravity, a one-period Sun–Earth circular orbit, head-on/grazing merger mass/momentum/KE, spin accounting, fast sweep, near miss, tangency, two simultaneous pairs, and a simultaneous three-body chain.
+- Limitations observed: IAS15 non-convergence logs on radial infall and 1e16:1 merger; tangent and second same-step chain event have null contact-time estimates; IEEE binary64 rounds a 1 kg contribution away at 1e16 kg. Full results/tolerances: `context/PRODUCTION_PHYSICS_INDEPENDENT_VALIDATION.md`.
+- Follow-up still recommended: strongly curved non-radial/three-body reference comparison, connected >3-body simultaneous collisions, seeds/order variation, and stress of the 2000-chunk cap.
+
 ## Backend physics (branch `feature/production-rebound-simulation`, 2026-10-23, local only: not pushed, not merged)
 - **Done:** production REBOUND/IAS15 service (`backend/simulation.py`), merger layer (`backend/collisions.py`), endpoints state, POST/PATCH/DELETE bodies, step, reset, events (`API_CONTRACT.md` matches the code). `rebound` is in `backend/requirements.txt`; `backend/store.py` was replaced by `simulation.py`.
 - **Tests (fresh run):** `pytest` -> **149 passed, 3 warnings** (88 earlier + 61 new: 23 service/physics, 38 API simulation cases). The 3 warnings are the Starlette/httpx deprecation and two IAS15 non-convergence RuntimeWarnings inside the old spike tests; the production tests pass with `-W error::RuntimeWarning` (91 passed).
