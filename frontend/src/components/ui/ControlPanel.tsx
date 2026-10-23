@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { BodyCreateDto } from '../../api/types';
 import { formatDuration } from '../../sim/format';
 import { MAX_SPEED_EXP, MIN_SPEED_EXP, type ActionResult } from '../../sim/useSimulation';
@@ -11,6 +11,7 @@ import {
   type FormValues,
 } from '../../sim/validation';
 import type { BodyView } from '../../sim/viewModel';
+import type { Vec3 } from '../../api/types';
 import { BodyFields } from './BodyFields';
 import { btnStyle, errorTextStyle, panelStyle } from './styles';
 
@@ -30,6 +31,10 @@ interface ControlPanelProps {
   onReset: () => void;
   onFit: () => void;
   onCreate: (body: BodyCreateDto) => Promise<ActionResult>;
+  placementMode?: boolean;
+  onPlacementModeChange?: (active: boolean) => void;
+  pickedPosition?: { position: Vec3; nonce: number };
+  onPlacementRadiusChange?: (radiusM: number) => void;
 }
 
 export const ControlPanel: React.FC<ControlPanelProps> = ({
@@ -48,23 +53,46 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   onReset,
   onFit,
   onCreate,
+  placementMode = false,
+  onPlacementModeChange = () => {},
+  pickedPosition,
+  onPlacementRadiusChange,
 }) => {
   const [creating, setCreating] = useState(false);
   const [values, setValues] = useState<FormValues>(NEW_BODY_DEFAULTS);
   const [positionManuallyEdited, setPositionManuallyEdited] = useState(false);
+  const positionManuallyEditedRef = useRef(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  useEffect(() => {
+    if (!pickedPosition) return;
+    setValues((current) => ({
+      ...current,
+      px: String(pickedPosition.position.x),
+      py: String(pickedPosition.position.y),
+      pz: String(pickedPosition.position.z),
+    }));
+    setPositionManuallyEdited(true);
+    positionManuallyEditedRef.current = true;
+    setErrors({});
+    setServerError(null);
+  }, [pickedPosition?.nonce]);
+
   const change = (key: FieldKey, value: string) => {
     setValues((v) => ({ ...v, [key]: value }));
-    if (key === 'px' || key === 'py' || key === 'pz') setPositionManuallyEdited(true);
+    if (key === 'radius') onPlacementRadiusChange?.(Number(value));
+    if (key === 'px' || key === 'py' || key === 'pz') {
+      setPositionManuallyEdited(true);
+      positionManuallyEditedRef.current = true;
+    }
     setErrors((e) => ({ ...e, [key]: undefined }));
   };
 
   // Keep an untouched automatic position clear if the body set or the requested radius changes.
   useEffect(() => {
-    if (!creating || positionManuallyEdited) return;
+    if (!creating || positionManuallyEditedRef.current) return;
     const defaults = defaultsForNewBody(bodies, values.radius);
     setValues((current) => current.px === defaults.px && current.py === defaults.py && current.pz === defaults.pz
       ? current
@@ -73,11 +101,15 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
   const toggleCreate = () => {
     if (creating) {
+      onPlacementModeChange(false);
       setCreating(false);
       return;
     }
-    setValues(defaultsForNewBody(bodies));
+    const defaults = defaultsForNewBody(bodies);
+    setValues(defaults);
+    onPlacementRadiusChange?.(Number(defaults.radius));
     setPositionManuallyEdited(false);
+    positionManuallyEditedRef.current = false;
     setErrors({});
     setServerError(null);
     setCreating(true);
@@ -94,9 +126,12 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     const result = await onCreate(parsed.value);
     setBusy(false);
     if (result.ok) {
+      onPlacementModeChange(false);
       setCreating(false);
       setValues(NEW_BODY_DEFAULTS);
+      onPlacementRadiusChange?.(Number(NEW_BODY_DEFAULTS.radius));
       setPositionManuallyEdited(false);
+      positionManuallyEditedRef.current = false;
       setErrors({});
     } else setServerError(result.error);
   };
@@ -147,7 +182,14 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         </button>
         {creating && (
           <div style={{ marginTop: '10px' }}>
-            <BodyFields values={values} errors={errors} onChange={change} idPrefix="create" />
+            <BodyFields
+              values={values}
+              errors={errors}
+              onChange={change}
+              idPrefix="create"
+              isPickingPosition={placementMode}
+              onPickPosition={() => onPlacementModeChange(!placementMode)}
+            />
             {serverError && <p role="alert" style={errorTextStyle}>{serverError}</p>}
             <button style={btnStyle} onClick={submit} disabled={busy}>Create</button>
           </div>

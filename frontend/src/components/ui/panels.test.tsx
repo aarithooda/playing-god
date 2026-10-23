@@ -134,6 +134,29 @@ describe("ControlPanel", () => {
     fireEvent.click(screen.getByText("Create"));
     await screen.findByText("name: too long");
   });
+
+  it("starts and cancels 3D placement from the position fields", () => {
+    const onPlacementModeChange = vi.fn();
+    const { rerender } = render(<ControlPanel {...base} onPlacementModeChange={onPlacementModeChange} />);
+    fireEvent.click(screen.getByText("Add body…"));
+    fireEvent.click(screen.getByText("Choose position in 3D"));
+    expect(onPlacementModeChange).toHaveBeenLastCalledWith(true);
+
+    rerender(<ControlPanel {...base} placementMode onPlacementModeChange={onPlacementModeChange} />);
+    fireEvent.click(screen.getByText("Cancel 3D placement"));
+    expect(onPlacementModeChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it("copies a picked 3D position into the create form fields", async () => {
+    const { rerender } = render(<ControlPanel {...base} />);
+    fireEvent.click(screen.getByText("Add body…"));
+    rerender(<ControlPanel {...base} pickedPosition={{ position: { x: 1.2e11, y: -3e10, z: 7e9 }, nonce: 1 }} />);
+    await waitFor(() => {
+      expect((screen.getByLabelText("Position (m) X") as HTMLInputElement).value).toBe("120000000000");
+      expect((screen.getByLabelText("Position (m) Y") as HTMLInputElement).value).toBe("-30000000000");
+      expect((screen.getByLabelText("Position (m) Z") as HTMLInputElement).value).toBe("7000000000");
+    });
+  });
 });
 
 describe("EventTimeline", () => {

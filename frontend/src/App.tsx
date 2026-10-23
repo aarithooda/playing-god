@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createApiClient } from "./api/client";
 import { UniverseCanvas, type FocusRequest } from "./components/canvas/UniverseCanvas";
 import { ControlPanel } from "./components/ui/ControlPanel";
@@ -7,6 +7,8 @@ import { EventTimeline } from "./components/ui/EventTimeline";
 import {
   fitTransform,
   DEFAULT_METERS_PER_UNIT,
+  displayRadiusUnits,
+  toPhysicsPosition,
   type RenderTransform,
 } from "./sim/renderTransform";
 import { useSimulation, type Health } from "./sim/useSimulation";
@@ -26,6 +28,9 @@ export default function App() {
   const [transform, setTransform] = useState<RenderTransform>({ metersPerUnit: DEFAULT_METERS_PER_UNIT });
   const [frameEpoch, setFrameEpoch] = useState(0);
   const [focus, setFocus] = useState<FocusRequest | undefined>(undefined);
+  const [placementMode, setPlacementMode] = useState(false);
+  const [placementRadiusM, setPlacementRadiusM] = useState(6.371e6);
+  const [pickedPosition, setPickedPosition] = useState<{ position: { x: number; y: number; z: number }; nonce: number } | undefined>();
 
   const bodies = sim?.bodies ?? [];
 
@@ -59,6 +64,15 @@ export default function App() {
     }
   };
 
+  const confirmPlacement = useCallback((scenePosition: [number, number, number]) => {
+    setPickedPosition((current) => ({
+      position: toPhysicsPosition(scenePosition, transform),
+      nonce: (current?.nonce ?? 0) + 1,
+    }));
+    setPlacementMode(false);
+  }, [transform]);
+  const cancelPlacement = useCallback(() => setPlacementMode(false), []);
+
   const ready = loadStatus === "ready";
 
   return (
@@ -71,6 +85,10 @@ export default function App() {
         onFocusBody={focusBody}
         frameEpoch={frameEpoch}
         focus={focus}
+        placementMode={placementMode}
+        placementRadius={displayRadiusUnits(Number.isFinite(placementRadiusM) && placementRadiusM > 0 ? placementRadiusM : 6.371e6)}
+        onPlacementConfirm={confirmPlacement}
+        onPlacementCancel={cancelPlacement}
       />
 
       {/* UI Overlay Wrapper with Safe Zone */}
@@ -139,6 +157,10 @@ export default function App() {
                 setFrameEpoch((n) => n + 1);
               }}
               onCreate={simulation.createBody}
+              placementMode={placementMode}
+              onPlacementModeChange={setPlacementMode}
+              pickedPosition={pickedPosition}
+              onPlacementRadiusChange={setPlacementRadiusM}
             />
           </div>
         </div>
