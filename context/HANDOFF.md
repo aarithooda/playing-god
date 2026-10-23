@@ -1,5 +1,9 @@
 # Handoff (latest — rewrite at end of each session)
 
+## Seamless starfield and visible zoom limit (2026-10-24, Codex) — latest
+1. Replaced sparse, differently-dense star annuli with a single camera-centered celestial sphere; it stays around the viewer through zoom movement without shell boundaries and renders behind bodies.
+2. Zoom-out now stops with the displayed-body bounding sphere at 6% of canvas height, so the system remains visible and identifiable. Empty scenes keep a finite 2000-scene-unit limit.
+3. `npm run build` passed (640 modules); existing >500 kB bundle warning remains. No test suite or browser E2E was run. Changes are on `bugfix/body-inspector-close`; not merged.
 ## Bound zoom-out and repeating starfield shells (2026-10-24, Codex) — latest
 1. Zoom-out now stops when the complete displayed body set projects to at most one pixel across, and the camera far plane expands to keep those bodies visible until then. Empty scenes retain a finite 2000-scene-unit limit.
 2. The starfield adds progressively larger contiguous spherical shells as the camera approaches the current outer shell, keeping annuli around the scene during zoom-out.

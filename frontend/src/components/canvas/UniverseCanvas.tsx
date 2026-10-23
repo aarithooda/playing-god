@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Stars } from '@react-three/drei';
-import { PerspectiveCamera, Plane, Raycaster, Vector2, Vector3 } from 'three';
+import { Group, PerspectiveCamera, Plane, Points, Raycaster, Vector2, Vector3 } from 'three';
 import { CelestialBody } from './CelestialBody';
 import { DEFAULT_CAMERA_POSITION, type ScenePosition } from '../../sim/renderTransform';
 import type { SceneBody } from '../../sim/viewModel';
@@ -13,27 +13,9 @@ export interface FocusRequest {
 }
 
 const FOCUS_SCREEN_HEIGHT_FRACTION = 0.25;
-const STAR_SHELL_RADIUS = 300;
-const STAR_SHELL_DEPTH = 60;
+const BODY_CLOUD_SCREEN_HEIGHT_FRACTION = 0.06;
+const STAR_SKY_RADIUS = 900;
 const POINT_ZOOM_DISTANCE = 2000;
-
-interface StarShell {
-  radius: number;
-  depth: number;
-  count: number;
-}
-
-function makeStarShells(count: number): StarShell[] {
-  const shells: StarShell[] = [];
-  let radius = STAR_SHELL_RADIUS;
-  let depth = STAR_SHELL_DEPTH;
-  for (let index = 0; index < count; index += 1) {
-    shells.push({ radius, depth, count: index === 0 ? 20000 : 3000 });
-    radius += depth;
-    depth = radius;
-  }
-  return shells;
-}
 
 function focusDistanceForScreenHeight(radius: number, camera: PerspectiveCamera): number {
   // A sphere's projected silhouette is r / (sqrt(d² - r²) * tan(fov / 2))
@@ -65,46 +47,38 @@ interface OrbitTarget {
   update: () => void;
 }
 
-/** Extend the starfield with larger spherical annuli as the camera approaches its outer shell. */
-const RepeatingStarfield: React.FC = () => {
+/** A camera-centered celestial sphere gives a seamless starfield at every zoom distance. */
+const ContinuousStarfield: React.FC = () => {
   const camera = useThree((s) => s.camera);
-  const [shellCount, setShellCount] = useState(1);
-  const shells = useMemo(() => makeStarShells(shellCount), [shellCount]);
+  const group = useRef<Group>(null);
+  const stars = useRef<Points>(null);
+
+  useEffect(() => {
+    if (!stars.current) return;
+    // Draw the sky first so it remains a background even when bodies are farther
+    // from the camera than this finite celestial sphere.
+    stars.current.renderOrder = -1;
+    const materials = Array.isArray(stars.current.material) ? stars.current.material : [stars.current.material];
+    materials.forEach((material) => {
+      material.depthTest = false;
+      material.depthWrite = false;
+    });
+  }, []);
 
   useFrame(() => {
-    const lastShell = shells[shells.length - 1];
-    let outerRadius = lastShell.radius + lastShell.depth;
-    const neededRadius = camera.position.length() + STAR_SHELL_RADIUS;
-    if (neededRadius <= outerRadius) return;
-
-    let nextCount = shellCount;
-    while (neededRadius > outerRadius) {
-      outerRadius *= 2;
-      nextCount += 1;
-    }
-    setShellCount(nextCount);
+    group.current?.position.copy(camera.position);
   });
 
-  return <>
-    {shells.map((shell, index) => (
-      <Stars
-        key={index}
-        radius={shell.radius}
-        depth={shell.depth}
-        count={shell.count}
-        factor={7}
-        saturation={0}
-        fade
-        speed={1}
-      />
-    ))}
-  </>;
+  return (
+    <group ref={group}>
+      <Stars ref={stars} radius={STAR_SKY_RADIUS} depth={0} count={20000} factor={7} saturation={0} fade speed={1} />
+    </group>
+  );
 };
 
 /** Camera framing/focus lives inside the Canvas so it can reach the camera and OrbitControls. */
 const CameraRig: React.FC<{ frameEpoch: number; focus?: FocusRequest; bodies: SceneBody[] }> = ({ frameEpoch, focus, bodies }) => {
   const camera = useThree((s) => s.camera);
-  const viewportHeight = useThree((s) => s.size.height);
   const controls = useThree((s) => s.controls) as unknown as OrbitTarget | null;
   const animation = useRef<{
     elapsed: number;
@@ -155,8 +129,8 @@ const CameraRig: React.FC<{ frameEpoch: number; focus?: FocusRequest; bodies: Sc
   useFrame((_, delta) => {
     if (!controls) return;
 
-    // Limit zoom-out when the complete displayed body set is sub-pixel around the controls target.
-    // A 1 px projected bounding sphere is the practical visual equivalent of a single point.
+    // Keep the whole body cloud identifiable: its bounding sphere remains 6% of
+    // the viewport height at the furthest allowed zoom-out.
     const target = controls.target;
     const extent = bodies.reduce((maxExtent, body) => {
       const [x, y, z] = body.position;
@@ -164,10 +138,10 @@ const CameraRig: React.FC<{ frameEpoch: number; focus?: FocusRequest; bodies: Sc
       return Math.max(maxExtent, distance + body.radius);
     }, 0);
     const perspectiveCamera = camera as PerspectiveCamera;
-    const height = Math.max(viewportHeight, 1);
-    const scaledPixel = Math.tan((perspectiveCamera.fov * Math.PI) / 360) / height;
+    const scaledFraction = BODY_CLOUD_SCREEN_HEIGHT_FRACTION
+      * Math.tan((perspectiveCamera.fov * Math.PI) / 360);
     const pointDistance = extent > 0
-      ? extent * Math.sqrt(1 + 1 / (scaledPixel * scaledPixel))
+      ? extent * Math.sqrt(1 + 1 / (scaledFraction * scaledFraction))
       : POINT_ZOOM_DISTANCE;
     controls.maxDistance = pointDistance;
 
@@ -310,7 +284,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
         style={{ width: '100vw', height: '100vh', background: 'black', cursor: placementMode ? 'crosshair' : 'auto' }}
       >
         <color attach="background" args={['#050505']} />
-        <RepeatingStarfield />
+        <ContinuousStarfield />
 
         <ambientLight intensity={0.3} />
         <pointLight position={[10, 10, 10]} intensity={1} />

@@ -226,3 +226,10 @@
 - Changed: `UniverseCanvas` computes the displayed-body bounding extent around the orbit target and sets the OrbitControls maximum distance for a one-pixel projected diameter. The perspective camera far plane grows to include the body cloud at that distance. The starfield now adds contiguous, geometrically expanding spherical shells when the camera approaches the current shell's outer edge.
 - Verification: `npm run build` passed (640 modules); existing >500 kB bundle warning remains. No tests or browser E2E were run.
 - Branch: `bugfix/body-inspector-close`; source commit `66e8fc3` is pushed to origin. Not merged.
+
+## 2026-10-24 — Smooth the starfield and keep bodies visible at zoom limit
+- Owner/AI: Codex
+- Goal: remove visible boundaries between repeated star annuli and keep bodies distinguishable at maximum zoom-out.
+- Changed: replaced layered Drei `Stars` shells with one camera-centered spherical starfield rendered behind body meshes, avoiding shell transitions as the view moves. Changed the zoom cap from a 1 px cloud diameter to 6% of the viewport height. The camera far plane continues to expand to include the body set at that cap.
+- Verification: `npm run build` passed (640 modules); existing >500 kB bundle warning remains. No tests or browser E2E were run.
+- Branch: `bugfix/body-inspector-close`; changes are local and need commit/push. Not merged.
