@@ -170,4 +170,4 @@
 - Goal: select bodies with one click and focus/zoom to them on a double-click.
 - Changed: `CelestialBody` now forwards double-click separately from click selection. `App` routes focus requests through `UniverseCanvas`; `CameraRig` recenters on the body and moves 10% closer per focus, with a display-radius-based minimum distance.
 - Verification: `npm run build` passed (640 modules transformed); existing large-chunk warning remains. Test suite not run.
-- Branch: `bugfix/body-inspector-close`; interaction changes pending commit/push. This branch also carries the prior dynamic-default fix.
+- Branch: `bugfix/body-inspector-close`; commit `82d0dcb` pushed to origin. This branch also carries the prior dynamic-default fix.
