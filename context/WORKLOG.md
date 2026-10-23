@@ -239,4 +239,4 @@
 - Goal: retain a continuous background while restoring the starfield's visible zoom effect.
 - Changed: anchored a single Drei `Stars` point volume at the universe origin, spanning 300–10,000 scene units. The stars now show perspective parallax as the camera moves through the volume; `renderOrder=-1` and disabled depth testing keep the field behind opaque bodies. Camera far range includes the star volume. The 6% body-cloud zoom limit remains.
 - Verification: `npm run build` passed (640 modules); existing >500 kB bundle warning remains. No tests or browser E2E were run.
-- Branch: `bugfix/body-inspector-close`; changes are local and need commit/push. Not merged.
+- Branch: `bugfix/body-inspector-close`; source commit `bae5301` is pushed to origin. Not merged.
