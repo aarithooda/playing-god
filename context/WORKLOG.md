@@ -212,3 +212,10 @@
 - Changed: focus now smoothly frames the displayed sphere to 25% of the canvas height. Distance is derived from displayed radius and perspective-camera vertical field of view, so object size is consistent across bodies and repeated focus remains deterministic.
 - Verification: `npm run build` passed with the existing large-chunk warning. No test suite or browser E2E was run.
 - Branch: `bugfix/body-inspector-close`; source commit `2ad5167` pushed to origin. Not merged.
+
+## 2026-10-24 — Dismiss body inspector on outside click
+- Owner/AI: Codex
+- Goal: close the selected-body inspector when the user clicks elsewhere, in addition to its close button.
+- Changed: `BodyInspector` listens for document pointer-down events and ignores events whose target is inside the panel; outside presses call the existing close action.
+- Verification: `npm run build` passed with the existing large-chunk warning. Frontend tests and browser E2E were not run.
+- Branch: `bugfix/body-inspector-close`; changes awaiting commit and push. Not merged.

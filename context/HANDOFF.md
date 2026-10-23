@@ -1,5 +1,10 @@
 # Handoff (latest — rewrite at end of each session)
 
+## Dismiss body inspector on outside click (2026-10-24, Codex) — latest
+1. The body inspector now closes on pointer-down anywhere outside its panel, while clicks inside the panel and its close button keep their existing behavior.
+2. `npm run build` passed with the existing >500 kB bundle warning. Frontend tests and browser E2E were not run.
+3. Changes are on `bugfix/body-inspector-close`; to be committed and pushed.
+
 ## Consistent on-screen focus size (2026-10-24, Codex) — latest
 1. Focus now targets a sphere silhouette occupying 25% of the canvas height. Camera distance is computed from the body's displayed radius and the perspective camera's vertical field of view, so small and large bodies reach the same apparent size.
 2. Focus still animates smoothly and returns to the same framing on every focus request. `npm run build` passed with the existing >500 kB bundle warning; no browser E2E or test suite was run.

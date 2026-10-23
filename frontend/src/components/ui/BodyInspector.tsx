@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { BodyUpdateDto } from '../../api/types';
 import type { ActionResult } from '../../sim/useSimulation';
 import { formatNumber } from '../../sim/format';
@@ -28,6 +28,7 @@ interface BodyInspectorProps {
  * from the refreshed authoritative state, never from the draft.
  */
 export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDelete, onFocus, onClose }) => {
+  const panelRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState<Partial<FormValues>>({});
   const [errors, setErrors] = useState<FieldErrors>({});
   const [serverError, setServerError] = useState<string | null>(null);
@@ -39,6 +40,15 @@ export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDe
     setErrors({});
     setServerError(null);
   }, [bodyId]);
+
+  useEffect(() => {
+    if (!bodyId || !onClose) return;
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      if (panelRef.current && !panelRef.current.contains(event.target as Node)) onClose();
+    };
+    document.addEventListener('pointerdown', closeOnOutsidePointer);
+    return () => document.removeEventListener('pointerdown', closeOnOutsidePointer);
+  }, [bodyId, onClose]);
 
   if (!body) return null;
 
@@ -73,7 +83,7 @@ export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDe
   };
 
   return (
-    <div style={{ ...panelStyle, position: 'absolute', bottom: '20px', right: '20px', width: '280px', maxHeight: 'calc(100vh - 400px)', overflowY: 'auto' }}>
+    <div ref={panelRef} style={{ ...panelStyle, position: 'absolute', bottom: '20px', right: '20px', width: '280px', maxHeight: 'calc(100vh - 400px)', overflowY: 'auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '12px' }}>
         <h3 style={{ margin: 0, fontSize: '16px' }}>Body Inspector</h3>
         <button

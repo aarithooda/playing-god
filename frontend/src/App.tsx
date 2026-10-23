@@ -55,6 +55,7 @@ export default function App() {
   useEffect(() => {
     if (selectedBodyId && !selectedBody && sim) setSelectedBodyId(undefined);
   }, [selectedBodyId, selectedBody, sim]);
+  const closeInspector = useCallback(() => setSelectedBodyId(undefined), []);
 
   const sceneBodies = useMemo(() => bodies.map((b) => toSceneBody(b, transform)), [bodies, transform]);
 
@@ -198,7 +199,7 @@ export default function App() {
               onSave={simulation.updateBody}
               onDelete={simulation.deleteBody}
               onFocus={focusBody}
-              onClose={() => setSelectedBodyId(undefined)}
+              onClose={closeInspector}
             />
           </div>
         </div>

@@ -1,6 +1,11 @@
 # Status
 _Concise authoritative snapshot. Update after every meaningful session._
 
+## Dismiss body inspector on outside click (2026-10-24)
+- The inspector closes when the user presses anywhere outside its panel; clicks within it and the explicit close button remain supported.
+- `npm run build` passed with the existing >500 kB bundle warning. Frontend tests and browser E2E were not run.
+- Changes are on `bugfix/body-inspector-close`; to be committed and pushed.
+
 ## Consistent on-screen focus size (2026-10-24)
 - Focusing targets a body silhouette at 25% of canvas height. The perspective projection determines distance from displayed radius and vertical FOV, so the apparent size is consistent across bodies.
 - Smooth focus behavior is retained. `npm run build` passed with the existing >500 kB bundle warning; no test suite or browser E2E was run.
