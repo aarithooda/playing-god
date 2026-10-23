@@ -218,4 +218,11 @@
 - Goal: close the selected-body inspector when the user clicks elsewhere, in addition to its close button.
 - Changed: `BodyInspector` listens for document pointer-down events and ignores events whose target is inside the panel; outside presses call the existing close action.
 - Verification: `npm run build` passed with the existing large-chunk warning. Frontend tests and browser E2E were not run.
-- Branch: `bugfix/body-inspector-close`; changes awaiting commit and push. Not merged.
+- Branch: `bugfix/body-inspector-close`; source/context commit `3e03479` pushed to origin. Not merged.
+
+## 2026-10-24 — Bound zoom-out and repeat starfield shells
+- Owner/AI: Codex
+- Goal: stop zooming once all displayed bodies visually collapse to one point, while keeping the starfield around the scene during zoom-out.
+- Changed: `UniverseCanvas` computes the displayed-body bounding extent around the orbit target and sets the OrbitControls maximum distance for a one-pixel projected diameter. The perspective camera far plane grows to include the body cloud at that distance. The starfield now adds contiguous, geometrically expanding spherical shells when the camera approaches the current shell's outer edge.
+- Verification: `npm run build` passed (640 modules); existing >500 kB bundle warning remains. No tests or browser E2E were run.
+- Branch: `bugfix/body-inspector-close`; changes are local and need commit/push. Not merged.

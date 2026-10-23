@@ -13,6 +13,27 @@ export interface FocusRequest {
 }
 
 const FOCUS_SCREEN_HEIGHT_FRACTION = 0.25;
+const STAR_SHELL_RADIUS = 300;
+const STAR_SHELL_DEPTH = 60;
+const POINT_ZOOM_DISTANCE = 2000;
+
+interface StarShell {
+  radius: number;
+  depth: number;
+  count: number;
+}
+
+function makeStarShells(count: number): StarShell[] {
+  const shells: StarShell[] = [];
+  let radius = STAR_SHELL_RADIUS;
+  let depth = STAR_SHELL_DEPTH;
+  for (let index = 0; index < count; index += 1) {
+    shells.push({ radius, depth, count: index === 0 ? 20000 : 3000 });
+    radius += depth;
+    depth = radius;
+  }
+  return shells;
+}
 
 function focusDistanceForScreenHeight(radius: number, camera: PerspectiveCamera): number {
   // A sphere's projected silhouette is r / (sqrt(d² - r²) * tan(fov / 2))
@@ -40,12 +61,50 @@ interface UniverseCanvasProps {
 
 interface OrbitTarget {
   target: { x: number; y: number; z: number; set: (x: number, y: number, z: number) => void };
+  maxDistance: number;
   update: () => void;
 }
 
-/** Camera framing/focus lives inside the Canvas so it can reach the camera and OrbitControls. */
-const CameraRig: React.FC<{ frameEpoch: number; focus?: FocusRequest }> = ({ frameEpoch, focus }) => {
+/** Extend the starfield with larger spherical annuli as the camera approaches its outer shell. */
+const RepeatingStarfield: React.FC = () => {
   const camera = useThree((s) => s.camera);
+  const [shellCount, setShellCount] = useState(1);
+  const shells = useMemo(() => makeStarShells(shellCount), [shellCount]);
+
+  useFrame(() => {
+    const lastShell = shells[shells.length - 1];
+    let outerRadius = lastShell.radius + lastShell.depth;
+    const neededRadius = camera.position.length() + STAR_SHELL_RADIUS;
+    if (neededRadius <= outerRadius) return;
+
+    let nextCount = shellCount;
+    while (neededRadius > outerRadius) {
+      outerRadius *= 2;
+      nextCount += 1;
+    }
+    setShellCount(nextCount);
+  });
+
+  return <>
+    {shells.map((shell, index) => (
+      <Stars
+        key={index}
+        radius={shell.radius}
+        depth={shell.depth}
+        count={shell.count}
+        factor={7}
+        saturation={0}
+        fade
+        speed={1}
+      />
+    ))}
+  </>;
+};
+
+/** Camera framing/focus lives inside the Canvas so it can reach the camera and OrbitControls. */
+const CameraRig: React.FC<{ frameEpoch: number; focus?: FocusRequest; bodies: SceneBody[] }> = ({ frameEpoch, focus, bodies }) => {
+  const camera = useThree((s) => s.camera);
+  const viewportHeight = useThree((s) => s.size.height);
   const controls = useThree((s) => s.controls) as unknown as OrbitTarget | null;
   const animation = useRef<{
     elapsed: number;
@@ -94,8 +153,33 @@ const CameraRig: React.FC<{ frameEpoch: number; focus?: FocusRequest }> = ({ fra
   }, [focus?.nonce, controls]);
 
   useFrame((_, delta) => {
+    if (!controls) return;
+
+    // Limit zoom-out when the complete displayed body set is sub-pixel around the controls target.
+    // A 1 px projected bounding sphere is the practical visual equivalent of a single point.
+    const target = controls.target;
+    const extent = bodies.reduce((maxExtent, body) => {
+      const [x, y, z] = body.position;
+      const distance = Math.hypot(x - target.x, y - target.y, z - target.z);
+      return Math.max(maxExtent, distance + body.radius);
+    }, 0);
+    const perspectiveCamera = camera as PerspectiveCamera;
+    const height = Math.max(viewportHeight, 1);
+    const scaledPixel = Math.tan((perspectiveCamera.fov * Math.PI) / 360) / height;
+    const pointDistance = extent > 0
+      ? extent * Math.sqrt(1 + 1 / (scaledPixel * scaledPixel))
+      : POINT_ZOOM_DISTANCE;
+    controls.maxDistance = pointDistance;
+
+    // Keep distant bodies inside the camera's far plane until they reach the point-size limit.
+    const requiredFar = Math.max(2000, pointDistance + extent * 2);
+    if (Math.abs(perspectiveCamera.far - requiredFar) > requiredFar * 1e-6) {
+      perspectiveCamera.far = requiredFar;
+      perspectiveCamera.updateProjectionMatrix();
+    }
+
     const motion = animation.current;
-    if (!motion || !controls) return;
+    if (!motion) return;
     motion.elapsed = Math.min(motion.elapsed + delta, 0.65);
     const t = motion.elapsed / 0.65;
     const eased = t * t * (3 - 2 * t);
@@ -226,7 +310,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
         style={{ width: '100vw', height: '100vh', background: 'black', cursor: placementMode ? 'crosshair' : 'auto' }}
       >
         <color attach="background" args={['#050505']} />
-        <Stars radius={300} depth={60} count={20000} factor={7} saturation={0} fade speed={1} />
+        <RepeatingStarfield />
 
         <ambientLight intensity={0.3} />
         <pointLight position={[10, 10, 10]} intensity={1} />
@@ -247,7 +331,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
 
         <PlacementCursor active={placementMode} radius={placementRadius} onConfirm={onPlacementConfirm} onCancel={onPlacementCancel} />
         <OrbitControls makeDefault enabled={!placementMode} />
-        <CameraRig frameEpoch={frameEpoch} focus={focus} />
+        <CameraRig frameEpoch={frameEpoch} focus={focus} bodies={bodies} />
       </Canvas>
       {placementMode && (
         <div role="status" style={{
