@@ -2,7 +2,7 @@
 Status: todo / in progress / blocked / done. Keep tasks small and independently testable.
 
 ## NEXT ACTION
-Review and merge `feature/m0-rebound-physics-api` (PR into `main`), merge or compare `origin/validation/physics-first-principles`, then start **P-001** (production collision/merger layer, spec in `PHYSICS_SPIKE.md`). Vaibhav: independent re-check of the energy/angular-momentum accounting and the P-003 stress tests.
+Review/merge `feature/production-rebound-simulation` (production engine done: P-001, P-002 and T-007 implemented; P-004 explained). Then compare `origin/validation/physics-first-principles`; frontend integrates against `API_CONTRACT.md`. Older text follows: start **P-001** (production collision/merger layer, spec in `PHYSICS_SPIKE.md`). Vaibhav: independent re-check of the energy/angular-momentum accounting and the P-003 stress tests.
 
 ## M0 — Physics Engine Feasibility Spike
 - **Priority:** highest · **Status:** done: decision accepted (D-008, 2026-10-23); independent re-checks continue under M0.2/M0.5 · **Owners:** project lead + Vaibhav
@@ -24,10 +24,10 @@ Review and merge `feature/m0-rebound-physics-api` (PR into `main`), merge or com
 ## Next milestone (D-008 accepted; not started)
 | ID | Description | Priority | Status | Owner | Depends | Done when |
 |---|---|---|---|---|---|---|
-| P-001 | Production collision/merger layer per the spec in `PHYSICS_SPIKE.md` (IAS15, `line`, seeded, name ids, ledgers, reset after merge, re-register after restore) | high | todo | lead | D-008 | spike tests ported against the production module; no spike code imported by the app |
-| P-002 | Step-cap policy: integrate in frame chunks with a_rel·dt²/8 ≪ contact distance | high | todo | lead | P-001 | test with curved close encounters passes |
+| P-001 | Production collision/merger layer per the spec in `PHYSICS_SPIKE.md` (IAS15, `line`, seeded, name ids, ledgers, reset after merge, re-register after restore) | high | done (backend/collisions.py + backend/simulation.py; tests/test_simulation_service.py) | lead | D-008 | spike tests ported against the production module; no spike code imported by the app |
+| P-002 | Step-cap policy: integrate in frame chunks with a_rel·dt²/8 ≪ contact distance | high | done (chunking in SimulationService._advance; curvature + radial-infall tests) | lead | P-001 | test with curved close encounters passes |
 | P-003 | Stress the untested items (strongly curved paths, tree/linetree, >3 simultaneous bodies, many collisions per step, tangency policy, extreme mass ratios) | medium | todo | Vaibhav | M0.4 | results appended to `PHYSICS_SPIKE.md` |
-| P-004 | Understand the IAS15 non-convergence RuntimeWarning after a merge with capped chunks (F10) | medium | todo | lead | P-001 | explained and either fixed or documented |
+| P-004 | Understand the IAS15 non-convergence RuntimeWarning after a merge with capped chunks (F10) | medium | partly: no IAS15 non-convergence warning in any production test (run with -W error::RuntimeWarning); cause of the spike warning not isolated; production logs any REBOUND warning | lead | P-001 | explained and either fixed or documented |
 | P-005 | License and third-party notices | high | done: GPL-3.0-only, `LICENSE`, `THIRD_PARTY_NOTICES.md` (re-check when dependencies change; add Three.js) | project lead | M0.7 | D-009 accepted |
 
 ## Other tasks
@@ -40,7 +40,7 @@ Review and merge `feature/m0-rebound-physics-api` (PR into `main`), merge or com
 | T-004 | Add CI (pytest + frontend build) | medium | todo | integration dev | T-000 | CI green on main |
 | T-005 | Collaborators and workflow | high | collaborators added 2026-10-23; workflow confirmation by all four pending | lead | T-000 | All four confirm `TEAM_WORKFLOW.md` |
 | T-006 | API contract v1 + minimal API (healthz, state, create body) | high | done (commit `feat: add API contract v1 ...` on the topic branch) | lead | — | `API_CONTRACT.md`; API/health tests pass |
-| T-007 | Implement planned endpoints (PATCH/DELETE bodies first), then start/pause/step/reset/events | high | todo | backend dev | T-006; sim endpoints need D-008 | Contract rows flip to ✅ with tests |
+| T-007 | Implement planned endpoints (PATCH/DELETE bodies first), then start/pause/step/reset/events | high | done 2026-10-23: PATCH/DELETE/step/reset/events implemented; start/pause withdrawn (Play = client step loop) | backend dev | T-006; sim endpoints need D-008 | Contract rows flip to ✅ with tests |
 | T-008 | Resolve Vite `/api` rewrite vs `/api/v1` backend paths | high | todo | frontend owner | T-006 | Frontend reaches `/api/v1/simulation/state`. (The 11 failing spike tests mentioned earlier are fixed: `pytest` is 88 passed.) |
 
 ### Remote branch inventory — 2026-10-23

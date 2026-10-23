@@ -73,3 +73,9 @@
 - GitHub reports no PRs for the repository. Updated handoff/status/tasks for review; no code changes or app tests.
 
 - Follow-up: materialized both fetched teammate tips in separate clean worktrees: C:\Users\calli\code\playing-god-feature-m0-rebound-physics-api and C:\Users\calli\code\playing-god-codex-3drender. No existing worktree or branch pointer was changed. Current divergence from main: Aarit 6 branch-only / 1 main-only; Nikhil 1 branch-only / 5 main-only.
+
+## 2026-10-23 — Production REBOUND simulation (backend session)
+- Branch `feature/production-rebound-simulation` from `feature/m0-rebound-physics-api`; merged `origin/main` locally (context-doc conflicts resolved by keeping both sides). No push, no merge into main.
+- Added `backend/collisions.py` (merge layer ported from the spike, no spike imports), `backend/simulation.py` (service: REBOUND ids by `name`, chunked transactional steps, events, reset), new models/bounds, endpoints PATCH/DELETE bodies, step, reset, events; removed `backend/store.py`; `rebound` added to `backend/requirements.txt`.
+- Tests: `tests/test_simulation_service.py`, `tests/test_api_simulation.py`; one existing test (`test_body_id_is_stable_and_unique`) now places the second body at a distinct position because overlapping creation returns 409; `tests/test_api.py` imports renamed to the new service. No tests deleted or weakened.
+- Result: `pytest` 149 passed, 3 warnings (spike + Starlette).

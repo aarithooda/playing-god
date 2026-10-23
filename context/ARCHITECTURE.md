@@ -12,7 +12,7 @@ tests/      pytest tests (test_health.py); tests/spike/ = M0 REBOUND tests
 No physics/collision/events/checkpoint modules exist; add them only when a feature needs them.
 
 ## Responsibilities
-- **Backend [Implemented: skeleton only]**: FastAPI app (`main.py`, `models.py`, `store.py`) with `/health`, `/healthz`, `GET /api/v1/simulation/state`, `POST /api/v1/bodies` (in-memory store, no physics; see `API_CONTRACT.md`) and CORS for `FRONTEND_ORIGIN` (default `http://localhost:5173`). **[Proposed]** It will own the authoritative simulation state, integration, collisions, events and checkpoints.
+- **Backend [Implemented]**: FastAPI app (`main.py`, `models.py`) over `simulation.py` (`SimulationService`: one persistent REBOUND/IAS15 simulation owning the authoritative state, body-id ↔ particle `name` mapping, transactional chunked steps, events) and `collisions.py` (`line` detection + perfectly inelastic merger layer). Endpoints: health, state, body CRUD, step, reset, events (`API_CONTRACT.md`). In-memory, single process, CORS for `FRONTEND_ORIGIN` (default `http://localhost:5173`). The server never runs by itself; Play = client loop of bounded `step` calls. `backend/experiments/` is evidence code and is not imported by the app.
 - **Frontend [Implemented: placeholder only]**: React page showing "PLAYING GOD" and the backend health. Vite proxies `/api/*` to `http://127.0.0.1:8000` (prefix stripped). **[Proposed]** It will render backend state with Three.js and send user actions.
 
 ## Simulation data flow [Proposed]

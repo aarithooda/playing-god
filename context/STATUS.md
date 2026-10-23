@@ -1,6 +1,13 @@
 # Status
 _Concise authoritative snapshot. Update after every meaningful session._
 
+## Backend physics (branch `feature/production-rebound-simulation`, 2026-10-23, local only: not pushed, not merged)
+- **Done:** production REBOUND/IAS15 service (`backend/simulation.py`), merger layer (`backend/collisions.py`), endpoints state, POST/PATCH/DELETE bodies, step, reset, events (`API_CONTRACT.md` matches the code). `rebound` is in `backend/requirements.txt`; `backend/store.py` was replaced by `simulation.py`.
+- **Tests (fresh run):** `pytest` -> **149 passed, 3 warnings** (88 earlier + 61 new: 23 service/physics, 29+ API simulation cases). The 3 warnings are the Starlette/httpx deprecation and two IAS15 non-convergence RuntimeWarnings inside the old spike tests; the production tests pass with `-W error::RuntimeWarning` (91 passed).
+- **Evidence:** 2-body acceleration vs Newton rel 1e-6 (pins G); circular Sun-Earth orbit returns to start within 1e-9 a and dE/E < 1e-10 over one period via 10 chunked requests; merger conserves mass exactly and momentum to 1e-12 relative, KE loss, relative speed, spin and contact time match closed forms; fast 2000 m/s head-on not tunnelled; radial infall through a single 3e5 s request merges once; rollback restores state after injected failures; concurrent steps serialize.
+- **Limits:** see "Physics limitations" in `API_CONTRACT.md` (energy/angular momentum not conserved by merges, detection-time events, untested extreme cases, no wall-clock limit per step).
+- **Frontend must know:** `status` is always `paused`; Play = loop of `POST /simulation/step` (dtS in [1e-6, 1e8]); response carries `events` and `advancedS`; merge survivor keeps its id, absorbed id disappears; 409 on overlap at create/patch; Vite still strips `/api` (T-008).
+
 - **Phase:** M0 complete (engine decision accepted); integration branch `feature/m0-rebound-physics-api` pushed for review. Next milestone: production engine integration (P-001).
 - **Decisions (accepted 2026-10-23):** D-008 **GO WITH CUSTOM COLLISION LAYER** (REBOUND + IAS15 + `line` detection + our own merger layer; evidence, failure modes and limitations in `PHYSICS_SPIKE.md`); D-007 SI units with explicit G; D-010 right-handed Cartesian; D-009 project license GPL-3.0-only (`LICENSE`, `THIRD_PARTY_NOTICES.md`; project decision, not legal advice).
 - **Units:** SI project-wide (D-007): m, m/s, kg, s, J, kg·m²/s, G = 6.67430e-11. REBOUND's own SI constant (6.67408e-11) is overridden.

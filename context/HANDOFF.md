@@ -1,5 +1,15 @@
 # Handoff (latest — rewrite at end of each session)
 
+## Backend physics session (2026-10-23, Claude Sonnet 5.5) — newest
+1. **Branch:** `feature/production-rebound-simulation` (from `feature/m0-rebound-physics-api` + local merge of `origin/main` docs). Not pushed, not merged. The frontend session works in a separate worktree (`Playing God-frontend`).
+2. **Implemented:** production engine and API per `API_CONTRACT.md`; 149 tests pass. Details in `STATUS.md` (top section) and `WORKLOG.md`.
+3. **Do first:** review/merge; frontend integrates against the contract (step loop, events, 409 handling). Then P-003 stress tests (strongly curved binaries, >3 simultaneous collisions, extreme mass ratios, N≈100–200 latency), a per-step wall-clock guard, and optionally checkpoints.
+4. **Do not change without investigation:** `line` detection, seeded `rand_seed`, IAS15 re-selection after any structural change, name-based ids, chunking criterion, transactional rollback. Do not import `backend/experiments` from the app.
+5. **Run:** `.venv/Scripts/python.exe -m pytest` (REBOUND is in `backend/requirements.txt`; the repo's `.venv` has it).
+
+---
+## Earlier handoff (M0 session; partly superseded by the section above)
+
 **Date:** 2026-10-23 · **By:** Claude Sonnet 5.5 for the project lead
 
 1. **Project:** PLAYING GOD — browser 3D gravitational sandbox (React/TS/Vite/Three.js frontend, FastAPI backend, backend owns physics state). See `PROJECT_BRIEF.md`.
