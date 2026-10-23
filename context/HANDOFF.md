@@ -1,5 +1,10 @@
 # Handoff (latest — rewrite at end of each session)
 
+## Close button for selected-body inspector (2026-10-24, Codex) — latest
+1. On `frontend/close-body-inspector`, added a compact accessible × button beside the Body Inspector title. It clears `selectedBodyId` and closes the inspector; selecting a body still opens it. No outside-click behavior added.
+2. `npm run build` passed (640 modules transformed; existing >500 kB bundle warning). Changes are on this topic branch, not merged.
+3. See `STATUS.md`, `TASKS.md`, and `WORKLOG.md`.
+
 ## Backend connection restored (2026-10-24, Codex) — latest
 1. Frontend showed “connecting to the simulation backend” because the backend process was unresponsive. A clean restart failed with `ModuleNotFoundError: No module named 'rebound'` in this checkout's `.venv`.
 2. Installed the declared dependency set with `.venv/Scripts/python.exe -m pip install -r backend/requirements.txt` (REBOUND 5.2.2), then started Uvicorn at `127.0.0.1:8000`.

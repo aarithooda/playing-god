@@ -157,6 +157,7 @@ export default function App() {
               onSave={simulation.updateBody}
               onDelete={simulation.deleteBody}
               onFocus={focusBody}
+              onClose={() => setSelectedBodyId(undefined)}
             />
           </div>
         </div>
