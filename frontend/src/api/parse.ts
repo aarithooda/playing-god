@@ -62,6 +62,30 @@ export function parseDiagnosticsDto(v: unknown): DiagnosticsDto {
   };
 }
 
+/**
+ * State-level diagnostics are parsed leniently: a missing, unsupported-version or malformed object yields
+ * `diagnostics: null` plus a reason instead of failing the whole state (bodies must stay visible). The strict
+ * `parseDiagnosticsDto` is still what accepts a value; an unknown version is never reinterpreted.
+ */
+function parseDiagnosticsLenient(v: unknown): Pick<SimulationStateDto, "diagnostics" | "diagnosticsIssue"> {
+  if (v === undefined || v === null) return { diagnostics: null, diagnosticsIssue: "the response contained no diagnostics" };
+  if (typeof v === "object" && !Array.isArray(v)) {
+    const version = (v as Record<string, unknown>).version;
+    if (version !== DIAGNOSTICS_VERSION) {
+      return {
+        diagnostics: null,
+        diagnosticsIssue: `unsupported diagnostics version (${String(version)}; this client understands ${DIAGNOSTICS_VERSION})`,
+      };
+    }
+  }
+  try {
+    return { diagnostics: parseDiagnosticsDto(v), diagnosticsIssue: null };
+  } catch (e) {
+    if (!(e instanceof ApiError)) throw e;
+    return { diagnostics: null, diagnosticsIssue: `the diagnostics were malformed (${e.message})` };
+  }
+}
+
 export function parseBodyDto(v: unknown): BodyDto {
   const o = obj(v, "body");
   return {
@@ -84,7 +108,7 @@ export function parseStateDto(v: unknown): SimulationStateDto {
     status,
     simulationTimeS: num(o.simulationTimeS, "state.simulationTimeS"),
     bodies: (o.bodies as unknown[]).map(parseBodyDto),
-    diagnostics: parseDiagnosticsDto(o.diagnostics),
+    ...parseDiagnosticsLenient(o.diagnostics),
   };
 }
 

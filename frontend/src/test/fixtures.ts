@@ -48,7 +48,7 @@ export const diagnostics: DiagnosticsDto = {
 };
 
 export function state(bodies: BodyDto[], t = 0): SimulationStateDto {
-  return { status: "paused", simulationTimeS: t, bodies, diagnostics };
+  return { status: "paused", simulationTimeS: t, bodies, diagnostics, diagnosticsIssue: null };
 }
 
 export function stepResponse(bodies: BodyDto[], t: number, events: SimulationEventDto[] = []): StepResponseDto {
