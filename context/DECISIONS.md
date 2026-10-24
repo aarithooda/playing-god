@@ -484,3 +484,8 @@ Entry format: Date · Decision · Context/reason · Alternatives · Consequences
 - NOT sourced for any body, so UNSUPPORTED for the models that need them: composition/layers, structure class (DQ-7 (a)), LS12 c* and mu_bar, wave speed, cratering constants. No generic registry profile was assigned to any named body (R-41).
 - Design choice: annotations are descriptive and are NOT attached to the engine side tables, so presets and Orbit Lab stay `legacy-merge` and spin states are not created (D-033, D-045). Wiring them into collisions would need a structure class and LS12 applicability that no source supplies.
 - Evidence: trajectory digests of both presets (20 steps of 5 d, exact float bytes) identical before and after; backend 1388 passed (1373 + 15 new); tests/validation 100 passed.
+
+## D-061 — Stage 12: scenarios A-H, performance checks, Definition-of-Done audit (branch `collision/stage-11-12`)
+- Date: 2026-10-25. Under D-059: CP-5 is WAIVED by the owner, not signed; no outcome is independently validated.
+- Added `tests/impact/test_scenarios_e2e.py` (9 tests), `tests/impact/test_performance.py` (2), `context/STAGE12_DOD_AUDIT.md`. Results: backend 1399 passed; vitest 502; tsc clean; build OK; Playwright 14 passed (software WebGL, stubbed API).
+- **Unmet criteria, reported honestly:** DOD-2 (matrix rows not all VERIFIED: 44 MISS, 14 open, 94 PART, many stale but not individually re-audited); frame pacing with 8 effects and 20,000 particles unmeasured; browser scenario G, GPU/other browsers/real backend not run; cross-platform replay tolerance not implemented. Stage 12 is therefore NOT marked done; it is `[-]` with these items open.

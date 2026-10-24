@@ -5,7 +5,10 @@
 # Status
 _Concise authoritative snapshot. Update after every meaningful session._
 
-## Collision engine - Stage 11 done (D-060) (2026-10-25, Claude Sonnet 5.5) - newest
+## Collision engine - Stage 12 audit done, criteria partly unmet (D-061) (2026-10-25, Claude Sonnet 5.5) - newest
+- Branch `collision/stage-11-12`. Scenarios A-H, performance checks and the DoD audit ran (`context/STAGE12_DOD_AUDIT.md`): 1399 backend / 502 vitest / 14 e2e pass. UNMET: per-row matrix re-audit (DOD-2), frame pacing with effects, browser scenario G, GPU/real-backend runs. CP-SCI-1/CP-5 waived by the owner (D-059), not signed; nothing independently validated. Nothing pushed.
+
+## Collision engine - Stage 11 done (D-060) (2026-10-25, Claude Sonnet 5.5)
 - Branch `collision/stage-11-12`. Cited moment-of-inertia annotations for 8 bodies; all other material quantities unsupported; trajectories bit-identical; 1388 backend passed. Owner-accepted, not independently validated.
 
 ## Collision engine - governance change D-059, Stages 11-12 proceeding (2026-10-25, Claude Sonnet 5.5)
@@ -45,7 +48,7 @@ _Concise authoritative snapshot. Update after every meaningful session._
 - **Verified:** `python -m pytest -q` 935 passed (869 + 66 new), 1 baseline warning. Frontend untouched in this stage.
 - **Open:** Stage 4a next (needs DQ-13: provisional default recorded in its stage). Cratering is Unsupported for all shipped profiles (no sourced constants).
 
-## Collision engine — Stage 2 (2026-10-24, Claude Sonnet 5.5) — newest
+## Collision engine — Stage 2 (2026-10-24, Claude Sonnet 5.5)
 - **Done** on `collision/stage-2-materials-spin` (from `b4a7134`): material registry (5 profiles, every number cited, unsourced quantities declared `incomplete`), rotation state and quaternion utilities, optional `material`/`spinRadPerS`/`orientation` on bodies (omitted when unset, so a material-less body is byte-identical), `GET /api/v1/materials`, side tables on every state path, additive diagnostics term (version stays 1), rotation/material/site latitude in the impact capture, frontend optional parsing. Every universe still `legacy-merge`.
 - **Verified:** `python -m pytest -q` 869 passed (800 + 69 new), 1 baseline warning; preset and fixed-id digests equal the values computed at f2c2da3; existing suite forced onto the deferred engine: 566/567 (the same one legacy-hook test); frontend `npm run typecheck` clean, `npx vitest run` 439 passed (433 + 6), `npm run build` OK; Playwright not run (browsers missing).
 - **Open:** Stage 3 blocked (DQ-7/8/9, named CP-SCI-1 reviewer). Differentiated/molten profiles not shipped (unsourced).

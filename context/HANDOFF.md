@@ -4,7 +4,10 @@
 3. Verified locally: frontend typecheck; Vitest 206/206 across 23 files; build (existing >500 kB warning); Playwright 5/5; diff check. The profile measured 1/16/64 bodies at median 33.4/50.0/99.9 ms per animation frame in Windows headless Chrome with GPU disabled by test config; treat as software frame pacing, not hardware GPU timing. E2E stubs backend responses. Do not merge into `main` without owner approval; real-hardware profiling and UI-0 integration remain follow-ups.
 # Handoff (latest — rewrite at end of each session)
 
-## Collision engine, Stage 11 done (D-060) (2026-10-25, Claude Sonnet 5.5) - latest
+## Collision engine - Stage 12 audit done, criteria partly unmet (D-061) (2026-10-25, Claude Sonnet 5.5) - latest
+000000000. Stage 12 ran under D-059/D-061; see `context/STAGE12_DOD_AUDIT.md` for the commands and the unmet list (DOD-2 per-row audit of 44 MISS / 14 open / 94 PART rows; frame pacing with effects unmeasured; no GPU/real-backend run). Stage 12 stays `[-]`. Playwright regenerates `context/evidence/stage9-webgl/*.png`; those two diffs are not committed. Nothing pushed or merged.
+
+## Collision engine, Stage 11 done (D-060) (2026-10-25, Claude Sonnet 5.5)
 000000000. Branch `collision/stage-11-12`: `body-materials.json` + loader annotations; 8 cited NASA moment-of-inertia values, everything else unsupported; baselines captured first and unchanged; presets stay legacy-merge. Next: Stage 12.
 
 ## Collision engine, governance change D-059 (2026-10-25, Claude Sonnet 5.5)
@@ -45,7 +48,7 @@
 1. Branch `collision/stage-3-models`. The selector and models are pure and not yet called by the engine (Stage 4a).
 2. Everything LS12-based is provisional (`backend/impact/models/provisional.py`); human review of D-038 and the open UD-1/UD-2 questions (COLLISION_SCIENTIFIC_MODELS.md 6b) is still welcome and may change outputs.
 
-## Collision engine, Stage 2 done (2026-10-24, Claude Sonnet 5.5) — latest
+## Collision engine, Stage 2 done (2026-10-24, Claude Sonnet 5.5)
 1. Branch `collision/stage-2-materials-spin` in worktree `C:/Aarit/Projects/Playing God collision-implementation`. D-036 records the CP-1 acceptance; D-037 the Stage 2 choices.
 2. STOP before Stage 3: the owner must answer DQ-7 (c* class rule), DQ-8 (gas-giant handling and envelope threshold), DQ-9 (strength regime) and name the human reviewer for CP-SCI-1. No LS12 constant is used by any model.
 3. Nothing pushed or merged.

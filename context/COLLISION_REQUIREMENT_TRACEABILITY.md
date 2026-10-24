@@ -290,11 +290,11 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 ## §14 Cross-feature scenarios
 | ID | Expectations (each bullet of the spec) | Stage | Verification | Status |
 |---|---|---|---|---|
-| SC-A (south pole) | detection; contact point & diagnostics; localized initial damage; ejecta from site; coherent fragment velocities; continued evolution; no uniform instantaneous damage | ST6, ST9, ST12 | T/scn::test_scenario_a_* (backend), E2E/col (stub), manual WebGL check recorded | MISS |
+| SC-A (south pole) | detection; contact point & diagnostics; localized initial damage; ejecta from site; coherent fragment velocities; continued evolution; no uniform instantaneous damage | ST6, ST9, ST12 | T/scn::test_scenario_a_* (backend), E2E/col (stub), manual WebGL check recorded | VERIFIED backend (software; PROVISIONAL, owner-accepted D-059): tests/impact/test_scenarios_e2e.py::test_scenario_a_south_pole_localized; static site only (no wave speed); browser alignment in e2e/collision-effects.spec.ts (stub) |
 | SC-B (asteroid → gas giant) | envelope-dominated identification; gas-envelope handling; outcome & limitations recorded; ejecta/remnant/envelope-loss consistent; no resolved-gas-dynamics claim | ST3, ST4, ST12 | T/scn::test_scenario_b_* | PART: envelope_deposition selected and applied at model level (tests/impact/test_applier.py); the scenario test ST12 |
 | SC-C (hit-and-run) | regime selected; consistent remnants; mass & momentum; renderer shows both + debris; no duplicated/lost bodies | ST4, ST9, ST12 | T/scn::test_scenario_c_*, E2E/col | PART: backend part VERIFIED (tests/impact/test_applier.py::test_scenario_c_*, tests/impact/test_engine_outcomes.py); rendering ST9 |
-| SC-D (catastrophic) | remnant + debris distribution; explicit accounting; coherent trajectories; bound debris orbit/reaccrete; unbound escape; limits don't discard mass; residuals & approximations reported | ST5, ST7, ST12 | T/scn::test_scenario_d_* | MISS |
-| SC-E (secondary) | fragment registered; trajectory from state; secondary detected & resolved; parent link; damage & debris; history intact | ST7, ST12 | T/scn::test_scenario_e_* (moons preset) | MISS |
+| SC-D (catastrophic) | remnant + debris distribution; explicit accounting; coherent trajectories; bound debris orbit/reaccrete; unbound escape; limits don't discard mass; residuals & approximations reported | ST5, ST7, ST12 | T/scn::test_scenario_d_* | VERIFIED backend (software; PROVISIONAL, D-059): tests/impact/test_scenarios_e2e.py::test_scenario_d_disruption_accounting |
+| SC-E (secondary) | fragment registered; trajectory from state; secondary detected & resolved; parent link; damage & debris; history intact | ST7, ST12 | T/scn::test_scenario_e_* (moons preset) | VERIFIED backend (software; PROVISIONAL, D-059): tests/impact/test_scenarios_e2e.py::test_scenario_e_fragment_hits_moon_parent_link |
 | SC-F (pause/resume/replay) | pause freezes sim & animation; resume continues; time scaling consistent; replay consistent; visuals cleaned, fragments accounted | ST1, ST8, ST9, ST12 | T/scn::test_scenario_f_*, V/effectTimeline, T/rec replay | PART: the logic of pause/resume/time scale/replay is verified in the pure modules and the hook (frontend/src/sim/collision/effects.test.ts, frontend/src/sim/collision/useCollisionEffects.test.tsx); not validated in a browser: Playwright not run, no WebGL inspection |
 | SC-G (independent sims) | own state & populations; no leakage of events/seeds/debris; updates isolated; save/restore association | ST10, ST12 | T/iso | VERIFIED backend (tests/impact/test_isolation.py); the end-to-end scenario with two stubbed universes in a browser is not run |
 | SC-H (regression & performance) | existing workflows pass; limits respected; fallbacks explicit; accounting available when detail reduced; baseline vs new failures separated | all, ST12 | REG, T/perf, E2E/col | PART |
@@ -318,20 +318,20 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 ## §17 Definition of Done
 | ID | Item | Verified at | Status |
 |---|---|---|---|
-| DOD-1 | All ten features addressed | ST12 audit of this matrix | open |
-| DOD-2 | All initial requirements have evidence | ST12 (every row VERIFIED or approved limitation) | open |
-| DOD-3 | Scenarios pass or have approved limitations | ST12 | open |
-| DOD-4 | Outcomes driven by selected models | ST3–ST4 | open |
-| DOD-5 | Localized impacts per damage approximation | ST6 | open |
-| DOD-6 | Coherent trajectories & lifecycle | ST5, ST7 | open |
-| DOD-7 | Mass & momentum validated within tolerances | ST4–ST7 | open |
-| DOD-8 | Rendering follows authoritative event | ST9 | open |
-| DOD-9 | Controls & isolation correct | ST10 | open |
-| DOD-10 | Limits & fallbacks explicit | ST5, ST7, ST9 | open |
-| DOD-11 | Persistence compatible / migrated | ST10 | open |
-| DOD-12 | Regression passes, baseline distinguished | every stage | open |
-| DOD-13 | Hydrodynamics integrable without redesign | ST0, ST3 (dummy model) | open |
-| DOD-14 | Documented assumptions & reproducible scenarios | ST12 | open |
+| DOD-1 | All ten features addressed | ST12 audit of this matrix | MET in software (science provisional, see STAGE12_DOD_AUDIT.md) |
+| DOD-2 | All initial requirements have evidence | ST12 (every row VERIFIED or approved limitation) | UNMET: 44 MISS, 14 open and 94 PART rows remain, not individually re-audited (STAGE12_DOD_AUDIT.md) |
+| DOD-3 | Scenarios pass or have approved limitations | ST12 | PARTIAL: A-D, F, G, H pass in the backend; browser scenario G and frame pacing missing |
+| DOD-4 | Outcomes driven by selected models | ST3–ST4 | MET in software (PROVISIONAL) |
+| DOD-5 | Localized impacts per damage approximation | ST6 | PARTIAL: static sites only |
+| DOD-6 | Coherent trajectories & lifecycle | ST5, ST7 | MET in software |
+| DOD-7 | Mass & momentum validated within tolerances | ST4–ST7 | MET in software |
+| DOD-8 | Rendering follows authoritative event | ST9 | PARTIAL: software WebGL, stubbed API |
+| DOD-9 | Controls & isolation correct | ST10 | MET backend |
+| DOD-10 | Limits & fallbacks explicit | ST5, ST7, ST9 | MET in software |
+| DOD-11 | Persistence compatible / migrated | ST10 | PARTIAL: serialisation only (D-054) |
+| DOD-12 | Regression passes, baseline distinguished | every stage | MET: 1399 backend, 502 vitest, 14 e2e |
+| DOD-13 | Hydrodynamics integrable without redesign | ST0, ST3 (dummy model) | PARTIAL: not re-audited in Stage 12 |
+| DOD-14 | Documented assumptions & reproducible scenarios | ST12 | PARTIAL: stale scientific-notes header and R-22 |
 
 ## §18 Final product requirement (user understanding)
 | ID | The user can understand… | Delivered by | Stage | Verification |
@@ -362,3 +362,4 @@ Every numbered item of §1–§18 has at least one row; grouped rows (e.g. `F1-I
 ## Governance note (D-059, 2026-10-25)
 CP-SCI-1 and CP-5 are **waived by the owner for continued development** (D-059), not signed. Any row marked PROVISIONAL stays provisional: "owner-accepted, not independently validated". A row is VERIFIED here only in the software sense (a test run was observed); no row claims scientific validation.
 Stage 11 (D-060): V-6 / M-PROP-MAP: moment-of-inertia annotations for 8 preset bodies, each cited (tests/validation/test_preset_material_annotations.py); all other material quantities unsupported by construction; trajectories bit-identical (tests/validation/test_stage11_trajectory_baseline.py). Owner-accepted, not independently validated.
+Stage 12 (D-061): see context/STAGE12_DOD_AUDIT.md. CP-5 WAIVED by the owner (D-059), not signed.
