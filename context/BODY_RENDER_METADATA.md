@@ -92,3 +92,11 @@ Commit 1 (`backend/models.py`, `backend/simulation.py`, four test assertions, ne
 **Limitations**: no catalogue endpoint yet (M5 adds `bodyType`/`assetKey` to catalogue visuals); no server-side asset registry (planned: none; the frontend registry is authoritative); only the Solar System preset sets keys today.
 
 **Message to send Nikhil**: "Nikhil, the body metadata contract is ready on branch `feature/body-render-metadata` (not merged). Every body now has `bodyType` (star | rocky-planet | gas-giant | ice-giant | asteroid | default, always present) and `assetKey` (string or null). Code against that now; the field names will not change. Read `context/BODY_RENDER_METADATA.md` on that branch for rules and fallbacks. Until it is merged into the Simulation Lab branch the running backend won't send the fields, so make your parser tolerate them being absent (treat as `bodyType: "default"`, `assetKey: null`)."
+
+
+---
+
+# Addendum: moons (D-030)
+- `bodyType` also allows `"moon"` (not a star; fits `kind: planet`). Generic look: the grey Moon map tinted by `colorHex`; `assetKey: "moon"` is Earth's Moon with the untinted map.
+- `Body` and history body metadata carry `primaryId` (string or null, always present on `Body`): the body this one orbits. Preset-set only: not accepted by create or patch; a merger result gets `null`; a primary that no longer exists is treated by the renderer as no primary. It never changes a position: the backend integrates every moon as an ordinary body.
+- `GET .../history` body metadata now actually includes `bodyType`, `assetKey` and `primaryId` (the response model previously dropped the first two).
