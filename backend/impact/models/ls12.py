@@ -208,7 +208,7 @@ class LS12Model:
             lr = min(m_t, largest_remnant_fraction(q_r / q_prime) * m_tot) if math.isfinite(q_prime) else m_t
             lr = max(lr, 0.0)
             second = RemnantSpec(m_p, "projectile", ())
-            return spec("hit_and_run", lr, second, max(m_tot - lr - m_p, 0.0),
+            return spec("hit_and_run", lr, second, max(m_t - lr, 0.0),
                         gz + [f"v_i > v_cr = {v_cr:.6g} m/s: hit-and-run; two remnants"],
                         {"interactingMassFraction": _param(alpha, "1", "LS12 eq. 11 (provisional)")},
                         gz_warn + ("projectile_erosion_not_modelled",), gz_fid)

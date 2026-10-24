@@ -123,9 +123,9 @@ export function toSceneBody(body: DisplayBody, t: RenderTransform, sizeMode: Siz
   };
 }
 
-export interface EventView {
+export interface MergerEventView {
   id: string;
-  type: SimulationEventDto["type"];
+  type: "merger";
   simulationTimeS: number;
   estimatedContactTimeS: number | null;
   bodyIds: string[];
@@ -136,7 +136,48 @@ export interface EventView {
   spinAddedKgM2PerS: Vec3;
 }
 
+/** A collision-engine event as the UI needs it (all text comes from these backend fields). */
+export interface CollisionEventView {
+  id: string;
+  type: "collision";
+  outcome: string;
+  simulationTimeS: number;
+  estimatedContactTimeS: number | null;
+  bodyIds: string[];
+  survivingBodyIds: string[];
+  createdBodyIds: string[];
+  removedBodyIds: string[];
+  modelId: string;
+  modelVersion: string;
+  impactSpeedMPerS: number;
+  impactAngleDeg: number;
+  specificImpactEnergyJPerKg: number;
+  largestRemnantMassKg: number;
+  debrisMassKg: number;
+  massResidualRel: number;
+  momentumResidualRel: number;
+  warnings: string[];
+  fidelitySummary: Record<string, string>;
+}
+
+export type EventView = MergerEventView | CollisionEventView;
+
+/** The body to highlight for an event, if any: a merger's survivor, a collision's first surviving or created body. */
+export function eventFocusBodyId(event: EventView): string | undefined {
+  return event.type === "merger" ? event.resultBodyId : (event.survivingBodyIds[0] ?? event.createdBodyIds[0]);
+}
+
 export function toEventView(dto: SimulationEventDto): EventView {
+  if (dto.type === "collision") {
+    return {
+      id: dto.id, type: "collision", outcome: dto.outcome, simulationTimeS: dto.simulationTimeS,
+      estimatedContactTimeS: dto.estimatedContactTimeS, bodyIds: [...dto.bodyIds], survivingBodyIds: [...dto.survivingBodyIds],
+      createdBodyIds: [...dto.createdBodyIds], removedBodyIds: [...dto.removedBodyIds], modelId: dto.modelId, modelVersion: dto.modelVersion,
+      impactSpeedMPerS: dto.impactSpeedMPerS, impactAngleDeg: dto.impactAngleDeg, specificImpactEnergyJPerKg: dto.specificImpactEnergyJPerKg,
+      largestRemnantMassKg: dto.largestRemnantMassKg, debrisMassKg: dto.debrisMassKg, massResidualRel: dto.massResidualRel,
+      momentumResidualRel: dto.momentumResidualRel, warnings: [...dto.warnings], fidelitySummary: { ...dto.fidelitySummary },
+    };
+  }
   return {
     id: dto.id,
     type: dto.type,

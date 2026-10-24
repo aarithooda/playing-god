@@ -45,6 +45,10 @@ export interface BodyDto {
   material?: MaterialDto;
   spinRadPerS?: Vec3;
   orientation?: OrientationDto;
+  /** Bodies created by a collision: absent for ordinary bodies. A parcel carries a mass but stands for many pieces. */
+  representation?: "fragment" | "debris-parcel";
+  originEventId?: string;
+  debris?: DebrisDto;
 }
 
 /** POST /api/v1/bodies request (the server generates `id`). `kind` defaults to "planet" on the server. */
@@ -87,6 +91,15 @@ export interface OrientationDto {
   epochS: number;
 }
 
+/** What a debris parcel stands for (a statistical population, not a single object). `sizeDistribution` is null until fragmentation (Stage 5). */
+export interface DebrisDto {
+  totalMassKg: number;
+  sizeDistribution: { kind: "power-law"; exponent: number; dMinM: number; dMaxM: number } | null;
+  velocityDispersionMPerS: number;
+  materialProfileId: string | null;
+  sampleSeed: number;
+}
+
 export interface DiagnosticsDto {
   version: typeof DIAGNOSTICS_VERSION;
   totalMassKg: number | null;
@@ -117,7 +130,8 @@ export interface SimulationStateDto {
   revision?: number;
 }
 
-export interface SimulationEventDto {
+/** The legacy perfectly inelastic merger (unchanged shape). */
+export interface MergerEventDto {
   id: string;
   type: "merger";
   simulationTimeS: number;
@@ -129,6 +143,38 @@ export interface SimulationEventDto {
   kineticEnergyLostJ: number;
   spinAddedKgM2PerS: Vec3;
 }
+
+/** Collision engine event (backend mode outcome-v1): a summary; the physics, residuals and reasons are the backend's. */
+export interface CollisionEventDto {
+  id: string;
+  type: "collision";
+  schemaVersion: number;
+  outcome: string;
+  simulationTimeS: number;
+  estimatedContactTimeS: number | null;
+  bodyIds: string[]; // [target, projectile]
+  survivingBodyIds: string[];
+  createdBodyIds: string[];
+  removedBodyIds: string[];
+  parentEventId: string | null;
+  rootEventId: string;
+  generation: number;
+  modelId: string;
+  modelVersion: string;
+  impactSpeedMPerS: number;
+  impactAngleDeg: number;
+  specificImpactEnergyJPerKg: number;
+  largestRemnantMassKg: number;
+  debrisMassKg: number;
+  massResidualRel: number;
+  momentumResidualRel: number;
+  warnings: string[];
+  /** quantity -> computed | model | approximation | statistical | visual | unsupported */
+  fidelitySummary: Record<string, string>;
+  hasVisual: boolean;
+}
+
+export type SimulationEventDto = MergerEventDto | CollisionEventDto;
 
 export interface StepResponseDto extends SimulationStateDto {
   advancedS: number;

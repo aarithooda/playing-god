@@ -13,6 +13,7 @@ import type {
   OrbitLabSystemDto,
   HistoryPageDto,
   PresetSummaryDto,
+  MergerEventDto,
   SimulationEventDto,
   SimulationStateDto,
   SnapshotSummaryDto,
@@ -48,7 +49,7 @@ export const earth: BodyDto = {
   bodyType: "rocky-planet",
 };
 
-export const mergerEvent: SimulationEventDto = {
+export const mergerEvent: MergerEventDto = {
   id: "evt-1",
   type: "merger",
   simulationTimeS: 7200,

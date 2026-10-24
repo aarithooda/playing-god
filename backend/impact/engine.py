@@ -1,38 +1,45 @@
 """CollisionEngine: resolves the contacts recorded by `ContactRecorder` between `integrate` calls (plan 3.2, 3.4, 3.7).
 
 Used by `SimulationService` in mode "outcome-v1" only; mode "legacy-merge" keeps `MergeResolver` inside the REBOUND callback.
-In this stage the only outcome is the perfect merger (`models.perfect_merge`): same arithmetic, same `merger` event, same
-body state as the legacy resolver. What is new is the lifecycle around it:
+Lifecycle of one contact (nothing is resolved inside the REBOUND callback):
 
-  detected (recorder) -> captured (frozen ImpactState) -> classified (model + reasons) -> resolved -> applied -> recorded
+  detected (recorder) -> captured (frozen ImpactState) -> classified (selector: model + reasons) -> realised (pure CollisionResult +
+  conservation report) -> validated (whole result, before any change) -> applied (atomically) -> recorded
 
 `resolve_batch` works on one detection pass:
 1. every pair is ordered by (estimated contact time, sorted ids): deterministic whatever REBOUND's report order was;
-2. a pair whose bodies no longer exist is stale and dropped (counted); a pair involving a body that an earlier pair of the
-   same batch changed is re-checked against the live state and resolved only if the bodies really overlap now (a remnant
-   keeps absorbing what it touches, as in the legacy resolver); otherwise it is dropped and the next internal step decides;
-3. the pre-impact state is captured BEFORE the merge mutates anything;
-4. the particles are changed exactly like the legacy resolver does (survivor in place, absorbed body removed by name);
-5. IAS15 is re-selected once for the batch (its predictor state is stale after a structural change).
-Nothing is resolved inside the REBOUND callback. Errors propagate as exceptions: the service rolls the whole step back.
+2. a pair whose bodies no longer exist is stale and dropped (counted); a pair involving a body that an earlier pair of the same batch
+   changed is re-checked against the live state and resolved only if the bodies really overlap now; otherwise the next step decides;
+3. the pre-impact state is captured BEFORE anything is mutated;
+4. DQ-2 (D-033): a pair in which a body has no material profile resolves with the EXACT legacy merge (same arithmetic, same `merger`
+   event, same body state; `material_unspecified` only in the record). Every other pair goes through the selector and the applier;
+5. an outcome whose result fails validation or conservation gets ONE fallback attempt (a perfect merge, warning `model_failed_fallback`);
+   if that fails too the step is rolled back (HTTP 500 `collision_unresolvable`), state unchanged;
+6. IAS15 is re-selected once for the batch (its predictor state is stale after a structural change).
+Errors propagate as exceptions: the service rolls the whole step back.
 """
 from dataclasses import dataclass, field
-from typing import Callable, Sequence
+from typing import Callable, Optional, Sequence
 
 from backend.collisions import contact_time_estimate, select_ias15
+from backend.impact.applier import ApplyState, ResultInvalid, apply_result, collision_unresolvable, realise, validate_result
 from backend.impact.config import CollisionConfig
-from backend.impact.contracts import CollisionRecord
+from backend.impact.contracts import CollisionEvent, CollisionRecord, CollisionResult, ContractError, OutcomeSpec
 from backend.impact.detection import ContactCandidate, order_key
 from backend.impact.geometry import BodyExtras, capture_impact
-from backend.impact.models.perfect_merge import MODEL_ID, MODEL_VERSION, PairBody, PerfectMergeModel, merge_pair
+from backend.impact.models.perfect_merge import MODEL_ID, MODEL_VERSION, PairBody, merge_pair
 from backend.impact.records import build_input, build_record
-from backend.impact.models.base import Unsupported
+from backend.impact.selector import Selection, Selector
+
+NEW_REMNANT_OUTCOMES = frozenset({"catastrophic_disruption", "super_catastrophic_disruption"})
+RECOVERABLE = (ResultInvalid, ValueError, ContractError, ZeroDivisionError, OverflowError)
 
 
 @dataclass
 class BatchReport:
     resolved: int = 0
     stale: int = 0
+    fallbacks: int = 0
     records: list[CollisionRecord] = field(default_factory=list)
 
 
@@ -44,18 +51,24 @@ def _add(a: Sequence[float], b: Sequence[float]) -> list[float]:
     return [x + y for x, y in zip(a, b)]
 
 
+def _centre_distance(a, b) -> float:
+    return ((a.x - b.x) ** 2 + (a.y - b.y) ** 2 + (a.z - b.z) ** 2) ** 0.5
+
+
 class CollisionEngine:
     def __init__(self, config: CollisionConfig, g: float) -> None:
         self.config = config
         self.g = g
-        self.model = PerfectMergeModel()
+        self.selector = Selector(g)
 
+    # ------------------------------------------------------------------------------------------------------------------------
     def resolve_batch(self, sim, candidates: Sequence[ContactCandidate], *, ledger, on_merge: Callable[[dict], None],
-                      event_seq: Callable[[], int], chunk_criterion_satisfied: bool,
-                      extras: "BodyExtras | None" = None) -> BatchReport:
-        """Resolve one detection pass. `ledger` holds `heat_J` and `spin` (the legacy booked-energy and booked-spin
-        ledgers); `on_merge(event_fields)` creates the public `merger` event and updates display metadata; `event_seq()`
-        returns the engine's event counter (incremented by `on_merge`)."""
+                      event_seq: Callable[[], int], chunk_criterion_satisfied: bool, extras: "BodyExtras | None" = None,
+                      emit_collision: "Callable[[CollisionEvent], None] | None" = None,
+                      apply_state: "Callable[[], ApplyState] | None" = None, parcel_count: "Callable[[], int] | None" = None) -> BatchReport:
+        """Resolve one detection pass. `ledger` holds `heat_J` and `spin` (the booked-energy and booked-spin ledgers); `on_merge(fields)`
+        creates the legacy `merger` event; `emit_collision(event)` creates a `collision` event (and advances the event counter);
+        `apply_state()` gives the tables the applier may change; `event_seq()` returns the engine's event counter."""
         report = BatchReport()
         live = {p.name: p for p in sim.particles}
         ordered = []
@@ -68,7 +81,7 @@ class CollisionEngine:
             v_rel = [x - y for x, y in zip((a.vx, a.vy, a.vz), (b.vx, b.vy, b.vz))]
             ordered.append((order_key(c, contact_time_estimate(c.time_s, c.dt_last_done, r_rel, v_rel, a.r + b.r)), c))
         ordered.sort(key=lambda item: item[0])
-        changed: set[str] = set()  # survivors and absorbed bodies of earlier pairs of this batch
+        changed: set[str] = set()  # survivors, absorbed and created bodies of earlier pairs of this batch
         for _, c in ordered:
             live = {p.name: p for p in sim.particles}
             pa, pb = live.get(c.first_id), live.get(c.second_id)
@@ -84,27 +97,15 @@ class CollisionEngine:
                                                        chunk_criterion_satisfied, contact_time_estimate, self.g, extras)
             seq = event_seq() + 1
             data = build_input(seq, impact, self.config, MODEL_ID, MODEL_VERSION)
-            spec = self.model.evaluate(data)
-            if isinstance(spec, Unsupported):  # cannot happen for the perfect merge; never guess an outcome
-                raise RuntimeError("perfect merge reported the input unsupported: " + "; ".join(spec.reasons))
-            merged = merge_pair(first, second, c.time_s, c.dt_last_done, contact_time_estimate)
-            surv = pa if merged.remove_code == 2 else pb
-            for axis, value in zip(("x", "y", "z"), merged.position):
-                setattr(surv, axis, value)
-            for axis, value in zip(("vx", "vy", "vz"), merged.velocity):
-                setattr(surv, axis, value)
-            surv.m = merged.mass
-            surv.r = merged.radius
-            ledger.heat_J += merged.kinetic_energy_lost_j
-            spin = _add(ledger.spin.pop(merged.survivor_id, [0.0] * 3), ledger.spin.pop(merged.absorbed_id, [0.0] * 3))
-            ledger.spin[merged.survivor_id] = _add(spin, merged.orbital_angular_momentum)
-            on_merge(merged.event)
-            if event_seq() != seq:
-                raise RuntimeError(f"event counter mismatch: expected {seq}, got {event_seq()}")
-            sim.remove(next(p.index for p in sim.particles if p.name == merged.absorbed_id))
-            changed.update((merged.survivor_id, merged.absorbed_id))
-            warnings = tuple(dict.fromkeys((*geometry_warnings, *spec.warnings)))
-            report.records.append(build_record(data, spec, spec.regime_reasons, warnings, f"evt-{seq}"))
+            selection = self.selector.select(data)
+            if selection.spec.outcome == "legacy_merge":
+                record = self._legacy_merge(sim, ledger, on_merge, event_seq, seq, data, selection.spec, geometry_warnings,
+                                            (first, second, pa, pb, c), changed)
+            else:
+                if emit_collision is None or apply_state is None or parcel_count is None:
+                    raise RuntimeError("the engine was not given the hooks needed to apply a non-legacy outcome")
+                record = self._resolve_outcome(sim, data, selection, emit_collision, apply_state, parcel_count, event_seq, seq, changed, report)
+            report.records.append(record)
             report.resolved += 1
         if report.resolved:
             select_ias15(sim)  # stale predictor state after a structural change (see backend/collisions.py)
@@ -112,6 +113,82 @@ class CollisionEngine:
             sim.dt = candidates[0].dt_next_s  # resume on the step grid the legacy resolver would have continued on
         return report
 
+    # ------------------------------------------------------------------------------------------------------------------------
+    def _legacy_merge(self, sim, ledger, on_merge, event_seq, seq, data, spec, geometry_warnings, pair, changed) -> CollisionRecord:
+        """The exact legacy merger (DQ-2): identical arithmetic and body state to `MergeResolver`."""
+        first, second, pa, pb, c = pair
+        merged = merge_pair(first, second, c.time_s, c.dt_last_done, contact_time_estimate)
+        surv = pa if merged.remove_code == 2 else pb
+        for axis, value in zip(("x", "y", "z"), merged.position):
+            setattr(surv, axis, value)
+        for axis, value in zip(("vx", "vy", "vz"), merged.velocity):
+            setattr(surv, axis, value)
+        surv.m = merged.mass
+        surv.r = merged.radius
+        ledger.heat_J += merged.kinetic_energy_lost_j
+        spin = _add(ledger.spin.pop(merged.survivor_id, [0.0] * 3), ledger.spin.pop(merged.absorbed_id, [0.0] * 3))
+        ledger.spin[merged.survivor_id] = _add(spin, merged.orbital_angular_momentum)
+        on_merge(merged.event)
+        if event_seq() != seq:
+            raise RuntimeError(f"event counter mismatch: expected {seq}, got {event_seq()}")
+        sim.remove(next(p.index for p in sim.particles if p.name == merged.absorbed_id))
+        changed.update((merged.survivor_id, merged.absorbed_id))
+        warnings = tuple(dict.fromkeys((*geometry_warnings, *spec.warnings)))
+        return build_record(data, spec, spec.regime_reasons, warnings, f"evt-{seq}")
 
-def _centre_distance(a, b) -> float:
-    return ((a.x - b.x) ** 2 + (a.y - b.y) ** 2 + (a.z - b.z) ** 2) ** 0.5
+    # ------------------------------------------------------------------------------------------------------------------------
+    def _resolve_outcome(self, sim, data, selection: Selection, emit_collision, apply_state, parcel_count, event_seq, seq, changed, report) -> CollisionRecord:
+        from backend.models import MAX_BODIES  # local: backend.models does not depend on this package
+
+        cfg = self.config
+        live_ids = {p.name for p in sim.particles}
+        n_bodies, parcels_now = len(sim.particles), parcel_count()
+
+        def parcel_allowed(spec: OutcomeSpec) -> bool:
+            if spec.debris_mass_kg <= 0.0:
+                return True
+            new_remnant = spec.outcome in NEW_REMNANT_OUTCOMES
+            net = (1 if new_remnant else 0) + 1 - (2 if new_remnant else (0 if spec.outcome == "hit_and_run" else 1))
+            return parcels_now < cfg.max_debris_parcels_total and n_bodies + net <= MAX_BODIES - cfg.reserve_for_user
+
+        def attempt(spec: OutcomeSpec, extra: tuple[str, ...], represent_spin: bool = True) -> CollisionResult:
+            result = realise(data, spec, self.g, parcel_allowed=parcel_allowed(spec), extra_warnings=extra, represent_spin=represent_spin)
+            validate_result(result, live_ids, data)
+            return result
+
+        spec = selection.spec
+        try:
+            result = attempt(spec, ())
+        except RECOVERABLE as exc:
+            reason = f"the result of {spec.model_id} ({spec.outcome}) failed validation: {exc}"
+            fb = self.selector.fallback(data, spec.model_id, (reason,))
+            report.fallbacks += 1
+            try:
+                result = attempt(fb.spec, ("model_failed_fallback",))
+            except RECOVERABLE as exc2:
+                # last resort that cannot fail on physics grounds: a plain merge without rotation states (the angular momentum is booked in
+                # the spin ledger and reported unmodelled), e.g. a slow, very grazing impact whose remnant would spin faster than break-up
+                try:
+                    result = attempt(fb.spec, ("model_failed_fallback", "spin_not_represented_fallback"), represent_spin=False)
+                except RECOVERABLE as exc3:
+                    raise collision_unresolvable(f"{data.event_id} cannot be resolved: {reason}; fallbacks also failed: {exc2}; {exc3}") from exc3
+            spec = fb.spec
+        apply_result(result, apply_state())
+        imp = data.impact
+        remnants = [p.mass_kg for p in (*result.transformed, *result.created)]
+        event = CollisionEvent(
+            id=data.event_id, outcome=result.outcome, simulation_time_s=imp.detection_time_s,
+            estimated_contact_time_s=imp.contact_time_s if imp.contact_time_estimated else None,
+            body_ids=(imp.target.id, imp.projectile.id), surviving_body_ids=tuple(p.id for p in result.transformed),
+            created_body_ids=tuple(p.id for p in (*result.created, *result.debris_parcels)), removed_body_ids=result.removed_body_ids,
+            parent_event_id=None, root_event_id=data.event_id, generation=0, model_id=spec.model_id, model_version=spec.model_version,
+            impact_speed_m_per_s=imp.impact_speed_m_per_s, impact_angle_deg=imp.impact_angle_deg,
+            specific_impact_energy_j_per_kg=imp.specific_impact_energy_j_per_kg, largest_remnant_mass_kg=max(remnants),
+            debris_mass_kg=sum(p.mass_kg for p in result.debris_parcels), mass_residual_rel=result.conservation.mass_residual_rel,
+            momentum_residual_rel=result.conservation.momentum_residual_rel, warnings=result.warnings,
+            fidelity_summary=dict(result.fidelity), has_visual=False)
+        emit_collision(event)
+        if event_seq() != seq:
+            raise RuntimeError(f"event counter mismatch: expected {seq}, got {event_seq()}")
+        changed.update((*result.removed_body_ids, *(p.id for p in result.transformed), *event.created_body_ids))
+        return build_record(data, spec, spec.regime_reasons, result.warnings, None, result)

@@ -268,3 +268,30 @@ describe("collision engine fields (Stage 2)", () => {
     expect(parsed.diagnosticsIssue).toBeNull();
   });
 });
+
+describe("collision products on bodies (Stage 4)", () => {
+  const parcel = {
+    ...earth,
+    id: "debris-3-0",
+    representation: "debris-parcel",
+    originEventId: "col-3",
+    debris: { totalMassKg: 5e20, sizeDistribution: null, velocityDispersionMPerS: 0, materialProfileId: "silicate-rock", sampleSeed: 12345 },
+  };
+
+  it("parses a debris parcel and leaves ordinary bodies without the fields", () => {
+    const p = parseBodyDto(parcel);
+    expect(p.representation).toBe("debris-parcel");
+    expect(p.originEventId).toBe("col-3");
+    expect(p.debris).toEqual({ totalMassKg: 5e20, sizeDistribution: null, velocityDispersionMPerS: 0, materialProfileId: "silicate-rock", sampleSeed: 12345 });
+    const plain = parseBodyDto(earth);
+    expect("representation" in plain || "originEventId" in plain || "debris" in plain).toBe(false);
+  });
+
+  it("parses a resolved size distribution and rejects malformed product fields", () => {
+    const d = { ...parcel.debris, sizeDistribution: { kind: "power-law", exponent: 2.85, dMinM: 1, dMaxM: 1e5 } };
+    expect(parseBodyDto({ ...parcel, debris: d }).debris?.sizeDistribution).toEqual({ kind: "power-law", exponent: 2.85, dMinM: 1, dMaxM: 1e5 });
+    rejects(() => parseBodyDto({ ...parcel, representation: "cloud" }), "body.representation");
+    rejects(() => parseBodyDto({ ...parcel, debris: { ...parcel.debris, totalMassKg: "x" } }), "body.debris.totalMassKg");
+    rejects(() => parseBodyDto({ ...parcel, debris: { ...parcel.debris, sizeDistribution: { kind: "gaussian" } } }), "sizeDistribution.kind");
+  });
+});

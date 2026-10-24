@@ -46,11 +46,12 @@ from typing import Any, Callable, NamedTuple
 
 import rebound
 
-from backend.collisions import MergeResolver, select_ias15
+from backend.collisions import MergeResolver, add_named_particle, select_ias15
 from backend.impact.config import CollisionConfig
 from backend.impact.detection import ContactRecorder
 from backend.impact import rotation as rot
-from backend.impact.contracts import ContractError, MaterialRef, RotationState
+from backend.impact.applier import ApplyState
+from backend.impact.contracts import CollisionEvent, ContractError, MaterialRef, RotationState
 from backend.impact.contracts import Vec3 as ContractVec3
 from backend.impact.engine import CollisionEngine
 from backend.impact.materials import moment_of_inertia_factor, resolve_material
@@ -58,8 +59,8 @@ from backend.impact.records import trim as trim_collision_records
 from backend.diagnostics import compute_diagnostics
 from backend.errors import CodedError, StepCancelled
 from backend.history import HistoryBuffer
-from backend.models import (MAX_BODIES, Body, BodyCreate, BodyUpdate, Event, MaterialSpec, OrientationSpec, Position3,
-                            SimulationState, StepResponse, Vec3, check_kind_body_type, default_body_type)
+from backend.models import (MAX_BODIES, Body, BodyCreate, BodyUpdate, CollisionEventOut, DebrisSpec, Event, MaterialSpec,
+                            OrientationSpec, Position3, SimulationState, StepResponse, Vec3, check_kind_body_type, default_body_type)
 
 logger = logging.getLogger(__name__)
 
@@ -146,6 +147,7 @@ class EngineSnapshot:
     records: list = field(default_factory=list)  # collision records (backend/impact/records.py)
     materials: dict = field(default_factory=dict)  # body id -> MaterialRef (empty for every pre-Stage-2 state)
     rotations: dict = field(default_factory=dict)  # body id -> RotationState
+    products: dict = field(default_factory=dict)  # body id -> (representation, origin event id, DebrisDescriptor | None)
 
 
 def _copy_sim(sim: rebound.Simulation) -> rebound.Simulation:
@@ -156,16 +158,20 @@ def _copy_sim(sim: rebound.Simulation) -> rebound.Simulation:
 
 
 def _digest(sim: rebound.Simulation, meta: dict, history_mode: str, sample_interval_s: float | None,
-            materials: dict | None = None, rotations: dict | None = None) -> str:
+            materials: dict | None = None, rotations: dict | None = None, products: dict | None = None) -> str:
     """SHA-256 over canonical JSON of the physical initial state and configuration (colour excluded; plan 8.3)."""
     by_id = {p.name: p for p in sim.particles}
     bodies = []
     for body_id, m in meta.items():
         p = by_id[body_id]
         row = [body_id, m.name, m.kind] + [float(v).hex() for v in (p.m, p.r, p.x, p.y, p.z, p.vx, p.vy, p.vz)]
-        if materials and body_id in materials or rotations and body_id in rotations:  # only non-default state: old digests are unchanged
+        if materials and body_id in materials or rotations and body_id in rotations or products and body_id in products:
+            # only non-default state is added: the digests of universes without it are unchanged
             row.append({"material": materials[body_id].to_dict() if materials and body_id in materials else None,
-                        "rotation": rotations[body_id].to_dict() if rotations and body_id in rotations else None})
+                        "rotation": rotations[body_id].to_dict() if rotations and body_id in rotations else None,
+                        "product": None if not products or body_id not in products else [
+                            products[body_id][0], products[body_id][1],
+                            None if products[body_id][2] is None else products[body_id][2].to_dict()]})
         bodies.append(row)
     doc = {"bodies": bodies, "t": float(sim.t).hex(), "G": float(sim.G).hex(), "integrator": "ias15",
            "adaptive": "global", "collision": "line", "randSeed": RAND_SEED, "historyMode": history_mode,
@@ -207,6 +213,7 @@ class SimulationService:
         self._collision_records: list = []  # CollisionRecord, newest last, at most MAX_COLLISION_RECORDS
         self._materials: dict[str, MaterialRef] = {}  # side tables keyed by body id; absent = unspecified / not rotating
         self._rotations: dict[str, RotationState] = {}
+        self._products: dict[str, tuple] = {}  # bodies created by a collision: (representation, origin event, DebrisDescriptor | None)
         self._chunk_satisfied = True  # did the chunk that is being integrated respect the curvature criterion?
         self.last_detection: dict = {"degradedChunks": 0, "worstCurvatureRatio": 1.0}  # of the latest step
         self._sim = self._new_sim([], 0.0)
@@ -283,12 +290,13 @@ class SimulationService:
                 "history": self._history, "controlled": self.controlled,
                 "first_unc": self.first_uncontrolled_at_s, "audit_len": len(self.audit),
                 "collision_records": list(self._collision_records),
-                "materials": dict(self._materials), "rotations": dict(self._rotations)}
+                "materials": dict(self._materials), "rotations": dict(self._rotations),
+                "products": dict(self._products)}
 
     def _rollback(self, cp: dict) -> None:
         self._meta, self._events, self._pending = cp["meta"], cp["events"], []
         self._collision_records = cp["collision_records"]
-        self._materials, self._rotations = cp["materials"], cp["rotations"]
+        self._materials, self._rotations, self._products = cp["materials"], cp["rotations"], cp["products"]
         self._resolver = MergeResolver(self._record_merge)
         self._resolver.heat_J, self._resolver.spin = cp["heat"], cp["spin"]
         self._adopt_sim(cp["sim"])
@@ -363,9 +371,9 @@ class SimulationService:
             history=self._history.copy(), controlled=self.controlled,
             first_uncontrolled_at_s=self.first_uncontrolled_at_s, simulation_time_s=self._sim.t,
             revision=self.revision if revision is None else revision,
-            digest=_digest(self._sim, self._meta, self._history.mode, self._history.sample_interval_s, self._materials, self._rotations),
+            digest=_digest(self._sim, self._meta, self._history.mode, self._history.sample_interval_s, self._materials, self._rotations, self._products),
             body_count=len(self._meta), records=list(self._collision_records), materials=dict(self._materials),
-            rotations=dict(self._rotations))
+            rotations=dict(self._rotations), products=dict(self._products))
 
     def capture_snapshot(self) -> EngineSnapshot:
         """A restorable copy of the current state; the live simulation is not touched or advanced."""
@@ -379,7 +387,7 @@ class SimulationService:
         self._resolver.spin = {k: list(v) for k, v in snap.spin.items()}
         self._meta, self._events, self._pending = dict(snap.meta), list(snap.events), []
         self._collision_records = list(snap.records)
-        self._materials, self._rotations = dict(snap.materials), dict(snap.rotations)
+        self._materials, self._rotations, self._products = dict(snap.materials), dict(snap.rotations), dict(snap.products)
         self._adopt_sim(_copy_sim(snap.sim))  # never reselect IAS15 here: that would discard its predictor state
         self._adopt_history(snap.history)
         self.controlled, self.first_uncontrolled_at_s = snap.controlled, snap.first_uncontrolled_at_s
@@ -410,8 +418,8 @@ class SimulationService:
                     raise ConflictError(f"invalid initial state for {b.id}")
                 if b.id in self._meta:
                     raise ConflictError(f"duplicate body id {b.id}")
-                self._sim.add(m=b.massKg, r=b.radiusM, x=b.positionM[0], y=b.positionM[1], z=b.positionM[2],
-                              vx=b.velocityMPerS[0], vy=b.velocityMPerS[1], vz=b.velocityMPerS[2], name=b.id)
+                add_named_particle(self._sim, b.id, m=b.massKg, r=b.radiusM, x=b.positionM[0], y=b.positionM[1], z=b.positionM[2],
+                                   vx=b.velocityMPerS[0], vy=b.velocityMPerS[1], vz=b.velocityMPerS[2])
                 self._meta[b.id] = BodyMeta(b.name, b.colorHex, b.kind, None, b.bodyType or default_body_type(b.kind),
                                             b.assetKey, b.primaryId)
             select_ias15(self._sim)
@@ -435,7 +443,7 @@ class SimulationService:
             engine._resolver.spin = {k: list(v) for k, v in snap.spin.items()}
             engine._meta, engine._events = dict(snap.meta), list(snap.events)
             engine._collision_records = list(snap.records)
-            engine._materials, engine._rotations = dict(snap.materials), dict(snap.rotations)
+            engine._materials, engine._rotations, engine._products = dict(snap.materials), dict(snap.rotations), dict(snap.products)
             sim = _copy_sim(snap.sim)
             if transform is not None:
                 transform(sim)
@@ -459,7 +467,7 @@ class SimulationService:
         select_ias15(sim)
         sim.t = t
         for r in records:
-            sim.add(**r)
+            add_named_particle(sim, r["name"], **{k: v for k, v in r.items() if k != "name"})
         sim.collision = "line"
         sim.collision_resolve = self._collision_callback()
         self._recorder.reset()
@@ -508,6 +516,15 @@ class SimulationService:
             t = self._sim.t
             extra["spinRadPerS"] = Vec3(**rotation.omega_rad_per_s.to_dict())
             extra["orientation"] = OrientationSpec(quaternion=list(rot.orientation_at(rotation, t)), epochS=t)
+        product = self._products.get(body_id)
+        if product is not None:
+            representation, origin, descriptor = product
+            if representation != "body":
+                extra["representation"] = representation
+            if origin is not None:
+                extra["originEventId"] = origin
+            if descriptor is not None:
+                extra["debris"] = DebrisSpec.model_validate(descriptor.to_dict())
         return Body(id=body_id, name=meta.name, massKg=p.m, radiusM=p.r,
                     positionM=Vec3(x=p.x, y=p.y, z=p.z), velocityMPerS=Vec3(x=p.vx, y=p.vy, z=p.vz),
                     colorHex=meta.color, kind=meta.kind, catalogueEntryId=meta.catalogue_id,
@@ -562,9 +579,9 @@ class SimulationService:
             body_id = f"body-{uuid.uuid4().hex[:12]}"
             while body_id in self._meta:
                 body_id = f"body-{uuid.uuid4().hex[:12]}"
-            self._sim.add(m=data.massKg, r=data.radiusM, x=data.positionM.x, y=data.positionM.y,
-                          z=data.positionM.z, vx=data.velocityMPerS.x, vy=data.velocityMPerS.y,
-                          vz=data.velocityMPerS.z, name=body_id)
+            add_named_particle(self._sim, body_id, m=data.massKg, r=data.radiusM, x=data.positionM.x, y=data.positionM.y,
+                               z=data.positionM.z, vx=data.velocityMPerS.x, vy=data.velocityMPerS.y,
+                               vz=data.velocityMPerS.z)
             self._meta[body_id] = BodyMeta(data.name, data.colorHex, data.kind, data.catalogueEntryId,
                                             data.bodyType or default_body_type(data.kind), data.assetKey)
             if ref is not None:
@@ -664,6 +681,7 @@ class SimulationService:
             del self._meta[body_id]
             self._materials.pop(body_id, None)
             self._rotations.pop(body_id, None)
+            self._products.pop(body_id, None)
             self._resolver.spin.pop(body_id, None)
             select_ias15(self._sim)
             self._history.bump_segment()
@@ -809,13 +827,31 @@ class SimulationService:
             report = self._collision_engine.resolve_batch(
                 sim, pending, ledger=self._resolver, on_merge=self._record_merge, event_seq=lambda: self._event_seq,
                 chunk_criterion_satisfied=self._chunk_satisfied,
-                extras=lambda body_id: (self._materials.get(body_id), self._rotations.get(body_id)))
+                extras=lambda body_id: (self._materials.get(body_id), self._rotations.get(body_id)),
+                emit_collision=self._emit_collision, apply_state=self._apply_state,
+                parcel_count=lambda: sum(1 for v in self._products.values() if v[0] == "debris-parcel"))
             self._collision_records.extend(report.records)
             trim_collision_records(self._collision_records)
             if sim.N < 2 or sim.t >= nxt:
                 return
             sim.integrate(nxt)
             self._check_deadline()
+
+    def _emit_collision(self, event: CollisionEvent) -> None:
+        """Called by the engine while the step lock is held: number and queue a `collision` event (ids share the counter with `evt-`)."""
+        self._event_seq += 1
+        if event.id != f"col-{self._event_seq}":
+            raise RuntimeError(f"collision event id {event.id} does not match the event counter {self._event_seq}")
+        self._pending.append(CollisionEventOut.model_validate(event.to_dict()))
+
+    def _apply_state(self) -> ApplyState:
+        def make_meta(parent: BodyMeta, new_id: str, role: str) -> BodyMeta:
+            if role == "parcel":
+                return BodyMeta(f"Debris of {parent.name}", parent.color, "planet", None, "asteroid", None, None)
+            return BodyMeta(f"{parent.name} remnant", parent.color, parent.kind, None, default_body_type(parent.kind), None, None)
+
+        return ApplyState(sim=self._sim, meta=self._meta, materials=self._materials, rotations=self._rotations, products=self._products,
+                          ledger=self._resolver, make_meta=make_meta, bump_segment=self._history.bump_segment)
 
     def collision_records(self) -> list:
         """Committed collision records, oldest first (mode "outcome-v1" only; empty in "legacy-merge")."""
@@ -899,6 +935,8 @@ class SimulationService:
             for r in rotations:
                 booked = [a + b for a, b in zip(booked, rot.spin_angular_momentum(r))]
             self._resolver.spin[survivor_id] = booked
+        self._products.pop(survivor_id, None)  # a merged body is a new body: it no longer is a parcel or a recorded product
+        self._products.pop(absorbed_id, None)
         kept, gone = self._materials.pop(survivor_id, None), self._materials.pop(absorbed_id, None)
         if kept is not None and kept == gone:
             self._materials[survivor_id] = kept
@@ -918,13 +956,14 @@ class SimulationService:
             "collision_records": list(self._collision_records),
             "materials": dict(self._materials),
             "rotations": dict(self._rotations),
+            "products": dict(self._products),
         }
 
     def _restore(self, cap: dict) -> None:
         self._meta = cap["meta"]
         self._events = cap["events"]
         self._collision_records = cap["collision_records"]
-        self._materials, self._rotations = cap["materials"], cap["rotations"]
+        self._materials, self._rotations, self._products = cap["materials"], cap["rotations"], cap["products"]
         self._event_seq = cap["event_seq"]
         self._resolver.errors.clear()
         self._resolver.heat_J = cap["heat"]

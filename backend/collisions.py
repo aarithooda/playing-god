@@ -70,6 +70,17 @@ def select_ias15(sim) -> None:
     sim.integrator.adaptive_mode = "prs23" if has_satellites(sim) else "global"
 
 
+def add_named_particle(sim, name: str, **fields) -> None:
+    """Add a particle and give it its name through the particle's name SETTER (the name memory is then owned by the simulation).
+
+    Never pass `name=` to `Simulation.add`: in REBOUND 5.2.2 that path leaves a dangling name string, and after enough interleaved
+    `remove()` / `add()` calls particle names turn into `None` or garbage bytes (found in Stage 4a: plain REBOUND, first corruption after
+    203-754 operations in 5 of 5 seeds; none in 20,000 operations with the setter, tests/impact/test_rebound_names.py). Identity is the
+    particle name, so every place that adds a particle must use this function."""
+    sim.add(**fields)
+    sim.particles[sim.N - 1].name = name
+
+
 def _sub(a: Vec, b: Vec) -> Vec:
     return [x - y for x, y in zip(a, b)]
 

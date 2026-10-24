@@ -7,6 +7,7 @@ import type {
   BodyDto,
   BodyType,
   CatalogueDto,
+  DebrisDto,
   MaterialDto,
   OrientationDto,
   CataloguePropertyDto,
@@ -21,6 +22,7 @@ import type {
   EventListDto,
   HistoryPageDto,
   PresetSummaryDto,
+  CollisionEventDto,
   SimulationEventDto,
   SimulationStateDto,
   SnapshotSummaryDto,
@@ -66,8 +68,33 @@ function vec3OrNull(v: unknown, what: string): Vec3 | null {
 }
 
 /** Optional collision-engine fields of a body. Absent keys stay absent (older backends, bodies without a material). */
-function parseCollisionBodyFields(o: Record<string, unknown>): { material?: MaterialDto; spinRadPerS?: Vec3; orientation?: OrientationDto } {
-  const out: { material?: MaterialDto; spinRadPerS?: Vec3; orientation?: OrientationDto } = {};
+function parseCollisionBodyFields(o: Record<string, unknown>): {
+  material?: MaterialDto; spinRadPerS?: Vec3; orientation?: OrientationDto; representation?: "fragment" | "debris-parcel";
+  originEventId?: string; debris?: DebrisDto;
+} {
+  const out: ReturnType<typeof parseCollisionBodyFields> = {};
+  if (o.representation !== undefined && o.representation !== null) {
+    if (o.representation !== "fragment" && o.representation !== "debris-parcel") bad("body.representation");
+    out.representation = o.representation;
+  }
+  if (o.originEventId !== undefined && o.originEventId !== null) out.originEventId = str(o.originEventId, "body.originEventId");
+  if (o.debris !== undefined && o.debris !== null) {
+    const d = obj(o.debris, "body.debris");
+    const sd = d.sizeDistribution;
+    let sizeDistribution: DebrisDto["sizeDistribution"] = null;
+    if (sd !== undefined && sd !== null) {
+      const s = obj(sd, "body.debris.sizeDistribution");
+      if (s.kind !== "power-law") bad("body.debris.sizeDistribution.kind");
+      sizeDistribution = { kind: "power-law", exponent: num(s.exponent, "body.debris.sizeDistribution.exponent"),
+        dMinM: num(s.dMinM, "body.debris.sizeDistribution.dMinM"), dMaxM: num(s.dMaxM, "body.debris.sizeDistribution.dMaxM") };
+    }
+    out.debris = {
+      totalMassKg: num(d.totalMassKg, "body.debris.totalMassKg"), sizeDistribution,
+      velocityDispersionMPerS: num(d.velocityDispersionMPerS, "body.debris.velocityDispersionMPerS"),
+      materialProfileId: d.materialProfileId === null || d.materialProfileId === undefined ? null : str(d.materialProfileId, "body.debris.materialProfileId"),
+      sampleSeed: num(d.sampleSeed, "body.debris.sampleSeed"),
+    };
+  }
   if (o.material !== undefined && o.material !== null) {
     const m = obj(o.material, "body.material");
     const layers = m.layers;
@@ -195,8 +222,48 @@ export function parseStateDto(v: unknown): SimulationStateDto {
   };
 }
 
+function strArray(v: unknown, what: string): string[] {
+  if (!Array.isArray(v)) bad(what);
+  return (v as unknown[]).map((x) => str(x, `${what}[]`));
+}
+
+function parseCollisionEvent(o: Record<string, unknown>): CollisionEventDto {
+  const fidelity = obj(o.fidelitySummary, "event.fidelitySummary");
+  return {
+    id: str(o.id, "event.id"),
+    type: "collision",
+    schemaVersion: num(o.schemaVersion, "event.schemaVersion"),
+    outcome: str(o.outcome, "event.outcome"),
+    simulationTimeS: num(o.simulationTimeS, "event.simulationTimeS"),
+    estimatedContactTimeS:
+      o.estimatedContactTimeS === null || o.estimatedContactTimeS === undefined
+        ? null
+        : num(o.estimatedContactTimeS, "event.estimatedContactTimeS"),
+    bodyIds: strArray(o.bodyIds, "event.bodyIds"),
+    survivingBodyIds: strArray(o.survivingBodyIds, "event.survivingBodyIds"),
+    createdBodyIds: strArray(o.createdBodyIds, "event.createdBodyIds"),
+    removedBodyIds: strArray(o.removedBodyIds, "event.removedBodyIds"),
+    parentEventId: o.parentEventId === null || o.parentEventId === undefined ? null : str(o.parentEventId, "event.parentEventId"),
+    rootEventId: str(o.rootEventId, "event.rootEventId"),
+    generation: num(o.generation, "event.generation"),
+    modelId: str(o.modelId, "event.modelId"),
+    modelVersion: str(o.modelVersion, "event.modelVersion"),
+    impactSpeedMPerS: num(o.impactSpeedMPerS, "event.impactSpeedMPerS"),
+    impactAngleDeg: num(o.impactAngleDeg, "event.impactAngleDeg"),
+    specificImpactEnergyJPerKg: num(o.specificImpactEnergyJPerKg, "event.specificImpactEnergyJPerKg"),
+    largestRemnantMassKg: num(o.largestRemnantMassKg, "event.largestRemnantMassKg"),
+    debrisMassKg: num(o.debrisMassKg, "event.debrisMassKg"),
+    massResidualRel: num(o.massResidualRel, "event.massResidualRel"),
+    momentumResidualRel: num(o.momentumResidualRel, "event.momentumResidualRel"),
+    warnings: strArray(o.warnings, "event.warnings"),
+    fidelitySummary: Object.fromEntries(Object.entries(fidelity).map(([k, val]) => [k, str(val, `event.fidelitySummary.${k}`)])),
+    hasVisual: o.hasVisual === true,
+  };
+}
+
 export function parseEventDto(v: unknown): SimulationEventDto {
   const o = obj(v, "event");
+  if (o.type === "collision") return parseCollisionEvent(o);
   if (o.type !== "merger") bad(`event.type (${String(o.type)})`);
   if (!Array.isArray(o.bodyIds)) bad("event.bodyIds");
   return {

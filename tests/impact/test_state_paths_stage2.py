@@ -8,7 +8,7 @@ import pytest
 from backend import universes
 from backend.api_universes import create_preset_universe
 from backend.errors import CodedError
-from backend.impact import rotation as rot  # noqa: F401
+from backend.impact import rotation as rot
 from backend.impact.contracts import MaterialRef
 from backend.impact.config import CollisionConfig
 from backend.models import Body, BodyUpdate
@@ -239,30 +239,62 @@ def collide(mode, spin_a, spin_b, mat_a=ROCK, mat_b=ROCK):
     return svc, a, b, out
 
 
-@pytest.mark.parametrize("mode", ["legacy-merge", "outcome-v1"])
-def test_merging_books_the_spin_angular_momentum_into_the_existing_ledger(mode):
+def test_legacy_merge_books_the_spin_angular_momentum_into_the_existing_ledger():
     sa, sb = {"x": 0, "y": 0, "z": 1e-3}, {"x": 0, "y": 2e-3, "z": 0}
-    svc, a, b, out = collide(mode, sa, sb)
+    svc, a, b, out = collide("legacy-merge", sa, sb)
     ev = out.events[0]
     i_a, i_b = 0.4 * 2e12 * 10.0 ** 2, 0.4 * 1e12 * 8.0 ** 2
     expected = [ev.spinAddedKgM2PerS.x + 0.0 + 0.0, ev.spinAddedKgM2PerS.y + i_b * 2e-3, ev.spinAddedKgM2PerS.z + i_a * 1e-3]
     booked = svc._resolver.spin[ev.resultBodyId]
     assert booked == pytest.approx(expected, rel=1e-12, abs=1e-6)
-    assert svc._rotations == {}  # the remnant has no rotation model (no spin state is invented)
+    assert svc._rotations == {}  # the legacy remnant has no rotation model (no spin state is invented)
     state = svc.snapshot()
     assert state.diagnostics.bookedSpinKgM2PerS.y == pytest.approx(expected[1], rel=1e-12, abs=1e-6)
     assert state.diagnostics.spinAngularMomentumKgM2PerS is None
     assert "spinAngularMomentumKgM2PerS" not in json.loads(state.model_dump_json())["diagnostics"]
 
 
-@pytest.mark.parametrize("mode", ["legacy-merge", "outcome-v1"])
-def test_remnant_keeps_a_material_only_when_both_bodies_had_the_same_one(mode):
-    svc, a, b, out = collide(mode, None, None)
+def test_outcome_v1_gives_the_remnant_a_spin_state_that_carries_the_whole_angular_momentum():
+    """Stage 4: a pair whose bodies both have a material goes through the selector and the applier. Two 10 m bodies above their escape
+    speed are a strength-regime case (Unsupported, D-041), so the labelled fallback merge applies; the remnant's spin closes the budget."""
+    sa, sb = {"x": 0, "y": 0, "z": 1e-3}, {"x": 0, "y": 2e-3, "z": 0}
+    svc, a, b, out = collide("outcome-v1", sa, sb)
+    (event,) = out.events
+    assert event.type == "collision" and event.outcome == "perfect_merge" and "unsupported_regime" in event.warnings
+    (remnant_id,) = svc._rotations
+    assert remnant_id == a.id and svc._materials == {a.id: MaterialRef("silicate-rock")}
+    state = svc._rotations[remnant_id]
+    spin = rot.spin_angular_momentum(state)
+    (record,) = svc.collision_records()
+    before = record.result.conservation.angular_momentum_before_kg_m2_per_s.as_tuple()
+    assert spin == pytest.approx(before, rel=1e-12)  # all of the angular momentum about the COM is in the remnant's spin
+    assert before[1] == pytest.approx(0.4 * 1e12 * 8.0 ** 2 * 2e-3, rel=1e-6) and before[2] == pytest.approx(0.4 * 2e12 * 10.0 ** 2 * 1e-3, rel=1e-6)
+    assert svc._resolver.spin == {}  # nothing is left in the unmodelled ledger
+    assert out.diagnostics.spinAngularMomentumKgM2PerS.y == pytest.approx(spin[1], rel=1e-12)
+
+
+def merged_material(svc, out):
+    """(materials after the step) for the single surviving body"""
+    (body,) = out.bodies
+    return svc._materials.get(body.id)
+
+
+def test_remnant_keeps_a_material_only_when_both_bodies_had_the_same_one_in_legacy_merge():
+    svc, _, _, out = collide("legacy-merge", None, None)
     assert svc._materials == {out.events[0].resultBodyId: MaterialRef("silicate-rock")}
-    svc2, _, _, out2 = collide(mode, None, None, mat_b={"profileId": "iron"})
+    svc2, _, _, out2 = collide("legacy-merge", None, None, mat_b={"profileId": "iron"})
     assert svc2._materials == {}  # unknown composition: no material is invented
-    svc3, _, _, out3 = collide(mode, None, None, mat_b=None)
+    svc3, _, _, out3 = collide("legacy-merge", None, None, mat_b=None)
     assert svc3._materials == {}
+
+
+def test_remnant_keeps_a_material_only_when_both_bodies_had_the_same_one_in_outcome_v1():
+    svc, _, _, out = collide("outcome-v1", None, None)
+    assert merged_material(svc, out) == MaterialRef("silicate-rock") and svc._rotations == {}  # no spin anywhere: no state invented
+    svc2, _, _, out2 = collide("outcome-v1", None, None, mat_b={"profileId": "iron"})
+    assert merged_material(svc2, out2) is None
+    svc3, _, _, out3 = collide("outcome-v1", None, None, mat_b=None)
+    assert merged_material(svc3, out3) is None and out3.events[0].type == "merger"  # DQ-2: material-less pair -> exact legacy merge
 
 
 def test_material_less_merge_is_byte_identical_to_the_pre_stage_2_behaviour():

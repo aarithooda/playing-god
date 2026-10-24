@@ -272,7 +272,7 @@ class DebrisDescriptor(Contract):
     """What a debris parcel represents: a population with a total mass (statistical, plan 3.9)."""
 
     total_mass_kg: float
-    size_distribution: SizeDistribution
+    size_distribution: Optional[SizeDistribution]  # None until the fragment stage (5) resolves the population
     velocity_dispersion_m_per_s: float
     material_profile_id: Optional[str]
     sample_seed: int

@@ -1,5 +1,5 @@
 """Pydantic models for the API contract (see context/API_CONTRACT.md). SI units throughout."""
-from typing import Literal
+from typing import Annotated, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_serializer, model_validator
 
@@ -113,7 +113,24 @@ class OrientationSpec(BaseModel):
 
 # Optional collision-engine fields of a body. They are OMITTED from responses when null, so a body without a material looks
 # exactly as before (D-033 DQ-2: no new body fields, no spin state).
-COLLISION_BODY_FIELDS = ("material", "spinRadPerS", "orientation")
+COLLISION_BODY_FIELDS = ("material", "spinRadPerS", "orientation", "representation", "originEventId", "debris")
+
+
+class SizeDistributionSpec(BaseModel):
+    kind: Literal["power-law"]
+    exponent: float
+    dMinM: float
+    dMaxM: float
+
+
+class DebrisSpec(BaseModel):
+    """What a debris parcel stands for (statistical population; plan 3.9). `sizeDistribution` is null until fragmentation (Stage 5)."""
+
+    totalMassKg: float
+    sizeDistribution: SizeDistributionSpec | None = None
+    velocityDispersionMPerS: float
+    materialProfileId: str | None = None
+    sampleSeed: int
 
 
 class BodyCreate(BaseModel):
@@ -167,6 +184,9 @@ class Body(BaseModel):
     material: MaterialSpec | None = None  # present only when set
     spinRadPerS: Vec3 | None = None  # present only when the body has a rotation state
     orientation: OrientationSpec | None = None  # present only when the body has a rotation state
+    representation: Literal["fragment", "debris-parcel"] | None = None  # present only for products of a collision (absent = "body")
+    originEventId: str | None = None  # the collision event that created this body
+    debris: DebrisSpec | None = None  # parcels only
 
     @model_serializer(mode="wrap")
     def _omit_unset_collision_fields(self, handler):
@@ -240,6 +260,37 @@ class StepRequest(BaseModel):
     dtS: float = Field(ge=MIN_STEP_S, le=MAX_STEP_S, allow_inf_nan=False)
 
 
+class CollisionEventOut(BaseModel):
+    """`type: "collision"` (collision engine, mode outcome-v1): summary of one collision; details in the collision record. The legacy
+    `merger` event below is unchanged. Fields mirror the CollisionEvent contract of the collision engine."""
+
+    id: str
+    type: Literal["collision"]
+    schemaVersion: int
+    outcome: str
+    simulationTimeS: float
+    estimatedContactTimeS: float | None
+    bodyIds: list[str]  # [target, projectile]
+    survivingBodyIds: list[str]
+    createdBodyIds: list[str]
+    removedBodyIds: list[str]
+    parentEventId: str | None
+    rootEventId: str
+    generation: int
+    modelId: str
+    modelVersion: str
+    impactSpeedMPerS: float
+    impactAngleDeg: float
+    specificImpactEnergyJPerKg: float
+    largestRemnantMassKg: float
+    debrisMassKg: float
+    massResidualRel: float
+    momentumResidualRel: float
+    warnings: list[str]
+    fidelitySummary: dict[str, str]
+    hasVisual: bool
+
+
 class Event(BaseModel):
     """A genuine engine event. The only outcome implemented is a perfectly inelastic merger."""
 
@@ -255,10 +306,13 @@ class Event(BaseModel):
     spinAddedKgM2PerS: Vec3  # orbital angular momentum booked as remnant spin (bookkeeping only)
 
 
+AnyEvent = Annotated[Union[Event, CollisionEventOut], Field(discriminator="type")]
+
+
 class StepResponse(SimulationState):
     advancedS: float  # simulation time actually advanced (== dtS up to rounding)
-    events: list[Event]  # events that occurred during this step only
+    events: list[AnyEvent]  # events that occurred during this step only
 
 
 class EventList(BaseModel):
-    events: list[Event]
+    events: list[AnyEvent]

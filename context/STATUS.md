@@ -5,6 +5,11 @@
 # Status
 _Concise authoritative snapshot. Update after every meaningful session._
 
+## Collision engine — Stage 4a (2026-10-24, Claude Sonnet 5.5) — newest
+- **Done** on `collision/stage-4a-application`: conservation module, pure realiser, whole-result validation, atomic applier, collision events (`merger | collision`), parcels and products table, three resolution tiers, frontend event union. Every universe is still `legacy-merge`; `outcome-v1` is opt-in. **Stage 4b NOT started** (needs the CP-4b review).
+- **Verified:** backend `python -m pytest -q`: 1081 passed, 1 warning (initial full run; one timing test failed once earlier in the session and passed on rerun); frontend `npm run typecheck` clean, `npx vitest run` 449 passed, `npm run build` OK; Playwright not run (browsers missing). Material-less scenarios give byte-identical events in both modes; system-wide mass/momentum/angular momentum conserved at 48 engine points; found and fixed a REBOUND name-corruption defect (D-044).
+- **Provisional/open:** CP-SCI-1 unsigned; debris launch speed is a placeholder (Stage 5); DQ-13 handled provisionally (D-043).
+
 ## Collision engine — Stage 3 (2026-10-24, Claude Sonnet 5.5) — newest
 - **Done** on `collision/stage-3-models`: pure outcome models and selector (LS12 + Genda, envelope, cratering structure), validity envelope as data, provisional-assumption registry, decisions D-038..D-042 (provisional UD-1/UD-2, DQ-7/8/9, diagnostics deviation). **CP-SCI-1 is NOT signed off; UD-1/UD-2 remain open; no reviewer has agreed.**
 - **Verified:** `python -m pytest -q` 935 passed (869 + 66 new), 1 baseline warning. Frontend untouched in this stage.

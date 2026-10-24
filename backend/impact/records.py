@@ -13,8 +13,8 @@ seed is recorded for uniformity with later models.
 import hashlib
 from typing import Optional
 
-from backend.impact.contracts import (MAX_SEED, CollisionConfig, CollisionInput, CollisionRecord, ImpactState, OutcomeSpec,
-                                      canonical_json)
+from backend.impact.contracts import (MAX_SEED, CollisionConfig, CollisionInput, CollisionRecord, CollisionResult, ImpactState,
+                                      OutcomeSpec, canonical_json)
 
 MAX_COLLISION_RECORDS = 1000  # same retention shape as the event list (MAX_EVENTS_KEPT)
 
@@ -39,12 +39,12 @@ def build_input(seq: int, impact: ImpactState, config: CollisionConfig, model_id
 
 
 def build_record(data: CollisionInput, spec: Optional[OutcomeSpec], selection_reasons: tuple[str, ...], warnings: tuple[str, ...],
-                 legacy_event_id: Optional[str]) -> CollisionRecord:
+                 legacy_event_id: Optional[str], result: Optional[CollisionResult] = None) -> CollisionRecord:
     return CollisionRecord(
         event_id=data.event_id, parent_event_id=data.parent_event_id, root_event_id=data.parent_event_id or data.event_id,
-        generation=data.generation, input=data, selection_reasons=selection_reasons, outcome_spec=spec, result=None,
+        generation=data.generation, input=data, selection_reasons=selection_reasons, outcome_spec=spec, result=result,
         warnings=warnings, fidelity=dict(spec.fidelity) if spec is not None else {}, input_digest=data.input_digest,
-        result_digest="", legacy_event_id=legacy_event_id)
+        result_digest="" if result is None else result.result_digest, legacy_event_id=legacy_event_id)
 
 
 def trim(records: list) -> None:
