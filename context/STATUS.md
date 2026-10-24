@@ -5,7 +5,10 @@
 # Status
 _Concise authoritative snapshot. Update after every meaningful session._
 
-## Collision engine — Stage 6 (2026-10-24, Claude Sonnet 5.5) — newest
+## Collision engine — Stage 7 (2026-10-25, Claude Sonnet 5.5) — newest
+- **Done** on `collision/stage-7-lifecycle`: lineage + cascade limit, step budget (DQ-10 a), classification, escape ledger, PRS23 for debris (D-051), `tests/impact/test_lifecycle.py`. 1336 backend (1309 + 27 new) / 452 vitest (+3 new) / tsc clean / build OK. Science PROVISIONAL, CP-SCI-1 unsigned.
+
+## Collision engine — Stage 6 (2026-10-24, Claude Sonnet 5.5)
 - **Done** on `collision/stage-6-damage`: impact sites + surface route + propagation model (D-050), `tests/impact/test_damage.py`. 1309 backend (1278 + 31 new) / 449 vitest / tsc clean / build OK. All shipped profiles static (no sourced wave speed); crater size unmodelled; CP-SCI-1 unsigned.
 
 ## Collision engine — Stage 5 (2026-10-24, Claude Sonnet 5.5)
