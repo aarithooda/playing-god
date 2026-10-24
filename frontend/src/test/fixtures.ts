@@ -10,6 +10,7 @@ export const sun: BodyDto = {
   positionM: { x: 0, y: 0, z: 0 },
   velocityMPerS: { x: 0, y: 0, z: 0 },
   colorHex: "#fdb813",
+  bodyType: "star",
 };
 
 export const earth: BodyDto = {
@@ -20,6 +21,7 @@ export const earth: BodyDto = {
   positionM: { x: 1.496e11, y: 0, z: 0 },
   velocityMPerS: { x: 0, y: 29780, z: 0 },
   colorHex: "#3b82f6",
+  bodyType: "rocky-planet",
 };
 
 export const mergerEvent: SimulationEventDto = {

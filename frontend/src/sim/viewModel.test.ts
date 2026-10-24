@@ -24,6 +24,12 @@ describe("DTO -> view model", () => {
     expect(earth.positionM.x).toBe(1.496e11);
   });
 
+  it("uses the safe default visual classification for legacy/custom bodies", () => {
+    const { bodyType: _type, assetKey: _key, ...customBody } = earth;
+    expect(toBodyView(customBody).bodyType).toBe("default");
+    expect(toBodyView(customBody).assetKey).toBeUndefined();
+  });
+
   it("maps the simulation state including status and time", () => {
     const v = toSimulationView({ ...state([sun, earth], 3600), status: "running" });
     expect(v.status).toBe("running");

@@ -4,6 +4,7 @@ import { ApiError } from "./errors";
 import { DIAGNOSTICS_VERSION } from "./types";
 import type {
   BodyDto,
+  BodyType,
   DiagnosticsDto,
   EventListDto,
   SimulationEventDto,
@@ -11,6 +12,8 @@ import type {
   StepResponseDto,
   Vec3,
 } from "./types";
+
+const BODY_TYPES: BodyType[] = ["star", "rocky-planet", "gas-giant", "ice-giant", "asteroid", "default"];
 
 function bad(what: string): never {
   throw new ApiError("invalid-response", `Unexpected response shape: ${what}`);
@@ -88,6 +91,14 @@ function parseDiagnosticsLenient(v: unknown): Pick<SimulationStateDto, "diagnost
 
 export function parseBodyDto(v: unknown): BodyDto {
   const o = obj(v, "body");
+  // Rendering metadata is additive: an unknown future classification should use the safe fallback,
+  // not make otherwise valid simulation state unavailable.
+  const bodyType = typeof o.bodyType === "string" && BODY_TYPES.includes(o.bodyType as BodyType)
+    ? (o.bodyType as BodyType)
+    : undefined;
+  const rawAssetKey = o.assetKey;
+  if (rawAssetKey !== undefined && rawAssetKey !== null && typeof rawAssetKey !== "string") bad("body.assetKey");
+  const assetKey = typeof rawAssetKey === "string" ? rawAssetKey : undefined;
   return {
     id: str(o.id, "body.id"),
     name: str(o.name, "body.name"),
@@ -96,6 +107,8 @@ export function parseBodyDto(v: unknown): BodyDto {
     positionM: vec3(o.positionM, "body.positionM"),
     velocityMPerS: vec3(o.velocityMPerS, "body.velocityMPerS"),
     colorHex: str(o.colorHex, "body.colorHex"),
+    ...(bodyType === undefined ? {} : { bodyType }),
+    ...(assetKey === undefined ? {} : { assetKey }),
   };
 }
 
