@@ -5,6 +5,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 
+from backend.api_presets import router as presets_router
 from backend.api_universes import router as universes_router
 from backend.errors import CodedError
 from backend.models import (Body, BodyCreate, BodyUpdate, EventList, SimulationState, StepRequest, StepResponse)
@@ -62,6 +63,7 @@ async def simulation_failure_handler(request: Request, exc: SimulationFailure):
 
 
 app.include_router(universes_router)
+app.include_router(presets_router)
 
 
 @app.get("/health")

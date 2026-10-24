@@ -135,6 +135,14 @@ Recorded by the engine only. `grid` mode (presets, Orbit Lab): a sample at exact
 `revision` is +1 per committed change and is present in every universe response. A step that is cancelled (switch), refused at commit
 (stale epoch) or fails is rolled back completely: `lastFailure = {kind, message, atSimulationTimeS, atIso}` is set until the next success.
 
+## Presets (M3)
+| Route | Notes |
+|---|---|
+| `GET /api/v1/presets` | `{presets: [{id, name, description, available, unavailableReason, bodyCount, epochLabel, dataVersion, historyMode, sampleIntervalS}]}`. A preset whose data fails validation is listed with `available: false` and a reason. Currently one: `solar-system-j2000`. Kepler-90 is not offered; TRAPPIST-1 only if it passes its gate (`context/PRESETS.md`). |
+| `GET /api/v1/presets/{pid}` | summary + full `provenance` (sources, bases, omissions, limitations); 404 `preset_not_found` |
+| `POST /api/v1/universes` with `source: {kind: "preset", presetId}` | **always creates a new universe** (role `preset`, history mode `grid`, revision 1, t = 0); existing universes are never replaced. Unknown id: 404 `preset_not_found`; invalid or tampered data: 500 `preset_invalid` and nothing is created. Reset of such a universe returns to the loaded state. |
+| `GET /api/v1/universes/{uid}/provenance` | `{sourceKind, presetId, presetDataVersion, epoch, frame, origin, units, initialStateDigest, derivedFrom, modification, controlled, firstUncontrolledAtS, audit}` |
+
 ### Withdrawn / planned
 - `POST /simulation/start` and `/simulation/pause`: **not implemented and no longer planned**; Play/Pause is client-side scheduling of `step` requests.
 - 🕓 Checkpoint save/restore: not specified (REBOUND restore works, but the resolver, ledgers and event log would have to be rebuilt; M0.6).

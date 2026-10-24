@@ -4,8 +4,10 @@ from fastapi import APIRouter, Depends, Query, Response
 
 from backend.history import MAX_PAGE_SAMPLES
 from backend.lab_models import (ActivationResult, CreateUniverseRequest, HistoryPage, SnapshotCreate, SnapshotList,
-                                SnapshotSummary, UniverseList, UniverseState, UniverseStepResponse, UniverseSummary)
+                                SnapshotSummary, UniverseList, UniverseProvenance, UniverseState, UniverseStepResponse, UniverseSummary)
 from backend.models import Body, BodyCreate, BodyUpdate, EventList, StepRequest
+from backend.presets.loader import PresetDataError, UnknownPresetError, load_preset
+from backend.simulation import SimulationService
 from backend.universes import StoredSnapshot, Universe, UniverseRegistry, get_registry
 from backend.errors import CodedError
 
@@ -24,6 +26,29 @@ def summary(reg: UniverseRegistry, u: Universe) -> UniverseSummary:
         createdAtIso=u.created_at, epochLabel=(u.provenance or {}).get("epoch"), historyMode=u.engine.history_mode)
 
 
+def create_preset_universe(reg: UniverseRegistry, preset_id: str, name: str | None, activate: bool) -> Universe:
+    """A preset always becomes a new universe (nothing existing is replaced). Any data problem aborts before the
+    universe exists, so a failed load creates nothing."""
+    try:
+        preset = load_preset(preset_id)
+    except UnknownPresetError:
+        raise CodedError(f"unknown preset: {preset_id}", code="preset_not_found", status=404) from None
+    except PresetDataError as exc:
+        raise CodedError(f"preset {preset_id} cannot be loaded: {exc}", code="preset_invalid", status=500) from exc
+    engine = SimulationService()
+    try:
+        engine.load_bodies(preset.bodies, history_mode=preset.history_mode, sample_interval_s=preset.sample_interval_s)
+    except Exception as exc:  # noqa: BLE001
+        raise CodedError(f"preset {preset_id} cannot be initialised: {exc}", code="preset_invalid", status=500) from exc
+    data = preset.provenance
+    provenance = {"sourceKind": "preset", "presetId": preset_id, "presetDataVersion": data["dataVersion"],
+                  "epoch": data["epoch"]["label"], "epochDetail": data["epoch"], "frame": data["frame"],
+                  "origin": data["origin"], "units": data["units"], "initialStateDigest": engine.initial_state_digest,
+                  "derivedFrom": None, "modification": None}
+    return reg.create(name or preset.summary["name"][:64], role="preset", engine=engine, provenance=provenance,
+                      preset_id=preset_id, activate=activate)
+
+
 @router.get("", response_model=UniverseList)
 def list_universes(reg: UniverseRegistry = Depends(get_registry)) -> UniverseList:
     with reg._lock:  # one consistent view of the list, the active id and the epoch
@@ -34,7 +59,7 @@ def list_universes(reg: UniverseRegistry = Depends(get_registry)) -> UniverseLis
 @router.post("", response_model=UniverseSummary, status_code=201)
 def create_universe(req: CreateUniverseRequest, reg: UniverseRegistry = Depends(get_registry)) -> UniverseSummary:
     if req.source.kind == "preset":
-        raise CodedError(f"unknown preset: {req.source.presetId}", code="preset_not_found", status=404)
+        return summary(reg, create_preset_universe(reg, req.source.presetId, req.name, req.activate))
     u = reg.create(req.name, role="sandbox", activate=req.activate)
     return summary(reg, u)
 
@@ -163,3 +188,16 @@ def delete_snapshot(universe_id: str, snapshot_id: str, epoch: int = Epoch,
     u, _ = reg.prepare(universe_id, epoch, "snapshot")
     reg.delete_snapshot(u, snapshot_id)
     return Response(status_code=204)
+
+
+@router.get("/{universe_id}/provenance", response_model=UniverseProvenance)
+def get_provenance(universe_id: str, reg: UniverseRegistry = Depends(get_registry)) -> UniverseProvenance:
+    u = reg.get(universe_id)
+    base = {"sourceKind": "sandbox", "presetId": None, "presetDataVersion": None, "epoch": None, "frame": None,
+            "origin": None, "units": "SI: m, kg, s, m/s", "initialStateDigest": u.engine.initial_state_digest,
+            "derivedFrom": None, "modification": None}
+    base.update({k: v for k, v in (u.provenance or {}).items() if k != "epochDetail"})
+    with u.engine.locked():
+        live = {"controlled": u.engine.controlled, "firstUncontrolledAtS": u.engine.first_uncontrolled_at_s,
+                "audit": list(u.engine.audit)}
+    return UniverseProvenance(**base, **live)

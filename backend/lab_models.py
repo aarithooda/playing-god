@@ -123,3 +123,19 @@ class HistoryPage(BaseModel):
     truncated: bool
     samples: list[HistorySample]
     bodies: dict[str, HistoryBodyMeta]
+
+
+class UniverseProvenance(BaseModel):
+    sourceKind: Literal["sandbox", "preset", "experiment"]
+    presetId: str | None
+    presetDataVersion: str | None
+    epoch: str | None
+    frame: str | None
+    origin: str | None
+    units: str
+    initialStateDigest: str
+    derivedFrom: dict | None
+    modification: dict | None
+    controlled: bool
+    firstUncontrolledAtS: float | None
+    audit: list[dict]

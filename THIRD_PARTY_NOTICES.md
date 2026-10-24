@@ -28,3 +28,11 @@ PLAYING GOD is licensed under GPL-3.0-only (see `LICENSE`). This file lists the 
 
 ## Transitive dependencies
 The other Python packages in the `.venv` declare MIT, BSD, Apache-2.0, PSF-2.0 or MPL-2.0 (`certifi`, MPL-2.0, file-level copyleft, no conflict with GPL-3.0). All are generally considered GPL-3.0-compatible. Re-run the check when dependencies change (`importlib.metadata` for Python, `package.json` `license` fields for npm) and update this file; add Three.js and any other new dependency before release.
+
+## Data (committed, offline)
+| Data | Source | Terms / note |
+|---|---|---|
+| Solar System state vectors (`backend/presets/sources/horizons/`) | NASA/JPL Horizons System API, retrieved 2026-10-24 | JPL/NASA data, publicly available; attribution kept in `context/PRESETS.md` and in each data file |
+| GM values, au, G (`backend/presets/data/solar-system-j2000.json`) | JPL SSD Astrodynamic Parameters; Park et al. 2021, AJ 161:105 (DE440/DE441) | cited, transcribed |
+| Planet and Moon mean radii | JPL SSD Planetary / Planetary Satellite Physical Parameters (Archinal et al. 2018) | cited, transcribed |
+| Sun nominal radius and GM | IAU 2015 Resolution B3 (Mamajek et al., arXiv:1510.07674) | cited, transcribed |
