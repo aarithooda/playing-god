@@ -76,7 +76,7 @@ test("shows backend merger metadata and keeps the layout responsive", async ({ p
 
   await page.getByRole("button", { name: "Step Forward" }).click();
   await expect(page.getByText(/Sim time: 1.16 d/)).toBeVisible();
-  await page.getByRole("button", { name: "Expand History & diagnostics" }).click();
+  await page.getByRole("button", { name: "Expand Body catalogue & history" }).click();
   await expect(page.getByTestId("sidebar-left")).toHaveAttribute("data-open", "true");
   await expect(page.getByTestId("sidebar-right")).toHaveAttribute("data-open", "false");
 

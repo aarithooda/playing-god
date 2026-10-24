@@ -165,7 +165,7 @@ describe("universe identity and navigation", () => {
   it("selection and focus are cleared on switch; axes/grid and sidebars persist", async () => {
     render(<App />);
     await screen.findByText("Simulation");
-    fireEvent.click(screen.getByRole("button", { name: "Expand History & diagnostics" }));
+    fireEvent.click(screen.getByRole("button", { name: "Expand Body catalogue & history" }));
     fireEvent.click(screen.getByRole("button", { name: "Axes" }));
     act(() => canvas().onSelectBody(earth.id));
     act(() => canvas().onFocusBody(earth.id));

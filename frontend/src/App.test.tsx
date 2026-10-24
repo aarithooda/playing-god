@@ -52,7 +52,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("App layout", () => {
-  it("starts with Controls open on the right and History & diagnostics tucked away on the left", async () => {
+  it("starts with Controls open on the right and Body catalogue & history tucked away on the left", async () => {
     render(<App />);
     await screen.findByText("Simulation");
     expect(screen.getByTestId("sidebar-right").getAttribute("data-open")).toBe("true");
@@ -74,7 +74,7 @@ describe("App layout", () => {
   it("reports sidebar insets to the canvas as panels open and close (both open on a wide window)", async () => {
     render(<App />);
     await screen.findByText("Simulation");
-    fireEvent.click(screen.getByRole("button", { name: "Expand History & diagnostics" }));
+    fireEvent.click(screen.getByRole("button", { name: "Expand Body catalogue & history" }));
     expect([canvas().leftInset, canvas().rightInset]).toEqual([320, 320]);
     fireEvent.click(screen.getByRole("button", { name: "Collapse Controls" }));
     expect([canvas().leftInset, canvas().rightInset]).toEqual([320, 40]);
@@ -84,14 +84,14 @@ describe("App layout", () => {
     setWidth(1000);
     render(<App />);
     await screen.findByText("Simulation");
-    fireEvent.click(screen.getByRole("button", { name: "Expand History & diagnostics" }));
+    fireEvent.click(screen.getByRole("button", { name: "Expand Body catalogue & history" }));
     expect([canvas().leftInset, canvas().rightInset]).toEqual([320, 40]);
   });
 
   it("shrinking the window with both sidebars open closes the left one", async () => {
     render(<App />);
     await screen.findByText("Simulation");
-    fireEvent.click(screen.getByRole("button", { name: "Expand History & diagnostics" }));
+    fireEvent.click(screen.getByRole("button", { name: "Expand Body catalogue & history" }));
     expect([canvas().leftInset, canvas().rightInset]).toEqual([320, 320]);
     setWidth(900);
     expect([canvas().leftInset, canvas().rightInset]).toEqual([40, 320]);

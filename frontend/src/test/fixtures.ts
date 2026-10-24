@@ -156,7 +156,7 @@ export function fakeClient(overrides: Partial<ApiClient & ScopedClient> = {}): A
 const src = [{ citation: "JPL SSD Planetary Physical Parameters", url: "https://ssd.jpl.nasa.gov/planets/phys_par.html", retrieved: "2026-10-24" }];
 
 export const earthEntry: CatalogueEntryDto = {
-  id: "earth", name: "Earth", kind: "planet",
+  id: "earth", name: "Earth", kind: "planet", bodyType: "rocky-planet", assetKey: "earth",
   properties: {
     massKg: { value: 5.97217e24, uncertainty: { minus: 2.8e20, plus: 2.8e20 }, basis: "measured", sourceValue: "5.97217 \u00b1 0.00028 \u00d7 10^24 kg", conversion: "x 1e24 kg", sources: src },
     radiusM: { value: 6371008.4, uncertainty: { minus: 0.1, plus: 0.1 }, basis: "measured", sourceValue: "6371.0084 \u00b1 0.0001 km (mean radius)", conversion: "x 1000 m", sources: src },

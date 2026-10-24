@@ -102,7 +102,7 @@ afterEach(cleanup);
 
 async function openTimeline() {
   await screen.findByText("Simulation");
-  fireEvent.click(screen.getByRole("button", { name: "Expand History & diagnostics" }));
+  fireEvent.click(screen.getByRole("button", { name: "Expand Body catalogue & history" }));
   await screen.findByLabelText("History position");
 }
 const earthX = () => canvas().bodies.find((b: any) => b.id === earth.id).position[0];
@@ -199,7 +199,7 @@ describe("history in the app", () => {
     h.historyGate = null;
     fireEvent.click(screen.getByRole("button", { name: "Switch to Solar" }));
     await waitFor(() => expect(screen.getByTestId("universe-badge").textContent).toBe("Solar"));
-    fireEvent.click(screen.getByRole("button", { name: "Expand History & diagnostics" }));
+    fireEvent.click(screen.getByRole("button", { name: "Expand Body catalogue & history" }));
     await screen.findByLabelText("History position");
     expect((screen.getByLabelText("History position") as HTMLInputElement).max).toBe("0"); // Solar's one sample
     await act(async () => {
@@ -235,8 +235,9 @@ describe("Show paths", () => {
     const t = canvas().trajectories.find((x: any) => x.bodyId === earth.id);
     expect(t.key).toBe("uni-default:1:" + earth.id);
     expect(t.role).toBe("active");
-    expect(t.samples).toHaveLength(5);
+    expect(t.samples).toHaveLength(6); // five recorded samples plus the authoritative live body position
     expect(t.samples[4].positionM).toEqual({ x: 4e9, y: 0, z: 0 });
+    expect(t.samples[5].positionM).toEqual(earth.positionM);
     act(() => canvas().onSelectBody(earth.id));
     expect(canvas().trajectories.map((x: any) => x.bodyId)).toEqual([earth.id]);
     fireEvent.click(screen.getByRole("button", { name: "Show paths" }));
@@ -249,6 +250,6 @@ describe("Show paths", () => {
     fireEvent.click(screen.getByRole("button", { name: "Show paths" }));
     const before = canvas().trajectories.find((x: any) => x.bodyId === earth.id).samples.length;
     fireEvent.change(screen.getByLabelText("History position"), { target: { value: "1" } });
-    expect(canvas().trajectories.find((x: any) => x.bodyId === earth.id).samples.length).toBe(before);
+    expect(canvas().trajectories.find((x: any) => x.bodyId === earth.id).samples.length).toBe(before - 1); // history view hides the live-only endpoint
   });
 });

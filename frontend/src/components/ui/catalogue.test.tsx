@@ -32,6 +32,7 @@ describe("CataloguePanel", () => {
     const { container, rerender } = render(<CataloguePanel entries={[]} onPlace={() => {}} disabled={false} />);
     expect(container.innerHTML).toBe("");
     rerender(<CataloguePanel entries={[earthEntry]} onPlace={() => {}} disabled />);
+    fireEvent.click(screen.getByRole("tab", { name: "Planets" }));
     expect((screen.getByRole("button", { name: "Place Earth" }) as HTMLButtonElement).disabled).toBe(true);
   });
 });

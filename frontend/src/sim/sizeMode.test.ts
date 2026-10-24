@@ -185,7 +185,8 @@ describe("parent-moon relationships", () => {
     expect(s["body-earth"].systemPx).toBe(s["body-moon"].systemPx);
     expect(s["body-io"].clearance).toBe(s["body-jupiter"].clearance);
     expect(s["body-sun"].clearance).toBeUndefined();
-    expect(s["body-mars"].clearance).toBeUndefined();
+    expect(s["body-mars"].clearance).toBe(s["body-phobos"].clearance);
+    expect(s["body-mars"].systemPx).toBe(s["body-deimos"].systemPx);
     const orphan = by(buildSceneBodies(moons.filter((b) => b.id !== "body-earth"), transform, "exploration"));
     expect(orphan["body-moon"].clearance).toBeUndefined(); // the primary is not in the scene
   });
