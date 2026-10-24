@@ -87,3 +87,8 @@ Plan: `COLLISION_ENGINE_PLAN.md`; requirements: `specs/COLLISION_PARTICLE_ENGINE
 - `SimulationService` keeps two side tables keyed by body id (`_materials`, `_rotations`) that travel through `_capture/_restore`, `_checkpoint/_rollback`, `EngineSnapshot`, reset and `from_snapshot`; the state digest includes them only when non-empty (existing digests unchanged).
 - The impact capture (`geometry.capture_impact`) records each body's spin, orientation at the contact time and material profile, the contact direction in each body's frame, the site's latitude/longitude about the spin pole and the spin-axis angle.
 - `GET /api/v1/materials` (`api_collisions.py`). Frontend: optional body fields and the optional diagnostics term are parsed; nothing is rendered from them yet.
+
+### Outcome models and selector [Implemented, Stage 3; scientific content PROVISIONAL, D-038]
+- `backend/impact/models/`: `ls12.py` (LS12 regime outcomes + Genda graze-and-merge boundary), `envelope.py` (gas-envelope approximations, threshold 0.5 provisional), `cratering.py` (structure; Unsupported without sourced constants), `validity.py` (envelope as data), `provisional.py` (registry of every provisional assumption; outputs carry the warning `provisional:CP-SCI-1`).
+- `backend/impact/selector.py`: pure decision order (material missing -> exact legacy merge; gas -> envelope models; small mass ratio -> cratering; else LS12 with the explicit `structureClass`; outside the validity envelope -> `Unsupported` -> documented fallback perfect merge labelled `unsupported_regime`). Extra models can be registered and pass through unchanged.
+- Nothing calls the selector yet; Stage 4 wires its result into the applier.

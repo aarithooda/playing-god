@@ -10,7 +10,7 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 |---|---|---|---|---|---|---|
 | V-1 | Collide two planets; outcome depends on properties & conditions | merge only (`collisions.py`) | outcome models, materials | ST2–ST4 | T/scn A–D | MISS |
 | V-2 | Strike a location; localized damage | none | damage sites | ST6 | T/dmg, T/scn A | MISS |
-| V-3 | Craters, ejecta, partial disruption, catastrophic fragmentation where justified | none | models + fragments | ST3–ST6 | T/ls12, T/crat, T/frag | MISS |
+| V-3 | Craters, ejecta, partial disruption, catastrophic fragmentation where justified | none | models + fragments | ST3–ST6 | T/ls12, T/crat, T/frag | PART: cratering structure (no sourced constants, so Unsupported), erosion/disruption model level (PROVISIONAL, D-038: CP-SCI-1 unsigned) (tests/impact/test_ls12.py, tests/impact/test_cratering.py); application ST4-ST6 |
 | V-4 | Coherent fragment trajectories | n/a | fragments as REBOUND bodies | ST5 | T/frag ICs | MISS |
 | V-5 | Debris orbits, falls back, hits another body, escapes | n/a | lifecycle | ST7 | T/life, T/scn E | MISS |
 | V-6 | Rocky, metallic, icy, gas giants, moons, asteroids | bodies have `kind`, display `bodyType`; no material | profiles | ST2, ST11 | T/mat, T/sel | PART: profiles for rock, rubble, iron, ice and a gas envelope exist, each number cited (tests/impact/test_materials.py); named solar-system bodies pending ST11 |
@@ -18,20 +18,20 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 | V-8 | Replay and investigate events | history replay of positions [Exists `useHistoryNavigation`] | records + visual replay + dry-run replay | ST8–ST9 | T/rec replay, V/effectTimeline seek | PART |
 | V-9 | Simulation continues without breaking the system | transactional steps [Exists D-012] | apply atomically | ST4 | T/app continue-10-orbits, REG | PART |
 | P-1 | Physics determines outcomes; visuals never invent | backend-authoritative (D-001) | visual events from results only | ST9 | V/effectTimeline, boundary test | PART |
-| P-2 | Material matters when the model predicts it | — | profiles feed models | ST2–ST3 | T/sel material comparison | MISS |
+| P-2 | Material matters when the model predicts it | — | profiles feed models | ST2–ST3 | T/sel material comparison | VERIFIED at model level: identical geometry with c* = 5 vs 1.9 changes Q*_RD by exactly the c* ratio (tests/impact/test_ls12.py::test_c_star_scales_the_threshold_exactly_with_identical_geometry); application ST4 |
 | P-3 | Location matters; no uniform damage by default | — | sites | ST6 | T/dmg | MISS |
 | P-4 | Coherent motion | — | ICs | ST5 | T/frag | MISS |
 | P-5 | Mass accounted, never silently lost | merge conserves mass [Exists] | budgets/ledgers | ST4–ST7 | T/cons, T/life ledger | PART |
 | P-6 | Approximations explicit | doc'd limitations [Exists API_CONTRACT] | fidelity labels | ST0, ST8 | contract tests, V/describe labels | PART |
 | P-7 | Existing universe keeps working | — | legacy mode, regression | all | REG every stage | PART |
-| P-8 | Scientific validity tested | physics tests culture [Exists] | model reference tests | ST3, ST12 | T/ls12 references, CP-SCI-1 | PART |
+| P-8 | Scientific validity tested | physics tests culture [Exists] | model reference tests | ST3, ST12 | T/ls12 references, CP-SCI-1 | PART: reference reproductions and analytic identities (tests/impact/test_ls12.py); UD-1/UD-2 OPEN and documented, no reproduction claimed |
 
 ## §2 Scope and fidelity boundaries
 | ID | Requirement | Current | Gap | Stage | Verification | Status |
 |---|---|---|---|---|---|---|
 | S1-1 | Reliable detection + impact diagnostics | `line` detection, contact-time estimate [Exists] | full ImpactState | ST1 | T/det, T/geo | PART: detection reliable in the tested envelope and geometry captured (Stage 1: test_geometry.py, test_detection.py); materials/spin pending ST2 |
-| S1-2 | Material-aware inputs & outcome selection | — | — | ST2–ST3 | T/mat, T/sel | PART: materials reach the impact capture (Stage 2); outcome selection pending ST3 |
-| S1-3 | Outcomes beyond merging | — | — | ST3–ST4 | T/ls12, T/app | MISS |
+| S1-2 | Material-aware inputs & outcome selection | — | — | ST2–ST3 | T/mat, T/sel | PART: selector routes by material and structure class (tests/impact/test_selector.py); the outcome is not applied yet (ST4) |
+| S1-3 | Outcomes beyond merging | — | — | ST3–ST4 | T/ls12, T/app | PART: model-level outcomes for each class (PROVISIONAL, D-038: CP-SCI-1 unsigned); atomic application ST4 |
 | S1-4 | Localized impact & surface damage | — | — | ST6 | T/dmg | MISS |
 | S1-5 | Documented damage/propagation approximation | — | — | ST6 | T/dmg + SCIENTIFIC_MODELS §4.8 | MISS |
 | S1-6 | Physical fragmentation, coherent trajectories | — | — | ST5 | T/frag | MISS |
@@ -41,10 +41,10 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 | S1-10 | Conservation accounting & regression tests | diagnostics v1 [Exists D-013] | per-event report | ST4 | T/cons | PART |
 | S1-11 | Integration with simulation & renderer | — | — | ST4, ST9 | T/scn, E2E/col | MISS |
 | S1-12 | Performance controls not corrupting accounting | step budget [Exists D-012] | collision budgets | ST5, ST7, ST9 | T/perf, T/frag budgets | PART |
-| S1-13 | Expandable architecture | — | `OutcomeModel` adapter | ST0, ST3 | contract tests; adding a dummy model in test needs no change downstream | MISS |
+| S1-13 | Expandable architecture | — | `OutcomeModel` adapter | ST0, ST3 | contract tests; adding a dummy model in test needs no change downstream | VERIFIED tests/impact/test_selector.py::test_a_registered_model_passes_through_the_selector_unchanged (Stage 3) |
 | D-1..D-6 | SPH, resolved interior P/ρ/T, first-principles shocks, gas-giant fluid motion, advanced EOS, research-grade reproduction **deferred** | not present | keep deferred | all | review: no solver dependency in `requirements.txt`; DoD audit | SUP (deferred) |
-| S2-AN | Analytical/empirical/reduced-order models within limits | — | envelopes | ST3 | T/sel envelope tests | MISS |
-| S2-EXT | Extension path: inputs, materials, outputs, remnant reconstruction, transfer back | — | adapter + contracts | ST0, ST3 | T/contracts, dummy-model test | PART: contracts VERIFIED tests/impact/test_contracts.py (Stage 0); adapter/dummy-model test pending ST3 |
+| S2-AN | Analytical/empirical/reduced-order models within limits | — | envelopes | ST3 | T/sel envelope tests | PART: gas bodies routed to explicit envelope models, never to the rigid-body model (tests/impact/test_envelope.py, tests/impact/test_selector.py); asteroid-to-giant scenario ST12 |
+| S2-EXT | Extension path: inputs, materials, outputs, remnant reconstruction, transfer back | — | adapter + contracts | ST0, ST3 | T/contracts, dummy-model test | VERIFIED tests/impact/test_selector.py::test_a_registered_model_passes_through_the_selector_unchanged and ::test_a_registered_model_that_is_unsupported_triggers_the_labelled_fallback (Stage 3) |
 | S2-NOMISLEAD | No misleading visuals simulating hydrodynamics; approximations distinguished | — | labels | ST6, ST8, ST9 | V/describe, labels in records | MISS |
 
 ## §3 Feature 1 — Detection and impact geometry
@@ -85,11 +85,11 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 ## §4 Feature 2 — Material-aware physics
 | ID | Requirement | Current | Gap | Stage | Verification | Status |
 |---|---|---|---|---|---|---|
-| M-OBJ | Same geometry, different materials → different outcomes (when model predicts) | — | — | ST3 | T/sel c* comparison | MISS |
-| M-CAT-ROCK | Rocky/silicate regimes (damage, fracture, crushing, melting, accretion, disruption) via selected approximation | — | LS12 + HH11; melting only as labelled energy partition | ST3, ST6 | T/ls12, T/crat | MISS |
+| M-OBJ | Same geometry, different materials → different outcomes (when model predicts) | — | — | ST3 | T/sel c* comparison | VERIFIED at model level (tests/impact/test_ls12.py c* test); application ST4 |
+| M-CAT-ROCK | Rocky/silicate regimes (damage, fracture, crushing, melting, accretion, disruption) via selected approximation | — | LS12 + HH11; melting only as labelled energy partition | ST3, ST6 | T/ls12, T/crat | PART: LS12 regime outcomes (PROVISIONAL, D-038: CP-SCI-1 unsigned) for rock and rubble; cratering unsupported without constants |
 | M-CAT-METAL | Metallic distinguished (density, response) | — | profile; c* gap recorded | ST2–ST3 | T/mat iron; T/sel | PART: `iron` profile with only the analytic k = 0.4; LS12/cratering numbers declared incomplete (tests/impact/test_materials.py); outcomes ST3 |
 | M-CAT-ICE | Icy distinguished (density, strength, heating, melting, fragmentation) | — | profile; strength DQ-9 | ST2–ST3 | T/mat ice | PART: `water-ice` profile, strength/LS12/cratering declared incomplete (DQ-9) (tests/impact/test_materials.py) |
-| M-CAT-GAS | Gas not solid; envelope-dominated selection; approximation, no gas-dynamics claim | — | envelope model | ST3 | T/env, T/sel never-LS12 | PART: `gas-envelope-hhe` (category gas, envelope-dominated, no moment of inertia) (tests/impact/test_materials.py); envelope outcome ST3 |
+| M-CAT-GAS | Gas not solid; envelope-dominated selection; approximation, no gas-dynamics claim | — | envelope model | ST3 | T/env, T/sel never-LS12 | PART: gas-envelope bodies selected by gas mass fraction >= 0.5 (provisional) and routed to the envelope models (tests/impact/test_envelope.py); no gas-dynamics claim (warning `envelope_dynamics_not_resolved`) |
 | M-CAT-MOLTEN | Data model permits molten; fluid-like behaviour when supported | — | `phase`, strengthless c* | ST2–ST3 | T/mat molten; T/sel | PART: `phase`/`meltFraction` exist in the layer schema (test_contracts.py); no molten profile shipped (strengthless-planet mu_bar unsourced); behaviour ST3 |
 | M-CAT-MIXED | Differentiated bodies (core/mantle; ice/rock; core/envelope); not reduced silently | — | layers | ST2, ST5 | T/mat layers; T/frag composition | PART: layers and per-body layer overrides validated (tests/impact/test_materials.py, tests/impact/test_api_materials.py); differentiated profiles not shipped (core fractions unsourced); composition ST5 |
 | M-PROP-1 | Composition & fractions | — | layers | ST2 | T/mat | VERIFIED tests/impact/test_materials.py::test_resolve_material_accepts_valid_input_and_rejects_the_rest_with_material_invalid (fractions sum to 1, Stage 2) |
@@ -102,20 +102,20 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 | M-PROP-8 | Validity range & provenance | catalogue pattern [Exists OD-2] | provenance per value | ST2 | T/mat provenance rejection | VERIFIED tests/impact/test_materials.py::test_every_number_of_every_profile_has_provenance, test_a_profile_with_an_unsourced_number_is_rejected (Stage 2) |
 | M-PROP-MAP | Parameters required by models mapped to body representation | — | SCIENTIFIC_MODELS §5 | ST2 | review CP-SCI-1 | PART: only sourced parameters are mapped; the rest are listed `incomplete`; CP-SCI-1 review pending (ST3) |
 | M-PROP-FALLBACK | Unknown/incomplete properties: explicit fallback; no arbitrary values | — | exact legacy merge + `material_unspecified` label in the record; never assign a material, never refuse (DQ-2 (a), D-033) | ST2–ST4 | T/sel fallback; T/mat incomplete; ST4 legacy-exactness re-run (byte-identical events/state) | VERIFIED for body creation: no material is ever assigned (tests/impact/test_state_paths_stage2.py::test_a_body_without_material_has_exactly_the_old_json_and_no_spin_state); outcome fallback ST4 |
-| M-INT-1 | Rock+rock: cratering, accretion, ejecta, disruption | — | — | ST3–ST6 | T/scn A, C, D | MISS |
-| M-INT-2 | Ice+rock: composition-sensitive outcome & debris | — | — | ST3, ST5 | T/sel ice-rock; T/frag composition | MISS |
+| M-INT-1 | Rock+rock: cratering, accretion, ejecta, disruption | — | — | ST3–ST6 | T/scn A, C, D | PART: rock + rock LS12 outcomes (PROVISIONAL, D-038: CP-SCI-1 unsigned); cratering route unsupported without sourced constants; scenarios ST12 |
+| M-INT-2 | Ice+rock: composition-sensitive outcome & debris | — | — | ST3, ST5 | T/sel ice-rock; T/frag composition | PART: ice + rock is selected and follows the target profile; an ice TARGET is Unsupported (no LS12 block) (tests/impact/test_selector.py); debris composition ST5 |
 | M-INT-3 | Metal-rich+rock: different response, composition-dependent remnants | — | layered stripping | ST3, ST5 | T/frag iron-fraction direction | MISS |
-| M-INT-4 | Asteroid+gas giant: envelope interaction | — | — | ST3 | T/scn B | MISS |
-| M-INT-5 | Gas giant+gas giant: approximate envelope interaction, merger/disruption | — | no validated model | ST3 | T/env labelled approximation | DEC (DQ-8) |
+| M-INT-4 | Asteroid+gas giant: envelope interaction | — | — | ST3 | T/scn B | PART: `envelope_deposition` selected (tests/impact/test_envelope.py); scenario B ST12 |
+| M-INT-5 | Gas giant+gas giant: approximate envelope interaction, merger/disruption | — | no validated model | ST3 | T/env labelled approximation | PART: `envelope_merge_approximation`, fidelity `unsupported`, threshold 0.5 provisional (D-040) (tests/impact/test_envelope.py) |
 | M-INT-6 | Molten+solid: deformation/mixing approx where modeled | — | strengthless c*, composition mix | ST3, ST5 | T/sel molten | PART by design |
 | M-INT-7 | Fragment+planet: secondary impact with fragment's material | — | fragments inherit profile | ST7 | T/life | MISS |
 | M-INT-8 | Mixed-material bodies use composition profile | — | — | ST3, ST5 | T/frag | MISS |
 | M-INT-DOC | Shared models' assumptions & coverage documented | — | SCIENTIFIC_MODELS | ST3 | review | MISS |
 | F2-AC-1 | Materials available to outcome & fragment systems | — | — | ST2–ST5 | T/sel, T/frag | MISS |
-| F2-AC-2 | Equivalent setups comparable with different profiles | — | — | ST3 | T/sel comparison fixture | MISS |
-| F2-AC-3 | Output differences explainable by the model | — | regimeReasons | ST3, ST8 | T/sel reasons, T/rec | MISS |
+| F2-AC-2 | Equivalent setups comparable with different profiles | — | — | ST3 | T/sel comparison fixture | PART: equivalent setups with different profiles give different thresholds (tests/impact/test_ls12.py); UI comparison ST8 |
+| F2-AC-3 | Output differences explainable by the model | — | regimeReasons | ST3, ST8 | T/sel reasons, T/rec | PART: reasons and parameters with sources are in every OutcomeSpec (tests/impact/test_ls12.py, tests/impact/test_selector.py); inspection API ST8 |
 | F2-AC-4 | Unsupported combinations → documented fallback or validation error | — | — | ST2–ST3 | T/mat 422, T/sel unsupported | PART: invalid materials -> 422 material_invalid (tests/impact/test_api_materials.py, tests/impact/test_materials.py); unsupported combinations pending ST3 |
-| F2-AC-5 | Gas giants not processed as rocky spheres | — | — | ST3 | T/sel | MISS |
+| F2-AC-5 | Gas giants not processed as rocky spheres | — | — | ST3 | T/sel | VERIFIED tests/impact/test_selector.py::test_gas_bodies_never_reach_the_rigid_body_model (Stage 3) |
 
 ## §5 Feature 3 — Localized impact, damage, propagation
 | ID | Requirement | Current | Gap | Stage | Verification | Status |
@@ -146,29 +146,29 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 ## §6 Feature 4 — Outcome physics
 | ID | Requirement | Current | Gap | Stage | Verification | Status |
 |---|---|---|---|---|---|---|
-| O-OBJ | Not every collision a perfect merger | merge only | — | ST3–ST4 | T/sel | MISS |
-| O-CAT-1 | Cratering & ejecta | — | HH11 / LS12 low Q_R | ST3, ST6 | T/crat | MISS |
-| O-CAT-2 | Perfect/near-perfect merger | [Exists] merge | regime-selected | ST3 | T/ls12 v ≤ v_esc | PART |
-| O-CAT-3 | Graze-and-merge | — | G12 | ST3 | T/ls12 G12 boundary | MISS (coeffs [VERIFY]) |
-| O-CAT-4 | Hit-and-run (two remnants) | — | — | ST3–ST4 | T/scn C | MISS |
-| O-CAT-5 | Partial accretion | — | — | ST3–ST4 | T/app | MISS |
-| O-CAT-6 | Partial erosion | — | — | ST3–ST4 | T/app | MISS |
-| O-CAT-7 | Catastrophic disruption (criterion-defined) | — | — | ST3–ST5 | T/scn D | MISS |
-| O-CAT-8 | Super-catastrophic | — | — | ST3–ST5 | T/ls12 | MISS |
-| O-CAT-DEF | Categories defined consistently with prescription | — | LS12/SL12 definitions | ST3 | review CP-SCI-1 | MISS |
-| O-MOD-SEL | Model selected & documented for regime | — | selector | ST3 | T/sel each branch | MISS |
-| O-MOD-INPUTS | v/v_esc, angle/b, mass ratio, interacting mass, binding thresholds, material, spin where supported | — | all except spin (LS12 has none → warn) | ST3 | T/ls12; T/sel spin warning | MISS (spin PART) |
-| O-MOD-EXTRAP | No extrapolation beyond validity without fallback | — | envelopes | ST3 | T/sel unsupported | MISS |
+| O-OBJ | Not every collision a perfect merger | merge only | — | ST3–ST4 | T/sel | PART: selection by material, geometry and regime (tests/impact/test_selector.py) (PROVISIONAL, D-038: CP-SCI-1 unsigned) |
+| O-CAT-1 | Cratering & ejecta | — | HH11 / LS12 low Q_R | ST3, ST6 | T/crat | PART: cratering model structure; Unsupported for every shipped profile (no sourced constants) (tests/impact/test_cratering.py) |
+| O-CAT-2 | Perfect/near-perfect merger | [Exists] merge | regime-selected | ST3 | T/ls12 v ≤ v_esc | VERIFIED at model level (PROVISIONAL, D-038: CP-SCI-1 unsigned): tests/impact/test_ls12.py::test_below_the_escape_speed_the_bodies_merge_without_any_strength_model |
+| O-CAT-3 | Graze-and-merge | — | G12 | ST3 | T/ls12 G12 boundary | VERIFIED at model level (PROVISIONAL, D-038: CP-SCI-1 unsigned): G12 eq. 16 coefficients transcribed (tests/impact/test_ls12.py::test_g12_*); calibrated for protoplanets only (warning) |
+| O-CAT-4 | Hit-and-run (two remnants) | — | — | ST3–ST4 | T/scn C | PART (PROVISIONAL, D-038: CP-SCI-1 unsigned): hit-and-run selected by the model (Scenario C geometry, tests/impact/test_ls12.py); projectile erosion NOT modelled (warning); application ST4 |
+| O-CAT-5 | Partial accretion | — | — | ST3–ST4 | T/app | VERIFIED at model level (PROVISIONAL, D-038: CP-SCI-1 unsigned): tests/impact/test_ls12.py::test_regime_sequence_with_increasing_speed_is_ordered_and_largest_remnant_never_increases |
+| O-CAT-6 | Partial erosion | — | — | ST3–ST4 | T/app | VERIFIED at model level (PROVISIONAL, D-038: CP-SCI-1 unsigned): same test; erosion regime reached; application ST4 |
+| O-CAT-7 | Catastrophic disruption (criterion-defined) | — | — | ST3–ST5 | T/scn D | VERIFIED at model level (PROVISIONAL, D-038: CP-SCI-1 unsigned): tests/impact/test_ls12.py::test_head_on_equal_masses_at_high_speed_are_catastrophic_or_worse |
+| O-CAT-8 | Super-catastrophic | — | — | ST3–ST5 | T/ls12 | VERIFIED at model level (PROVISIONAL, D-038: CP-SCI-1 unsigned): tests/impact/test_ls12.py::test_super_catastrophic_law_is_continuous_at_the_transition_and_decreasing (eq. 44 form unverified) |
+| O-CAT-DEF | Categories defined consistently with prescription | — | LS12/SL12 definitions | ST3 | review CP-SCI-1 | PART: categories follow the LS12 universal law and thresholds recorded in the notes; CP-SCI-1 review open |
+| O-MOD-SEL | Model selected & documented for regime | — | selector | ST3 | T/sel each branch | VERIFIED tests/impact/test_selector.py (each branch of the decision order, Stage 3) |
+| O-MOD-INPUTS | v/v_esc, angle/b, mass ratio, interacting mass, binding thresholds, material, spin where supported | — | all except spin (LS12 has none → warn) | ST3 | T/ls12; T/sel spin warning | PART: speed, angle, mass ratio, interacting mass, escape speed, material and structure class are used; spin only recorded (`spin_not_in_model`) (tests/impact/test_ls12.py) |
+| O-MOD-EXTRAP | No extrapolation beyond validity without fallback | — | envelopes | ST3 | T/sel unsupported | VERIFIED tests/impact/test_ls12.py::test_disruption_of_small_bodies_is_unsupported_not_a_plausible_looking_outcome, test_extrapolated_velocity_is_labelled, tests/impact/test_selector.py (Stage 3) |
 | O-CONS-1 | Merger: remnant mass, position, velocity, spin | merge [Exists], spin as ledger | spin state | ST2, ST4 | T/app | PART: spin angular momentum of a merging pair is booked, not lost (tests/impact/test_state_paths_stage2.py::test_merging_books_the_spin_angular_momentum_into_the_existing_ledger); spin state of the remnant ST4 |
 | O-CONS-2 | Hit-and-run: multiple remnants, consistent velocities & accounting | — | — | ST4 | T/scn C | MISS |
 | O-CONS-3 | Disruption: largest remnant + defined population | — | — | ST5 | T/scn D | MISS |
 | O-CONS-4 | Erosion: removed mass into explicit representation | — | — | ST4–ST5 | T/cons | MISS |
 | O-CONS-NODOUBLE | No second outcome after resolution | — | one apply per record | ST4, ST6 | T/app, T/dmg supersede | MISS |
-| F4-AC-1 | All categories within validity | — | — | ST3–ST5 | T/scn, T/ls12 | MISS |
+| F4-AC-1 | All categories within validity | — | — | ST3–ST5 | T/scn, T/ls12 | PART: all categories exist at model level within the declared validity range (PROVISIONAL, D-038: CP-SCI-1 unsigned); applied outcomes ST4 |
 | F4-AC-2 | Deterministic repeatability | — | seeds | ST5, ST10 | T/rec replay digest | MISS |
 | F4-AC-3 | Selection inspectable | — | reasons | ST8 | T/rec | MISS |
 | F4-AC-4 | Existing merger path remains | [Exists] | keep as legacy + regime | ST1 | REG, T/eqv | VERIFIED test_deferred_equivalence.py::test_legacy_mode_reproduces_the_golden_values_bit_for_bit (Stage 1) |
-| F4-AC-5 | Unsupported regime explicit | — | — | ST3 | T/sel | MISS |
+| F4-AC-5 | Unsupported regime explicit | — | — | ST3 | T/sel | VERIFIED tests/impact/test_selector.py::test_the_fallback_is_always_a_valid_conserving_merge and the Unsupported tests (Stage 3) |
 
 ## §7 Feature 5 — Fragmentation and debris
 | ID | Requirement | Current | Gap | Stage | Verification | Status |
@@ -266,15 +266,15 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 | ID | Requirement | Current | Gap | Stage | Verification | Status |
 |---|---|---|---|---|---|---|
 | HX-CAP | Deferred capabilities not initial requirements | — | — | — | DoD audit | SUP (deferred) |
-| HX-IF-1..9 | Interfaces: pre-impact state & materials; geometry & BCs; model selection; solver execution & status; remnants; fragment/debris distributions; conservation; transfer to N-body; rendering & history | — | contracts + adapter | ST0, ST3 | T/contracts; dummy external-model test (returns OutcomeSpec, flows through applier unchanged) | PART: contracts VERIFIED test_contracts.py::test_json_round_trip_is_identical (Stage 0); dummy external-model test pending ST3 |
+| HX-IF-1..9 | Interfaces: pre-impact state & materials; geometry & BCs; model selection; solver execution & status; remnants; fragment/debris distributions; conservation; transfer to N-body; rendering & history | — | contracts + adapter | ST0, ST3 | T/contracts; dummy external-model test (returns OutcomeSpec, flows through applier unchanged) | VERIFIED for the model interface: tests/impact/test_selector.py::test_a_registered_model_passes_through_the_selector_unchanged; application/transfer back ST4 |
 | HX-NOSPH | Not assume SPH | — | generic adapter | ST0 | review | MISS |
 | HX-JUSTIFY | Complexity justified by codebase | — | plan §3.15 | ST0 | review | SUP (doc) |
 | FID-1..6 | Distinguish computed, empirical/analytic, reduced-order spatial, statistical, visual, future unsupported | — | labels | ST0, ST8, ST9 | T/contracts enum; V/describe | PART: enum VERIFIED test_contracts.py::test_fidelity_labels_match_the_plan (Stage 0); UI labels pending ST8-ST9 |
 | FID-UI | UI does not imply resolved hydrodynamics | — | labels | ST8–ST9 | V/describe | MISS |
 | F10-AC-1 | No hydrodynamics dependency | none [Exists] | keep | all | requirements diff review | SUP |
-| F10-AC-2 | Models expandable/replaceable | — | adapter | ST3 | dummy-model test | MISS |
+| F10-AC-2 | Models expandable/replaceable | — | adapter | ST3 | dummy-model test | VERIFIED tests/impact/test_selector.py::test_a_registered_model_passes_through_the_selector_unchanged (Stage 3) |
 | F10-AC-3 | Event records accommodate new fields, versioned | — | schemaVersion + `fieldsExtra` | ST0 | T/contracts forward-compat | MISS |
-| F10-AC-4 | State can receive future solver remnants via boundary | — | OutcomeSpec → applier | ST3–ST4 | dummy-model test | MISS |
+| F10-AC-4 | State can receive future solver remnants via boundary | — | OutcomeSpec → applier | ST3–ST4 | dummy-model test | PART: OutcomeSpec/records are versioned and additive (Stage 0); a future solver's remnants flow through the same spec |
 
 ## §13 Shared contracts
 | ID | Requirement | Plan section | Stage | Verification | Status |
@@ -354,7 +354,7 @@ These are not spec requirements but binding constraints on how the rows above ar
 | OD33-MODE | All universes `legacy-merge` until step 4b; then `outcome-v1` for new sandboxes only (including the startup `uni-default`, owner-confirmed); presets and Orbit Lab legacy until Stage 11 | ST0 (constant), ST4b, ST11 | `tests/impact/test_mode_defaults.py`; ST11 acceptance | PART: constant VERIFIED test_contracts.py::test_default_sandbox_mode_is_legacy_merge_until_stage_4b (Stage 0); 4b/Stage 11 pending |
 | OD33-VIS | Visual-only effects: wall-clock duration, freeze on pause, replay on seek-back, never mass-bearing (DQ-12 a) | ST0, ST9 | V/effectTimeline; type-level test | PART: contract VERIFIED test_contracts.py::test_visual_only_effect_has_no_mass_field (Stage 0); timeline tests pending ST9 |
 | OD33-REVIEW | Independent AI session for routine physics checks; named human for CP-SCI-1 and CP-5; everything logged in `WORKLOG.md` (DQ-14 d) | ST3, ST12, all physics stages | WORKLOG entries; TASKS.md reviewer name | MISS |
-| OD33-GATE | UD-1 (5.3 J/kg) and UD-2 (b_crit 0.66) reproduced from the original LS12 paper with traced equations/definitions/assumptions/units and human sign-off before disputed constants are used | ST3 | `test_ls12_worked_example_q_rd_gamma1`, `test_ls12_worked_example_b_crit`; WORKLOG sign-off | BLK until CP-SCI-1 |
+| OD33-GATE | UD-1 (5.3 J/kg) and UD-2 (b_crit 0.66) reproduced from the original LS12 paper with traced equations/definitions/assumptions/units and human sign-off before disputed constants are used | ST3 | `test_ls12_worked_example_q_rd_gamma1`, `test_ls12_worked_example_b_crit`; WORKLOG sign-off | PROVISIONAL: D-038 (owner instruction) lets development use the planning relations; CP-SCI-1 is NOT signed off, UD-1/UD-2 are OPEN, no reviewer has agreed. Isolation: provisional registry + labels + `outcome-v1` opt-in; production default activation (ST4 step 4b) stays separately gated |
 
 ## Coverage summary
 Every numbered item of §1–§18 has at least one row; grouped rows (e.g. `F1-INFO-1..12` expanded, `R-A-1..6`, `NF-1..8`, `ST-1..11`, `HX-IF-1..9`) list each sub-item in the spec's order and are verified item by item by the named tests. Rows with status DEC: M-CAT-ICE/M-PROP-3 strength (DQ-9), M-INT-5 (DQ-8), R-B-1 threshold (DQ-6), R-B-2/G-2 (DQ-4), PER-1..5 disk (DQ-11). M-PROP-FALLBACK and V-TIME-LIFE were decided by the owner (D-033) and are now MISS (to implement). The only BLK row is the owner constraint OD33-GATE, which blocks the disputed LS12 constants until CP-SCI-1; no spec requirement is blocked and none was removed.

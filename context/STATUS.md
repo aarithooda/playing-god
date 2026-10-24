@@ -5,6 +5,11 @@
 # Status
 _Concise authoritative snapshot. Update after every meaningful session._
 
+## Collision engine — Stage 3 (2026-10-24, Claude Sonnet 5.5) — newest
+- **Done** on `collision/stage-3-models`: pure outcome models and selector (LS12 + Genda, envelope, cratering structure), validity envelope as data, provisional-assumption registry, decisions D-038..D-042 (provisional UD-1/UD-2, DQ-7/8/9, diagnostics deviation). **CP-SCI-1 is NOT signed off; UD-1/UD-2 remain open; no reviewer has agreed.**
+- **Verified:** `python -m pytest -q` 935 passed (869 + 66 new), 1 baseline warning. Frontend untouched in this stage.
+- **Open:** Stage 4a next (needs DQ-13: provisional default recorded in its stage). Cratering is Unsupported for all shipped profiles (no sourced constants).
+
 ## Collision engine — Stage 2 (2026-10-24, Claude Sonnet 5.5) — newest
 - **Done** on `collision/stage-2-materials-spin` (from `b4a7134`): material registry (5 profiles, every number cited, unsourced quantities declared `incomplete`), rotation state and quaternion utilities, optional `material`/`spinRadPerS`/`orientation` on bodies (omitted when unset, so a material-less body is byte-identical), `GET /api/v1/materials`, side tables on every state path, additive diagnostics term (version stays 1), rotation/material/site latitude in the impact capture, frontend optional parsing. Every universe still `legacy-merge`.
 - **Verified:** `python -m pytest -q` 869 passed (800 + 69 new), 1 baseline warning; preset and fixed-id digests equal the values computed at f2c2da3; existing suite forced onto the deferred engine: 566/567 (the same one legacy-hook test); frontend `npm run typecheck` clean, `npx vitest run` 439 passed (433 + 6), `npm run build` OK; Playwright not run (browsers missing).

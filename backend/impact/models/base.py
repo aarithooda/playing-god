@@ -12,7 +12,14 @@ from backend.impact.contracts import CollisionInput, OutcomeSpec
 
 @dataclass(frozen=True)
 class Unsupported:
+    """No supported model applies. The reasons are explicit; the caller uses the documented fallback, never a guessed outcome."""
+
     reasons: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "reasons", tuple(self.reasons))
+        if not self.reasons:
+            raise ValueError("an Unsupported verdict must state its reasons")
 
 
 @runtime_checkable
