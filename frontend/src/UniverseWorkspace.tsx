@@ -40,6 +40,7 @@ import { frameAt, trajectoryOf } from "./sim/history/historyModel";
 import { useHistory } from "./sim/history/useHistory";
 import { useHistoryNavigation } from "./sim/history/useHistoryNavigation";
 import { toSceneBody, type DisplayBody } from "./sim/viewModel";
+import { separateDisplayRadii } from "./sim/radiusSeparation";
 
 export interface UniverseWorkspaceProps {
   client: ScopedClient;
@@ -163,7 +164,8 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
         : bodies,
     [frame, bodies],
   );
-  const sceneBodies = useMemo(() => displayBodies.map((b) => toSceneBody(b, transform)), [displayBodies, transform]);
+  // Display radii are capped by neighbour spacing so crowded systems (the inner planets) do not overlap; display only.
+  const sceneBodies = useMemo(() => separateDisplayRadii(displayBodies.map((b) => toSceneBody(b, transform))), [displayBodies, transform]);
 
   // "Show paths": the selected body's recorded path, or every body's when there are at most 20 (UI-0 trajectories).
   const pathIds = pathTargets(displayBodies.map((b) => b.id), selectedBodyId);
@@ -185,9 +187,8 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
   }, [viewingHistory]);
 
   const focusBody = (id: string) => {
-    const body = bodies.find((b) => b.id === id);
-    if (body) {
-      const sceneBody = toSceneBody(body, transform);
+    const sceneBody = sceneBodies.find((b) => b.id === id);
+    if (sceneBody) {
       setFocus((f) => ({
         nonce: (f?.nonce ?? 0) + 1,
         bodyId: id,

@@ -31,3 +31,20 @@ export function framingDistanceScale({ fovDeg, width, height, leftInset, rightIn
   const halfWidthFree = halfHeight * (width / height) * freeFraction;
   return Math.max(1, (FIT_EXTENT_UNITS * FRAMING_MARGIN) / halfWidthFree);
 }
+
+/** Default camera near plane, in scene units. */
+export const DEFAULT_NEAR = 0.1;
+/** Never closer than this: keeps depth precision usable against the far plane. */
+export const MIN_NEAR = 1e-5;
+/** The near plane is this fraction of the smallest displayed radius, so a focused body is never clipped. */
+export const NEAR_FRACTION_OF_MIN_RADIUS = 0.25;
+
+/**
+ * Near-plane distance for the current scene. Displayed radii can be very small when a close pair of bodies forces the
+ * radii down (sim/radiusSeparation.ts); focusing such a body puts the camera closer than the default near plane, which
+ * would clip the whole body away. Display only.
+ */
+export function nearPlaneFor(minDisplayRadius: number): number {
+  if (!(minDisplayRadius > 0) || !Number.isFinite(minDisplayRadius)) return DEFAULT_NEAR;
+  return Math.min(DEFAULT_NEAR, Math.max(MIN_NEAR, minDisplayRadius * NEAR_FRACTION_OF_MIN_RADIUS));
+}
