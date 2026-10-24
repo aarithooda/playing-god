@@ -2,6 +2,8 @@
 Status: todo / in progress / blocked / done. Keep tasks small and independently testable.
 
 ## NEXT ACTION
+**Collision & particle engine implementation in progress** (owner instruction 2026-10-24; nothing pushed, merged or deployed). Live board: the table at the end of this file. Stage 0 done on `collision/stage-0-contracts`; Stage 1 next. Gates that will stop the chain: CP-1 (after Stage 1), DQ-7/8/9 and a named CP-SCI-1 human reviewer (Stage 3), CP-SCI-1 sign-off + DQ-13 (Stage 4).
+
 **Simulation Lab + Experiment 01 implemented** on `feature/simulation-lab-experiment-01` (T-015; one PR to `main`, not merged). Next: the owner's product review of the PR, then the independent technical review (OD-6); then merge by the owner. Open owner decisions: whether to approve an alternative gate for TRAPPIST-1 (D-027) and whether to correct the barycentre-drift sentence in `EXPERIMENT_01_SPEC.md` section 4.2 (D-028). Older text follows.
 
 UI integration series M0-M5 **complete and merged** (PRs #4, #7, #8, #9, #11, #12; stall fix #10); repository handed over, see the FINAL HANDOVER section at the top of `STATUS.md`. Next: the owner defines and starts Experiment 01 (not defined in the repo, not started). Open items: T-010 browser E2E, the history-system decision, checkpoints/tidal (brief features not implemented).
@@ -71,3 +73,25 @@ Fetched and created local tracking refs for `feature/m0-rebound-physics-api` (Aa
 
 ### Independent production physics review — 2026-10-24
 On isolated branch `validation/production-physics-review`, 11 new analytical/reference checks passed against `feature/production-rebound-simulation`; the complete branch suite passed 160 tests with 3 warnings. This does not close P-003: the review recommends additional strongly curved non-radial and three-body cases, connected clusters of >3 simultaneous mergers, seed/order variation, and testing the 2000-chunk cap. See `context/PRODUCTION_PHYSICS_INDEPENDENT_VALIDATION.md`.
+
+<!-- COLLISION-BOARD:START -->
+### Collision & particle engine — implementation board (live; updated at every stage boundary)
+Branch chain (stacked, nothing pushed or merged): see `WORKLOG.md`. Status: `[ ]` not started · `[-]` in progress · `[x]` completed and verified · `[!]` blocked / awaiting human approval. Per-requirement detail: `COLLISION_REQUIREMENT_TRACEABILITY.md`.
+
+| Stage | Status | Deliverable | Depends on | Acceptance | Tests | Commit |
+|---|---|---|---|---|---|---|
+| 0 Governance, contracts, configuration | [-] all checks green, committing | backend/impact/{serialization,config,contracts}.py; tests/impact/test_contracts.py; D-034; docs | D-033 | pytest 567 + new green; vitest 433; build OK; no import of backend.impact outside the package; DEFAULT_SANDBOX_MODE legacy-merge | tests/impact/test_contracts.py |  |
+| 1 Deferred resolution, impact capture, event identity (legacy outcome only) | [ ]  | detection, geometry, records, engine, models/{base,perfect_merge}; simulation.py wiring behind mode outcome-v1 | 0 | 567 existing tests unchanged; golden equivalence <= 1e-12 (CP-1 if an internal-step shift appears); geometry/determinism tests; latency +10% | test_deferred_equivalence, test_geometry, test_detection |  |
+| 2 Materials, spin, orientation | [ ]  | materials, rotation, profiles JSON, GET /materials, side tables, diagnostics v2 | 1 + CP-1 accepted | REG green; digests of existing presets unchanged; material-less bodies get no spin state | test_materials, test_rotation |  |
+| 3 Outcome models and selector (pure) | [ ]  | ls12, cratering, envelope, selector, reference_values | 0; DQ-7/8/9 answered; named CP-SCI-1 human reviewer | reference reproductions; UD-1 and UD-2 resolved; CP-SCI-1 signed off | test_ls12, test_cratering, test_envelope, test_selector |  |
+| 4a Atomic application and conservation (all universes legacy) | [ ]  | applier, conservation, Event union, frontend parse | 1-3, CP-1, CP-SCI-1, DQ-13 | scenario per outcome class; conservation; legacy exactness in outcome-v1 | test_applier, test_conservation |  |
+| 4b Default switch: new sandboxes outcome-v1 (CP-4b) | [ ]  | config constant, universe creation paths | 4a green + reviewed | test_mode_defaults incl. fresh uni-default; presets/Orbit Lab legacy | test_mode_defaults |  |
+| 5 Fragmentation and bounded debris | [ ]  | fragments.py, parcels, budgets | 4; DQ-4/5/6 (CP-2) | sum exactness, power law, no overlap, determinism, overflow | test_fragments |  |
+| 6 Localized damage and propagation | [ ]  | damage.py, surface route | 2, 4 (5) | south-pole fixture | test_damage |  |
+| 7 Debris lifecycle, reaccretion, secondary impacts | [ ]  | lifecycle.py, escape ledger | 5, 6; DQ-10 | bound/escape, child events, cascade limit, Scenario E | test_lifecycle |  |
+| 8 Records API, inspection, replay | [ ]  | collisions routes, inspector UI | 7 | every 10.2 field; replay digest identical | test_records, vitest describe |  |
+| 9 Particle engine and event visualization | [ ]  | render contract, effects layers | 8; CP-3 | timeline tests; boundary test; e2e stub | vitest effectTimeline etc. |  |
+| 10 Persistence, isolation, determinism hardening | [ ]  | CollisionState serialisation, derive | 9 (or 8); DQ-11 | restore bitwise; isolation | test_persistence, test_isolation |  |
+| 11 Sourced material annotation of presets (DQ-3) | [ ]  | preset data + loader | DQ-3 = yes | validation trajectories bit-identical | tests/validation additions |  |
+| 12 Scenarios A-H, performance, Definition of Done | [ ]  | e2e scenarios, performance, DoD audit | 0-10 (+11) | every traceability row VERIFIED; CP-5 human sign-off | test_scenarios_e2e, test_performance |  |
+<!-- COLLISION-BOARD:END -->

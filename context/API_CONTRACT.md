@@ -190,3 +190,11 @@ Universe rules that apply to experiment runs (409 `baseline_protected`): the bas
 ## Assumptions / known issues
 - **Vite proxy mismatch:** `frontend/vite.config.ts` strips `/api` while the backend serves `/api/v1/...`; owned by the frontend session (T-008).
 - Bounds on mass/radius/position are generous sanity limits, not physical claims.
+
+## Planned: collision engine (NOT implemented; no endpoint or field below exists yet)
+Source: `COLLISION_ENGINE_PLAN.md` sections 4 and 6. Everything is additive; existing shapes and `merger` events stay valid.
+- Contract classes (internal, Stage 0): `backend/impact/contracts.py`. JSON is camelCase with SI-unit suffixes, vectors as `{x, y, z}`, `schemaVersion: 1`; readers reject unknown keys.
+- Planned body fields (optional): `material`, `spinRadPerS`, `orientation`, `representation`, `originEventId`, `fragmentClass`, `debris` (Stage 2/5). A body without `material` resolves with exactly today's merger (D-033, DQ-2).
+- Planned event: `type: "collision"` next to the unchanged `merger` (Stage 4); planned routes: `GET /api/v1/materials`, `GET /api/v1/universes/{uid}/collisions`, `.../collisions/{id}`, `POST .../collisions/{id}/replay` (dry run), `GET .../bodies/{id}/surface` (Stages 2, 6, 8).
+- Planned diagnostics v2 (additive), error codes `collision_unresolvable`, `collision_budget_reached`, `material_invalid` (Stages 2, 4).
+- Planned universe `collisionMode`: `legacy-merge` for every universe until Stage 4 step 4b; then `outcome-v1` for new sandboxes only.

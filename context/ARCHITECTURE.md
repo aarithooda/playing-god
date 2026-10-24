@@ -66,3 +66,18 @@ CI (`.github/workflows/ci.yml`) runs backend `pytest`, frontend `tsc`, `vitest`,
 - Sidebar-aware framing happens when the scene is (re)fitted; opening a sidebar afterwards does not re-frame (use Fit view).
 - Brief features not implemented: approximate tidal deformation; the diagnostics panel has no baseline/drift indicators and diagnostics are not recorded per history sample. Persistence across restarts, TRAPPIST-1 (D-027) and "UI-1" (unspecified) are not implemented.
 - Physics limitations and approximations: `API_CONTRACT.md` ("Physics limitations") and `PHYSICS_SPIKE.md`.
+
+## Collision & particle engine (D-033, D-034)
+Plan: `COLLISION_ENGINE_PLAN.md`; requirements: `specs/COLLISION_PARTICLE_ENGINE_SPEC.md`; models: `COLLISION_SCIENTIFIC_MODELS.md`.
+
+### Contracts and configuration [Implemented, Stage 0]
+- `backend/impact/serialization.py`: strict typed frozen dataclass base (`Contract`), canonical JSON (`canonical_json`) and SHA-256 digest (`canonical_digest`).
+- `backend/impact/config.py`: `CollisionConfig` (mode, seed, budgets, tolerances), `CollisionTolerances`, `DEFAULT_SANDBOX_MODE = "legacy-merge"`.
+- `backend/impact/contracts.py`: every schema of plan section 4 (materials, rotation, impact state, collision input/outcome/result, conservation report, collision event and record, visual event description, fidelity labels). Data only; no physics, no REBOUND.
+- Nothing outside `backend/impact/` imports this package yet (tests assert it); simulation behaviour is unchanged.
+
+### Everything below is [Proposed] (not implemented)
+- Deferred resolution: the REBOUND callback only records contacts and stops integration; `CollisionEngine.resolve_batch` runs between `integrate` calls (Stage 1).
+- Pure outcome models (`models/`), selector, fragments, damage, lifecycle, conservation, applier, records, visual description (Stages 3-8); frontend collision effects behind two new optional UI-0 inputs (Stage 9).
+- Modes: `legacy-merge` (today's behaviour bit-for-bit) and `outcome-v1`; all universes stay `legacy-merge` until Stage 4 step 4b; presets and Orbit Lab stay `legacy-merge` until Stage 11.
+- Hydrodynamics/SPH remains out of scope; the `OutcomeModel` protocol is the future solver adapter.

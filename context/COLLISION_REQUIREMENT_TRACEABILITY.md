@@ -44,7 +44,7 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 | S1-13 | Expandable architecture | — | `OutcomeModel` adapter | ST0, ST3 | contract tests; adding a dummy model in test needs no change downstream | MISS |
 | D-1..D-6 | SPH, resolved interior P/ρ/T, first-principles shocks, gas-giant fluid motion, advanced EOS, research-grade reproduction **deferred** | not present | keep deferred | all | review: no solver dependency in `requirements.txt`; DoD audit | SUP (deferred) |
 | S2-AN | Analytical/empirical/reduced-order models within limits | — | envelopes | ST3 | T/sel envelope tests | MISS |
-| S2-EXT | Extension path: inputs, materials, outputs, remnant reconstruction, transfer back | — | adapter + contracts | ST0, ST3 | T/contracts, dummy-model test | MISS |
+| S2-EXT | Extension path: inputs, materials, outputs, remnant reconstruction, transfer back | — | adapter + contracts | ST0, ST3 | T/contracts, dummy-model test | PART: contracts VERIFIED tests/impact/test_contracts.py (Stage 0); adapter/dummy-model test pending ST3 |
 | S2-NOMISLEAD | No misleading visuals simulating hydrodynamics; approximations distinguished | — | labels | ST6, ST8, ST9 | V/describe, labels in records | MISS |
 
 ## §3 Feature 1 — Detection and impact geometry
@@ -250,7 +250,7 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 | ID | Requirement | Current | Gap | Stage | Verification | Status |
 |---|---|---|---|---|---|---|
 | F9-AUDIT | Audit before assuming modules | done in planning | — | ST0 | plan §1 | SUP |
-| F9-BND-1..9 | Clear responsibilities for detection, capture, selection, resolution, generation, evolution, history, visual, persistence; no duplicated authoritative state | — | module layout plan §3.1 | ST0–ST10 | review + import-boundary test (`backend/impact` never imported by frontend; renderer never writes API) | MISS |
+| F9-BND-1..9 | Clear responsibilities for detection, capture, selection, resolution, generation, evolution, history, visual, persistence; no duplicated authoritative state | — | module layout plan §3.1 | ST0–ST10 | review + import-boundary test (`backend/impact` never imported by frontend; renderer never writes API) | PART: package boundary VERIFIED `test_no_existing_module_imports_backend_impact`, `test_impact_package_does_not_depend_on_the_simulation_service` (Stage 0); rest pending ST1-ST10 |
 | AS-1..5 | Removal/transformation; remnants; tracked fragments registered; mass & momentum into debris; spin updates | merge [Exists] | — | ST4–ST5 | T/app | PART |
 | AS-NORENDER | Renderer never modifies these values | backend-authoritative [Exists] | — | ST9 | boundary test | SUP (keep) |
 | ISO-1..3 | Isolation of events, populations, seeds, histories, state; preserve model | per-engine [Exists D-025] | collision state per engine | ST10 | T/iso | PART |
@@ -266,10 +266,10 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 | ID | Requirement | Current | Gap | Stage | Verification | Status |
 |---|---|---|---|---|---|---|
 | HX-CAP | Deferred capabilities not initial requirements | — | — | — | DoD audit | SUP (deferred) |
-| HX-IF-1..9 | Interfaces: pre-impact state & materials; geometry & BCs; model selection; solver execution & status; remnants; fragment/debris distributions; conservation; transfer to N-body; rendering & history | — | contracts + adapter | ST0, ST3 | T/contracts; dummy external-model test (returns OutcomeSpec, flows through applier unchanged) | MISS |
+| HX-IF-1..9 | Interfaces: pre-impact state & materials; geometry & BCs; model selection; solver execution & status; remnants; fragment/debris distributions; conservation; transfer to N-body; rendering & history | — | contracts + adapter | ST0, ST3 | T/contracts; dummy external-model test (returns OutcomeSpec, flows through applier unchanged) | PART: contracts VERIFIED test_contracts.py::test_json_round_trip_is_identical (Stage 0); dummy external-model test pending ST3 |
 | HX-NOSPH | Not assume SPH | — | generic adapter | ST0 | review | MISS |
 | HX-JUSTIFY | Complexity justified by codebase | — | plan §3.15 | ST0 | review | SUP (doc) |
-| FID-1..6 | Distinguish computed, empirical/analytic, reduced-order spatial, statistical, visual, future unsupported | — | labels | ST0, ST8, ST9 | T/contracts enum; V/describe | MISS |
+| FID-1..6 | Distinguish computed, empirical/analytic, reduced-order spatial, statistical, visual, future unsupported | — | labels | ST0, ST8, ST9 | T/contracts enum; V/describe | PART: enum VERIFIED test_contracts.py::test_fidelity_labels_match_the_plan (Stage 0); UI labels pending ST8-ST9 |
 | FID-UI | UI does not imply resolved hydrodynamics | — | labels | ST8–ST9 | V/describe | MISS |
 | F10-AC-1 | No hydrodynamics dependency | none [Exists] | keep | all | requirements diff review | SUP |
 | F10-AC-2 | Models expandable/replaceable | — | adapter | ST3 | dummy-model test | MISS |
@@ -279,13 +279,13 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 ## §13 Shared contracts
 | ID | Requirement | Plan section | Stage | Verification | Status |
 |---|---|---|---|---|---|
-| CT-IN | Collision input sufficient; simulation context access | §P-4.5, 4.6 | ST0–ST1 | T/contracts, T/geo | MISS |
-| CT-RES-1..10 | Outcome; surviving/transformed; removed; new remnants; tracked fragments; statistical populations; mass accounting; motion & spin; diagnostics & warnings; model version & approximation metadata | §P-4.6 | ST0, ST4 | T/contracts, T/app | MISS |
+| CT-IN | Collision input sufficient; simulation context access | §P-4.5, 4.6 | ST0–ST1 | T/contracts, T/geo | PART: schema VERIFIED test_contracts.py (CollisionInput, ImpactState round trip, Stage 0); geometry pending ST1 |
+| CT-RES-1..10 | Outcome; surviving/transformed; removed; new remnants; tracked fragments; statistical populations; mass accounting; motion & spin; diagnostics & warnings; model version & approximation metadata | §P-4.6 | ST0, ST4 | T/contracts, T/app | PART: schema VERIFIED test_contracts.py (CollisionResult, ConservationReport round trip, Stage 0); application pending ST4 |
 | CT-RES-VAL | Validated before commit | §P-3.7 | ST4 | T/app invalid-not-applied | MISS |
 | CT-VIS-1..6 | Impact location & orientation; ejecta sources; fragment trajectories/ids; cloud params; timing & outcome; visual-only effects & lifetimes | §P-4.10 | ST8–ST9 | T/rec, V/effectTimeline | MISS |
 | CT-VIS-NORECON | Renderer doesn't reconstruct collision | §P-3.12 | ST9 | boundary/import test | MISS |
 | CT-FRAG | Distinguish tracked / statistical / visual; conversion rules | §P-3.9 | ST5, ST9 | T/frag, V/debrisSampling | MISS |
-| CT-VER | Compatibility strategy for persisted event/result/material | §P-4 conventions, 3.13 | ST0, ST10 | T/pers | MISS |
+| CT-VER | Compatibility strategy for persisted event/result/material | §P-4 conventions, 3.13 | ST0, ST10 | T/pers | PART: schemaVersion + strict reader VERIFIED test_contracts.py::test_unsupported_schema_version_is_rejected (Stage 0); persistence pending ST10 |
 
 ## §14 Cross-feature scenarios
 | ID | Expectations (each bullet of the spec) | Stage | Verification | Status |
@@ -349,10 +349,10 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 These are not spec requirements but binding constraints on how the rows above are implemented; each has its own verification.
 | ID | Constraint | Stage | Verification | Status |
 |---|---|---|---|---|
-| OD33-BRIEF | `PROJECT_BRIEF.md` references the spec; hydrodynamics/SPH stays a non-goal (DQ-1 a) | ST0 | doc diff review | MISS |
+| OD33-BRIEF | `PROJECT_BRIEF.md` references the spec; hydrodynamics/SPH stays a non-goal (DQ-1 a) | ST0 | doc diff review | VERIFIED doc diff: PROJECT_BRIEF.md features list references the spec, non-goals unchanged (Stage 0) |
 | OD33-LEGACY | Material-less pairs resolve exactly as legacy in every mode; label `material_unspecified`; no silent material; no refusal (DQ-2 a) | ST2, ST4 | ST4 legacy-exactness re-run; T/sel fallback | MISS |
-| OD33-MODE | All universes `legacy-merge` until step 4b; then `outcome-v1` for new sandboxes only (including the startup `uni-default`, owner-confirmed); presets and Orbit Lab legacy until Stage 11 | ST0 (constant), ST4b, ST11 | `tests/impact/test_mode_defaults.py`; ST11 acceptance | MISS |
-| OD33-VIS | Visual-only effects: wall-clock duration, freeze on pause, replay on seek-back, never mass-bearing (DQ-12 a) | ST0, ST9 | V/effectTimeline; type-level test | MISS |
+| OD33-MODE | All universes `legacy-merge` until step 4b; then `outcome-v1` for new sandboxes only (including the startup `uni-default`, owner-confirmed); presets and Orbit Lab legacy until Stage 11 | ST0 (constant), ST4b, ST11 | `tests/impact/test_mode_defaults.py`; ST11 acceptance | PART: constant VERIFIED test_contracts.py::test_default_sandbox_mode_is_legacy_merge_until_stage_4b (Stage 0); 4b/Stage 11 pending |
+| OD33-VIS | Visual-only effects: wall-clock duration, freeze on pause, replay on seek-back, never mass-bearing (DQ-12 a) | ST0, ST9 | V/effectTimeline; type-level test | PART: contract VERIFIED test_contracts.py::test_visual_only_effect_has_no_mass_field (Stage 0); timeline tests pending ST9 |
 | OD33-REVIEW | Independent AI session for routine physics checks; named human for CP-SCI-1 and CP-5; everything logged in `WORKLOG.md` (DQ-14 d) | ST3, ST12, all physics stages | WORKLOG entries; TASKS.md reviewer name | MISS |
 | OD33-GATE | UD-1 (5.3 J/kg) and UD-2 (b_crit 0.66) reproduced from the original LS12 paper with traced equations/definitions/assumptions/units and human sign-off before disputed constants are used | ST3 | `test_ls12_worked_example_q_rd_gamma1`, `test_ls12_worked_example_b_crit`; WORKLOG sign-off | BLK until CP-SCI-1 |
 

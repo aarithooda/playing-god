@@ -261,3 +261,27 @@ Entry format: Date · Decision · Context/reason · Alternatives · Consequences
 - Mandatory scientific gate (part of CP-SCI-1): before any disputed Leinhardt–Stewart 2012 constant is implemented, the paper's reported worked values must be reproduced independently from the original paper: Q*_RD,γ=1 = 5.3 J/kg (planning calculation ≈ 3.35 J/kg; UD-1) and b_crit = 0.66 for γ = 0.1 (planning calculation 0.683; UD-2). Both are unresolved discrepancies; equations, definitions, assumptions and units are traced; a human signs off before the affected constants are used. No bypass, no guessed substitute values.
 - Consequences: no new dependency; Stage 4 gains a final mode-default step and tests; Stage 3 may build structure and the non-LS12 models before the gate, but no code path that uses the disputed LS12 constants; Stage 9 gains visual-only timing tests; Stage 11 owns switching presets and Orbit Lab.
 - Addendum (owner, 2026-10-24): **confirmed** — the startup sandbox `uni-default` counts as a new sandbox universe and gets the `outcome-v1` default after Stage 4 step 4b, like any other new sandbox. The interpretation above is no longer open.
+
+## D-034 — Collision & particle engine: architecture E-1..E-12 and Stage 0 implementation choices (branch `collision/stage-0-contracts`)
+- Date: 2026-10-24
+- Status: **proposed** (plan engineering decisions E-1..E-12 move to `accepted` only after review per `TEAM_WORKFLOW.md` "Interface changes"; the Stage 0 implementation choices below are routine and follow the plan). Numbering continues from D-033; renumber at merge if `main` has taken D-034.
+- Context: the approved plan (`context/COLLISION_ENGINE_PLAN.md` section 12.1) and D-033 authorise a staged implementation. This entry records the architecture decisions the later stages build on.
+- E-1: collisions are **resolved outside the REBOUND callback**. The callback only records the contact and stops integration; bodies are added/removed between `integrate` calls (probes P1-P4: adding particles inside the callback hangs; an unresolved overlap re-triggers ~15,000 callbacks per 0.5 s).
+- E-2: keep `collision="line"` detection plus the existing curvature-bounded chunking (D-008 evidence: 0 misses in 144 swept scenarios); only resolution changes.
+- E-3: new package `backend/impact/` with pure outcome models; only the applier mutates state, inside the existing step transaction.
+- E-4: random sampling is content-addressed: seed = SHA-256(universe seed, canonical impact state, model id and version), so replay after rollback, restore or derive is identical.
+- E-5: localized damage is stored as body-local impact sites, not meshes.
+- E-6: today's perfect merge is preserved bit-for-bit as the `legacy-merge` mode and as the documented fallback; bodies without a material resolve exactly as legacy (D-033 DQ-2).
+- E-7: small debris is represented by massive, gravitating, collision-eligible REBOUND "parcels" (pending DQ-4); visual particles carry no mass.
+- E-8: identity table of plan section 3.7 (who keeps an id, who is retired, new id prefixes `rem-`, `frag-`, `debris-`; ids are never reused).
+- E-9: collision records are bounded at 1,000 per universe (summaries kept, detail dropped with a flag).
+- E-10: diagnostics v2 is additive; v1 fields stay byte-identical when no new state exists.
+- E-11: conservation tolerances of plan section 9.2 (mass 1e-14, momentum 1e-12, angular momentum 1e-10 relative; dissipated energy >= -1e-9 KE_com).
+- E-12: hit-and-run remnants are separated along their post-impact relative velocity to a gap of 1e-3 (R1+R2) with the COM fixed; time is not advanced.
+- Stage 0 implementation choices (no behaviour change; nothing existing imports `backend.impact`):
+  - Layout: `serialization.py` (strict typed frozen dataclasses, canonical JSON, SHA-256 digest), `config.py` (`CollisionConfig`, `CollisionTolerances`, `DEFAULT_SANDBOX_MODE`), `contracts.py` (all schemas of plan section 4). The split avoids an import cycle (`CollisionInput` embeds `CollisionConfig`).
+  - Readers are strict: unknown keys, wrong types, non-finite numbers and unknown `schemaVersion` raise `ContractError`; integers are canonicalised to floats; writer and reader are one codebase, so an additive field ships with its reader. `Vec3` is serialised as `{x, y, z}` like the existing API; quaternions as `[w, x, y, z]`.
+  - `DEFAULT_SANDBOX_MODE = "legacy-merge"` (flipped only in Stage 4 step 4b, D-033). `CollisionConfig.tracked_fragment_min_mass_fraction` is `None` because DQ-6 is unanswered: no engineering default is invented. `DEFAULT_SEED = 12345` mirrors `backend.simulation.RAND_SEED` (a test asserts equality) so the package does not import the service.
+  - `VisualOnlyEffect` has no mass field (DQ-12 a); a test asserts it and that an extra `massKg` key is rejected.
+- Sequencing note: `COLLISION_SONNET_EXECUTION_GUIDE.md` §1 says one stage per session. The owner's implementation instruction of 2026-10-24 asks for autonomous continuation through every unblocked stage; that instruction governs session scope, while every stage prerequisite, stop condition and checkpoint of the guide still applies. Because nothing may be merged, each stage branch (`collision/stage-<n>-<topic>`) is created from the previous stage's branch tip.
+- Consequences: none for runtime behaviour. Open items stay in `COLLISION_RISK_REGISTER.md` section 3 (DQ-3..DQ-11, DQ-13).

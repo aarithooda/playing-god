@@ -4,6 +4,11 @@
 3. Verified locally: frontend typecheck; Vitest 206/206 across 23 files; build (existing >500 kB warning); Playwright 5/5; diff check. The profile measured 1/16/64 bodies at median 33.4/50.0/99.9 ms per animation frame in Windows headless Chrome with GPU disabled by test config; treat as software frame pacing, not hardware GPU timing. E2E stubs backend responses. Do not merge into `main` without owner approval; real-hardware profiling and UI-0 integration remain follow-ups.
 # Handoff (latest — rewrite at end of each session)
 
+## Collision engine implementation (2026-10-24, Claude Sonnet 5.5) — latest
+1. Worktree `C:/Aarit/Projects/Playing God collision-implementation`; stacked branches `collision/stage-<n>-<topic>`, each created from the previous stage's tip (nothing may be merged). Stage 0 is on `collision/stage-0-contracts`.
+2. Read `COLLISION_SONNET_EXECUTION_GUIDE.md` §1 and the live board at the end of `TASKS.md`. Python: use the main checkout's venv (`../Playing God/.venv/Scripts/python.exe`); frontend deps are installed in this worktree (`npm ci`).
+3. Gates: CP-1 after Stage 1; Stage 3 needs DQ-7/8/9 answered and a named CP-SCI-1 human reviewer; CP-SCI-1 (UD-1 5.3 J/kg, UD-2 b_crit 0.66) must be signed off before any disputed LS12 constant is used; Stage 4b flips the sandbox default only after 4a is reviewed (CP-4b).
+
 ## Simulation Lab + Experiment 01 (2026-10-24, Claude Sonnet 5.5) — latest
 - Implemented M1-M12 on `feature/simulation-lab-experiment-01` (see `STATUS.md` for commits, verification, scientific values, the browser journey and the checklist). One PR to `main`; not merged; no review has happened.
 - Where things are: backend `universes.py` (registry, epoch guards), `simulation.py` (per-universe engine: revision, guards, snapshots, history recording, audit), `history.py`, `presets/`, `catalogue.py`, `orbit_lab.py`; frontend `UniverseWorkspace.tsx`, `sim/useUniverses.ts`, `sim/history/`, `sim/useOrbitLab.ts`, `render/contract.ts`; design `EXPERIMENT_01_IMPLEMENTATION_PLAN.md`, results `PRESETS.md` and `EXPERIMENT_01_PROTOCOL.md`, decisions D-025 to D-028.
