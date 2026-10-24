@@ -20,6 +20,11 @@ DATA_DIR = PRESETS_DIR / "data"
 SOURCES_DIR = PRESETS_DIR / "sources"
 
 # preset id -> data file name. A preset that is excluded (see context/PRESETS.md) is simply not listed.
+MATERIALS_FILE = "body-materials.json"
+# Quantities a collision model may need from a body's material. A body that lacks one is UNSUPPORTED for the models
+# that need it: the loader computes the list, so a missing value can never be hidden or filled with a guess.
+MATERIAL_QUANTITIES = ("composition", "structureClass", "momentOfInertiaFactor", "ls12", "waveSpeedMPerS", "cratering")
+ANNOTATABLE = ("momentOfInertiaFactor",)  # the only quantity with sourced values today; others need a new source
 PRESET_FILES = {"solar-system-moons-j2000": "solar-system-moons-j2000.json",
                 "solar-system-j2000": "solar-system-j2000.json"}
 BASES = ("measured", "nominal", "derived", "assumed")
@@ -41,6 +46,8 @@ class LoadedPreset:
     raw_bodies: list[InitialBody]  # the same bodies exactly as archived (Solar System Barycenter frame, SI)
     history_mode: str
     sample_interval_s: float
+    # Stage 11 (D-058, D-059): body id -> sourced annotation. Descriptive only: never read by the integrator.
+    material_annotations: dict | None = None
 
 
 def _finite(x) -> bool:
@@ -64,6 +71,44 @@ def load_json(preset_id: str) -> dict:
     if not isinstance(data, dict) or data.get("id") != preset_id:
         raise PresetDataError(f"preset data {path.name} does not describe {preset_id}")
     return data
+
+
+def _annotations(data: dict, bodies: list) -> dict:
+    """Sourced material annotations for the bodies of one preset. Every annotated number needs a value, units, a basis,
+    an http(s) source, a source label and a retrieval date; anything absent is listed under `unsupported`."""
+    try:
+        doc = json.loads((Path(DATA_DIR) / MATERIALS_FILE).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise PresetDataError(f"cannot read {MATERIALS_FILE}: {exc}") from exc
+    table = doc.get("bodies")
+    if doc.get("schema") != 1 or not isinstance(table, dict):
+        raise PresetDataError(f"{MATERIALS_FILE} is malformed")
+    out = {}
+    for bid, props in table.items():
+        if not isinstance(props, dict):
+            raise PresetDataError(f"{MATERIALS_FILE}: {bid} must map quantities to sourced values")
+        for name, entry in props.items():
+            if name not in ANNOTATABLE:
+                raise PresetDataError(f"{MATERIALS_FILE}: {bid}.{name} is not an annotatable quantity")
+            need = ("value", "units", "basis", "source", "sourceLabel", "retrieved", "applicability")
+            if not isinstance(entry, dict) or any(not entry.get(k) for k in need) or not _finite(entry["value"]):
+                raise PresetDataError(f"{MATERIALS_FILE}: {bid}.{name} needs a finite value and {', '.join(need[1:])}")
+            if entry["basis"] != "literature" or not str(entry["source"]).startswith(("http://", "https://")):
+                raise PresetDataError(f"{MATERIALS_FILE}: {bid}.{name} needs a known basis and an http(s) source")
+            if name == "momentOfInertiaFactor" and not 0.0 < entry["value"] <= 0.4:
+                raise PresetDataError(f"{MATERIALS_FILE}: {bid}.{name} must be within (0, 0.4]")
+    for b in bodies:
+        props = dict(table.get(b.id, {}))
+        # bulk density is derived from the preset's own sourced GM and radius (same G as the engine); it inherits their basis
+        density = b.massKg / (4.0 / 3.0 * math.pi * b.radiusM ** 3)
+        props["meanDensityKgPerM3"] = {
+            "value": density, "units": "kg/m^3", "basis": "derived",
+            "source": "3 GM / (4 pi G R^3) from this preset's own GM and radius",
+            "applicability": "Mean (bulk) density only: says nothing about composition or internal structure.",
+            "inheritsBasis": {"mass": b.basis["mass"], "radius": b.basis["radius"]}}
+        out[b.id] = {"properties": props,
+                     "unsupported": [q for q in MATERIAL_QUANTITIES if q not in props]}
+    return out
 
 
 def load_preset(preset_id: str) -> LoadedPreset:
@@ -139,7 +184,7 @@ def _build(data: dict) -> LoadedPreset:
     summary = {"id": data["id"], "name": data["name"], "description": data["description"], "available": True,
                "unavailableReason": None, "bodyCount": len(bodies), "epochLabel": data["epoch"]["label"],
                "dataVersion": data["dataVersion"], "historyMode": hist["mode"], "sampleIntervalS": float(interval)}
-    return LoadedPreset(summary, data, bodies, raw_bodies, hist["mode"], float(interval))
+    return LoadedPreset(summary, data, bodies, raw_bodies, hist["mode"], float(interval), _annotations(data, bodies))
 
 
 def list_presets() -> list[dict]:

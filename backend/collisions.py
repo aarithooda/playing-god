@@ -12,6 +12,10 @@ Spec: context/PHYSICS_SPIKE.md ("Decision: GO WITH CUSTOM COLLISION LAYER"). REB
 - IAS15 is re-selected after every merge because its predictor state is stale once a particle changed
   (observed momentum error 5e-9 relative without it, ~1e-13 with it). `select_ias15` is the only place that selects it.
 
+The merger arithmetic itself lives in `backend.impact.models.perfect_merge.merge_pair`, shared with the deferred-resolution
+engine (mode "outcome-v1", backend/impact/engine.py) so both paths are bit-identical for the same input. This class is the
+`legacy-merge` mode: it resolves inside the REBOUND callback exactly as before.
+
 Exceptions inside a ctypes callback are swallowed by REBOUND, so `resolve` catches them, records the traceback in
 `errors` and returns 0 (keep both bodies). The caller must treat a non-empty `errors` list as a failed step.
 """
@@ -19,10 +23,15 @@ import math
 import traceback
 from typing import Callable
 
+from backend.impact.models.perfect_merge import PairBody, merge_pair
+
 Vec = list[float]
 
 
 SATELLITE_MASS_FRACTION = 0.1  # a body is a satellite when its strongest attractor is lighter than this x the heaviest
+
+
+DEBRIS_NAME_PREFIXES = ("frag-", "debris-")  # ids given by backend/impact/applier.py
 
 
 def has_satellites(sim) -> bool:
@@ -31,6 +40,11 @@ def has_satellites(sim) -> bool:
     ps = [(q.m, q.x, q.y, q.z) for q in sim.particles]
     if len(ps) < 3:
         return False
+    # Collision debris (Stage 5/7: fragments `frag-*` and parcels `debris-*`) orbits or leaves its remnant on a timescale far shorter than
+    # the system's: the same two-timescale structure as a moon. With GLOBAL the step collapsed erratically on such systems (3 of 10 runs
+    # of the same scenario took 10-44 s instead of 1.5 s, seeded differently); PRS23 took 1.1-1.7 s in all 12 (D-051).
+    if any((q.name or "").startswith(DEBRIS_NAME_PREFIXES) for q in sim.particles):
+        return True
     heaviest = max(m for m, *_ in ps)
     for i, (mi, xi, yi, zi) in enumerate(ps):
         best_a, best_m = 0.0, 0.0
@@ -62,6 +76,17 @@ def select_ias15(sim) -> None:
     PRS23's cancellation stall cannot occur. Evidence: context/DECISIONS.md D-030, tests/validation/test_preset_moons.py."""
     sim.integrator = "ias15"
     sim.integrator.adaptive_mode = "prs23" if has_satellites(sim) else "global"
+
+
+def add_named_particle(sim, name: str, **fields) -> None:
+    """Add a particle and give it its name through the particle's name SETTER (the name memory is then owned by the simulation).
+
+    Never pass `name=` to `Simulation.add`: in REBOUND 5.2.2 that path leaves a dangling name string, and after enough interleaved
+    `remove()` / `add()` calls particle names turn into `None` or garbage bytes (found in Stage 4a: plain REBOUND, first corruption after
+    203-754 operations in 5 of 5 seeds; none in 20,000 operations with the setter, tests/impact/test_rebound_names.py). Identity is the
+    particle name, so every place that adds a particle must use this function."""
+    sim.add(**fields)
+    sim.particles[sim.N - 1].name = name
 
 
 def _sub(a: Vec, b: Vec) -> Vec:
@@ -140,40 +165,19 @@ class MergeResolver:
             self.stale += 1
             return 0
         pa, pb = sim.particles[col.p1], sim.particles[col.p2]
-        if pa.m >= pb.m:
-            surv, gone, remove = pa, pb, 2
-        else:
-            surv, gone, remove = pb, pa, 1
-        ms, mg = surv.m, gone.m
-        total_m = ms + mg
-        xs, xg, vs, vg = _pos(surv), _pos(gone), _vel(surv), _vel(gone)
-        r_rel, v_rel = _sub(xs, xg), _sub(vs, vg)
-        mu = ms * mg / total_m
-        p_tot = _add(_scale(vs, ms), _scale(vg, mg))
-        v_com = _scale(p_tot, 1.0 / total_m)
-        x_com = _scale(_add(_scale(xs, ms), _scale(xg, mg)), 1.0 / total_m)
-        ke_lost = 0.5 * mu * _dot(v_rel, v_rel)
-        l_orb = _scale(_cross(r_rel, v_rel), mu)
-        surv_id, gone_id = surv.name, gone.name
-        event = {
-            "simulationTimeS": sim.t,
-            "estimatedContactTimeS": contact_time_estimate(
-                sim.t, sim.dt_last_done, r_rel, v_rel, surv.r + gone.r),
-            "bodyIds": [surv_id, gone_id],
-            "resultBodyId": surv_id,
-            "resultMassKg": total_m,
-            "relativeSpeedMPerS": _norm(v_rel),
-            "kineticEnergyLostJ": ke_lost,
-            "spinAddedKgM2PerS": l_orb,
-        }
-        for axis, value in zip(("x", "y", "z"), x_com):
+        merged = merge_pair(PairBody(pa.name, pa.m, pa.r, tuple(_pos(pa)), tuple(_vel(pa))),
+                            PairBody(pb.name, pb.m, pb.r, tuple(_pos(pb)), tuple(_vel(pb))),
+                            sim.t, sim.dt_last_done, contact_time_estimate)
+        surv = pa if merged.remove_code == 2 else pb
+        gone_id = merged.absorbed_id
+        for axis, value in zip(("x", "y", "z"), merged.position):
             setattr(surv, axis, value)
-        for axis, value in zip(("vx", "vy", "vz"), v_com):
+        for axis, value in zip(("vx", "vy", "vz"), merged.velocity):
             setattr(surv, axis, value)
-        surv.m = total_m
-        surv.r = (surv.r ** 3 + gone.r ** 3) ** (1.0 / 3.0)
-        self.heat_J += ke_lost
-        spin = _add(self.spin.pop(surv_id, [0.0] * 3), self.spin.pop(gone_id, [0.0] * 3))
-        self.spin[surv_id] = _add(spin, l_orb)
-        self._on_merge(event)
-        return remove
+        surv.m = merged.mass
+        surv.r = merged.radius
+        self.heat_J += merged.kinetic_energy_lost_j
+        spin = _add(self.spin.pop(merged.survivor_id, [0.0] * 3), self.spin.pop(gone_id, [0.0] * 3))
+        self.spin[merged.survivor_id] = _add(spin, merged.orbital_angular_momentum)
+        self._on_merge(merged.event)
+        return merged.remove_code

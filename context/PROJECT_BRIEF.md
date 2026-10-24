@@ -12,6 +12,7 @@ Create → Configure → Simulate → Observe → Investigate → Modify → Sim
 - Run, pause, step, reset the simulation.
 - Newtonian N-body gravity.
 - Collisions with simplified merger outcomes; collision reports, physical quantities, event history.
+- Collision and particle engine beyond simple mergers (material-aware outcomes, localized damage, fragmentation, debris lifecycle, inspectable records): requirements in `context/specs/COLLISION_PARTICLE_ENGINE_SPEC.md` (D-033, DQ-1 a); plan in `context/COLLISION_ENGINE_PLAN.md`. Hydrodynamics/SPH stays a non-goal.
 - Approximate tidal deformation.
 - Save/restore checkpoints.
 

@@ -1,0 +1,248 @@
+[
+ {
+  "appearance": "rock",
+  "category": "rock",
+  "cratering": null,
+  "id": "silicate-rock",
+  "incomplete": [
+   "cratering",
+   "waveSpeedMPerS",
+   "layerDensity"
+  ],
+  "layers": [
+   {
+    "densityKgPerM3": null,
+    "massFraction": 1.0,
+    "materialId": "silicate-rock",
+    "meltFraction": null,
+    "phase": "solid"
+   }
+  ],
+  "ls12": {
+   "cStar": 5.0,
+   "cStarUncertainty": 2.0,
+   "muBar": 0.37,
+   "source": "Leinhardt & Stewart (2012), ApJ 745, 79, arXiv:1106.6084: c* = 5 +/- 2 and mu_bar ~ 0.37 for small (strong) bodies, read verbatim in planning (COLLISION_SCIENTIFIC_MODELS.md 4.2). Re-transcription from the printed paper is part of CP-SCI-1 (Stage 3)."
+  },
+  "momentOfInertiaFactor": 0.4,
+  "provenance": [
+   {
+    "basis": "engineering",
+    "quantity": "momentOfInertiaFactor",
+    "source": "Uniform-density sphere: I = (2/5) M R^2 (analytic identity). Homogeneous approximation: a real, differentiated body has a smaller factor.",
+    "uncertainty": null,
+    "value": 0.4
+   },
+   {
+    "basis": "literature",
+    "quantity": "ls12.cStar",
+    "source": "Leinhardt & Stewart (2012), ApJ 745, 79, arXiv:1106.6084: c* = 5 +/- 2 and mu_bar ~ 0.37 for small (strong) bodies, read verbatim in planning (COLLISION_SCIENTIFIC_MODELS.md 4.2). Re-transcription from the printed paper is part of CP-SCI-1 (Stage 3).",
+    "uncertainty": 2.0,
+    "value": 5.0
+   },
+   {
+    "basis": "literature",
+    "quantity": "ls12.muBar",
+    "source": "Leinhardt & Stewart (2012), ApJ 745, 79, arXiv:1106.6084: c* = 5 +/- 2 and mu_bar ~ 0.37 for small (strong) bodies, read verbatim in planning (COLLISION_SCIENTIFIC_MODELS.md 4.2). Re-transcription from the printed paper is part of CP-SCI-1 (Stage 3).",
+    "uncertainty": null,
+    "value": 0.37
+   }
+  ],
+  "schemaVersion": 1,
+  "strength": null,
+  "structureClass": "strong",
+  "validity": {
+   "notes": "Homogeneous silicate rock; small strong bodies. No outcome model uses this profile yet (Stage 2 stores materials only); LS12 constants stay unused until CP-SCI-1 is signed off.",
+   "rangeHints": {
+    "composition": "single homogeneous layer"
+   }
+  },
+  "waveSpeedMPerS": null
+ },
+ {
+  "appearance": "rock",
+  "category": "rock",
+  "cratering": null,
+  "id": "rubble-silicate",
+  "incomplete": [
+   "cratering",
+   "waveSpeedMPerS",
+   "layerDensity"
+  ],
+  "layers": [
+   {
+    "densityKgPerM3": null,
+    "massFraction": 1.0,
+    "materialId": "silicate-rock",
+    "meltFraction": null,
+    "phase": "solid"
+   }
+  ],
+  "ls12": {
+   "cStar": 5.5,
+   "cStarUncertainty": null,
+   "muBar": 0.365,
+   "source": "Leinhardt & Stewart (2012), ApJ 745, 79, arXiv:1106.6084: PKDGRAV rubble fit c* = 5.5, mu_bar = 0.365, read verbatim in planning (COLLISION_SCIENTIFIC_MODELS.md section 5). Re-transcription is part of CP-SCI-1 (Stage 3)."
+  },
+  "momentOfInertiaFactor": 0.4,
+  "provenance": [
+   {
+    "basis": "engineering",
+    "quantity": "momentOfInertiaFactor",
+    "source": "Uniform-density sphere: I = (2/5) M R^2 (analytic identity). Homogeneous approximation: a real, differentiated body has a smaller factor.",
+    "uncertainty": null,
+    "value": 0.4
+   },
+   {
+    "basis": "literature",
+    "quantity": "ls12.cStar",
+    "source": "Leinhardt & Stewart (2012), ApJ 745, 79, arXiv:1106.6084: PKDGRAV rubble fit c* = 5.5, mu_bar = 0.365, read verbatim in planning (COLLISION_SCIENTIFIC_MODELS.md section 5). Re-transcription is part of CP-SCI-1 (Stage 3).",
+    "uncertainty": null,
+    "value": 5.5
+   },
+   {
+    "basis": "literature",
+    "quantity": "ls12.muBar",
+    "source": "Leinhardt & Stewart (2012), ApJ 745, 79, arXiv:1106.6084: PKDGRAV rubble fit c* = 5.5, mu_bar = 0.365, read verbatim in planning (COLLISION_SCIENTIFIC_MODELS.md section 5). Re-transcription is part of CP-SCI-1 (Stage 3).",
+    "uncertainty": null,
+    "value": 0.365
+   }
+  ],
+  "schemaVersion": 1,
+  "strength": null,
+  "structureClass": "rubble",
+  "validity": {
+   "notes": "Rubble-pile silicate. No outcome model uses this profile yet (Stage 2 stores materials only); LS12 constants stay unused until CP-SCI-1 is signed off.",
+   "rangeHints": {
+    "composition": "single homogeneous layer"
+   }
+  },
+  "waveSpeedMPerS": null
+ },
+ {
+  "appearance": "metal",
+  "category": "metal",
+  "cratering": null,
+  "id": "iron",
+  "incomplete": [
+   "ls12",
+   "cratering",
+   "waveSpeedMPerS",
+   "layerDensity"
+  ],
+  "layers": [
+   {
+    "densityKgPerM3": null,
+    "massFraction": 1.0,
+    "materialId": "iron",
+    "meltFraction": null,
+    "phase": "solid"
+   }
+  ],
+  "ls12": null,
+  "momentOfInertiaFactor": 0.4,
+  "provenance": [
+   {
+    "basis": "engineering",
+    "quantity": "momentOfInertiaFactor",
+    "source": "Uniform-density sphere: I = (2/5) M R^2 (analytic identity). Homogeneous approximation: a real, differentiated body has a smaller factor.",
+    "uncertainty": null,
+    "value": 0.4
+   }
+  ],
+  "schemaVersion": 1,
+  "strength": null,
+  "structureClass": "strong",
+  "validity": {
+   "notes": "Homogeneous iron. LS12 gives no iron-specific c*, and Housen & Holsapple (2011) has no iron target: nothing is assumed. No outcome model uses this profile yet (Stage 2 stores materials only); LS12 constants stay unused until CP-SCI-1 is signed off.",
+   "rangeHints": {
+    "composition": "single homogeneous layer"
+   }
+  },
+  "waveSpeedMPerS": null
+ },
+ {
+  "appearance": "ice",
+  "category": "ice",
+  "cratering": null,
+  "id": "water-ice",
+  "incomplete": [
+   "ls12",
+   "strength",
+   "cratering",
+   "waveSpeedMPerS",
+   "layerDensity"
+  ],
+  "layers": [
+   {
+    "densityKgPerM3": null,
+    "massFraction": 1.0,
+    "materialId": "water-ice",
+    "meltFraction": null,
+    "phase": "solid"
+   }
+  ],
+  "ls12": null,
+  "momentOfInertiaFactor": 0.4,
+  "provenance": [
+   {
+    "basis": "engineering",
+    "quantity": "momentOfInertiaFactor",
+    "source": "Uniform-density sphere: I = (2/5) M R^2 (analytic identity). Homogeneous approximation: a real, differentiated body has a smaller factor.",
+    "uncertainty": null,
+    "value": 0.4
+   }
+  ],
+  "schemaVersion": 1,
+  "strength": null,
+  "structureClass": "strong",
+  "validity": {
+   "notes": "Homogeneous water ice; strength-regime constants await DQ-9 and verification. No outcome model uses this profile yet (Stage 2 stores materials only); LS12 constants stay unused until CP-SCI-1 is signed off.",
+   "rangeHints": {
+    "composition": "single homogeneous layer"
+   }
+  },
+  "waveSpeedMPerS": null
+ },
+ {
+  "appearance": "gas",
+  "category": "gas",
+  "cratering": null,
+  "id": "gas-envelope-hhe",
+  "incomplete": [
+   "momentOfInertiaFactor",
+   "ls12",
+   "cratering",
+   "waveSpeedMPerS",
+   "layerDensity"
+  ],
+  "layers": [
+   {
+    "densityKgPerM3": null,
+    "massFraction": 1.0,
+    "materialId": "hhe-gas",
+    "meltFraction": null,
+    "phase": "gas"
+   }
+  ],
+  "ls12": null,
+  "momentOfInertiaFactor": null,
+  "provenance": [
+   {
+    "basis": "engineering",
+    "quantity": "gasMassFraction",
+    "source": "Definition of this profile: a body that is entirely H/He envelope (spec 4.2: gas must not be treated as ordinary solid material).",
+    "uncertainty": null,
+    "value": 1.0
+   }
+  ],
+  "schemaVersion": 1,
+  "strength": null,
+  "structureClass": "envelope-dominated",
+  "validity": {
+   "notes": "Envelope-dominated target for collision-outcome selection (Stage 3, DQ-8). No moment of inertia is sourced, so a body with this profile cannot carry a spin state. No outcome model uses this profile yet (Stage 2 stores materials only); LS12 constants stay unused until CP-SCI-1 is signed off.",
+   "rangeHints": {}
+  },
+  "waveSpeedMPerS": null
+ }
+]

@@ -66,3 +66,29 @@ CI (`.github/workflows/ci.yml`) runs backend `pytest`, frontend `tsc`, `vitest`,
 - Sidebar-aware framing happens when the scene is (re)fitted; opening a sidebar afterwards does not re-frame (use Fit view).
 - Brief features not implemented: approximate tidal deformation; the diagnostics panel has no baseline/drift indicators and diagnostics are not recorded per history sample. Persistence across restarts, TRAPPIST-1 (D-027) and "UI-1" (unspecified) are not implemented.
 - Physics limitations and approximations: `API_CONTRACT.md` ("Physics limitations") and `PHYSICS_SPIKE.md`.
+
+## Collision & particle engine (D-033, D-034)
+Plan: `COLLISION_ENGINE_PLAN.md`; requirements: `specs/COLLISION_PARTICLE_ENGINE_SPEC.md`; models: `COLLISION_SCIENTIFIC_MODELS.md`.
+
+### Contracts and configuration [Implemented, Stage 0]
+- `backend/impact/serialization.py`: strict typed frozen dataclass base (`Contract`), canonical JSON (`canonical_json`) and SHA-256 digest (`canonical_digest`).
+- `backend/impact/config.py`: `CollisionConfig` (mode, seed, budgets, tolerances), `CollisionTolerances`, `DEFAULT_SANDBOX_MODE = "legacy-merge"`.
+- `backend/impact/contracts.py`: every schema of plan section 4 (materials, rotation, impact state, collision input/outcome/result, conservation report, collision event and record, visual event description, fidelity labels). Data only; no physics, no REBOUND.
+- Nothing outside `backend/impact/` imports this package yet (tests assert it); simulation behaviour is unchanged.
+
+### Everything below is [Proposed] (not implemented)
+- Deferred resolution: the REBOUND callback only records contacts and stops integration; `CollisionEngine.resolve_batch` runs between `integrate` calls (Stage 1).
+- Pure outcome models (`models/`), selector, fragments, damage, lifecycle, conservation, applier, records, visual description (Stages 3-8); frontend collision effects behind two new optional UI-0 inputs (Stage 9).
+- Modes: `legacy-merge` (today's behaviour bit-for-bit) and `outcome-v1`; all universes stay `legacy-merge` until Stage 4 step 4b; presets and Orbit Lab stay `legacy-merge` until Stage 11.
+- Hydrodynamics/SPH remains out of scope; the `OutcomeModel` protocol is the future solver adapter.
+
+### Materials, rotation and orientation [Implemented, Stage 2]
+- `backend/impact/material_profiles.json` + `materials.py`: immutable, provenance-checked registry; unsourced quantities are `incomplete`, never guessed. `rotation.py`: closed-form torque-free rotation, quaternion and body-local <-> world transforms.
+- `SimulationService` keeps two side tables keyed by body id (`_materials`, `_rotations`) that travel through `_capture/_restore`, `_checkpoint/_rollback`, `EngineSnapshot`, reset and `from_snapshot`; the state digest includes them only when non-empty (existing digests unchanged).
+- The impact capture (`geometry.capture_impact`) records each body's spin, orientation at the contact time and material profile, the contact direction in each body's frame, the site's latitude/longitude about the spin pole and the spin-axis angle.
+- `GET /api/v1/materials` (`api_collisions.py`). Frontend: optional body fields and the optional diagnostics term are parsed; nothing is rendered from them yet.
+
+### Outcome models and selector [Implemented, Stage 3; scientific content PROVISIONAL, D-038]
+- `backend/impact/models/`: `ls12.py` (LS12 regime outcomes + Genda graze-and-merge boundary), `envelope.py` (gas-envelope approximations, threshold 0.5 provisional), `cratering.py` (structure; Unsupported without sourced constants), `validity.py` (envelope as data), `provisional.py` (registry of every provisional assumption; outputs carry the warning `provisional:CP-SCI-1`).
+- `backend/impact/selector.py`: pure decision order (material missing -> exact legacy merge; gas -> envelope models; small mass ratio -> cratering; else LS12 with the explicit `structureClass`; outside the validity envelope -> `Unsupported` -> documented fallback perfect merge labelled `unsupported_regime`). Extra models can be registered and pass through unchanged.
+- Nothing calls the selector yet; Stage 4 wires its result into the applier.
