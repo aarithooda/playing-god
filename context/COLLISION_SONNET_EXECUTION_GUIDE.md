@@ -146,10 +146,10 @@ Mode (D-033): during step 4a every universe stays legacy-merge; outcome-v1 is us
 DQ-2 exactness: material-less pairs in outcome-v1 must give byte-identical events and body state to legacy-merge;
 the label material_unspecified goes only into the collision record (no new field on the merger event).
 Step 4b, ONLY after every 4a criterion, test and compatibility check passes and the 4a evidence has been reviewed (CP-4b):
-set DEFAULT_SANDBOX_MODE = "outcome-v1"; assign mode at universe creation (sandbox incl. uni-default → default;
+set DEFAULT_SANDBOX_MODE = "outcome-v1"; assign mode at universe creation (sandbox incl. uni-default → default, owner-confirmed;
 preset universes and Orbit Lab baseline/modified → legacy-merge regardless). Files: backend/impact/config.py,
 backend/universes.py, backend/api_universes.py (create_preset_universe), backend/orbit_lab.py,
-tests/impact/test_mode_defaults.py. If 4a is not fully green, do NOT do 4b; report instead.
+tests/impact/test_mode_defaults.py (must include: a fresh registry's uni-default is outcome-v1). If 4a is not fully green, do NOT do 4b; report instead.
 Scope: new backend/impact/{applier,conservation}.py; modify engine.py, backend/simulation.py (outcome-v1 wiring),
 backend/models.py (Event union merger|collision), backend/errors.py; frontend api/types.ts, api/parse.ts, sim/viewModel.ts,
 components/ui/EventTimeline.tsx in the SAME branch (the UI must accept the new event type before the backend emits it).

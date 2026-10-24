@@ -351,7 +351,7 @@ These are not spec requirements but binding constraints on how the rows above ar
 |---|---|---|---|---|
 | OD33-BRIEF | `PROJECT_BRIEF.md` references the spec; hydrodynamics/SPH stays a non-goal (DQ-1 a) | ST0 | doc diff review | MISS |
 | OD33-LEGACY | Material-less pairs resolve exactly as legacy in every mode; label `material_unspecified`; no silent material; no refusal (DQ-2 a) | ST2, ST4 | ST4 legacy-exactness re-run; T/sel fallback | MISS |
-| OD33-MODE | All universes `legacy-merge` until step 4b; then `outcome-v1` for new sandboxes only; presets and Orbit Lab legacy until Stage 11 | ST0 (constant), ST4b, ST11 | `tests/impact/test_mode_defaults.py`; ST11 acceptance | MISS |
+| OD33-MODE | All universes `legacy-merge` until step 4b; then `outcome-v1` for new sandboxes only (including the startup `uni-default`, owner-confirmed); presets and Orbit Lab legacy until Stage 11 | ST0 (constant), ST4b, ST11 | `tests/impact/test_mode_defaults.py`; ST11 acceptance | MISS |
 | OD33-VIS | Visual-only effects: wall-clock duration, freeze on pause, replay on seek-back, never mass-bearing (DQ-12 a) | ST0, ST9 | V/effectTimeline; type-level test | MISS |
 | OD33-REVIEW | Independent AI session for routine physics checks; named human for CP-SCI-1 and CP-5; everything logged in `WORKLOG.md` (DQ-14 d) | ST3, ST12, all physics stages | WORKLOG entries; TASKS.md reviewer name | MISS |
 | OD33-GATE | UD-1 (5.3 J/kg) and UD-2 (b_crit 0.66) reproduced from the original LS12 paper with traced equations/definitions/assumptions/units and human sign-off before disputed constants are used | ST3 | `test_ls12_worked_example_q_rd_gamma1`, `test_ls12_worked_example_b_crit`; WORKLOG sign-off | BLK until CP-SCI-1 |
