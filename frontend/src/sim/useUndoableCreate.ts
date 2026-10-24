@@ -3,7 +3,7 @@ import type { BodyCreateDto } from "../api/types";
 import type { ActionResult, CreateResult } from "./useSimulation";
 
 /** How long the "Undo" offer stays available after a body is created. */
-export const UNDO_WINDOW_MS = 10_000;
+export const UNDO_WINDOW_MS = 5_000;
 
 export interface UndoableCreate {
   id: string;

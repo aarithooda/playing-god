@@ -14,7 +14,7 @@ import { BodyInspector } from "./components/ui/BodyInspector";
 import { DiagnosticsPanel } from "./components/ui/DiagnosticsPanel";
 import { EventTimeline } from "./components/ui/EventTimeline";
 import { PlacementHint } from "./components/ui/PlacementHint";
-import { UndoNotice } from "./components/ui/UndoNotice";
+import { CrudFeedback, type CrudFeedbackTone } from "./components/ui/CrudFeedback";
 import {
   fitTransform,
   DEFAULT_METERS_PER_UNIT,
@@ -26,10 +26,18 @@ import { useSimulation } from "./sim/useSimulation";
 import { toSceneBody } from "./sim/viewModel";
 import { axisHalfLengthMeters } from "./sim/axes";
 import { gridCell } from "./sim/gridScale";
-import { useUndoableCreate } from "./sim/useUndoableCreate";
+import { UNDO_WINDOW_MS, useUndoableCreate } from "./sim/useUndoableCreate";
 
 // Same-origin: in dev the Vite proxy forwards /api and /healthz to the backend unchanged.
 const client = createApiClient();
+
+type CrudOperation = "add" | "edit" | "delete";
+interface CrudFeedbackState {
+  id: number;
+  operation: CrudOperation;
+  tone: CrudFeedbackTone;
+  message: string;
+}
 
 function useWindowWidth(): number {
   const [width, setWidth] = useState(() => window.innerWidth);
@@ -64,6 +72,8 @@ export default function App() {
   const [placementRadiusM, setPlacementRadiusM] = useState(6.371e6);
   const [pickedPosition, setPickedPosition] = useState<{ position: { x: number; y: number; z: number }; nonce: number } | undefined>();
   const [placementPreview, setPlacementPreview] = useState<[number, number, number] | null>(null);
+  const [crudFeedback, setCrudFeedback] = useState<CrudFeedbackState | null>(null);
+  const crudFeedbackId = useRef(0);
   // When set, the next layout change keeps the display scale (and camera) if it leaves this many bodies.
   const preserveSceneScaleRef = useRef<{ expectedBodyCount: number; layoutEpoch: number } | null>(null);
 
@@ -136,6 +146,52 @@ export default function App() {
     simulationTimeS: sim?.simulationTimeS,
   });
 
+  const reportCrudResult = useCallback((operation: CrudOperation, bodyName: string, result: { ok: true } | { ok: false; error: string }) => {
+    if (!result.ok) simulation.dismissError();
+    if (operation !== "add") created.dismiss();
+    const action = operation === "add" ? "add" : operation === "edit" ? "update" : "delete";
+    const past = operation === "add" ? "Added" : operation === "edit" ? "Updated" : "Deleted";
+    setCrudFeedback({
+      id: ++crudFeedbackId.current,
+      operation,
+      tone: result.ok ? "success" : "error",
+      message: result.ok ? `${past} ${bodyName}.` : `Could not ${action} ${bodyName}: ${result.error}`,
+    });
+  }, [created.dismiss, simulation.dismissError]);
+
+  const createWithFeedback = useCallback(async (body: Parameters<typeof created.create>[0]) => {
+    const result = await created.create(body);
+    reportCrudResult("add", body.name, result);
+    return result;
+  }, [created.create, reportCrudResult]);
+
+  const updateWithFeedback = useCallback(async (id: string, patch: Parameters<typeof simulation.updateBody>[1]) => {
+    const bodyName = patch.name ?? bodies.find((body) => body.id === id)?.name ?? id;
+    const result = await simulation.updateBody(id, patch);
+    reportCrudResult("edit", bodyName, result);
+    return result;
+  }, [bodies, reportCrudResult, simulation.updateBody]);
+
+  const deleteWithFeedback = useCallback(async (id: string) => {
+    const bodyName = bodies.find((body) => body.id === id)?.name ?? id;
+    const result = await simulation.deleteBody(id);
+    reportCrudResult("delete", bodyName, result);
+    return result;
+  }, [bodies, reportCrudResult, simulation.deleteBody]);
+
+  const undoCreateWithFeedback = useCallback(async () => {
+    const bodyName = created.undoable?.name ?? "body";
+    const result = await created.undo();
+    if (!result.ok) simulation.dismissError();
+    setCrudFeedback({
+      id: ++crudFeedbackId.current,
+      operation: "delete",
+      tone: result.ok ? "success" : "error",
+      message: result.ok ? `Undid adding ${bodyName}.` : `Could not undo adding ${bodyName}: ${result.error}`,
+    });
+    return result;
+  }, [created.undo, created.undoable, simulation.dismissError]);
+  const dismissCrudFeedback = useCallback(() => setCrudFeedback(null), []);
   const ready = loadStatus === "ready";
 
   const setSidebar = (side: keyof SidebarState) => (open: boolean) =>
@@ -223,9 +279,6 @@ export default function App() {
         </div>
 
         {placementMode && <PlacementHint position={placementPreview ? toPhysicsPosition(placementPreview, transform) : null} />}
-        {!placementMode && created.undoable && (
-          <UndoNotice bodyName={created.undoable.name} onUndo={() => void created.undo()} onDismiss={created.dismiss} />
-        )}
       </div>
 
       <Sidebar side="left" title="History & diagnostics" open={sidebars.left} onToggle={setSidebar("left")}>
@@ -252,7 +305,7 @@ export default function App() {
             setTransform(fitTransform(bodies.map((b) => b.positionM)));
             setFrameEpoch((n) => n + 1);
           }}
-          onCreate={created.create}
+          onCreate={createWithFeedback}
           placementMode={placementMode}
           onPlacementModeChange={setPlacementMode}
           pickedPosition={pickedPosition}
@@ -270,12 +323,22 @@ export default function App() {
         <BodyInspector
           body={selectedBody}
           focused={selectedBody !== null && selectedBody.id === focusedBodyId}
-          onSave={simulation.updateBody}
-          onDelete={simulation.deleteBody}
+          onSave={updateWithFeedback}
+          onDelete={deleteWithFeedback}
           onFocus={focusBody}
           onClose={closeInspector}
         />
       </Sidebar>
+      {crudFeedback && (
+        <CrudFeedback
+          key={crudFeedback.id}
+          message={crudFeedback.message}
+          tone={crudFeedback.tone}
+          durationMs={UNDO_WINDOW_MS}
+          onUndo={crudFeedback.operation === "add" && created.undoable ? undoCreateWithFeedback : undefined}
+          onDismiss={dismissCrudFeedback}
+        />
+      )}
     </div>
   );
 }

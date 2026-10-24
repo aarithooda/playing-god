@@ -174,6 +174,18 @@ describe("App first use", () => {
   });
 });
 
+describe("App CRUD feedback", () => {
+  it("shows the bottom message for a successful body addition", async () => {
+    render(<App />);
+    await screen.findByText("Simulation");
+    fireEvent.click(screen.getByText("Add body…"));
+    fireEvent.click(screen.getByText("Create"));
+    expect((await screen.findByTestId("crud-feedback")).textContent).toMatch(/Added/);
+    expect(screen.queryByText(/Created /)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    expect(await screen.findByText(/Undid adding/)).toBeTruthy();
+  });
+});
 describe("App: connection health and simulation loading are different states", () => {
   it("says the backend is reachable while the simulation state is still loading (no 'Connecting' when connected)", async () => {
     h.stateMode = "hang";
