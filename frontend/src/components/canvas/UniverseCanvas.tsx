@@ -6,6 +6,7 @@ import { CelestialBody } from './CelestialBody';
 import { StarfieldShell } from './StarfieldShell';
 import { DEFAULT_CAMERA_POSITION, type ScenePosition } from '../../sim/renderTransform';
 import { clampPlacementDepth, rayPlaneIntersection } from '../../sim/placement';
+import { sceneShiftPx } from '../ui/layout';
 import type { SceneBody } from '../../sim/viewModel';
 
 export interface FocusRequest {
@@ -44,12 +45,40 @@ interface UniverseCanvasProps {
   onPlacementCancel: () => void;
   /** Cursor position (scene units) while placing; null when there is none. */
   onPlacementPreview?: (position: ScenePosition | null) => void;
+  /** Pixels of the full-bleed canvas covered by the sidebars; the scene is centred in what remains. */
+  leftInset?: number;
+  rightInset?: number;
 }
 
 interface OrbitTarget {
   target: { x: number; y: number; z: number; set: (x: number, y: number, z: number) => void };
   update: () => void;
 }
+
+/**
+ * Keeps the scene centred in the free area between the sidebars without resizing the canvas: the
+ * projection centre is shifted with Three's view offset (eased). Ray casting uses the same projection,
+ * so picking and placement stay exact. With no shift the view offset is cleared.
+ */
+const ViewportInset: React.FC<{ leftInset: number; rightInset: number }> = ({ leftInset, rightInset }) => {
+  const camera = useThree((s) => s.camera) as PerspectiveCamera;
+  const size = useThree((s) => s.size);
+  const shift = useRef(sceneShiftPx(leftInset, rightInset));
+  const applied = useRef('');
+
+  useFrame((_, delta) => {
+    const target = sceneShiftPx(leftInset, rightInset);
+    const eased = shift.current + (target - shift.current) * (1 - Math.exp(-Math.min(delta, 0.1) * 14));
+    shift.current = Math.abs(target - eased) < 0.05 ? target : eased;
+    const key = `${size.width}x${size.height}@${shift.current}`;
+    if (key === applied.current) return;
+    applied.current = key;
+    if (shift.current === 0) camera.clearViewOffset();
+    else camera.setViewOffset(size.width, size.height, -shift.current, 0, size.width, size.height);
+  });
+
+  return null;
+};
 
 /** Camera framing/focus lives inside the Canvas so it can reach the camera and OrbitControls. */
 const CameraRig: React.FC<{ frameEpoch: number; focus?: FocusRequest }> = ({ frameEpoch, focus }) => {
@@ -248,6 +277,8 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
   onPlacementConfirm,
   onPlacementCancel,
   onPlacementPreview,
+  leftInset = 0,
+  rightInset = 0,
 }) => {
   return (
     <Canvas
@@ -289,6 +320,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
       />
       <OrbitControls makeDefault enabled={!placementMode} />
       <CameraRig frameEpoch={frameEpoch} focus={focus} />
+      <ViewportInset leftInset={leftInset} rightInset={rightInset} />
     </Canvas>
   );
 };

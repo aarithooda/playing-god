@@ -143,3 +143,13 @@ Entry format: Date · Decision · Context/reason · Alternatives · Consequences
 - Conditions: CI must pass on the exact PR head being merged, checked immediately before merging; normal GitHub merge commit; no direct push to `main`, no force-push; teammate commits preserved (merge, not rewrite).
 - Scope of the exception: **the M1 PR only.** It does not extend D-014 to D-017 and does not change, waive or weaken the review requirement for any other or future PR. `TEAM_WORKFLOW.md` is unchanged.
 - Status: accepted 2026-10-24 by the project owner (Aarit), as a one-time exception.
+
+## D-019 — One-time owner exception: M2 integration PR merged without the normal independent review
+- Date: 2026-10-24
+- Decision: **a documented, one-PR-only exception to `TEAM_WORKFLOW.md`** ("Pull requests need one reviewer from another area and passing tests"). The M2 integration PR (branch `integration/m2-panels`: `origin/panel` merged onto `main`, plus the sidebar/layout rebuild, the view-offset centring, the diagnostics relocation and the first-use state) is merged by project-owner decision **without** a recorded independent review. **No independent review was recorded or occurred.** (Nikhil authored the `panel` commits; this is not a review by him.)
+- Authorization: the project owner (Aarit), as the only person currently implementing and integrating, authorized proceeding without waiting for teammate reviews, recording each exception one PR at a time. This entry covers the M2 PR only.
+- Evidence instead of review (author's own checks, not independent): `tsc` clean, `vitest` 156 passed, `npm run build` OK, backend `pytest` 259 passed, a manual real-browser pass (details in `STATUS.md`), and GitHub CI on the exact head.
+- Closes the follow-up deferred in D-014: `DiagnosticsPanel` now lives in the left sidebar below Event History and the bottom-left mount is gone.
+- Conditions: CI must pass on the exact PR head being merged, checked immediately before merging; normal GitHub merge commit; no direct push to `main`, no force-push; teammate commits preserved (merge, not rewrite).
+- Scope of the exception: **the M2 PR only.** It does not extend D-014 to D-018 and does not change, waive or weaken the review requirement for any other or future PR. `TEAM_WORKFLOW.md` is unchanged.
+- Status: accepted 2026-10-24 by the project owner (Aarit), as a one-time exception.

@@ -2,6 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createApiClient } from "./api/client";
 import { UniverseCanvas, type FocusRequest } from "./components/canvas/UniverseCanvas";
 import { ControlPanel } from "./components/ui/ControlPanel";
+import { FirstUse } from "./components/ui/FirstUse";
+import { Sidebar } from "./components/ui/Sidebar";
+import { Wordmark } from "./components/ui/Wordmark";
+import { enforceNarrow, insets, toggleSidebar, type SidebarState } from "./components/ui/layout";
+import { btnStyle, panelStyle } from "./components/ui/styles";
+import { theme } from "./components/ui/theme";
 import { BodyInspector } from "./components/ui/BodyInspector";
 import { DiagnosticsPanel } from "./components/ui/DiagnosticsPanel";
 import { EventTimeline } from "./components/ui/EventTimeline";
@@ -14,15 +20,22 @@ import {
   toPhysicsPosition,
   type RenderTransform,
 } from "./sim/renderTransform";
-import { useSimulation, type Health } from "./sim/useSimulation";
+import { useSimulation } from "./sim/useSimulation";
 import { toSceneBody } from "./sim/viewModel";
 import { useUndoableCreate } from "./sim/useUndoableCreate";
 
 // Same-origin: in dev the Vite proxy forwards /api and /healthz to the backend unchanged.
 const client = createApiClient();
 
-const HEALTH_LABEL: Record<Health, string> = { unknown: "checking…", ok: "connected", down: "unreachable" };
-const HEALTH_COLOR: Record<Health, string> = { unknown: "#aaa", ok: "#44dd66", down: "#ff5555" };
+function useWindowWidth(): number {
+  const [width, setWidth] = useState(() => window.innerWidth);
+  useEffect(() => {
+    const onResize = () => setWidth(window.innerWidth);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  return width;
+}
 
 export default function App() {
   const simulation = useSimulation(client);
@@ -32,6 +45,12 @@ export default function App() {
   const [transform, setTransform] = useState<RenderTransform>({ metersPerUnit: DEFAULT_METERS_PER_UNIT });
   const [frameEpoch, setFrameEpoch] = useState(0);
   const [focus, setFocus] = useState<FocusRequest | undefined>(undefined);
+  // Controls (right) are open on first use; History and diagnostics (left) are tucked away.
+  const [sidebars, setSidebars] = useState<SidebarState>({ left: false, right: true });
+  const windowWidth = useWindowWidth();
+  // Shrinking the window with both sidebars open would leave almost no free area.
+  useEffect(() => setSidebars((s) => enforceNarrow(s, windowWidth)), [windowWidth]);
+  const [openCreateRequest, setOpenCreateRequest] = useState(0);
   const [placementMode, setPlacementMode] = useState(false);
   const [placementRadiusM, setPlacementRadiusM] = useState(6.371e6);
   const [pickedPosition, setPickedPosition] = useState<{ position: { x: number; y: number; z: number }; nonce: number } | undefined>();
@@ -108,13 +127,25 @@ export default function App() {
 
   const ready = loadStatus === "ready";
 
+  const setSidebar = (side: keyof SidebarState) => (open: boolean) =>
+    setSidebars((s) => toggleSidebar(s, side, open, windowWidth));
+  const selectBody = (id: string) => {
+    setSelectedBodyId(id);
+    setSidebars((s) => (s.right ? s : toggleSidebar(s, "right", true, windowWidth)));
+  };
+  const addFirstBody = () => {
+    setSidebars((s) => (s.right ? s : toggleSidebar(s, "right", true, windowWidth)));
+    setOpenCreateRequest((n) => n + 1);
+  };
+  const edge = insets(sidebars);
+
   return (
-    <div style={{ width: "100vw", height: "100vh", position: "relative", overflow: "hidden", backgroundColor: "#000" }}>
-      {/* 3D Scene */}
+    <div style={{ width: "100vw", height: "100vh", position: "relative", overflow: "hidden", backgroundColor: theme.bg }}>
+      {/* 3D scene: full-bleed under the sidebars, centred in the free area between them. */}
       <UniverseCanvas
         bodies={sceneBodies}
         selectedBodyId={selectedBodyId}
-        onSelectBody={setSelectedBodyId}
+        onSelectBody={selectBody}
         onFocusBody={focusBody}
         onClearSelection={closeInspector}
         frameEpoch={frameEpoch}
@@ -124,120 +155,85 @@ export default function App() {
         onPlacementConfirm={confirmPlacement}
         onPlacementCancel={cancelPlacement}
         onPlacementPreview={setPlacementPreview}
+        leftInset={edge.left}
+        rightInset={edge.right}
       />
 
-      {placementMode && <PlacementHint position={placementPreview ? toPhysicsPosition(placementPreview, transform) : null} />}
-      {!placementMode && created.undoable && (
-        <UndoNotice bodyName={created.undoable.name} onUndo={() => void created.undo()} onDismiss={created.dismiss} />
-      )}
-
-      {/* UI Overlay Wrapper with Safe Zone */}
-      <div style={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        width: "100%",
-        height: "100%",
-        pointerEvents: "none",
-        padding: "30px", // Safe zone margin
-        boxSizing: "border-box",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between"
-      }}>
-        {/* Top Section: Header and side panels */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", width: "100%" }}>
-
-          {/* Left: Timeline */}
-          <div style={{ pointerEvents: "auto" }}>
-            <EventTimeline events={simulation.events} bodyName={simulation.bodyName} />
-          </div>
-
-          {/* Center: Header */}
-          <div style={{
-            pointerEvents: "auto",
-            background: "rgba(0,0,0,0.6)",
-            padding: "15px 30px",
-            borderRadius: "12px",
-            border: "1px solid rgba(255,255,255,0.1)",
-            backdropFilter: "blur(10px)",
-            textAlign: "center"
-          }}>
-            <h1 style={{ margin: 0, fontSize: "24px", letterSpacing: "2px" }}>PLAYING GOD</h1>
-            <p style={{ margin: "5px 0 0 0", fontSize: "14px", opacity: 0.7 }}>Gravitational universe sandbox</p>
-            <p data-testid="backend-status" style={{ fontSize: "11px", marginTop: "5px", color: HEALTH_COLOR[simulation.health] }}>
-              Backend: {HEALTH_LABEL[simulation.health]}
+      {/* Free area: everything that floats over the scene is laid out between the sidebars. */}
+      <div
+        data-testid="free-area"
+        style={{
+          position: "absolute", top: 0, bottom: 0, left: edge.left, right: edge.right,
+          pointerEvents: "none", transition: "left 0.25s ease-in-out, right 0.25s ease-in-out",
+        }}
+      >
+        <div style={{ position: "absolute", top: 16, left: 16, right: 16, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8 }}>
+          <Wordmark health={simulation.health} />
+          {simulation.actionError && (
+            <p role="alert" style={{ ...panelStyle, margin: 0, padding: "6px 10px", fontSize: 12, borderColor: theme.danger }}>
+              {simulation.actionError}{" "}
+              <button onClick={simulation.dismissError} style={{ ...btnStyle, fontSize: 11, padding: "2px 6px" }}>dismiss</button>
             </p>
-            {simulation.actionError && (
-              <p role="alert" style={{ fontSize: "11px", color: "#ff7777", margin: "5px 0 0 0" }}>
-                {simulation.actionError}{" "}
-                <button onClick={simulation.dismissError} style={{ fontSize: "10px" }}>dismiss</button>
-              </p>
-            )}
-          </div>
-
-          {/* Right: Controls */}
-          <div style={{ pointerEvents: "auto" }}>
-            <ControlPanel
-              bodies={bodies}
-              playing={simulation.playing}
-              stepping={simulation.stepping}
-              canRun={bodies.length > 0}
-              disabled={!ready}
-              simulationTimeS={sim ? sim.simulationTimeS : null}
-              speedExp={simulation.speedExp}
-              stepSeconds={simulation.stepSeconds}
-              onSpeedChange={simulation.setSpeedExp}
-              onPlay={simulation.play}
-              onPause={simulation.pause}
-              onStep={() => void simulation.stepOnce()}
-              onReset={() => void simulation.reset()}
-              onFit={() => {
-                setTransform(fitTransform(bodies.map((b) => b.positionM)));
-                setFrameEpoch((n) => n + 1);
-              }}
-              onCreate={created.create}
-              placementMode={placementMode}
-              onPlacementModeChange={setPlacementMode}
-              pickedPosition={pickedPosition}
-              onPlacementRadiusChange={setPlacementRadiusM}
-              onPlacementCreateResult={placementCreateResult}
-            />
-          </div>
+          )}
         </div>
 
-        {/* Center status: loading / error / empty */}
-        <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", textAlign: "center", pointerEvents: "auto" }}>
-          {loadStatus === "loading" && <p role="status">Connecting to the simulation backend…</p>}
+        <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", pointerEvents: "auto" }}>
+          {loadStatus === "loading" && <p role="status" style={{ ...panelStyle, margin: 0 }}>Connecting to the simulation backend…</p>}
           {loadStatus === "error" && (
-            <div role="alert" style={{ background: "rgba(0,0,0,0.8)", padding: "20px", borderRadius: "8px", border: "1px solid #a33" }}>
+            <div role="alert" style={{ ...panelStyle, borderColor: theme.danger, textAlign: "center" }}>
               <p style={{ margin: "0 0 10px 0" }}>Cannot load the simulation: {simulation.loadError}</p>
-              <button onClick={() => void simulation.reload()}>Retry</button>
+              <button style={btnStyle} onClick={() => void simulation.reload()}>Retry</button>
             </div>
           )}
-          {ready && bodies.length === 0 && (
-            <p role="status" style={{ opacity: 0.7 }}>The universe is empty. Use "Add body…" to create one.</p>
-          )}
+          {ready && bodies.length === 0 && !placementMode && <FirstUse onAddFirstBody={addFirstBody} />}
         </div>
 
-        {/* System diagnostics: bottom-left, collapsed by default */}
-        <div style={{ pointerEvents: "auto" }}>
-          <DiagnosticsPanel loadStatus={loadStatus} diagnostics={sim?.diagnostics ?? null} issue={sim?.diagnosticsIssue ?? null} />
-        </div>
-
-        {/* Bottom Section: Inspector */}
-        <div style={{ display: "flex", justifyContent: "flex-end", width: "100%" }}>
-          <div style={{ pointerEvents: "auto" }}>
-            <BodyInspector
-              body={selectedBody}
-              onSave={simulation.updateBody}
-              onDelete={simulation.deleteBody}
-              onFocus={focusBody}
-              onClose={closeInspector}
-            />
-          </div>
-        </div>
+        {placementMode && <PlacementHint position={placementPreview ? toPhysicsPosition(placementPreview, transform) : null} />}
+        {!placementMode && created.undoable && (
+          <UndoNotice bodyName={created.undoable.name} onUndo={() => void created.undo()} onDismiss={created.dismiss} />
+        )}
       </div>
+
+      <Sidebar side="left" title="History & diagnostics" open={sidebars.left} onToggle={setSidebar("left")}>
+        <EventTimeline events={simulation.events} bodyName={simulation.bodyName} />
+        <DiagnosticsPanel loadStatus={loadStatus} diagnostics={sim?.diagnostics ?? null} issue={sim?.diagnosticsIssue ?? null} />
+      </Sidebar>
+
+      <Sidebar side="right" title="Controls" open={sidebars.right} onToggle={setSidebar("right")}>
+        <ControlPanel
+          bodies={bodies}
+          playing={simulation.playing}
+          stepping={simulation.stepping}
+          canRun={bodies.length > 0}
+          disabled={!ready}
+          simulationTimeS={sim ? sim.simulationTimeS : null}
+          speedExp={simulation.speedExp}
+          stepSeconds={simulation.stepSeconds}
+          onSpeedChange={simulation.setSpeedExp}
+          onPlay={simulation.play}
+          onPause={simulation.pause}
+          onStep={() => void simulation.stepOnce()}
+          onReset={() => void simulation.reset()}
+          onFit={() => {
+            setTransform(fitTransform(bodies.map((b) => b.positionM)));
+            setFrameEpoch((n) => n + 1);
+          }}
+          onCreate={created.create}
+          placementMode={placementMode}
+          onPlacementModeChange={setPlacementMode}
+          pickedPosition={pickedPosition}
+          onPlacementRadiusChange={setPlacementRadiusM}
+          onPlacementCreateResult={placementCreateResult}
+          openCreateRequest={openCreateRequest}
+        />
+        <BodyInspector
+          body={selectedBody}
+          onSave={simulation.updateBody}
+          onDelete={simulation.deleteBody}
+          onFocus={focusBody}
+          onClose={closeInspector}
+        />
+      </Sidebar>
     </div>
   );
 }

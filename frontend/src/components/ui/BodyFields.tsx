@@ -56,7 +56,7 @@ export const BodyFields: React.FC<BodyFieldsProps> = ({ values, errors, onChange
         {keys[0] === 'px' && onPickPosition && (
           <button
             type="button"
-            style={{ ...btnStyle, borderColor: isPickingPosition ? '#b9c5d4' : '#555', background: isPickingPosition ? '#4b5563' : '#333' }}
+            style={{ ...btnStyle, borderColor: isPickingPosition ? '#5aa2ff' : '#3a4656', background: isPickingPosition ? '#23406b' : '#182029' }}
             aria-pressed={isPickingPosition}
             onClick={onPickPosition}
           >
