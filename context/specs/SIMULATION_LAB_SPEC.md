@@ -161,7 +161,11 @@ Moons are out of scope for the initial Simulation Lab release.
 
 Do not expand the first implementation into a moon catalogue, moon-specific interaction workflow or moon-focused experiment unless a mandatory dependency requires it and the scope is explicitly documented.
 
-(Documented consequence: in the Solar System preset each planet with moons is modelled as one point mass at its system barycentre, which includes the moons' mass. Earth is modelled as the Earth–Moon barycentre. No moon exists as a separate body.)
+**Consequences of omitting moons (to be documented in the product, not treated as irrelevant):**
+- In the Solar System preset each planet with moons is one point mass at its **system barycentre**, carrying the moons' mass. Earth is the **Earth–Moon barycentre (EMB)**. No moon exists as a separate body.
+- Displayed planet positions are therefore barycentre positions, not planet-centre positions. For Earth the difference is largest: the EMB is up to about 4,900 km from Earth's centre (planning probe: 4,890 km at J2000 and at most 4,940 km over two years). That is inside Earth's radius, but it is not zero.
+- Moon orbits, tides, eclipses, lunar perturbations of other bodies and planet–moon interactions are absent.
+- For heliocentric motion the simplification is small but measurable. The planning probe found that treating Earth + Moon as one point mass changes the EMB's two-year heliocentric path by at most about 234 km. That is roughly 2 % of the two-body model's total deviation from the ephemeris, which is dominated by the omitted planets. The implementation must re-measure this with a committed test before quoting it.
 
 ## 7. Custom-body creation and editing
 Users must be able to create custom stars and planets and edit supported physical properties of bodies in a universe.
@@ -213,6 +217,19 @@ Every operation must target an explicit universe on the backend.
 The UI must communicate the current simulation status and handle busy, failed and timed-out requests without pretending an operation succeeded.
 
 Inactive universes must not advance in the background.
+
+### 8.1 Simulation history and timeline (UI-2) **[Owner decision, 2026-10-24: Nikhil's UI-2 proposal accepted with constraints]**
+- **What history is:** each universe keeps a bounded history of body positions recorded from **backend-produced simulation states** at defined simulation times. History is never computed by a second frontend physics engine. Speculative future positions are never shown as simulated results.
+- **What users can do:** navigate and replay the recorded history (timeline, seek, replay, return to live). While viewing history, the live simulation is not advanced or edited, and the interface states which time is being shown and what the live time is.
+- **Partitioning:** history is partitioned per universe and per run. It is cleared by reset, replaced by restore, and never mixes positions from different universes, snapshots or experiment runs.
+- **Defined behaviour:** retention limits, sampling intervals, and behaviour when data is missing or a request fails are defined in the implementation plan. Missing data is shown as missing, never interpolated or filled.
+- **Scope boundary:** the history model provides data through a renderer-independent interface. Rendering integration, trajectory display, camera behaviour and rendering metrics follow the renderer integration boundary (UI-0) and are not implemented independently by the history feature.
+
+### 8.2 Renderer integration boundary (UI-0) **[Owner decision, 2026-10-24]**
+- The renderer (the 3D canvas and its components) consumes only defined inputs: bodies in display form, optional trajectories, and view options.
+- It owns every visual choice: displayed size, materials and colours, camera, starfield, minimum on-screen size.
+- No other feature may change the renderer except through these inputs. Physical radius (`radiusM`, used for collisions) and displayed size are distinct, and the interface never presents one as the other.
+- "UI-1" is named by the owner but not specified anywhere in the repository. No UI-1 behaviour is required by this document.
 
 ## 9. Snapshot, reset and independent runs
 ### 9.1 Snapshot and restoration
@@ -294,6 +311,8 @@ Simulation Lab is acceptable when:
 10. Existing application functionality remains intact.
 11. Backend, frontend, type-check, build and integration tests pass, or unresolved failures are explicitly documented.
 12. The canonical documentation matches the implementation.
+13. **[Owner decision, amendment 1]** Simulation history (§8.1) records only backend-produced states, is bounded, is partitioned per universe and run, is cleared by reset and replaced by restore, and shows missing data as missing.
+14. **[Owner decision, amendment 1]** Renderer changes go only through the UI-0 boundary (§8.2). The physical radius and the displayed size are never presented as each other.
 
 ## 14. Exclusions, decisions and review
 **Excluded initially:** moons and moon-focused workflows; persistence across backend restarts (OD-5); Kepler-90 (OD-1).
@@ -324,3 +343,5 @@ Draft 0.1 wording that was replaced or extended:
 - §14: "Excluded initially: moons and moon-focused workflows. Still to confirm: the final three presets, exact catalogue entries, and any preset-specific modeling requirements."
 
 Added in Draft 0.2: §4.3, §5.4, the labelled sentences in §5.3, §6.3, §7, §9.1 and §10, and the resolved list in §14.
+
+- **Draft 0.2, amendment 1 (2026-10-24):** added §8.1 (UI-2 history, from Nikhil's accepted proposal with the owner's constraints) and §8.2 (UI-0 renderer boundary). Expanded §6.3 with the measured consequences of omitting moons. No Draft 0.1 text was removed by this amendment.

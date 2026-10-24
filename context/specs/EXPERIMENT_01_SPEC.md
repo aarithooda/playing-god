@@ -103,6 +103,12 @@ The experiment must use a scientifically defensible gravitational system with do
 - the Sun + EMB model stays within about 11,700 km of the ephemeris (8.0×10⁻⁵ relative);
 - the Sun + Earth-centre model drifts by about 1.29 million km (8.8×10⁻³), more than 100 times worse.
 
+**Consequences of omitting the Moon (planning-probe measurements; to be re-measured by committed tests):**
+- The modelled "Earth" is the EMB, which is up to about 4,940 km from Earth's centre.
+- Treating Earth + Moon as one point mass changes the EMB's heliocentric path by at most about 234 km over two years, compared with a Sun + Earth + Moon three-body run from the same Horizons data. That is small compared with the separations the experiment produces (10⁷–10¹¹ m), but it is not zero.
+- In the real system the velocity change of the experiment would be applied to the barycentre of two bodies. The experiment does not model how such a change would be distributed between Earth and Moon.
+- None of these effects changes the qualitative answer to the scientific question. All of them are documented rather than declared irrelevant.
+
 **Limitation (to be shown to the user):** this is a two-body model. It reproduces the real Earth–Moon barycentre's orbit only to about 10⁻⁴ over two years, because the other planets are omitted. It is an experiment about the effect of initial velocity, not a prediction of Earth's real future position.
 
 The initial system should be simple enough for the effect of the velocity change to be interpretable and for the expected behavior to be independently checked. (The two-body problem has an exact analytic solution, which is used as the independent reference in §9.)
@@ -256,6 +262,7 @@ The final protocol must preserve the confirmed scientific question and document 
 ---
 
 ## Appendix A — Planning evidence (2026-10-24; for orientation, not test constants)
+**Evidence status:** every number in this appendix is a **planning-probe measurement**. It came from scripts run against the repository's engine and live Horizons data, but those scripts are not committed tests, and no reviewer has reproduced the numbers. The implementation must reproduce each one with committed tests (implementation plan §15.0) before any is quoted as verified. The source values (DE440 GM, Horizons settings and frame) were read directly from the cited JPL pages.
 **Method:**
 - Horizons vectors were fetched on 2026-10-24 (each target reports "source: DE441") for targets 10, 3, 399 and the planetary system barycentres. Epochs: JD 2451545.0, 2451910.25 and 2452275.5 TDB. Frame: SSB, ecliptic J2000.
 - Masses from DE440 GM.
@@ -282,6 +289,11 @@ The final protocol must preserve the confirmed scientific question and document 
 
 **Energy drift over 730 d:** ≤ 6.7e-16 relative for every run.
 
+**Moon omission:** a Sun + Earth + Moon three-body run (Horizons 10, 399, 301; DE440 GM), with its barycentre compared to the two-body Sun + EMB run:
+- maximum heliocentric difference 234 km over 730.5 d;
+- maximum Earth-centre offset from the EMB 4,940 km;
+- three-body EMB vs Horizons: 6,730 km at 1 yr and 11,946 km at 2 yr, against 6,614 km and 11,717 km for the two-body model. Including the Moon does not bring the model closer to the ephemeris, because the omitted planets dominate.
+
 **Context for the Solar System preset:** a full Sun + 8 planet-system 9-body run, compared with Horizons, has a worst heliocentric relative error of 9.1e-7 after 1 year and 3.9e-6 after 2 years (Mercury, as expected from the omitted general relativity and minor bodies).
 
 ## Revision record
@@ -296,3 +308,5 @@ Draft 0.2 wording that was replaced or extended:
 - §13, titled "Remaining product decisions": a table of six open decisions (initial system, selected planet, velocity modification, observation window, comparison outputs, scientific acceptance criteria). It was followed by "Recommended defaults": use the simplest scientifically defensible system compatible with Simulation Lab; change one velocity variable at a time; start with a guided velocity-magnitude adjustment retaining the initial direction; use the existing simulation controls and renderer wherever possible; compare positions at matching simulation times; validate against an independently calculated or otherwise defensible reference; keep derived orbital classifications and advanced analytical plots outside the mandatory scope unless the protocol requires them. Its closing note read: "These defaults are recommendations, not confirmed requirements. Any selected values, duration or numerical tolerances must be recorded explicitly rather than invented during implementation."
 
 Added in Draft 0.3: the labelled paragraphs in §4.1, §4.2, §5, §6, §8, §9 and §10, Appendix A, and the resolved §13.
+
+- **Draft 0.3, amendment 1 (2026-10-24):** added the measured Moon-omission consequences (§5, Appendix A) and the evidence-status note on Appendix A. No requirement changed.
