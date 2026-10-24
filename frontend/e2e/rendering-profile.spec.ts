@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { legacyPath, universeLayer } from "./universeLayer";
 
 const diagnostics = {
   version: 1,
@@ -29,10 +30,13 @@ test("profiles browser frame pacing with 64 visible bodies", async ({ page }, te
   await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
   await page.route("**/api/v1/**", (route) => {
     const url = new URL(route.request().url());
-    if (url.pathname === "/api/v1/simulation/state") {
+    const layer = universeLayer(url.pathname, route.request().method(), activeBodyCount);
+    if (layer !== undefined) return route.fulfill({ json: layer });
+    const path = legacyPath(url.pathname);
+    if (path === "/api/v1/simulation/state") {
       return route.fulfill({ json: { status: "paused", simulationTimeS: 0, bodies: bodies.slice(0, activeBodyCount), diagnostics } });
     }
-    if (url.pathname === "/api/v1/events") return route.fulfill({ json: { events: [] } });
+    if (path === "/api/v1/events") return route.fulfill({ json: { events: [] } });
     return route.fulfill({ status: 404, json: { detail: `Unhandled profile route: ${url.pathname}` } });
   });
 

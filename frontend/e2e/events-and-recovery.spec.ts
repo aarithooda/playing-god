@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { legacyPath, universeLayer } from "./universeLayer";
 
 const sun = {
   id: "body-aaaaaaaaaaaa",
@@ -49,13 +50,16 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
   await page.route("**/api/v1/**", async (route) => {
     const url = new URL(route.request().url());
-    if (url.pathname === "/api/v1/simulation/state" && route.request().method() === "GET") {
+    const layer = universeLayer(url.pathname, route.request().method(), stepped ? 1 : 2);
+    if (layer !== undefined) return route.fulfill({ json: layer });
+    const path = legacyPath(url.pathname);
+    if (path === "/api/v1/simulation/state" && route.request().method() === "GET") {
       return route.fulfill({ json: state(stepped ? [sun] : [sun, earth], stepped ? 7200 : 0) });
     }
-    if (url.pathname === "/api/v1/events" && route.request().method() === "GET") {
+    if (path === "/api/v1/events" && route.request().method() === "GET") {
       return route.fulfill({ json: { events: stepped ? [mergerEvent] : [] } });
     }
-    if (url.pathname === "/api/v1/simulation/step" && route.request().method() === "POST") {
+    if (path === "/api/v1/simulation/step" && route.request().method() === "POST") {
       stepped = true;
       const dtS = route.request().postDataJSON().dtS as number;
       return route.fulfill({ json: { ...state([sun], dtS), advancedS: dtS, events: [mergerEvent] } });
@@ -93,11 +97,14 @@ test("keeps a failed initial state load recoverable while health remains availab
   await page.route("**/*", (route) => {
     const url = new URL(route.request().url());
     if (url.pathname === "/healthz") return route.fulfill({ json: { status: "ok" } });
-    if (url.pathname === "/api/v1/simulation/state") {
+    const layer = universeLayer(url.pathname, route.request().method(), 1);
+    if (layer !== undefined) return route.fulfill({ json: layer });
+    const path = legacyPath(url.pathname);
+    if (path === "/api/v1/simulation/state") {
       if (!allowStateLoad) return route.fulfill({ status: 503, json: { detail: "simulation is busy" } });
       return route.fulfill({ json: state([sun], 0) });
     }
-    if (url.pathname === "/api/v1/events") return route.fulfill({ json: { events: [] } });
+    if (path === "/api/v1/events") return route.fulfill({ json: { events: [] } });
     return route.continue();
   });
 
@@ -130,18 +137,22 @@ test("shows disconnection separately and recovers after the backend returns", as
   await page.unrouteAll();
   await page.route("**/*", (route) => {
     const url = new URL(route.request().url());
-    if (!online && (url.pathname === "/healthz" || url.pathname === "/api/v1/simulation/state")) {
+    const path = legacyPath(url.pathname);
+    // The universe list loads before the simulation, so it is the first request to fail while offline.
+    if (!online && (url.pathname === "/healthz" || url.pathname === "/api/v1/universes" || path === "/api/v1/simulation/state")) {
       return route.abort("failed");
     }
     if (url.pathname === "/healthz") return route.fulfill({ json: { status: "ok" } });
-    if (url.pathname === "/api/v1/simulation/state") return route.fulfill({ json: state([sun], 0) });
-    if (url.pathname === "/api/v1/events") return route.fulfill({ json: { events: [] } });
+    const layer = universeLayer(url.pathname, route.request().method(), 1);
+    if (layer !== undefined) return route.fulfill({ json: layer });
+    if (path === "/api/v1/simulation/state") return route.fulfill({ json: state([sun], 0) });
+    if (path === "/api/v1/events") return route.fulfill({ json: { events: [] } });
     return route.continue();
   });
 
   await page.goto("/");
   await expect(page.getByTestId("backend-status")).toContainText("unreachable");
-  await expect(page.getByRole("alert")).toContainText("Cannot load the simulation");
+  await expect(page.getByRole("alert")).toContainText(/Cannot load the (universes|simulation)/);
 
   online = true;
   await page.getByRole("button", { name: "Retry" }).click();
