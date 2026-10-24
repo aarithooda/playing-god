@@ -10,6 +10,7 @@ from backend.impact.contracts import SCHEMA_VERSION
 from backend.impact.materials import list_profiles
 from backend.impact.records import MAX_COLLISION_RECORDS, find_record, summarise
 from backend.impact.replay import replay
+from backend.impact.visual import describe_visual
 from backend.simulation import G_SI
 from backend.universes import UniverseRegistry, get_registry
 
@@ -116,3 +117,12 @@ def replay_collision(universe_id: str, event_id: str, reg: UniverseRegistry = De
     record = _record_or_404(reg.get(universe_id).engine, event_id)
     return {"schemaVersion": SCHEMA_VERSION, "universeId": universe_id, **replay(record, G_SI)}
 
+
+@router.get("/universes/{universe_id}/collisions/{event_id}/visual")
+def get_collision_visual(universe_id: str, event_id: str, reg: UniverseRegistry = Depends(get_registry)) -> dict:
+    """The `VisualEventDescription` of an event, built only from its recorded, validated result (the renderer reads this and body states).
+    A legacy merge has no result and so no description (404 `collision_visual_unavailable`)."""
+    description = describe_visual(_record_or_404(reg.get(universe_id).engine, event_id))
+    if description is None:
+        raise CodedError(f"{event_id} has no recorded result (a legacy merge): there is no visual description", code="collision_visual_unavailable", status=404)
+    return {"universeId": universe_id, **description.to_dict()}

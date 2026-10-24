@@ -237,7 +237,7 @@ class CollisionEngine:
             specific_impact_energy_j_per_kg=imp.specific_impact_energy_j_per_kg, largest_remnant_mass_kg=max(remnants),
             debris_mass_kg=sum(p.mass_kg for p in result.debris_parcels), mass_residual_rel=result.conservation.mass_residual_rel,
             momentum_residual_rel=result.conservation.momentum_residual_rel, warnings=result.warnings,
-            fidelity_summary=dict(result.fidelity), has_visual=False)
+            fidelity_summary=dict(result.fidelity), has_visual=True)  # a description can be derived from this result (D-055)
         emit_collision(event)
         if event_seq() != seq:
             raise RuntimeError(f"event counter mismatch: expected {seq}, got {event_seq()}")
