@@ -74,7 +74,7 @@ export const BodyFields: React.FC<BodyFieldsProps> = ({ values, errors, onChange
           {errors[key] && <span id={idPrefix + '-' + key + '-error'} role="alert" style={errorTextStyle}>{errors[key]}</span>}
         </div>
       ))}
-      <p style={helperStyle}>Physical radius is used by the simulation. {sizeMode === 'physical' ? 'Bodies are drawn at true scale, enlarged on screen only to stay visible.' : 'The rendered visual radius is exaggerated independently for visibility.'}</p>
+      <p style={helperStyle}>Physical radius is used by the simulation. {sizeMode !== undefined ? 'Bodies are drawn at true scale and enlarged on screen only to stay visible (see the view in the View panel).' : 'The rendered visual radius is exaggerated independently for visibility.'}</p>
       <p data-testid={idPrefix + '-visual-radius'} style={helperStyle}>{visualRadiusReadout(values.radius, drawnRadiusUnits, sizeMode)}</p>
     </fieldset>
 
@@ -109,7 +109,7 @@ export const BodyFields: React.FC<BodyFieldsProps> = ({ values, errors, onChange
 function visualRadiusReadout(radiusText: string, drawnRadiusUnits?: number, sizeMode?: SizeMode): string {
   const radiusM = Number(radiusText);
   if (!Number.isFinite(radiusM) || radiusM <= 0) return 'Visual radius preview unavailable until physical radius is valid.';
-  if (sizeMode === 'physical' && drawnRadiusUnits !== undefined) {
+  if (sizeMode !== undefined && drawnRadiusUnits !== undefined) {
     return `Rendered visual radius: ${drawnRadiusUnits.toPrecision(2)} scene units (true physical scale; enlarged on screen only as far as needed to stay visible).`;
   }
   const nominal = displayRadiusUnits(radiusM);

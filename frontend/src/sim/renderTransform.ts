@@ -64,37 +64,50 @@ export function fitTransform(positions: Vec3[]): RenderTransform {
 /** Camera placement matching a fitted scene (extent ~FIT_EXTENT_UNITS), kept in one place. */
 export const DEFAULT_CAMERA_POSITION: ScenePosition = [0, 0.9 * FIT_EXTENT_UNITS, 1.8 * FIT_EXTENT_UNITS];
 
-// ---- Body size modes -------------------------------------------------------------------------------------------
-// Two explicit, documented ways to size a body. Each depends only on the body itself, the display scale and the camera,
-// never on which other bodies exist.
+// ---- Rendering views: Universe and Exploration ------------------------------------------------------------------
+// Two deliberate ways to DRAW the same simulation. Neither changes a radius, mass, position, force or time; both use the
+// TRUE radius for the geometry (radiusM / metersPerUnit) and differ only in how large a body is guaranteed to look on
+// screen. Each size depends on the body itself, the display scale and the camera - never on which other bodies exist
+// (Exploration only limits how far a body GROWS while the camera zooms in, so a planet cannot swallow its moons).
 //
-//  "physical" (default): the sphere is the TRUE radius in scene units (radiusM / metersPerUnit), so the Sun is ~109x Earth
-//     and Earth ~3.7x the Moon, whatever else is loaded. At the overview scale that is far below a pixel, so the renderer
-//     enlarges a body on screen only as far as `visibleRadiusPx` (a floor that depends on the body's own radius, grows
-//     with it and is the same function for every body), and never beyond half the distance to its moon/primary.
-//     Zooming in therefore reveals true proportions; the floor never makes a smaller body bigger than a larger one.
-//  "exaggerated": the earlier logarithmic display radius (displayRadiusUnits) plus the crowding shrink
-//     (radiusSeparation.ts). Every body is of similar size; the ratios are NOT physical.
-export type SizeMode = "physical" | "exaggerated";
-export const DEFAULT_SIZE_MODE: SizeMode = "physical";
+//  "universe"    (Universe View, default): the scale of the real Solar System. Bodies are true-scale spheres; where that is
+//     below a pixel (everything but the Sun at the overview) a body is drawn with a small fixed minimum of
+//     `universeRadiusPx(radiusM)`: 8 px for the Sun, ~1.6 px for Earth, 1 px for the smallest. The minimum depends only
+//     on the body's own radius, so the Sun dominates and Earth stays a visible dot. This is a visibility treatment, not
+//     a physical size: below the minimum the picture is not to scale.
+//  "exploration" (Exploration View): planets are enlarged to be easy to see and select (`explorationRadiusPx`: 12 px for
+//     the Sun, ~3.7 px for Earth, ~2.7 px for the Moon), grow up to 8x more as the camera closes in on a system (so Earth
+//     and Moon separate and read as spheres), and that growth is limited to 35 % of the planet-moon distance on screen
+//     so moons stay distinguishable. The limit never reduces a body below its overview size.
+export type SizeMode = "universe" | "exploration";
+export const DEFAULT_SIZE_MODE: SizeMode = "universe";
 
-/** IAU 2015 B3 nominal solar radius, the reference of the visibility floor (same value as the Solar System preset). */
+/** IAU 2015 B3 nominal solar radius, the reference of both minimum-size laws (same value as the Solar System preset). */
 export const SUN_RADIUS_M = 6.957e8;
-/** On-screen radius, in CSS pixels, of a Sun-sized body at the overview (the floor's reference size). */
-export const VISIBLE_SUN_RADIUS_PX = 8;
-/** The floor grows with the square root of the physical radius (a Sun/Earth ratio of ~5 on screen instead of ~109). */
-export const VISIBLE_RADIUS_EXPONENT = 0.35;
-export const MIN_VISIBLE_RADIUS_PX = 1;
-export const MAX_VISIBLE_RADIUS_PX = 24;
 
-/** Scene radius of a body at true scale. */
+export interface SizeLaw {
+  /** On-screen radius (CSS px) of a Sun-sized body. */
+  sunPx: number;
+  exponent: number;
+  minPx: number;
+  maxPx: number;
+  /** Largest factor the minimum may grow by as the camera approaches (1 = never). */
+  maxZoomGrowth: number;
+}
+
+export const SIZE_LAWS: Record<SizeMode, SizeLaw> = {
+  universe: { sunPx: 8, exponent: 0.35, minPx: 1, maxPx: 24, maxZoomGrowth: 1 },
+  exploration: { sunPx: 12, exponent: 0.25, minPx: 2.5, maxPx: 30, maxZoomGrowth: 8 },
+};
+
+/** Scene radius of a body at true scale: the only geometry either view uses. */
 export function physicalRadiusUnits(radiusM: number, t: RenderTransform): number {
   return radiusM / t.metersPerUnit;
 }
 
-/** Smallest on-screen radius (CSS px) a body is drawn with so it stays visible: a function of its own radius only. */
-export function visibleRadiusPx(radiusM: number): number {
-  if (!(radiusM > 0) || !Number.isFinite(radiusM)) return MIN_VISIBLE_RADIUS_PX;
-  const px = VISIBLE_SUN_RADIUS_PX * (radiusM / SUN_RADIUS_M) ** VISIBLE_RADIUS_EXPONENT;
-  return Math.min(MAX_VISIBLE_RADIUS_PX, Math.max(MIN_VISIBLE_RADIUS_PX, px));
+/** Minimum on-screen radius (CSS px, at the overview) of a body in a view: a function of its own radius only. */
+export function minimumRadiusPx(radiusM: number, mode: SizeMode): number {
+  const law = SIZE_LAWS[mode];
+  if (!(radiusM > 0) || !Number.isFinite(radiusM)) return law.minPx;
+  return Math.min(law.maxPx, Math.max(law.minPx, law.sunPx * (radiusM / SUN_RADIUS_M) ** law.exponent));
 }

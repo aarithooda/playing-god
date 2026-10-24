@@ -1,13 +1,20 @@
-// Minimum on-screen size for celestial bodies.
+// On-screen size of celestial bodies (display only).
 //
-// Bodies are real spheres in scene space, so under perspective their projected radius shrinks like
-// 1 / distance and drops below a pixel when zoomed far out, at which point the rasteriser drops them.
-// To keep every body visible we uniformly enlarge a body (a pure display scale, so it stays a sphere
-// and its position, motion and the physics are untouched) only when its projected radius would fall
-// below MIN_BODY_SCREEN_RADIUS_PX. Normal-size views are unaffected (scale exactly 1).
+// Bodies are true-scale spheres in scene space, so under perspective their projected radius shrinks like
+// 1 / distance and drops below a pixel when zoomed far out, at which point the rasteriser drops them. To keep every body
+// visible it is uniformly enlarged (a pure display scale: it stays a sphere, and its position, motion and the physics are
+// untouched) only when its projected radius would fall below a minimum number of pixels. Normal-size views are
+// unaffected (scale exactly 1). The minimum comes from the active view (renderTransform.SIZE_LAWS) and depends only on
+// the body itself and the camera, except for the zoom-in growth limit described at `bodyDisplayScale`.
 
-/** Smallest projected radius, in CSS pixels, a body is allowed to have on screen. */
+/** Default minimum on-screen radius, in CSS pixels, for callers that give none (test scenes, tools). */
 export const MIN_BODY_SCREEN_RADIUS_PX = 3;
+
+/** Camera distance (scene units) of the default overview: the minimum is exactly its base size there. */
+export const OVERVIEW_DISTANCE = 80;
+
+/** While zooming, a body's enlargement stops at this fraction of its moon/primary distance on screen. */
+export const SYSTEM_GROWTH_FRACTION_OF_CLEARANCE = 0.35;
 
 /** Projected radius in CSS pixels of a sphere of `radius` at `distance` for a vertical fov in degrees. */
 export function projectedRadiusPx(radius: number, distance: number, fovDeg: number, viewportHeightPx: number): number {
@@ -15,40 +22,32 @@ export function projectedRadiusPx(radius: number, distance: number, fovDeg: numb
   return (radius * (viewportHeightPx / 2)) / (distance * Math.tan(halfFov));
 }
 
-/** Camera distance (scene units) of the default overview: the visibility floor is exactly its base size there. */
-export const OVERVIEW_DISTANCE = 80;
-/** Largest enlargement of the visibility floor when zooming in. */
-export const MAX_ZOOM_BOOST = 8;
-
-/**
- * Factor on the visibility floor (>= 1): it grows like sqrt(OVERVIEW_DISTANCE / distance) as the camera closes in, so a
- * body that is still sub-pixel at true scale (Earth beside its Moon) stays recognisable in a close view instead of
- * shrinking to one pixel. The same factor applies to every body at a given camera distance, so order and the relation to
- * other bodies are untouched; true size takes over as soon as it exceeds the floor.
- */
-export function zoomBoost(distance: number): number {
-  if (!(distance > 0) || !Number.isFinite(distance)) return 1;
-  return Math.min(MAX_ZOOM_BOOST, Math.max(1, Math.sqrt(OVERVIEW_DISTANCE / distance)));
+/** Factor (>= 1, <= maxGrowth) by which the minimum grows as the camera closes in: sqrt(OVERVIEW_DISTANCE / distance). */
+export function zoomGrowth(distance: number, maxGrowth: number): number {
+  if (!(maxGrowth > 1) || !(distance > 0) || !Number.isFinite(distance)) return 1;
+  return Math.min(maxGrowth, Math.max(1, Math.sqrt(OVERVIEW_DISTANCE / distance)));
 }
-
-/** A body whose moon/primary is closer than this on screen is still drawn this large. */
-export const MIN_CROWDED_BODY_PX = 1;
-
-/** A planet drawn larger than its stored display size keeps at least this fraction of its moon distance clear. */
-export const APPARENT_RADIUS_FRACTION_OF_CLEARANCE = 0.5;
 
 export interface BodyScaleOptions {
+  /** Minimum on-screen radius (px) at the overview. */
   minPx?: number;
-  /**
-   * Radius (scene units) the body should appear to have from far away. A planet with moons is stored small so its moons
-   * are not inside it; from afar it is enlarged towards this size, but never past `clearance`.
-   */
-  apparentRadius?: number;
-  /** Scene distance to the nearest moon/primary: the enlargement stops at a fraction of this distance on screen. */
+  /** Largest factor the minimum may grow by while zooming in (1 or absent: never). */
+  maxGrowth?: number;
+  /** Scene distance to the nearest moon (planet) or to the primary (moon) of this body's system. */
   clearance?: number;
+  /** Largest minimum (px) among the members of the system: the pair shares one growth factor, so their ratio is kept. */
+  systemPx?: number;
 }
 
-/** Uniform display scale (>= 1) that lifts a body to the minimum on-screen radius (or its apparent size). */
+/**
+ * Uniform display scale (>= 1) that lifts a body to its minimum on-screen radius.
+ *
+ * The minimum is `minPx` at the overview and grows with `zoomGrowth` as the camera approaches. In a moon system that
+ * growth is limited so the largest member's disc stays within SYSTEM_GROWTH_FRACTION_OF_CLEARANCE of the planet-moon
+ * distance on screen (planet and moons share the limit, keeping their ratio). The limit only restricts GROWTH: it can
+ * never take a body below `minPx`, so the satellites' separation cannot shrink a planet - at the overview, where that
+ * separation is sub-pixel, the growth is 1 anyway.
+ */
 export function bodyDisplayScale(
   radius: number,
   distance: number,
@@ -61,22 +60,12 @@ export function bodyDisplayScale(
   if (!(radius > 0) || !Number.isFinite(distance) || distance <= 0) return 1;
   if (!(viewportHeightPx > 0) || !(fovDeg > 0 && fovDeg < 180)) return 1;
   const px = projectedRadiusPx(radius, distance, fovDeg, viewportHeightPx);
-  let target = minPx;
-  const { apparentRadius, clearance } = options;
-  if (apparentRadius !== undefined && apparentRadius > radius) {
-    let apparentPx = projectedRadiusPx(apparentRadius, distance, fovDeg, viewportHeightPx);
-    if (clearance !== undefined && clearance > 0) {
-      apparentPx = Math.min(
-        apparentPx,
-        APPARENT_RADIUS_FRACTION_OF_CLEARANCE * projectedRadiusPx(clearance, distance, fovDeg, viewportHeightPx),
-      );
-    }
-    target = Math.max(target, apparentPx);
+  let growth = zoomGrowth(distance, options.maxGrowth ?? 1);
+  const { clearance, systemPx } = options;
+  if (growth > 1 && clearance !== undefined && clearance > 0) {
+    const room = SYSTEM_GROWTH_FRACTION_OF_CLEARANCE * projectedRadiusPx(clearance, distance, fovDeg, viewportHeightPx);
+    growth = Math.min(growth, Math.max(1, room / Math.max(minPx, systemPx ?? minPx)));
   }
-  if (clearance !== undefined && clearance > 0) {
-    // Never enlarge a body past half the distance to its moon/primary, but keep it at least this visible.
-    const cap = APPARENT_RADIUS_FRACTION_OF_CLEARANCE * projectedRadiusPx(clearance, distance, fovDeg, viewportHeightPx);
-    target = Math.min(target, Math.max(MIN_CROWDED_BODY_PX, cap));
-  }
+  const target = minPx * growth;
   return px >= target ? 1 : target / px;
 }

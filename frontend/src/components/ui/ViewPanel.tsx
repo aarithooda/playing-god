@@ -16,7 +16,7 @@ interface ViewPanelProps {
   onPathsChange?: (on: boolean) => void;
   /** Why fewer paths are drawn than expected (for example a crowded scene). */
   pathsNote?: string;
-  /** How bodies are sized: true physical proportions (default) or the earlier exaggerated, similar-looking sizes. */
+  /** How the same simulation is drawn: Universe View (real scale, default) or Exploration View (enlarged planets). */
   sizeMode?: SizeMode;
   onSizeModeChange?: (mode: SizeMode) => void;
 }
@@ -29,7 +29,7 @@ const toggleStyle = (on: boolean): React.CSSProperties => ({
 });
 
 /** Two independent view aids. Both start off. */
-export const ViewPanel: React.FC<ViewPanelProps> = ({ axes = false, grid = false, gridShownForPlacement = false, onAxesChange, onGridChange, paths = false, onPathsChange, pathsNote, sizeMode = 'physical', onSizeModeChange }) => (
+export const ViewPanel: React.FC<ViewPanelProps> = ({ axes = false, grid = false, gridShownForPlacement = false, onAxesChange, onGridChange, paths = false, onPathsChange, pathsNote, sizeMode = 'universe', onSizeModeChange }) => (
 
 
   <div style={panelStyle}>
@@ -55,19 +55,19 @@ export const ViewPanel: React.FC<ViewPanelProps> = ({ axes = false, grid = false
       </div>
     )}
     {onSizeModeChange && (
-      <div role="group" aria-label="Body sizes" style={{ marginTop: '8px' }}>
+      <div role="group" aria-label="Rendering view" style={{ marginTop: '8px' }}>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button type="button" aria-pressed={sizeMode === 'physical'} style={toggleStyle(sizeMode === 'physical')} onClick={() => onSizeModeChange('physical')}>
-            Physical sizes
+          <button type="button" aria-pressed={sizeMode === 'universe'} style={toggleStyle(sizeMode === 'universe')} onClick={() => onSizeModeChange('universe')}>
+            Universe View
           </button>
-          <button type="button" aria-pressed={sizeMode === 'exaggerated'} style={toggleStyle(sizeMode === 'exaggerated')} onClick={() => onSizeModeChange('exaggerated')}>
-            Exaggerated
+          <button type="button" aria-pressed={sizeMode === 'exploration'} style={toggleStyle(sizeMode === 'exploration')} onClick={() => onSizeModeChange('exploration')}>
+            Exploration View
           </button>
         </div>
         <p style={{ margin: '6px 0 0 0', fontSize: '11px', color: theme.textMuted }}>
-          {sizeMode === 'physical'
-            ? 'True proportions (the Sun is ~109x Earth). From far away small bodies are enlarged on screen only enough to stay visible; zoom in to see true size.'
-            : 'Every body is drawn at a similar size so all stay visible. Sizes are not to scale.'}
+          {sizeMode === 'universe'
+            ? 'The real scale: the Sun dominates and planets are small dots (a small minimum size keeps them visible).'
+            : 'Planets enlarged to find and select them; moons stay distinguishable when you zoom in on a system.'}
         </p>
       </div>
     )}

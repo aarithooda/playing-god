@@ -1,32 +1,38 @@
-// The one place that turns bodies into scene bodies for a size mode (pure, so it is unit-tested).
-import { separateDisplayRadii } from "./radiusSeparation";
+// The one place that turns bodies into scene bodies for a view (pure, so it is unit-tested).
 import type { RenderTransform, SizeMode } from "./renderTransform";
 import { toSceneBody, type DisplayBody, type SceneBody } from "./viewModel";
 
 /**
- * Adds `clearance` (scene distance to the nearest moon, or to the primary for a moon) to every body that has one.
- * It only limits how far a body is enlarged on screen, so a planet never hides its moons; it changes no radius.
+ * Describes each planet + moons system for the zoom-in growth limit: `clearance` is the smallest planet-moon distance of
+ * the system and `systemPx` the largest minimum radius among its members, shared by all of them so their ratio is kept.
+ * A body outside any system is returned untouched. The relationship is the backend's `primaryId`; a primary that is not in
+ * the scene is ignored. Nothing here changes a radius or a position.
  */
-export function withClearances(bodies: SceneBody[]): SceneBody[] {
+export function withSystems(bodies: SceneBody[]): SceneBody[] {
   const byId = new Map(bodies.map((b) => [b.id, b]));
-  const clearance = new Map<string, number>();
-  const near = (id: string, d: number) => clearance.set(id, Math.min(clearance.get(id) ?? Infinity, d));
+  const systems = new Map<string, { members: SceneBody[]; clearance: number }>();
   for (const m of bodies) {
     const primary = m.primaryId !== undefined && m.primaryId !== m.id ? byId.get(m.primaryId) : undefined;
     if (!primary) continue;
     const d = Math.hypot(m.position[0] - primary.position[0], m.position[1] - primary.position[1], m.position[2] - primary.position[2]);
-    near(m.id, d);
-    near(primary.id, d);
+    const sys = systems.get(primary.id) ?? { members: [primary], clearance: Infinity };
+    sys.members.push(m);
+    sys.clearance = Math.min(sys.clearance, d);
+    systems.set(primary.id, sys);
   }
-  return clearance.size === 0 ? bodies : bodies.map((b) => (clearance.has(b.id) ? { ...b, clearance: clearance.get(b.id)! } : b));
+  if (systems.size === 0) return bodies;
+  const info = new Map<string, { clearance: number; systemPx: number }>();
+  for (const { members, clearance } of systems.values()) {
+    const systemPx = Math.max(...members.map((b) => b.visiblePx ?? 0));
+    for (const b of members) info.set(b.id, { clearance, systemPx });
+  }
+  return bodies.map((b) => (info.has(b.id) ? { ...b, ...info.get(b.id)! } : b));
 }
 
 /**
- * "physical": each body's radius is its own physical radius / scale; nothing about the other bodies enters, so adding a
- * moon (or any body) cannot change another body's size. "exaggerated": the earlier logarithmic radii, shrunk
- * together so close bodies do not overlap (that shrink does depend on the neighbours, which is why it is not the default).
+ * Both views draw the true radius; they differ only in the minimum on-screen size and zoom growth (renderTransform.ts).
+ * A body's entry depends on that body, the scale and the view - never on how many other bodies exist.
  */
-export function buildSceneBodies(bodies: readonly DisplayBody[], transform: RenderTransform, sizeMode: SizeMode): SceneBody[] {
-  const scene = bodies.map((b) => toSceneBody(b, transform, sizeMode));
-  return sizeMode === "physical" ? withClearances(scene) : separateDisplayRadii(scene);
+export function buildSceneBodies(bodies: readonly DisplayBody[], transform: RenderTransform, view: SizeMode): SceneBody[] {
+  return withSystems(bodies.map((b) => toSceneBody(b, transform, view)));
 }

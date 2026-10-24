@@ -28,7 +28,7 @@ interface BodyInspectorProps {
   editBlockedReason?: string;
   /** Radius the scene actually draws for this body (display only), when it differs from the nominal display radius. */
   drawnRadiusUnits?: number;
-  /** "physical": the drawn radius is the true radius in scene units, not a crowding-reduced display radius. */
+  /** Rendering view: when set, the drawn radius is the true radius in scene units (both views draw true geometry). */
   sizeMode?: SizeMode;
 }
 

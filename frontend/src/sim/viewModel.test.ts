@@ -42,7 +42,7 @@ describe("DTO -> view model", () => {
     expect(s.position[0]).toBeCloseTo(14.96, 10);
     expect(s.position[1]).toBe(0);
     expect(s.color).toBe("#3b82f6");
-    expect(s.radius).toBeGreaterThan(0.29);
+    expect(s.radius).toBeCloseTo(6.371e6 / 1e10, 12); // true scale in both views
   });
 
   it("merges events by id without duplicating", () => {

@@ -2,9 +2,10 @@
 // adds derived read-only values (speed). Scene (render) values are produced separately by toSceneBody.
 import type { BodyDto, BodyKind, BodyType, DiagnosticsDto, SimulationEventDto, SimulationStateDto, SimulationStatus, Vec3 } from "../api/types";
 import {
-  displayRadiusUnits,
+  DEFAULT_SIZE_MODE,
+  SIZE_LAWS,
+  minimumRadiusPx,
   physicalRadiusUnits,
-  visibleRadiusPx,
   type SizeMode,
   toScenePosition,
   type RenderTransform,
@@ -51,17 +52,16 @@ export interface SceneBody {
   /** The body this one orbits, when known (moons). Used only to size and label; positions are always simulated. */
   primaryId?: string;
   position: ScenePosition;
-  /** Display radius in scene units (exaggerated, NOT the physical radius). */
+  /** Radius in scene units: the physical radius / metersPerUnit (both views). */
   radius: number;
-  /**
-   * Size the body should APPEAR to have from far away (scene units). A planet with moons has a small `radius` so its
-   * moons are not inside it; from far away it is enlarged on screen towards this size (sim/bodyVisibility.ts).
-   */
-  apparentRadius?: number;
-  /** Scene distance to the nearest moon (for a planet) or to the primary (for a moon): caps the on-screen enlargement. */
-  clearance?: number;
-  /** Smallest on-screen radius in CSS px ("physical" size mode): the body is enlarged on screen only up to this. */
+  /** Minimum on-screen radius (CSS px) at the overview in the active view (renderTransform.minimumRadiusPx). */
   visiblePx?: number;
+  /** Largest factor the minimum grows by while the camera zooms in (the active view's `maxZoomGrowth`). */
+  maxGrowth?: number;
+  /** Scene distance to the nearest moon (a planet) or to the primary (a moon): limits the zoom-in growth only. */
+  clearance?: number;
+  /** Largest minimum (px) in the body's moon system, so planet and moons share one growth factor. */
+  systemPx?: number;
 }
 
 /**
@@ -107,8 +107,7 @@ export function toSimulationView(dto: SimulationStateDto): SimulationView {
 export type DisplayBody = Pick<BodyView, "id" | "name" | "colorHex" | "kind" | "positionM" | "radiusM"> &
   Partial<Pick<BodyView, "bodyType" | "assetKey" | "primaryId">>;
 
-export function toSceneBody(body: DisplayBody, t: RenderTransform, sizeMode: SizeMode = "exaggerated"): SceneBody {
-  const physical = sizeMode === "physical";
+export function toSceneBody(body: DisplayBody, t: RenderTransform, sizeMode: SizeMode = DEFAULT_SIZE_MODE): SceneBody {
   return {
     id: body.id,
     name: body.name,
@@ -118,8 +117,9 @@ export function toSceneBody(body: DisplayBody, t: RenderTransform, sizeMode: Siz
     ...(body.assetKey === undefined ? {} : { assetKey: body.assetKey }),
     ...(body.primaryId === undefined ? {} : { primaryId: body.primaryId }),
     position: toScenePosition(body.positionM, t),
-    radius: physical ? physicalRadiusUnits(body.radiusM, t) : displayRadiusUnits(body.radiusM),
-    ...(physical ? { visiblePx: visibleRadiusPx(body.radiusM) } : {}),
+    radius: physicalRadiusUnits(body.radiusM, t),
+    visiblePx: minimumRadiusPx(body.radiusM, sizeMode),
+    maxGrowth: SIZE_LAWS[sizeMode].maxZoomGrowth,
   };
 }
 

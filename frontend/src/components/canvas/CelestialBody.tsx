@@ -2,7 +2,7 @@ import React, { useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Outlines, Sphere } from '@react-three/drei';
 import { Group, PerspectiveCamera, DoubleSide, BackSide } from 'three';
-import { bodyDisplayScale, zoomBoost } from '../../sim/bodyVisibility';
+import { bodyDisplayScale } from '../../sim/bodyVisibility';
 import { useCelestialMaterial } from './CelestialMaterial';
 import type { BodyKind, BodyType } from '../../api/types';
 
@@ -19,11 +19,11 @@ interface CelestialBodyProps {
   name: string;
   bodyType?: BodyType;
   assetKey?: string;
-  /** See SceneBody: far-away appearance of a planet that stores a small radius for its moons. */
-  apparentRadius?: number;
-  clearance?: number;
-  /** "physical" size mode: the on-screen radius (CSS px) the body is enlarged to at most when it would be smaller. */
+  /** Minimum on-screen radius (CSS px) at the overview, zoom-in growth and moon-system limit: see SceneBody. */
   visiblePx?: number;
+  maxGrowth?: number;
+  clearance?: number;
+  systemPx?: number;
   isSelected?: boolean;
   onClick?: () => void;
   onDoubleClick?: () => void;
@@ -37,9 +37,10 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
   name,
   bodyType = 'default',
   assetKey,
-  apparentRadius,
-  clearance,
   visiblePx,
+  maxGrowth,
+  clearance,
+  systemPx,
   isSelected = false,
   onClick,
   onDoubleClick,
@@ -56,7 +57,7 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
     const [x, y, z] = position;
     const distance = Math.hypot(camera.position.x - x, camera.position.y - y, camera.position.z - z);
     body.current.scale.setScalar(
-      bodyDisplayScale(radius, distance, (camera as PerspectiveCamera).fov, size.height, { minPx: visiblePx === undefined ? undefined : visiblePx * zoomBoost(distance), apparentRadius, clearance }),
+      bodyDisplayScale(radius, distance, (camera as PerspectiveCamera).fov, size.height, { minPx: visiblePx, maxGrowth, clearance, systemPx }),
     );
   });
 
