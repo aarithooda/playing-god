@@ -49,6 +49,12 @@ ITEMS: dict[str, ProvisionalItem] = {i.id: i for i in (
                     "not a physical law"),
     ProvisionalItem("VALIDITY-min-radius", "LS12 disruptive outcomes only for target radius >= 1e4 m", "smallest target of the LS12 simulation set (D-041)", "engineering",
                     "to be checked; the strength regime has no model in v1"),
+    ProvisionalItem("DQ6-ejection-factor", "ejection speed of every fragment/parcel = f x mutual escape speed, f in [1.05, 1.10]", "Chambers 2013 / Childs & Steffen 2022 practice ('somewhat arbitrary', 'likely an underestimate'; secondary text only)",
+                    "engineering", "NOT a universal constant (D-048): source and applicability to non-protoplanet regimes unverified; replace or re-derive before presenting as more than a placeholder"),
+    ProvisionalItem("FRAG-tracked-share", "tracked fragments hold at most 50 % of the debris mass; the rest is the untracked tail", "engineering choice (D-048 (3))",
+                    "engineering", "no source; the tracked/untracked split is a budget policy, not a physical law"),
+    ProvisionalItem("FRAG-parcel-dmin", "untracked population diameter range [1e-3, 1] x its upper cut", "engineering choice",
+                    "engineering", "no source; only a numerical truncation of the statistical descriptor"),
     ProvisionalItem("ESC-physical-radii", "merge criterion v_i <= sqrt(2 G M_tot / (R_t + R_p))", "Genda et al. 2012 eq. 8 / CS22 (physical radii)", "engineering",
                     "LS12 uses R_C1 in its scaling; both speeds are recorded"),
 )}

@@ -64,7 +64,10 @@ def run_and_check_conservation(svc, dt=None):
     after = totals(out)
     assert after[0] == pytest.approx(before[0], rel=1e-14)
     assert math.dist(after[1], before[1]) <= 1e-11 * p_scale
-    l_scale = max(math.sqrt(sum(c * c for c in before[2])), 1.0)
+    # reference of the angular-momentum residual: the larger of |L| and (momentum scale x pair size), as in the engine's own report
+    # (mu R v <= p R); a head-on pair has L = 0 and needs a reference that is not "1"
+    pair_size = sum(b.radiusM for b in svc.snapshot().bodies[:2])
+    l_scale = max(math.sqrt(sum(c * c for c in before[2])), p_scale * pair_size, 1.0)
     assert math.dist(after[2], before[2]) <= 1e-8 * l_scale + 1e-3 * 0, (after[2], before[2])
     return out
 
@@ -100,7 +103,10 @@ def test_event_numbers_identity_and_body_json_of_the_products():
     parcel = next(b for b in out.bodies if b.id.startswith("debris-"))
     j = json.loads(parcel.model_dump_json())
     assert j["representation"] == "debris-parcel" and j["originEventId"] == "col-1" and j["debris"]["sampleSeed"] >= 0
-    assert j["debris"]["sizeDistribution"] is None and j["debris"]["totalMassKg"] == parcel.massKg and parcel.bodyType == "asteroid"
+    assert j["debris"]["sizeDistribution"]["kind"] == "power-law" and j["debris"]["totalMassKg"] == parcel.massKg and parcel.bodyType == "asteroid"
+    frag_body = next(b for b in out.bodies if b.id.startswith("frag-"))
+    fj = json.loads(frag_body.model_dump_json())
+    assert fj["representation"] == "fragment" and fj["originEventId"] == "col-1" and "debris" not in fj and frag_body.name.endswith("fragment")
     rem = next(b for b in out.bodies if b.id.startswith("rem-"))
     rj = json.loads(rem.model_dump_json())
     assert rj["originEventId"] == "col-1" and "representation" not in rj and rem.name.endswith("remnant")
@@ -247,13 +253,23 @@ def test_an_exception_while_applying_rolls_everything_back(monkeypatch):
 
 
 # ------------------------------------------------------------------------------------------------ budgets
-def test_debris_goes_back_to_the_remnant_when_the_parcel_budget_is_zero():
-    svc = deferred(max_debris_parcels_per_event=0, max_debris_parcels_total=0)
+def test_debris_goes_back_to_the_remnant_when_the_parcel_and_fragment_budgets_are_zero():
+    svc = deferred(max_debris_parcels_per_event=0, max_debris_parcels_total=0, max_tracked_fragments_per_event=0, max_tracked_fragments_total=0)
     pair_service(8.0, svc=svc)
     out = svc.step(svc.approach_s)
     (event,) = out.events
     assert "debris_returned_to_remnant" in event.warnings and event.debrisMassKg == 0.0 and not any(b.id.startswith("debris-") for b in out.bodies)
     assert out.diagnostics.totalMassKg == pytest.approx(1.5e22, rel=1e-14)  # nothing was discarded
+
+
+def test_with_no_parcel_budget_the_untracked_tail_goes_to_the_remnant_and_the_fragments_stay():
+    svc = deferred(max_debris_parcels_per_event=0, max_debris_parcels_total=0)
+    pair_service(3.0, svc=svc)
+    out = svc.step(svc.approach_s)
+    (event,) = out.events
+    assert "debris_returned_to_remnant" in event.warnings and not any(b.id.startswith("debris-") for b in out.bodies)
+    assert sum(b.id.startswith("frag-") for b in out.bodies) > 0
+    assert out.diagnostics.totalMassKg == pytest.approx(1.5e22, rel=1e-14)
 
 
 def test_the_body_cap_with_the_reserve_blocks_new_parcels_without_losing_mass():
@@ -316,13 +332,31 @@ def test_a_parcel_that_merges_into_a_body_stops_being_a_parcel():
     assert parcel_id not in svc._products
 
 
-def test_replay_gives_identical_numbers_in_a_fresh_universe():
+def test_replay_after_restore_gives_bitwise_identical_products():
+    """The seed is content-addressed over the canonical impact (which includes the body ids), so the same universe replayed from a snapshot
+    reproduces every fragment bit for bit."""
+    svc, *_ = pair_service(3.0)
+    snap = svc.capture_snapshot()
+
+    def run():
+        svc.restore_snapshot(snap)
+        out = svc.step(svc.approach_s)
+        # ids are never reused (the event counter is not reset by a restore), so compare the numbers, not the names
+        return sorted((b.massKg, b.radiusM, b.velocityMPerS.x, b.velocityMPerS.y, b.velocityMPerS.z, b.positionM.x) for b in out.bodies), out.events[0].outcome
+
+    assert run() == run()
+
+
+def test_a_fresh_universe_gives_the_same_outcome_and_totals():
+    """Body ids are random, so the fragment details differ between fresh universes; the outcome, the remnant and the totals do not."""
     def run():
         svc, *_ = pair_service(3.0)
         out = svc.step(svc.approach_s)
-        return sorted((round(b.massKg, 3), b.radiusM, b.velocityMPerS.x, b.velocityMPerS.y, b.positionM.x) for b in out.bodies), out.events[0].outcome
+        rem = max(out.bodies, key=lambda b: b.massKg)
+        return out.events[0].outcome, round(rem.massKg, 3), out.diagnostics.totalMassKg
 
-    assert run() == run()
+    a, b = run(), run()
+    assert a[0] == b[0] and a[2] == pytest.approx(b[2], rel=1e-14)
 
 
 # ------------------------------------------------------------------------------------------------ legacy exactness (D-033, DQ-2)

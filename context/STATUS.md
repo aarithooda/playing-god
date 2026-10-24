@@ -5,7 +5,10 @@
 # Status
 _Concise authoritative snapshot. Update after every meaningful session._
 
-## Collision engine — Stage 4b (2026-10-24, Claude Sonnet 5.5) — newest
+## Collision engine — Stage 5 (2026-10-24, Claude Sonnet 5.5) — newest
+- **Done** on `collision/stage-5-fragments`: fragments + parcels with budgets (D-046..D-049), `tests/impact/test_fragments.py`. 1278 backend (1092 + 186 new) / 449 vitest / tsc clean / build OK. Science PROVISIONAL, CP-SCI-1 unsigned; cratering Unsupported.
+
+## Collision engine — Stage 4b (2026-10-24, Claude Sonnet 5.5)
 - **Done** on `collision/stage-4b-default-mode`: new sandboxes and the startup `uni-default` use `outcome-v1`; presets and Orbit Lab stay `legacy-merge` until Stage 11 (D-045); `tests/impact/test_mode_defaults.py` added. 1092 backend (1081 + 11 new) / 449 vitest / tsc clean / build OK. Science PROVISIONAL, CP-SCI-1 unsigned. **Open:** Stage 5 needs DQ-4/5/6.
 
 ## Collision engine — Stage 4a (2026-10-24, Claude Sonnet 5.5)

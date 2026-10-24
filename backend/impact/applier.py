@@ -20,16 +20,19 @@ Geometry of the products (all in the pair's centre-of-mass frame at the contact 
   projectile is unchanged (its erosion is not modelled, warning from the model), the target's lost mass is a parcel.
 """
 import math
+import random
 from dataclasses import dataclass
 from typing import Callable, Optional
 
 from backend.collisions import add_named_particle
 from backend.errors import CodedError
 from backend.impact import conservation as cons
+from backend.impact import fragments as frag
 from backend.impact import rotation as rot
 from backend.impact.contracts import (BodyImpactState, BodyPost, CollisionInput, CollisionResult, DebrisDescriptor, Fidelity, MassLedger,
-                                      MaterialProfile, MaterialRef, OutcomeSpec, ParcelPost, RotationState, Vec3)
+                                      MaterialProfile, MaterialRef, OutcomeSpec, ParcelPost, RotationState, SizeDistribution, Vec3)
 from backend.impact.materials import get_profile
+from backend.impact.models.ls12 import BETA
 
 DEBRIS_LAUNCH_FACTOR = 1.1  # placeholder relative speed of the parcel in units of the mutual escape speed (D-043, DQ-6 choice (a))
 MASS_FLOOR = 1.0e-15  # a debris mass below this fraction of the total is numerical noise and is folded into the remnant
@@ -119,10 +122,17 @@ def _rotation_post(spin: Vec, inertia: Optional[float], q0: rot.Quat, t_s: float
 
 
 # ------------------------------------------------------------------------------------------------ realisation
+def frag_size_distribution(beta: float, d_max: float):
+    """Descriptor of an untracked population: power law with the LS12 exponent between a provisional lower cut and its upper cut."""
+    return SizeDistribution("power-law", beta, frag.PARCEL_DMIN_RATIO * d_max, d_max)
+
+
 def realise(data: CollisionInput, spec: OutcomeSpec, g: float, parcel_allowed: bool = True, extra_warnings: tuple[str, ...] = (),
-            represent_spin: bool = True) -> CollisionResult:
+            represent_spin: bool = True, budget: "Optional[frag.FragmentBudget]" = None) -> CollisionResult:
     """Build the validated-by-construction `CollisionResult` of `spec` for the frozen impact. Pure. With `represent_spin=False` no product
-    gets a rotation state (the angular momentum is booked in the ledger and reported unmodelled): the last-resort fallback that cannot fail."""
+    gets a rotation state (the angular momentum is booked in the ledger and reported unmodelled): the last-resort fallback that cannot fail.
+    With a `budget` (Stage 5) the debris of a non-hit-and-run outcome is realised into tracked fragments and parcels (`fragments.py`);
+    without one it is ONE parcel (the Stage 4a placeholder, kept for the pure-model tests and the hit-and-run outcome)."""
     imp, cfg = data.impact, data.config
     tgt, prj = imp.target, imp.projectile
     seq = data.event_id.split("-", 1)[1]
@@ -165,6 +175,7 @@ def realise(data: CollisionInput, spec: OutcomeSpec, g: float, parcel_allowed: b
     kept_profile = tgt.material_profile if (material_t == material_p) else None
     k_kept = None if kept_profile is None else kept_profile.moment_of_inertia_factor
 
+    recoil_report = 0.0
     transformed: list[BodyPost] = []
     created: list[BodyPost] = []
     parcels: list[ParcelPost] = []
@@ -240,12 +251,59 @@ def realise(data: CollisionInput, spec: OutcomeSpec, g: float, parcel_allowed: b
         warnings.append("hit_and_run_inelastic_normal_contact")
         # energy test reference: the removed normal kinetic energy is dissipated by construction
     else:
-        # --- one largest remnant (+ optionally one parcel) on a line through the COM along the downrange direction e
+        # --- one largest remnant + (Stage 5) tracked fragments and parcels on a ring, or (4a placeholder) ONE parcel on a line through the COM
+        staged = budget is not None and debris > 0.0
+        fragment_posts: list[BodyPost] = []
+        if staged:
+            rng = random.Random(data.seed)
+            split = frag.split_masses(debris, m1, m_tot, BETA, budget.max_fragments, budget.min_mass_fraction, rng)
+            tail = split.tail_kg
+            if tail > 0.0 and (budget.max_parcels <= 0 or tail < MASS_FLOOR * m_tot):
+                # D-047: no parcel may exist (or the tail is numerical noise): the untracked mass goes to the largest remnant, momentum closed below
+                returned += tail
+                m1 += tail
+                debris -= tail
+                tail = 0.0
+                warnings.append("debris_returned_to_remnant")
+            n_par = 0 if tail <= 0.0 else max(1, min(budget.max_parcels, 4))
+            parcel_masses = [tail / n_par] * n_par if n_par else []
+            if n_par:
+                parcel_masses[-1] = tail - math.fsum(parcel_masses[:-1])
+            have_parcel = bool(split.tracked) or n_par > 0
+            warnings.extend(("ejection_speed_provisional", "provisional:CP-SCI-1", "debris_realised_as_fragments"))
+            fidelity["fragments"] = Fidelity.APPROXIMATION
+            fidelity["debrisParcels"] = Fidelity.STATISTICAL
+        else:
+            have_parcel = debris > 0.0
         rem_radius = _sphere_radius(m1, rho_bulk)
         i1 = None if (k_kept is None or not represent_spin) else k_kept * m1 * rem_radius ** 2
-        have_parcel = debris > 0.0
         e_hat = _unit(u) if speed > 0.0 else n_hat
-        if have_parcel:
+        products_after: list[cons.State] = []
+        recoil = 0.0
+        if staged and have_parcel:
+            masses = [*split.tracked, *parcel_masses]
+            radii = [_sphere_radius(m, rho_bulk) for m in masses]
+            lay = frag.ring_layout(m1, rem_radius, masses, radii, frag.plane_basis(u if speed > 0.0 else n_hat, n_hat), v_esc, eps, g, rng)
+            pos1, vel1 = lay.remnant_position, _add(v_c, lay.remnant_velocity)
+            recoil = lay.recoil_m_per_s
+            for k, (mass, radius, pos, vel) in enumerate(zip(masses, radii, lay.positions, lay.velocities)):
+                abs_vel = _add(v_c, vel)
+                if k < len(split.tracked):
+                    fragment_posts.append(BodyPost(id=f"frag-{seq}-{k}", mass_kg=mass, radius_m=radius, position_m=Vec3.of(_add(x_c_td, pos)),
+                                                   velocity_m_per_s=Vec3.of(abs_vel), representation="fragment",
+                                                   material=None if kept_profile is None else ref_from_profile(kept_profile),
+                                                   origin_event_id=data.event_id))
+                    products_after.append(cons.State(mass, _add(x_c, pos), abs_vel, radius))
+                else:
+                    index = k - len(split.tracked)
+                    desc = DebrisDescriptor(
+                        total_mass_kg=mass, size_distribution=frag_size_distribution(BETA, 2.0 * radius),
+                        velocity_dispersion_m_per_s=(frag.EJECTION_FACTOR_RANGE[1] - frag.EJECTION_FACTOR_RANGE[0]) * v_esc,
+                        material_profile_id=None if tgt.material_profile is None else tgt.material_profile.id, sample_seed=descriptor_seed)
+                    parcels.append(ParcelPost(id=f"debris-{seq}-{index}", mass_kg=mass, radius_m=radius, position_m=Vec3.of(_add(x_c_td, pos)),
+                                              velocity_m_per_s=Vec3.of(abs_vel), debris=desc, origin_event_id=data.event_id))
+                    products_after.append(cons.State(mass, _add(x_c, pos), abs_vel, radius, self_bound=False))
+        elif have_parcel:
             rd = _sphere_radius(debris, rho_bulk)
             s_sep = (rem_radius + rd) * (1.0 + eps)
             w = DEBRIS_LAUNCH_FACTOR * v_esc
@@ -254,21 +312,29 @@ def realise(data: CollisionInput, spec: OutcomeSpec, g: float, parcel_allowed: b
             vel1 = _sub(v_c, _scale(e_hat, w * debris / m_tot))
             veld = _add(v_c, _scale(e_hat, w * m1 / m_tot))
             warnings.append("debris_launch_speed_placeholder")
+            parcels.append(parcel_post(debris, rd, _add(x_c_td, posd), veld))
+            products_after.append(cons.State(debris, _add(x_c, posd), veld, rd, self_bound=False))
         else:
             pos1, vel1 = (0.0, 0.0, 0.0), v_c
+        if staged and have_parcel:
+            # products off the line: their orbital angular momentum about the COM is not zero, so the remnant's spin is what is left
+            orbital_products = cons.orbital_angular_momentum([cons.State(m1, _add(x_c, pos1), vel1, rem_radius), *products_after], x_c, v_c)
+            s_remnant_budget = _sub(s_budget, orbital_products)
+        else:
+            s_remnant_budget = s_budget
         if i1 is not None:
-            spin1 = s_budget
+            spin1 = s_remnant_budget
             if have_parcel:
-                # DQ-13 (D-043, provisional): a remnant cannot spin faster than break-up. With a debris parcel present the excess angular
+                # DQ-13 (D-043, provisional): a remnant cannot spin faster than break-up. With debris present the excess angular
                 # momentum is carried by the dispersed debris (its internal rotation is not tracked): booked in the ledger, reported.
                 cap = i1 * math.sqrt(g * m1 / rem_radius ** 3)
-                if _norm(s_budget) > cap:
-                    spin1 = _scale(s_budget, cap / _norm(s_budget))
+                if _norm(spin1) > cap:
+                    spin1 = _scale(spin1, cap / _norm(spin1))
                     unmodelled = "the angular momentum above the remnant's break-up spin is carried by the debris population (not tracked): booked in the spin ledger"
                     warnings.append("remnant_spin_capped_at_breakup")
         else:
             spin1 = (0.0, 0.0, 0.0)
-            if _norm(s_budget) > 0.0:
+            if _norm(s_remnant_budget) > 0.0:
                 unmodelled = "the remnant has no sourced moment of inertia: the angular momentum is booked in the spin ledger, not in a spin state"
         keeps = outcome in SINGLE_REMNANT or outcome in KEEPS_TARGET_ID
         remnant_id = tgt.id if keeps else f"rem-{seq}-0"
@@ -276,11 +342,10 @@ def realise(data: CollisionInput, spec: OutcomeSpec, g: float, parcel_allowed: b
                         material=None if kept_profile is None else ref_from_profile(kept_profile), rotation=_rotation_post(spin1, i1, q_td, t_td, tgt.spin_rad_per_s is not None or prj.spin_rad_per_s is not None),
                         origin_event_id=None if keeps else data.event_id)
         (transformed if keeps else created).append(post)
+        created.extend(fragment_posts)
+        recoil_report = recoil
         removed = [prj.id] if keeps else [tgt.id, prj.id]
-        after = [cons.State(m1, _add(x_c, pos1), vel1, rem_radius, spin1, i1)]
-        if have_parcel:
-            parcels.append(parcel_post(debris, rd, _add(x_c_td, posd), veld))
-            after.append(cons.State(debris, _add(x_c, posd), veld, rd, self_bound=False))
+        after = [cons.State(m1, _add(x_c, pos1), vel1, rem_radius, spin1, i1), *products_after]
         if i1 is not None and rem_radius > 0.0 and m1 > 0.0:
             omega = _norm(spin1) / i1
             if omega > math.sqrt(g * m1 / rem_radius ** 3):
@@ -289,12 +354,13 @@ def realise(data: CollisionInput, spec: OutcomeSpec, g: float, parcel_allowed: b
     # angular momentum scale of the residual: the larger of |L_before| and mu R v
     scale = imp.reduced_mass_kg * (tgt.radius_m + prj.radius_m) * speed
     report, shift = cons.build_report(before, after, g, cfg.tolerances, scale, unmodelled)
-    ledger = MassLedger(consumed_bodies_kg=m_tot, remnants_kg=math.fsum(p.mass_kg for p in (*transformed, *created)), fragments_kg=0.0,
+    ledger = MassLedger(consumed_bodies_kg=m_tot, remnants_kg=math.fsum(p.mass_kg for p in (*transformed, *created) if p.representation == "body"),
+                        fragments_kg=math.fsum(p.mass_kg for p in created if p.representation == "fragment"),
                         parcels_kg=math.fsum(p.mass_kg for p in parcels), escaped_kg=0.0, returned_to_remnant_kg=returned)
     result = CollisionResult(
         event_id=data.event_id, outcome=outcome, removed_body_ids=tuple(removed), transformed=tuple(transformed), created=tuple(created),
         debris_parcels=tuple(parcels), impact_sites=(), mass_ledger=ledger, conservation=report, warnings=tuple(dict.fromkeys(warnings)),
-        fidelity=fidelity, fields_extra={"placementShiftJ": shift})
+        fidelity=fidelity, fields_extra={"placementShiftJ": shift, "momentumClosureRecoilMPerS": recoil_report})
     return CollisionResult.from_dict({**result.to_dict(), "resultDigest": result.compute_digest()})
 
 
@@ -374,8 +440,8 @@ def apply_result(result: CollisionResult, state: ApplyState) -> None:
     for post in result.created:
         add_named_particle(sim, post.id, m=post.mass_kg, r=post.radius_m, x=post.position_m.x, y=post.position_m.y, z=post.position_m.z,
                            vx=post.velocity_m_per_s.x, vy=post.velocity_m_per_s.y, vz=post.velocity_m_per_s.z)
-        state.meta[post.id] = state.make_meta(parent_meta, post.id, "remnant")
-        state.products[post.id] = ("body", post.origin_event_id, None)
+        state.meta[post.id] = state.make_meta(parent_meta, post.id, "fragment" if post.representation == "fragment" else "remnant")
+        state.products[post.id] = (post.representation, post.origin_event_id, None)
         _set_tables(state, post)
     for parcel in result.debris_parcels:
         add_named_particle(sim, parcel.id, m=parcel.mass_kg, r=parcel.radius_m, x=parcel.position_m.x, y=parcel.position_m.y,

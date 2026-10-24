@@ -124,7 +124,7 @@ class SizeDistributionSpec(BaseModel):
 
 
 class DebrisSpec(BaseModel):
-    """What a debris parcel stands for (statistical population; plan 3.9). `sizeDistribution` is null until fragmentation (Stage 5)."""
+    """What a debris parcel stands for (statistical population; plan 3.9). `sizeDistribution` is set for parcels of Stage 5 fragmentation (null only for the single-parcel hit-and-run path)."""
 
     totalMassKg: float
     sizeDistribution: SizeDistributionSpec | None = None

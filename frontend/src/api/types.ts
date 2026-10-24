@@ -91,7 +91,7 @@ export interface OrientationDto {
   epochS: number;
 }
 
-/** What a debris parcel stands for (a statistical population, not a single object). `sizeDistribution` is null until fragmentation (Stage 5). */
+/** What a debris parcel stands for (a statistical population, not a single object). `sizeDistribution` is set for parcels of Stage 5 fragmentation (null only for the single-parcel hit-and-run path). */
 export interface DebrisDto {
   totalMassKg: number;
   sizeDistribution: { kind: "power-law"; exponent: number; dMinM: number; dMaxM: number } | null;

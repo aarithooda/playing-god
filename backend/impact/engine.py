@@ -26,6 +26,7 @@ from backend.impact.applier import ApplyState, ResultInvalid, apply_result, coll
 from backend.impact.config import CollisionConfig
 from backend.impact.contracts import CollisionEvent, CollisionRecord, CollisionResult, ContractError, OutcomeSpec
 from backend.impact.detection import ContactCandidate, order_key
+from backend.impact.fragments import FragmentBudget
 from backend.impact.geometry import BodyExtras, capture_impact
 from backend.impact.models.perfect_merge import MODEL_ID, MODEL_VERSION, PairBody, merge_pair
 from backend.impact.records import build_input, build_record
@@ -144,15 +145,32 @@ class CollisionEngine:
         live_ids = {p.name for p in sim.particles}
         n_bodies, parcels_now = len(sim.particles), parcel_count()
 
+        fragments_now = sum(1 for v in apply_state().products.values() if v[0] == "fragment")
+
+        def room(spec: OutcomeSpec) -> int:
+            """Bodies the event may ADD beyond the pair it consumes (the reserve for the user stays free, D-047)."""
+            new_remnant = spec.outcome in NEW_REMNANT_OUTCOMES
+            base_net = (1 if new_remnant else 0) - (2 if new_remnant else (0 if spec.outcome == "hit_and_run" else 1))
+            return MAX_BODIES - cfg.reserve_for_user - (n_bodies + base_net)
+
+        def budget_for(spec: OutcomeSpec) -> FragmentBudget:
+            """Parcels first (they hold the mass nothing else can, D-047), then tracked fragments, within the per-event, global and body limits."""
+            free = max(room(spec), 0)
+            parcels_ok = min(cfg.max_debris_parcels_per_event, max(cfg.max_debris_parcels_total - parcels_now, 0), free)
+            fragments_ok = min(cfg.max_tracked_fragments_per_event, max(cfg.max_tracked_fragments_total - fragments_now, 0), max(free - parcels_ok, 0))
+            if spec.outcome == "hit_and_run":
+                fragments_ok = 0  # the 4a single-parcel path (documented limitation)
+            return FragmentBudget(fragments_ok, parcels_ok, cfg.tracked_fragment_min_mass_fraction)
+
         def parcel_allowed(spec: OutcomeSpec) -> bool:
             if spec.debris_mass_kg <= 0.0:
                 return True
-            new_remnant = spec.outcome in NEW_REMNANT_OUTCOMES
-            net = (1 if new_remnant else 0) + 1 - (2 if new_remnant else (0 if spec.outcome == "hit_and_run" else 1))
-            return parcels_now < cfg.max_debris_parcels_total and n_bodies + net <= MAX_BODIES - cfg.reserve_for_user
+            b = budget_for(spec)
+            return b.max_parcels + b.max_fragments > 0
 
         def attempt(spec: OutcomeSpec, extra: tuple[str, ...], represent_spin: bool = True) -> CollisionResult:
-            result = realise(data, spec, self.g, parcel_allowed=parcel_allowed(spec), extra_warnings=extra, represent_spin=represent_spin)
+            result = realise(data, spec, self.g, parcel_allowed=parcel_allowed(spec), extra_warnings=extra, represent_spin=represent_spin,
+                             budget=budget_for(spec))
             validate_result(result, live_ids, data)
             return result
 

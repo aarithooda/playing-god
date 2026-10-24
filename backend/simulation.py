@@ -852,6 +852,8 @@ class SimulationService:
         def make_meta(parent: BodyMeta, new_id: str, role: str) -> BodyMeta:
             if role == "parcel":
                 return BodyMeta(f"Debris of {parent.name}", parent.color, "planet", None, "asteroid", None, None)
+            if role == "fragment":
+                return BodyMeta(f"{parent.name} fragment", parent.color, "planet", None, "asteroid", None, None)
             return BodyMeta(f"{parent.name} remnant", parent.color, parent.kind, None, default_body_type(parent.kind), None, None)
 
         return ApplyState(sim=self._sim, meta=self._meta, materials=self._materials, rotations=self._rotations, products=self._products,
