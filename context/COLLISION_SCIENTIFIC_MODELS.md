@@ -148,5 +148,12 @@ Bulk density is **computed** from each body's mass and radius, not taken from th
 | tracked fragment mass threshold | engineering (budget) | decision (DQ-6) |
 | ejection speed multiple of v_esc | C13 / CS22 practice ("somewhat arbitrary") | decision (DQ-6) |
 
+## 6a. Mandatory scientific gate (owner, D-033) — part of CP-SCI-1
+| ID | Paper value (LS12) | Planning calculation | What must be traced |
+|---|---|---|---|
+| UD-1 | Q*_RD,γ=1 = 5.3 J/kg (and V* = 6.5 m/s) for "two 1 km rock bodies", R_C1 ≈ 2 km, c* = 5, μ̄ = 0.37 (§VI.3.2, verbatim) | ≈ 3.35 J/kg from `c* (4/5) π ρ1 G R_C1²` with R_C1 = 2 km, ρ1 = 1000 kg m⁻³ | printed eq. (28) and its prefactor; whether "1 km" is radius or diameter; body density; the R_C1 actually used; units (J/kg vs erg/g) |
+| UD-2 | b_crit = 0.66 for γ = 0.1 (§VI.3.1, verbatim) | 0.683 from `R_t/(R_t+R_p)` with equal densities | printed eq. (6); whether R_t, R_p or another radius definition is used; densities assumed in the example; rounding |
+Procedure: (1) transcribe the printed equations and definitions with equation and page numbers; (2) reproduce both values independently (independent AI session) and record the full calculation in `WORKLOG.md`; (3) if they reproduce, record which planning assumption was wrong; if not, record the discrepancy and stop for an owner decision; (4) the named human reviewer signs off; (5) only then may LS12 code paths that depend on eq. (28), eq. (6) or derived thresholds be enabled. Gate tests assert the paper's printed values from traced inputs. Planner numbers are never used as expected values.
+
 ## 7. Unresolved scientific decisions (owner)
 DQ-6 ejection speed prescription and tracked-fragment threshold; DQ-7 c* class transition; DQ-8 gas-giant handling and envelope threshold; DQ-9 strength regime; DQ-13 super-critical spin. CP-SCI-1 items: LS12 worked-example discrepancy (5.3 vs ≈3.35 J/kg); b_crit check value (0.66 vs 0.683); exponent form of Q'*_RD; G12 coefficients; BA99 constants; HH11 Table 3 transcription; μ̄ for planets; C13 ejection speed. **Alternative models kept as extension options:** G20 largest-remnant model (hit-and-run/erosive treatment), E20 machine-learning surrogate (rotating, differentiated bodies — would address spin and differentiation better than LS12), future hydrodynamics via the `OutcomeModel` adapter.

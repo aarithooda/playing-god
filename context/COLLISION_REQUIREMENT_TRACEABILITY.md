@@ -70,7 +70,7 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 | F1-DET-4 | Planets, moons, asteroids, tracked fragments | bodies generic | fragments are bodies | ST5, ST7 | T/life fragment contacts | PART |
 | F1-DET-5 | Simultaneous contacts deterministic | `rand_seed` order [Exists] | sort key | ST1 | T/det 4 pairs × 20 orders | PART |
 | F1-DET-6 | No corrupted integration state mid-step | rollback [Exists] | overlap check after apply | ST1, ST4 | T/det injected failure; post-apply overlap test | PART |
-| F1-DET-EVAL | Evaluate swept/continuous/adaptive options; justify | spike evidence [Exists PHYSICS_SPIKE] | — | ST0 (doc) | plan §3.4; DECISIONS D-033 | SUP (doc in plan) |
+| F1-DET-EVAL | Evaluate swept/continuous/adaptive options; justify | spike evidence [Exists PHYSICS_SPIKE] | — | ST0 (doc) | plan §3.4; DECISIONS D-034 (architecture, Stage 0) | SUP (doc in plan) |
 | F1-ID-1 | Stable event id and lifecycle | `evt-N` never reset [Exists] | lifecycle states | ST1 | T/rec | PART |
 | F1-ID-2 | Distinguish initial vs secondary impacts | — | generation/parent | ST7 | T/life parent link | MISS |
 | F1-ID-3 | Distinguish repeated contacts of same objects | — | separate records | ST1, ST7 | T/det repeated contact after separation → 2 records | MISS |
@@ -101,7 +101,7 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 | M-PROP-7 | Internal-structure description | — | structureClass + layers | ST2 | T/mat | MISS |
 | M-PROP-8 | Validity range & provenance | catalogue pattern [Exists OD-2] | provenance per value | ST2 | T/mat provenance rejection | MISS |
 | M-PROP-MAP | Parameters required by models mapped to body representation | — | SCIENTIFIC_MODELS §5 | ST2 | review CP-SCI-1 | MISS |
-| M-PROP-FALLBACK | Unknown/incomplete properties: explicit fallback; no arbitrary values | — | `material_unspecified` → legacy (DQ-2) | ST2–ST4 | T/sel fallback; T/mat incomplete | DEC |
+| M-PROP-FALLBACK | Unknown/incomplete properties: explicit fallback; no arbitrary values | — | exact legacy merge + `material_unspecified` label in the record; never assign a material, never refuse (DQ-2 (a), D-033) | ST2–ST4 | T/sel fallback; T/mat incomplete; ST4 legacy-exactness re-run (byte-identical events/state) | MISS (decided D-033) |
 | M-INT-1 | Rock+rock: cratering, accretion, ejecta, disruption | — | — | ST3–ST6 | T/scn A, C, D | MISS |
 | M-INT-2 | Ice+rock: composition-sensitive outcome & debris | — | — | ST3, ST5 | T/sel ice-rock; T/frag composition | MISS |
 | M-INT-3 | Metal-rich+rock: different response, composition-dependent remnants | — | layered stripping | ST3, ST5 | T/frag iron-fraction direction | MISS |
@@ -204,8 +204,8 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 | V-TRAJ-1 | Particles follow trajectories from physical ICs | — | parcels are bodies | ST5, ST9 | V/debrisSampling anchored to parcel position | MISS |
 | V-TRAJ-NO-1..5 | No teleport, no per-frame randomization, no removal on animation end, no drama edits, no desync | — | deterministic samples | ST9 | V/debrisSampling determinism; T/life removal rules | MISS |
 | V-TRAJ-INTERP | Interpolation only for display | no interpolation today | optional display interpolation | ST9 | V test: interpolation never feeds API | MISS |
-| V-TIME-1..7 | Pause/resume, time scaling, replay, smooth interpolation, alignment, overlapping events, cleanup of expired visuals | history replay [Exists] | effect timeline | ST9 | V/effectTimeline | PART |
-| V-TIME-LIFE | Visual effects finite lifetime; fragments follow lifecycle | — | — | ST9 | V/effectTimeline | MISS |
+| V-TIME-1..7 | Pause/resume, time scaling, replay, smooth interpolation, alignment, overlapping events, cleanup of expired visuals | history replay [Exists] | effect timeline; rule approved DQ-12 (a), D-033 | ST9 | V/effectTimeline | PART |
+| V-TIME-LIFE | Visual effects finite lifetime; fragments follow lifecycle | — | visual-only: short wall-clock duration, frozen while paused, replayed on seek-back, no mass field (D-033) | ST0 (contract), ST9 | V/effectTimeline pause/seek-back/seek-past tests; type-level no-mass test | MISS (decided D-033) |
 | V-PERF-1..6 | Limits: visual particles, tracked fragments, simultaneous effects, update frequency, camera LOD, aggregation | — | budgets | ST5, ST9 | V/effectBudget; T/frag budgets | MISS |
 | V-PERF-NOPHYS | LOD never alters physical state/accounting | — | — | ST9 | E2E/col inspector numbers unchanged | MISS |
 | F6-AC-1..5 | Animation matches outcome; fragments continue after effects; no divergence on pause/scale; materials distinguishable; limits don't lose mass | — | — | ST9, ST12 | V/*, E2E/col, T/scn F | MISS |
@@ -304,7 +304,7 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 |---|---|---|---|
 | DLV-1 | Repository audit | plan §0–§1 | done (planning) |
 | DLV-2 | Requirement-to-code map | this file | done (planning) |
-| DLV-3 | Scientific model selection | `COLLISION_SCIENTIFIC_MODELS.md` | done, with CP-SCI-1 open items |
+| DLV-3 | Scientific model selection | `COLLISION_SCIENTIFIC_MODELS.md` | done, with CP-SCI-1 open items incl. the mandatory gate UD-1/UD-2 (§6a, D-033) |
 | DLV-4 | Architecture & contracts | plan §3–§4 | done (planning) |
 | DLV-5 | Phased plan | plan §6 + execution guide | done (planning) |
 | DLV-6 | Risk register | `COLLISION_RISK_REGISTER.md` | done (planning) |
@@ -345,5 +345,16 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 | FP-7 | what stayed bound / reaccreted / escaped | classification + ledgers | ST7, ST8 | T/life, T/rec |
 | FP-8 | what was calculated, approximated or visualized | fidelity labels | ST0, ST8, ST9 | V/describe labels |
 
+## Owner-decision constraints (D-033, 2026-10-24)
+These are not spec requirements but binding constraints on how the rows above are implemented; each has its own verification.
+| ID | Constraint | Stage | Verification | Status |
+|---|---|---|---|---|
+| OD33-BRIEF | `PROJECT_BRIEF.md` references the spec; hydrodynamics/SPH stays a non-goal (DQ-1 a) | ST0 | doc diff review | MISS |
+| OD33-LEGACY | Material-less pairs resolve exactly as legacy in every mode; label `material_unspecified`; no silent material; no refusal (DQ-2 a) | ST2, ST4 | ST4 legacy-exactness re-run; T/sel fallback | MISS |
+| OD33-MODE | All universes `legacy-merge` until step 4b; then `outcome-v1` for new sandboxes only; presets and Orbit Lab legacy until Stage 11 | ST0 (constant), ST4b, ST11 | `tests/impact/test_mode_defaults.py`; ST11 acceptance | MISS |
+| OD33-VIS | Visual-only effects: wall-clock duration, freeze on pause, replay on seek-back, never mass-bearing (DQ-12 a) | ST0, ST9 | V/effectTimeline; type-level test | MISS |
+| OD33-REVIEW | Independent AI session for routine physics checks; named human for CP-SCI-1 and CP-5; everything logged in `WORKLOG.md` (DQ-14 d) | ST3, ST12, all physics stages | WORKLOG entries; TASKS.md reviewer name | MISS |
+| OD33-GATE | UD-1 (5.3 J/kg) and UD-2 (b_crit 0.66) reproduced from the original LS12 paper with traced equations/definitions/assumptions/units and human sign-off before disputed constants are used | ST3 | `test_ls12_worked_example_q_rd_gamma1`, `test_ls12_worked_example_b_crit`; WORKLOG sign-off | BLK until CP-SCI-1 |
+
 ## Coverage summary
-Every numbered item of §1–§18 has at least one row; grouped rows (e.g. `F1-INFO-1..12` expanded, `R-A-1..6`, `NF-1..8`, `ST-1..11`, `HX-IF-1..9`) list each sub-item in the spec's order and are verified item by item by the named tests. Rows with status DEC: M-PROP-FALLBACK (DQ-2), M-CAT-ICE/M-PROP-3 strength (DQ-9), M-INT-5 (DQ-8), R-B-1 threshold (DQ-6), R-B-2/G-2 (DQ-4), PER-1..5 disk (DQ-11). No row is BLK; none was removed.
+Every numbered item of §1–§18 has at least one row; grouped rows (e.g. `F1-INFO-1..12` expanded, `R-A-1..6`, `NF-1..8`, `ST-1..11`, `HX-IF-1..9`) list each sub-item in the spec's order and are verified item by item by the named tests. Rows with status DEC: M-CAT-ICE/M-PROP-3 strength (DQ-9), M-INT-5 (DQ-8), R-B-1 threshold (DQ-6), R-B-2/G-2 (DQ-4), PER-1..5 disk (DQ-11). M-PROP-FALLBACK and V-TIME-LIFE were decided by the owner (D-033) and are now MISS (to implement). The only BLK row is the owner constraint OD33-GATE, which blocks the disputed LS12 constants until CP-SCI-1; no spec requirement is blocked and none was removed.

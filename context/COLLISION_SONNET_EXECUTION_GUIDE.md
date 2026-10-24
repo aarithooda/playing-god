@@ -46,10 +46,14 @@ Each block is self-contained: paste it as the session prompt together with "Foll
 ### Stage 0 — Governance, contracts and configuration
 ```
 Implement Stage 0 of context/COLLISION_ENGINE_PLAN.md (§6 Stage 0, contracts §4).
-Prerequisites (check, else stop): owner answers to DQ-1, DQ-2, DQ-12, DQ-14 recorded in this session or in DECISIONS.md.
+Prerequisites (check, else stop): DECISIONS.md D-033 present (DQ-1 a, DQ-2 a, DQ-12 a, DQ-14 d — answered 2026-10-24);
+the owner has explicitly told you to begin implementation in this session; the planning documents are on the branch you start from.
 Scope: new backend/impact/{__init__,contracts,config}.py; tests/impact/__init__.py, tests/impact/test_contracts.py;
-docs: DECISIONS.md (append D-033 collision-engine architecture, status as approved by owner), ARCHITECTURE.md ([Proposed] section),
-API_CONTRACT.md ("Planned: collision engine" subsection), PROJECT_BRIEF.md only if DQ-1 approved.
+docs: DECISIONS.md (append D-034 collision-engine architecture E-1..E-12, status proposed), ARCHITECTURE.md ([Proposed] section),
+API_CONTRACT.md ("Planned: collision engine" subsection), PROJECT_BRIEF.md per DQ-1 (a): reference
+context/specs/COLLISION_PARTICLE_ENGINE_SPEC.md in the features list; keep hydrodynamics/SPH in Non-goals.
+CollisionConfig must define DEFAULT_SANDBOX_MODE = "legacy-merge" (it is flipped only in Stage 4 step 4b, never here).
+The visual-only effect contract has no mass field (DQ-12).
 Do NOT import backend.impact from any existing module. No behaviour change.
 Tasks: frozen dataclasses for every schema in plan §4 with schemaVersion, to_json/from_json (canonical, sorted keys),
 validation (finite floats, positive masses, unit quaternions ±1e-12, layer fractions sum 1±1e-12), fidelity enum,
@@ -92,6 +96,8 @@ _digest includes new fields ONLY when non-default), backend/diagnostics.py (v2 a
 backend/api_universes.py, backend/main.py; frontend api/types.ts, api/parse.ts (optional fields) + tests; API_CONTRACT.md.
 Material numbers: ONLY values with a citation from COLLISION_SCIENTIFIC_MODELS.md §2/§5; anything else → profile marked
 incomplete. No profile is derived from bodyType.
+DQ-2 (D-033): a body without material gets NO spin state and no new body fields; material-less merges keep today's
+booked-spin ledger only. Every universe stays in legacy-merge mode.
 Tests: T/mat (validation, provenance required, 422 material_invalid via API); T/rot (unit quaternion after 1e6 updates 1e-12,
 round trip 1e-12, site returns after one period 1e-9); persistence of new state through _capture/_restore, _checkpoint/_rollback,
 snapshot restore, reset, from_snapshot (bitwise); digests of existing presets/universes unchanged vs values computed at f2c2da3.
@@ -103,19 +109,30 @@ Acceptance: REG green; new tests pass; frontend still parses old and new state.
 ```
 Implement Stage 3 of context/COLLISION_ENGINE_PLAN.md (§3.6, §6 Stage 3) using COLLISION_SCIENTIFIC_MODELS.md §4.
 Prerequisites: Stage 0 merged; owner answers to DQ-7 (c* class rule), DQ-8 (gas-giant handling, envelope threshold) and
-DQ-9 (strength regime) — else STOP.
-Prerequisite CP-SCI-1: before coding any constant, transcribe each equation/constant marked [VERIFY] from the primary paper
-(equation number + page) into COLLISION_SCIENTIFIC_MODELS.md, and obtain an independent re-derivation (DQ-14 reviewer or a
-second model, logged in WORKLOG.md). Resolve: LS12 worked example (5.3 vs ≈3.35 J/kg), b_crit check value (0.66 vs 0.683),
-Q'*_RD exponent form, Genda 2012 coefficients, HH11 Table 3, BA99 constants (only if DQ-9 = include). If any item cannot be
-resolved: STOP and report; do not code around it.
+DQ-9 (strength regime); the named HUMAN reviewer for CP-SCI-1 recorded in TASKS.md (Vaibhav if available, otherwise another
+qualified human identified before the checkpoint) — else STOP.
+MANDATORY SCIENTIFIC GATE CP-SCI-1 (D-033): before any disputed LS12 constant is implemented, reproduce independently from
+the ORIGINAL paper (Leinhardt & Stewart 2012, ApJ 745:79):
+  UD-1  Q*_RD,gamma=1 = 5.3 J/kg for the paper's worked example (planning calculation gave ~3.35 J/kg);
+  UD-2  b_crit = 0.66 for gamma = 0.1 (planning calculation gave 0.683).
+Treat both as unresolved. Trace equations, definitions (e.g. R_C1, rho1, which radii), assumptions (densities) and units.
+Also transcribe every other [VERIFY] equation/constant (equation number + page) into COLLISION_SCIENTIFIC_MODELS.md:
+Q'*_RD exponent form, Genda 2012 coefficients, HH11 Table 3, BA99 constants (only if DQ-9 = include).
+Routine re-derivation: an independent AI session working from the papers (not from your code). Final sign-off: the named
+human reviewer. Record calculations, sources, discrepancies and resolutions in WORKLOG.md.
+Until the human sign-off: you may build the selector structure, the cratering and envelope models and LS12 functions that use
+only verbatim-confirmed relations (eqs. 1, 2, 4/5); every function needing a disputed constant raises
+NotImplementedError("CP-SCI-1"). Never substitute a guessed or planner value. If a discrepancy cannot be resolved: STOP.
 Scope: new backend/impact/models/{ls12,cratering,envelope}.py, backend/impact/selector.py, tests/impact/{test_ls12,test_cratering,
 test_envelope,test_selector}.py, tests/impact/reference_values.py (values typed from the papers with citations; authored or checked
 by the independent reviewer). Pure functions only: no REBOUND, no SimulationService import.
 Tests: universal-law identities; super-catastrophic continuity/documented step at 1.8; mass-ratio correction table;
 G12 boundary points; α limits; HH11 examples; monotonicity; c* sensitivity; selector branch coverage incl. Unsupported and
 gas targets never reaching LS12; a dummy OutcomeModel passes through the selector API unchanged (extension test).
-Acceptance: all reference reproductions within stated precision; CP-SCI-1 sign-off recorded; REG green.
+Tests for the gate: test_ls12_worked_example_q_rd_gamma1 and test_ls12_worked_example_b_crit assert the paper's printed
+values (5.3 J/kg, 0.66) from the traced inputs; they are written only after the trace resolves the discrepancy.
+Acceptance: all reference reproductions within stated precision; UD-1 and UD-2 resolved and CP-SCI-1 signed off by the named
+human reviewer (WORKLOG.md); REG green.
 May run in parallel with Stages 1–2 (new files only).
 ```
 
@@ -123,7 +140,16 @@ May run in parallel with Stages 1–2 (new files only).
 ### Stage 4 — Atomic application and conservation
 ```
 Implement Stage 4 of context/COLLISION_ENGINE_PLAN.md (§3.7, §4.6–4.9, §9, §6 Stage 4).
-Prerequisites: Stages 1–3 merged; CP-1 and CP-SCI-1 accepted; DQ-2 and DQ-13 answered.
+Prerequisites: Stages 1–3 merged; CP-1 accepted; CP-SCI-1 signed off by the named human reviewer; DQ-13 answered
+(DQ-2 answered in D-033).
+Mode (D-033): during step 4a every universe stays legacy-merge; outcome-v1 is used only by tests that build an engine with it.
+DQ-2 exactness: material-less pairs in outcome-v1 must give byte-identical events and body state to legacy-merge;
+the label material_unspecified goes only into the collision record (no new field on the merger event).
+Step 4b, ONLY after every 4a criterion, test and compatibility check passes and the 4a evidence has been reviewed (CP-4b):
+set DEFAULT_SANDBOX_MODE = "outcome-v1"; assign mode at universe creation (sandbox incl. uni-default → default;
+preset universes and Orbit Lab baseline/modified → legacy-merge regardless). Files: backend/impact/config.py,
+backend/universes.py, backend/api_universes.py (create_preset_universe), backend/orbit_lab.py,
+tests/impact/test_mode_defaults.py. If 4a is not fully green, do NOT do 4b; report instead.
 Scope: new backend/impact/{applier,conservation}.py; modify engine.py, backend/simulation.py (outcome-v1 wiring),
 backend/models.py (Event union merger|collision), backend/errors.py; frontend api/types.ts, api/parse.ts, sim/viewModel.ts,
 components/ui/EventTimeline.tsx in the SAME branch (the UI must accept the new event type before the backend emits it).
@@ -132,7 +158,8 @@ Rules: validate the entire result before any mutation; identity table plan §3.7
 legacy-merge mode stays bit-for-bit.
 Tests: T/app scenarios per outcome class (regime asserted from the model, never hard-coded); T/cons tolerances plan §9.2;
 injected invalid result → state byte-identical (helpers.dump); id uniqueness over 1,000 events; hit-and-run then 10 orbits
-without spurious contact; parse.ts accepts collision events and still rejects unknown types.
+without spurious contact; parse.ts accepts collision events and still rejects unknown types; legacy-exactness re-run of the
+existing merger scenarios in outcome-v1 with material-less bodies; (4b) test_mode_defaults.py.
 Acceptance: REG green (legacy events unchanged); new tests pass.
 ```
 
@@ -195,7 +222,9 @@ Acceptance: REG green; new tests pass.
 ### Stage 9 — Particle engine and event visualization
 ```
 Implement Stage 9 of context/COLLISION_ENGINE_PLAN.md (§3.12, §6 Stage 9).
-Prerequisites: Stage 8 merged; CP-3 (owner approves the UI-0 boundary change; DECISIONS entry) and DQ-12 answered.
+Prerequisites: Stage 8 merged; CP-3 (owner approves the UI-0 boundary change; DECISIONS entry). DQ-12 answered (D-033):
+material-representing visuals follow simulation state and displayed simulation time; visual-only effects (flash, glow) may use
+short wall-clock durations, freeze while paused, replay when seeking back across the event, and never represent or alter mass.
 Scope: frontend render/contract.ts (CollisionEffectInput, SurfaceMarkInput), components/canvas/UniverseCanvas.tsx (two optional
 props, conditional layers), canvasBoundary.test.ts (pinned list updated — the ONLY approved existing-test change),
 CelestialBody.tsx (orientation only when present), new CollisionEffectsLayer.tsx, DebrisParticles.tsx, SurfaceMarks.tsx,
@@ -203,7 +232,9 @@ new pure sim/collision/{effectTimeline,debrisSampling,materialAppearance,effectB
 e2e/collision-effects.spec.ts (stubbed API via e2e/universeLayer.ts pattern).
 Rules: renderer reads only VisualEventDescription + body states; mass-bearing visuals keyed to displayed simulation time;
 visual particles carry no mass; caps ≤8 sequences, ≤20,000 particles; LOD never changes any displayed physical number.
-Tests: vitest (cratering never shows disruption phases; pause freezes; time scale; history seek replays; caps; determinism);
+Tests: vitest (cratering never shows disruption phases; pause freezes; time scale; history seek replays; caps; determinism;
+flash lifetime unchanged across a pause, restarted by a seek back across the event, absent after a seek past its end;
+visual-only type has no mass field and mass totals are identical with effects on/off);
 E2E stub sequence; manual WebGL check of Scenario A alignment recorded with screenshots.
 Acceptance: REG green; boundary test updated only as approved; new tests pass.
 ```
@@ -224,6 +255,8 @@ Acceptance: REG green; new tests pass.
 ### Stage 11 — Sourced material annotation of presets (only if DQ-3 = yes)
 ```
 Implement Stage 11 of context/COLLISION_ENGINE_PLAN.md. Prerequisite: DQ-3 = yes, reviewer named.
+This is the ONLY stage that may move preset universes and Orbit Lab runs off legacy-merge (D-033), and only after its
+acceptance criteria pass.
 Scope: backend/presets/data/*.json (optional material per body), backend/presets/loader.py (validation), context/PRESETS.md,
 tests/validation additions. Every value cited; no value inferred from bodyType or name.
 Acceptance: tests/validation/* trajectories bit-identical (materials do not affect gravity); new provenance tests pass.
@@ -239,8 +272,8 @@ Scope: tests/impact/test_scenarios_e2e.py, tests/impact/test_performance.py, fro
 traceability status column.
 Tests: Scenarios A–H per plan §7; performance criteria of Stage 12; full regression; report baseline-vs-new failures separately.
 Acceptance (CP-5): every traceability row VERIFIED with a test id or listed as an owner-approved limitation; DoD §17 items
-each with evidence. Then report; do not open a PR unless told to.
+each with evidence; the final Definition of Done review signed by the named human reviewer (D-033/DQ-14) in WORKLOG.md. Then report; do not open a PR unless told to.
 ```
 
 ## 3. Stop conditions (any stage)
-Stop and report immediately if: uncommitted work you did not create exists; a cited symbol/file does not match the plan; a constant or expected value cannot be sourced; an existing test fails for a reason other than an approved contract change; a requirement in the specification conflicts with the plan; a needed decision (DQ-n) is unanswered; the stage would need a new dependency; any change would touch hydrodynamics.
+Stop and report immediately if: you are about to switch any universe's default collision mode outside Stage 4 step 4b (sandboxes) or Stage 11 (presets, Orbit Lab); a disputed LS12 constant would be used before the CP-SCI-1 human sign-off; uncommitted work you did not create exists; a cited symbol/file does not match the plan; a constant or expected value cannot be sourced; an existing test fails for a reason other than an approved contract change; a requirement in the specification conflicts with the plan; a needed decision (DQ-n) is unanswered; the stage would need a new dependency; any change would touch hydrodynamics.
