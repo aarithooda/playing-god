@@ -264,7 +264,7 @@ describe("useSimulation: reset and CRUD", () => {
 
     const { id: _id, ...create } = earth;
     await act(async () => {
-      expect(await result.current.createBody(create)).toEqual({ ok: true });
+      expect(await result.current.createBody(create)).toEqual({ ok: true, id: "body-new" }); // the backend-assigned id is reported (used by undo)
     });
     expect(createBody).toHaveBeenCalledWith(create);
     expect(result.current.sim?.bodies.map((b) => b.id)).toEqual([sun.id, "body-new"]);

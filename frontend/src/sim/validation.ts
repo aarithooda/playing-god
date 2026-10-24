@@ -3,6 +3,7 @@
 import { LIMITS } from "../api/types";
 import type { BodyCreateDto, BodyUpdateDto } from "../api/types";
 import type { BodyView } from "./viewModel";
+import { displayRadiusUnits, fitTransform, toScenePosition } from "./renderTransform";
 
 export const FIELD_KEYS = ["name", "mass", "radius", "px", "py", "pz", "vx", "vy", "vz", "color"] as const;
 export type FieldKey = (typeof FIELD_KEYS)[number];
@@ -169,3 +170,72 @@ export const NEW_BODY_DEFAULTS: FormValues = {
   vz: "0",
   color: "#3b82f6",
 };
+
+/**
+ * Gives the create form a position clear of both physical collision radii and the exaggerated
+ * display spheres. The scene refits after creation, so each candidate is checked using the
+ * transform that will be used for the complete post-create body set.
+ */
+export function defaultsForNewBody(bodies: readonly BodyView[], radiusText = NEW_BODY_DEFAULTS.radius): FormValues {
+  const parsedRadius = Number(radiusText);
+  const radius = Number.isFinite(parsedRadius) && parsedRadius > 0 ? parsedRadius : Number(NEW_BODY_DEFAULTS.radius);
+  const origin = { x: Number(NEW_BODY_DEFAULTS.px), y: 0, z: 0 };
+  if (bodies.length === 0) return { ...NEW_BODY_DEFAULTS };
+  const displayRadius = displayRadiusUnits(radius);
+  const displayGap = 1.5;
+  const initialScale = fitTransform(bodies.map((body) => body.positionM)).metersPerUnit;
+  const largestPhysicalRadius = Math.max(radius, ...bodies.map((body) => body.radiusM));
+  const largestDisplayRadius = Math.max(displayRadius, ...bodies.map((body) => displayRadiusUnits(body.radiusM)));
+  const stride = Math.max(
+    1.1 * (radius + largestPhysicalRadius),
+    (displayRadius + largestDisplayRadius + displayGap) * initialScale,
+  );
+  const directions: Array<[number, number, number]> = [];
+  for (const dx of [-1, 0, 1]) for (const dy of [-1, 0, 1]) for (const dz of [-1, 0, 1]) {
+    if (dx === 0 && dy === 0 && dz === 0) continue;
+    const norm = Math.hypot(dx, dy, dz);
+    directions.push([dx / norm, dy / norm, dz / norm]);
+  }
+
+  let position: typeof origin | undefined;
+  for (let ring = 1; ring <= 512 && !position; ring += 1) {
+    const distance = ring * stride;
+    for (const [dx, dy, dz] of directions) {
+      const candidate = {
+        x: origin.x + dx * distance,
+        y: origin.y + dy * distance,
+        z: origin.z + dz * distance,
+      };
+      if (Object.values(candidate).some((coordinate) => Math.abs(coordinate) > LIMITS.maxPositionM)) continue;
+
+      const candidateTransform = fitTransform([...bodies.map((body) => body.positionM), candidate]);
+      const candidateScene = toScenePosition(candidate, candidateTransform);
+      const physicallyClear = bodies.every((body) => {
+        const distanceM = Math.hypot(
+          candidate.x - body.positionM.x,
+          candidate.y - body.positionM.y,
+          candidate.z - body.positionM.z,
+        );
+        return distanceM >= radius + body.radiusM + Math.max(1, (radius + body.radiusM) * 0.1);
+      });
+      const visiblyClear = bodies.every((body) => {
+        const bodyScene = toScenePosition(body.positionM, candidateTransform);
+        const distanceUnits = Math.hypot(
+          candidateScene[0] - bodyScene[0],
+          candidateScene[1] - bodyScene[1],
+          candidateScene[2] - bodyScene[2],
+        );
+        return distanceUnits >= displayRadius + displayRadiusUnits(body.radiusM) + displayGap;
+      });
+      if (physicallyClear && visiblyClear) {
+        position = candidate;
+        break;
+      }
+    }
+  }
+
+  // Extremely crowded scenes near the configured coordinate bounds can exhaust the search.
+  // Keep a deterministic fallback; the backend still rejects any actual physical overlap.
+  position ??= origin;
+  return { ...NEW_BODY_DEFAULTS, px: String(position.x), py: String(position.y), pz: String(position.z) };
+}

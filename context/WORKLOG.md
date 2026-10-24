@@ -168,3 +168,142 @@
 - Verified before touching anything: local `main` = `origin/main` = `7f9aea0`, clean tree; PR #4 head `c06451a`, docs only (3 files, +6/-3), CI green on that head, GitHub reported it as conflicting with `main`.
 - Merged `origin/main` into `docs/t012-merged` (normal merge commit). Conflicts only in `STATUS.md` and `WORKLOG.md`; resolved by keeping both sides: starfield STATUS section first, then the T-012 section retitled MERGED (the stale "PR open" heading and "newest" tag dropped); D-014 worklog entry before the starfield worklog entry. `TASKS.md` merged cleanly. Recorded D-017 (one-PR owner exception, no independent review).
 - Not started: M1-M5 (body inspector, panels, outline, axes/grid). No code changed by this PR.
+
+## 2026-10-24 — Add close control to body inspector
+- Owner/AI: Codex
+- Goal: let users dismiss the selected-body menu with a small visible control.
+- Changed: `BodyInspector` now renders a compact accessible × button; `App` clears `selectedBodyId` on close, hiding the panel. Selecting a body continues to open it.
+- Verification: `npm run build` passed (640 modules transformed). Existing main bundle >500 kB warning remains. Test suite not run.
+- Branch: `frontend/close-body-inspector`; not merged.
+
+## 2026-10-24 — Copy inspector fix to bug-fix branch
+- Owner/AI: Codex
+- Goal: create a dedicated bug-fix branch containing the inspector close-button change.
+- Changed: created `bugfix/body-inspector-close` from latest `origin/main` and cherry-picked the close-button commit. Current handoff/status/task notes now identify it as the active branch.
+- Preserved: existing `frontend/close-body-inspector` branch was not modified or deleted.
+- Verification: branch is based on `origin/main` and contains the close-button commit. No additional build/test was needed; source is unchanged from the already-built commit.
+
+## 2026-10-24 — Avoid overlap in automatic body defaults
+- Owner/AI: Codex
+- Goal: allow consecutive body creation without the repeated default position causing an overlap conflict, while preserving validation for manually selected positions.
+- Changed: added a placement helper that derives a clear default from existing spherical bodies and the new body's radius. The create form recalculates while placement is automatic and freezes it after the user edits a coordinate. Backend validation remains authoritative for manual overlap attempts.
+- Verification: `npm run build` passed (640 modules transformed); existing large-chunk warning remains. Test suite not run.
+- Branch: `bugfix/body-inspector-close`; source commit `526c2a7` pushed. Not merged.
+
+## 2026-10-24 — Add body double-click focus and zoom
+- Owner/AI: Codex
+- Goal: select bodies with one click and focus/zoom to them on a double-click.
+- Changed: `CelestialBody` now forwards double-click separately from click selection. `App` routes focus requests through `UniverseCanvas`; `CameraRig` recenters on the body and moves 10% closer per focus, with a display-radius-based minimum distance.
+- Verification: `npm run build` passed (640 modules transformed); existing large-chunk warning remains. Test suite not run.
+- Branch: `bugfix/body-inspector-close`; commit `82d0dcb` pushed to origin. This branch also carries the prior dynamic-default fix.
+
+## 2026-10-24 — Fix visible placement and smooth camera focus
+- Owner/AI: Codex
+- Goal: place newly created bodies so their rendered spheres do not overlap, and animate camera focus.
+- Changed: create defaults now check physical radii and rendered radii after the post-create fit transform, using a stride scaled for large bodies. Camera and orbit target now smoothstep to the focused body over 0.65 s.
+- Verification: frontend Vitest 57/57 passed; `npm run build` passed with the existing large-chunk warning. Browser E2E not run.
+- Branch: `bugfix/body-inspector-close`; code and context source commit `336ab26` is pushed to origin. Not merged.
+
+## 2026-10-24 — Add manual 3D body placement and fixed focus distance
+- Owner/AI: Codex
+- Goal: prevent repeated focus from zooming indefinitely and let users choose body positions in the scene.
+- Changed: focus requests return to `max(4.5 × display radius, 8 scene units)`. The create form now starts a camera-facing 3D placement mode with a translucent gray sphere matching the body display size; pointer movement previews, wheel adjusts depth, click commits the location to SI form fields, and Escape cancels. Added a regression test for the picked-position state handoff.
+- Verification: frontend Vitest 59/59 passed; production build passed with existing >500 kB chunk warning. Browser E2E not run.
+- Branch: `bugfix/body-inspector-close`; code and context source commit `336ab26` is pushed to origin. Not merged.
+
+### Push follow-up
+- Code commit `f192a48` was pushed to `origin/bugfix/body-inspector-close`; context updates are being committed separately. Branch remains unmerged.
+
+## 2026-10-24 — Refine focus and make 3D placement exact and immediate
+- Owner/AI: Codex
+- Goal: reduce focus zoom, improve placement depth control, and create directly from the 3D click.
+- Changed: focus now settles at a fixed 70 scene units. Scroll depth sensitivity increased 30%. A placement click submits immediately; the preview and selected world coordinate use the same camera ray/plane intersection, and the scene scale is preserved on that create to prevent the visible body shifting after refit.
+- Verification: frontend Vitest 59/59 passed; production build passed with existing large-chunk warning. Browser E2E not run.
+- Branch: `bugfix/body-inspector-close`; source and context updates are local and need commit/push. Not merged.
+
+### Push follow-up
+- Source commit `ad8bdb3` was pushed to `origin/bugfix/body-inspector-close`; this context update is being committed separately. Branch remains unmerged.
+
+## 2026-10-24 — Slightly increase focus zoom
+- Owner/AI: Codex
+- Goal: make the default focus view show the selected body a little larger.
+- Changed: reduced the fixed focus distance from 70 to 66 scene units (about 6% closer at the default framing); focus remains fixed so repeated taps do not zoom in progressively.
+- Verification: frontend Vitest 59/59 passed; `npm run build` passed with the existing large-chunk warning. Browser E2E not run.
+- Branch: `bugfix/body-inspector-close`; source commit `efbc2ee` pushed to origin. Not merged.
+
+## 2026-10-24 — Frame focused body to a consistent screen size
+- Owner/AI: Codex
+- Goal: make focus produce a specific apparent body size instead of moving each body to one fixed scene distance.
+- Changed: focus now smoothly frames the displayed sphere to 25% of the canvas height. Distance is derived from displayed radius and perspective-camera vertical field of view, so object size is consistent across bodies and repeated focus remains deterministic.
+- Verification: `npm run build` passed with the existing large-chunk warning. No test suite or browser E2E was run.
+- Branch: `bugfix/body-inspector-close`; source commit `2ad5167` pushed to origin. Not merged.
+
+## 2026-10-24 — Dismiss body inspector on outside click
+- Owner/AI: Codex
+- Goal: close the selected-body inspector when the user clicks elsewhere, in addition to its close button.
+- Changed: `BodyInspector` listens for document pointer-down events and ignores events whose target is inside the panel; outside presses call the existing close action.
+- Verification: `npm run build` passed with the existing large-chunk warning. Frontend tests and browser E2E were not run.
+- Branch: `bugfix/body-inspector-close`; source/context commit `3e03479` pushed to origin. Not merged.
+
+## 2026-10-24 — Bound zoom-out and repeat starfield shells
+- Owner/AI: Codex
+- Goal: stop zooming once all displayed bodies visually collapse to one point, while keeping the starfield around the scene during zoom-out.
+- Changed: `UniverseCanvas` computes the displayed-body bounding extent around the orbit target and sets the OrbitControls maximum distance for a one-pixel projected diameter. The perspective camera far plane grows to include the body cloud at that distance. The starfield now adds contiguous, geometrically expanding spherical shells when the camera approaches the current shell's outer edge.
+- Verification: `npm run build` passed (640 modules); existing >500 kB bundle warning remains. No tests or browser E2E were run.
+- Branch: `bugfix/body-inspector-close`; source commit `66e8fc3` is pushed to origin. Not merged.
+
+## 2026-10-24 — Smooth the starfield and keep bodies visible at zoom limit
+- Owner/AI: Codex
+- Goal: remove visible boundaries between repeated star annuli and keep bodies distinguishable at maximum zoom-out.
+- Changed: replaced layered Drei `Stars` shells with one camera-centered spherical starfield rendered behind body meshes, avoiding shell transitions as the view moves. Changed the zoom cap from a 1 px cloud diameter to 6% of the viewport height. The camera far plane continues to expand to include the body set at that cap.
+- Verification: `npm run build` passed (640 modules); existing >500 kB bundle warning remains. No tests or browser E2E were run.
+- Branch: `bugfix/body-inspector-close`; source commit `af7a810` is pushed to origin. Not merged.
+
+## 2026-10-24 — Restore zoom parallax in continuous starfield
+- Owner/AI: Codex
+- Goal: retain a continuous background while restoring the starfield's visible zoom effect.
+- Changed: anchored a single Drei `Stars` point volume at the universe origin, spanning 300–10,000 scene units. The stars now show perspective parallax as the camera moves through the volume; `renderOrder=-1` and disabled depth testing keep the field behind opaque bodies. Camera far range includes the star volume. The 6% body-cloud zoom limit remains.
+- Verification: `npm run build` passed (640 modules); existing >500 kB bundle warning remains. No tests or browser E2E were run.
+- Branch: `bugfix/body-inspector-close`; source commit `bae5301` is pushed to origin. Not merged.
+
+## 2026-10-24 — Restore dense background universe and meaningful zoom limit
+- Owner/AI: Codex
+- Goal: restore a full, continuous star background while retaining enough zoom-out for a small but visible body system.
+- Changed: replaced the sparse origin-centered 300–10,000 scene-unit point volume with 80,000 stars on a spherical field centered at the OrbitControls target. The sphere scales continuously to remain around the camera, preserving close-range parallax while procedurally continuing with no outer edge or shell seam. Set the maximum displayed body-cloud height to 10% of the viewport and expanded the far plane to include the dynamic sphere.
+- Verification: `npm run build` passed (640 modules); existing >500 kB bundle warning remains. No tests or browser E2E were run.
+- Branch: `bugfix/body-inspector-close`, based on `c99d5ca`. Local only; not committed or pushed by instruction.
+
+## 2026-10-24 — Revert universe background zoom changes
+- Owner/AI: Codex
+- Goal: remove only the universe starfield/zoom-limit experiments while retaining unrelated UI fixes.
+- Changed: restored `frontend/src/components/canvas/UniverseCanvas.tsx` from `3e03479`, which retains the existing focus, placement, and inspector behavior but uses the original static Drei starfield and has no added zoom cap or dynamic far-plane logic. Updated current-state docs; older zoom experiments remain in this append-only log as history.
+- Verification: `npm run build` passed (640 modules; existing >500 kB chunk warning). No test suite or browser E2E was run.
+- Branch: `bugfix/body-inspector-close`; rollback was pushed at the user's explicit request.
+
+## 2026-10-24 — Keep body inspector open while orbit-dragging
+- Owner/AI: Codex
+- Goal: allow camera rotation around the selected body without click-away dismissal closing its inspector.
+- Changed: outside-pointer handling tracks pointer movement and only schedules close after a click release under a 6 px movement threshold. The 300 ms delay lets a second press cancel the pending close so double-click-and-drag works; ordinary outside clicks still close the inspector.
+- Verification: `npm run build` passed (640 modules); existing >500 kB chunk warning remains. Tests and browser E2E were not run.
+- Branch: `bugfix/body-inspector-close`; source commit `336ab26` is pushed to origin. Not merged.
+
+## 2026-10-24 — Keep inspector open on body clicks
+- Owner/AI: Codex
+- Goal: allow clicking bodies while the inspector is open without dismissing the inspector, while preserving click-away elsewhere.
+- Changed: added a window-capture raycast that tags pointer events hitting displayed body spheres. The inspector ignores those marked events; its existing drag threshold and delayed outside-click close remain in place.
+- Verification: `npm run build` passed (641 modules); existing >500 kB chunk warning remains. Tests and browser E2E were not run.
+- Branch: `bugfix/body-inspector-close`; changes are local and need commit/push. Not merged.
+## 2026-10-24 — Remove selected-body ring
+- Owner/AI: Codex
+- Goal: remove the white ring displayed around a selected body while preserving ordinary selection.
+- Changed: removed the conditional ring mesh from `CelestialBody`; selection state, click handlers, inspector/focus behavior, and subtle emissive selection highlight remain unchanged.
+- Verification: `npm run build` passed (641 modules); the existing >500 kB chunk warning remains. Tests and browser E2E were not run.
+- Branch: `bugfix/body-inspector-close`; source and context changes are ready to commit and push, not merged.
+
+### Push follow-up
+- Source/context commit `ff372a0` is pushed to `origin/bugfix/body-inspector-close`; branch remains unmerged.
+
+## 2026-10-24 — M1: body inspector, focus, placement, undo (Claude Sonnet 5.5)
+- Merged `origin/bugfix/body-inspector-close` (head `de0d004`, unchanged since recon) into a branch from `origin/main` `969cb4a`. Docs conflicts: kept both sides. Code conflicts in `CelestialBody.tsx` / `UniverseCanvas.tsx`: rewrote both by hand on top of `main`'s starfield and min-size code (starfield files untouched).
+- Deliberate rework of the branch's dismissal: R3F `onPointerMissed` replaces the document listeners / marker / timer (reason: the old rule closed the inspector on any press outside it, including panel buttons, and its ray test used the true radius while `main` draws enlarged minimum-size bodies). `PlacementCursor` now uses pure helpers in `sim/placement.ts`, reports the preview point for the readout, and ignores presses after the first. Added the SI coordinate readout, the 10 s undo (`useUndoableCreate`, `UndoNotice`) and `createBody` returning the new id (one existing expectation in `useSimulation.test.tsx` updated for the extra `id`).
+- Tests +21 (138 total) and a browser pass; details in `STATUS.md`. Superseded `frontend/close-body-inspector`, `panel` and `feature/grid-axis` untouched. Owner exception for this PR: D-018.

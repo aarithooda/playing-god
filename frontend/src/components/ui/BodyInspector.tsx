@@ -19,14 +19,18 @@ interface BodyInspectorProps {
   onSave: (id: string, patch: BodyUpdateDto) => Promise<ActionResult>;
   onDelete: (id: string) => Promise<ActionResult>;
   onFocus: (id: string) => void;
+  onClose?: () => void;
 }
 
 /**
+ * Dismissal on an empty-space click is owned by the canvas (UniverseCanvas onPointerMissed), not by
+ * this panel; the panel only offers the explicit close button.
+ *
  * Edits go into a draft that holds only the fields the user changed; every other field follows the
  * confirmed (live) backend value. Saving sends a PATCH and clears the draft; the shown values then come
  * from the refreshed authoritative state, never from the draft.
  */
-export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDelete, onFocus }) => {
+export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDelete, onFocus, onClose }) => {
   const [draft, setDraft] = useState<Partial<FormValues>>({});
   const [errors, setErrors] = useState<FieldErrors>({});
   const [serverError, setServerError] = useState<string | null>(null);
@@ -73,7 +77,29 @@ export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDe
 
   return (
     <div style={{ ...panelStyle, position: 'absolute', bottom: '20px', right: '20px', width: '280px', maxHeight: 'calc(100vh - 400px)', overflowY: 'auto' }}>
-      <h3 style={{ margin: '0 0 12px 0', fontSize: '16px' }}>Body Inspector</h3>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '12px' }}>
+        <h3 style={{ margin: 0, fontSize: '16px' }}>Body Inspector</h3>
+        <button
+          type="button"
+          aria-label="Close body inspector"
+          title="Close"
+          onClick={onClose}
+          style={{
+            ...btnStyle,
+            width: '24px',
+            height: '24px',
+            padding: 0,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '16px',
+            lineHeight: 1,
+            borderColor: '#666',
+          }}
+        >
+          ×
+        </button>
+      </div>
       <p style={{ fontSize: '11px', opacity: 0.55, margin: '0 0 10px 0' }}>
         {body.id} · speed {formatNumber(body.speedMPerS)} m/s · SI units
       </p>

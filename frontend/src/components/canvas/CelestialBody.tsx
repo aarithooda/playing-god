@@ -11,6 +11,7 @@ interface CelestialBodyProps {
   name: string;
   isSelected?: boolean;
   onClick?: () => void;
+  onDoubleClick?: () => void;
 }
 
 export const CelestialBody: React.FC<CelestialBodyProps> = ({
@@ -20,10 +21,12 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
   name,
   isSelected = false,
   onClick,
+  onDoubleClick,
 }) => {
   const body = useRef<Group>(null);
 
   // Display-only: lift the body to a minimum on-screen size when zoomed far out (sim/bodyVisibility.ts).
+  // The scaled mesh is also what pointer picking ray-casts, so clicks match what is drawn.
   useFrame(({ camera, size }) => {
     if (!body.current || !(camera as PerspectiveCamera).isPerspectiveCamera) return;
     const [x, y, z] = position;
@@ -32,10 +35,17 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
   });
 
   return (
-    <group position={position} onClick={(e) => {
-      e.stopPropagation();
-      onClick?.();
-    }}>
+    <group
+      position={position}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick?.();
+      }}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        onDoubleClick?.();
+      }}
+    >
       <group ref={body}>
         <Sphere args={[radius, 32, 32]}>
           <meshStandardMaterial
@@ -44,13 +54,6 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
             emissiveIntensity={isSelected ? 0.5 : 0}
           />
         </Sphere>
-        {/* Selection ring for better visibility */}
-        {isSelected && (
-          <mesh rotation={[Math.PI / 2, 0, 0]}>
-            <ringGeometry args={[radius * 1.1, radius * 1.2, 32]} />
-            <meshBasicMaterial color="white" side={2} />
-          </mesh>
-        )}
       </group>
     </group>
   );

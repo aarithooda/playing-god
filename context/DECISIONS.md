@@ -134,3 +134,12 @@ Entry format: Date · Decision · Context/reason · Alternatives · Consequences
 - Conditions: CI must pass on the exact PR head being merged, checked immediately before merging; normal GitHub merge commit; no direct push to `main`, no force-push.
 - Scope of the exception: **PR #4 only.** It does not extend D-014, D-015 or D-016, and it does not change, waive or weaken the review requirement for any other or future PR. `TEAM_WORKFLOW.md` is unchanged. Later integration PRs get their own entries.
 - Status: accepted 2026-10-24 by the project owner (Aarit), as a one-time exception.
+
+## D-018 — One-time owner exception: M1 integration PR merged without the normal independent review
+- Date: 2026-10-24
+- Decision: **a documented, one-PR-only exception to `TEAM_WORKFLOW.md`** ("Pull requests need one reviewer from another area and passing tests"). The M1 integration PR (branch `integration/m1-inspector-placement`: `origin/bugfix/body-inspector-close` merged onto `main`, plus the dismissal rework, coordinate readout and undo) is merged by project-owner decision **without** a recorded independent review. **No independent review was recorded or occurred.**
+- Authorization: the project owner (Aarit) stated in chat that they are currently the only person implementing and integrating, and authorized proceeding without waiting for teammate reviews, recording each exception here one PR at a time. This entry covers the M1 PR only.
+- Evidence instead of review (author's own checks, not independent): `tsc` clean, `vitest` 138 passed, `npm run build` OK, backend `pytest` 259 passed, a manual real-browser pass (details in `STATUS.md`), and GitHub CI on the exact head.
+- Conditions: CI must pass on the exact PR head being merged, checked immediately before merging; normal GitHub merge commit; no direct push to `main`, no force-push; teammate commits preserved (merge, not rewrite).
+- Scope of the exception: **the M1 PR only.** It does not extend D-014 to D-017 and does not change, waive or weaken the review requirement for any other or future PR. `TEAM_WORKFLOW.md` is unchanged.
+- Status: accepted 2026-10-24 by the project owner (Aarit), as a one-time exception.

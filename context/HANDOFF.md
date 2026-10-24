@@ -1,5 +1,64 @@
 # Handoff (latest — rewrite at end of each session)
 
+## Remove selected-body ring (2026-10-24, Codex) — latest
+1. Removed only the separate white ring mesh from `CelestialBody`; body click selection, inspector opening, double-click focus, and the subtle selected-body emissive highlight remain intact.
+2. `npm run build` passed (641 modules); the existing >500 kB chunk warning remains. Tests and browser E2E were not run.
+3. Source/context commit `ff372a0` is pushed to `origin/bugfix/body-inspector-close`; branch remains unmerged.
+
+## Keep inspector open on body clicks (2026-10-24, Codex) — latest
+1. Direct canvas presses that ray-hit a displayed body are marked before the inspector's document capture handler. Body clicks no longer dismiss the inspector; clicks elsewhere retain click-away dismissal, and drags continue to keep it open for camera orbit.
+2. `npm run build` passed (641 modules); existing >500 kB chunk warning remains. Tests and browser E2E were not run.
+3. Source commit `336ab26` is pushed to `origin/bugfix/body-inspector-close`; not merged.
+## Keep body inspector open during camera drag (2026-10-24, Codex) — latest
+1. Outside-pointer dismissal now waits for pointer-up and closes after a 300 ms double-click window only if movement stayed under 6 px. Dragging on the canvas therefore keeps the inspector open while OrbitControls rotates around the focused body; a normal outside click still dismisses it.
+2. `npm run build` passed (640 modules); existing >500 kB chunk warning remains. Tests and browser E2E were not run.
+3. Source commit `1ac2115` is pushed to `origin/bugfix/body-inspector-close`; not merged.
+## Revert universe background zoom changes (2026-10-24, Codex) — latest
+1. Restored `UniverseCanvas` to its state at `3e03479`: the original Drei starfield (`radius=300`, `depth=60`, `count=20000`) and no custom maximum zoom-out/body-cloud cap or dynamic far-plane logic.
+2. All other fixes present by `3e03479` remain: inspector dismissal, focus framing/animation, body placement and earlier UI behavior.
+3. `npm run build` passed (640 modules; existing >500 kB chunk warning). No test suite or browser E2E was run. Reversion commit `41dda60` is pushed to `origin/bugfix/body-inspector-close` at the user's request.
+## Dismiss body inspector on outside click (2026-10-24, Codex) — latest
+1. The body inspector now closes on pointer-down anywhere outside its panel, while clicks inside the panel and its close button keep their existing behavior.
+2. `npm run build` passed with the existing >500 kB bundle warning. Frontend tests and browser E2E were not run.
+3. Changes are on `bugfix/body-inspector-close`; to be committed and pushed.
+
+## Consistent on-screen focus size (2026-10-24, Codex) — latest
+1. Focus now targets a sphere silhouette occupying 25% of the canvas height. Camera distance is computed from the body's displayed radius and the perspective camera's vertical field of view, so small and large bodies reach the same apparent size.
+2. Focus still animates smoothly and returns to the same framing on every focus request. `npm run build` passed with the existing >500 kB bundle warning; no browser E2E or test suite was run.
+3. Source commit `2ad5167` is pushed to `origin/bugfix/body-inspector-close`; this branch remains unmerged.
+
+## Slightly increase focus zoom (2026-10-24, Codex) — latest
+1. Fixed focus distance changed from 70 to 66 scene units, making focused bodies about 6% larger at the default framing while keeping focus repeatable.
+2. Frontend Vitest passed (59/59); `npm run build` passed with the existing >500 kB chunk warning. Browser E2E was not run.
+3. Source commit `efbc2ee` is pushed to `origin/bugfix/body-inspector-close`; this branch remains unmerged.
+
+## Fixed-distance focus and 3D create placement (2026-10-24, Codex) — latest
+1. Focus now animates to a fixed 70-scene-unit distance, a slight change from default framing. Repeated focus requests cannot progressively zoom in.
+2. Create-form 3D placement uses a translucent gray sphere on a camera-facing plane. Wheel depth sensitivity was raised 30%. Clicking computes the same ray-plane point as the preview and immediately creates the body; the scene scale is held for that layout update so the body remains exactly at the preview location. Escape/button cancels.
+3. Frontend Vitest 59/59 passed; `npm run build` passed with the existing large-chunk warning. Browser E2E was not run. Follow-up code commit `ad8bdb3` is pushed to `origin/bugfix/body-inspector-close`; not merged.
+
+## Visible body placement and smooth focus (2026-10-24, Codex) — latest
+1. On `bugfix/body-inspector-close`, automatic create positions are now checked against both SI collision radii and displayed sphere radii using the post-create `fitTransform`; the search stride accounts for large physical radii. This addresses visually overlapping bodies caused by the renderer's logarithmically exaggerated sizes.
+2. Camera focus now eases the camera and OrbitControls target over 0.65 s with smoothstep interpolation. Frontend checks: 57 Vitest tests passed; `npm run build` passed (existing >500 kB chunk warning). No browser E2E run.
+3. Code changes are local and still need commit/push. Branch is not merged. See `STATUS.md`, `TASKS.md`, and `WORKLOG.md`.
+
+## Body single-click and double-click focus (2026-10-24, Codex) — latest
+1. On `bugfix/body-inspector-close`, single click still selects a body and opens its inspector; double-click additionally focuses the camera on it.
+2. Focus recenters OrbitControls and moves 10% closer per request, stopping at 2.5× the body's displayed radius (minimum 1.5 scene units). `npm run build` passed (640 modules; existing >500 kB warning). No test suite run.
+3. Both the dynamic body-placement fix and this interaction change are on the same bug-fix branch. Commit `82d0dcb` and its parent are pushed to `origin/bugfix/body-inspector-close`; branch is not merged.
+4. See `STATUS.md`, `TASKS.md`, and `WORKLOG.md`.
+
+## Collision-free body creation defaults (2026-10-24, Codex) — latest
+1. On `bugfix/body-inspector-close`, the create form now chooses a position outside existing body spheres using their current positions/radii and the requested new radius. It refreshes automatic positions when the body set or radius changes; once the user edits any position coordinate, it preserves that choice and backend overlap errors remain visible.
+2. `npm run build` passed (640 modules; existing >500 kB bundle warning). No test suite run. Source commit `526c2a7` is pushed to origin.
+3. See `STATUS.md`, `TASKS.md`, and `WORKLOG.md`.
+
+## Close button for selected-body inspector (2026-10-24, Codex) — latest
+1. The close-button fix is on `bugfix/body-inspector-close`, based on latest `origin/main`; the commit was copied from `frontend/close-body-inspector`. The older branch remains intact.
+2. It adds a compact accessible × button beside the Body Inspector title. It clears `selectedBodyId` and closes the inspector; selecting a body still opens it. No outside-click behavior added.
+3. `npm run build` passed (640 modules transformed; existing >500 kB bundle warning). The bugfix branch is not merged.
+4. See `STATUS.md`, `TASKS.md`, and `WORKLOG.md`.
+
 ## Backend connection restored (2026-10-24, Codex) — latest
 1. Frontend showed “connecting to the simulation backend” because the backend process was unresponsive. A clean restart failed with `ModuleNotFoundError: No module named 'rebound'` in this checkout's `.venv`.
 2. Installed the declared dependency set with `.venv/Scripts/python.exe -m pip install -r backend/requirements.txt` (REBOUND 5.2.2), then started Uvicorn at `127.0.0.1:8000`.

@@ -1,6 +1,6 @@
 import React from 'react';
 import type { FieldErrors, FieldKey, FormValues } from '../../sim/validation';
-import { errorTextStyle, fieldGroup, inputStyle, labelStyle } from './styles';
+import { btnStyle, errorTextStyle, fieldGroup, inputStyle, labelStyle } from './styles';
 
 interface BodyFieldsProps {
   /** Value shown for each field (draft if the user edited it, otherwise the confirmed value). */
@@ -8,6 +8,8 @@ interface BodyFieldsProps {
   errors: FieldErrors;
   onChange: (key: FieldKey, value: string) => void;
   idPrefix: string;
+  onPickPosition?: () => void;
+  isPickingPosition?: boolean;
 }
 
 const SCALARS: Array<{ key: FieldKey; label: string }> = [
@@ -21,7 +23,7 @@ const VECTORS: Array<{ label: string; keys: [FieldKey, FieldKey, FieldKey] }> = 
 ];
 
 /** Shared SI-unit fields for the create form and the inspector. Numbers are entered as plain text so 1.5e11 works. */
-export const BodyFields: React.FC<BodyFieldsProps> = ({ values, errors, onChange, idPrefix }) => (
+export const BodyFields: React.FC<BodyFieldsProps> = ({ values, errors, onChange, idPrefix, onPickPosition, isPickingPosition = false }) => (
   <>
     <div style={fieldGroup}>
       <label style={labelStyle} htmlFor={`${idPrefix}-name`}>Name</label>
@@ -51,6 +53,16 @@ export const BodyFields: React.FC<BodyFieldsProps> = ({ values, errors, onChange
     {VECTORS.map(({ label, keys }) => (
       <div style={fieldGroup} key={label}>
         <span style={labelStyle}>{label}</span>
+        {keys[0] === 'px' && onPickPosition && (
+          <button
+            type="button"
+            style={{ ...btnStyle, borderColor: isPickingPosition ? '#b9c5d4' : '#555', background: isPickingPosition ? '#4b5563' : '#333' }}
+            aria-pressed={isPickingPosition}
+            onClick={onPickPosition}
+          >
+            {isPickingPosition ? 'Cancel 3D placement' : 'Choose position in 3D'}
+          </button>
+        )}
         <div style={{ display: 'flex', gap: '5px' }}>
           {keys.map((k, i) => (
             <input

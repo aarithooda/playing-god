@@ -2,9 +2,13 @@
 Status: todo / in progress / blocked / done. Keep tasks small and independently testable.
 
 ## NEXT ACTION
+UI integration series (owner-approved plan): M0 done (PR #4); M1 inspector/focus/placement/undo on `integration/m1-inspector-placement` (see `STATUS.md`); next M2 panels, M3 selection outline, M4 axes/grid, M5 docs. Older text follows.
+
 B1 diagnostics merged (2026-10-24, T-011; top of `STATUS.md`). Next product step: T-012, the diagnostics panel (frontend owner). Older text follows.
 
 Stabilized baseline (2026-10-24): see the top of `STATUS.md`. D-011/D-012 accepted; milestone closed. Local frontend dependency and backend connection recovery are complete (details in `STATUS.md`); no application dependency manifest change was needed. Non-blocking backlog: browser E2E (T-010), larger-N performance, tree modes, three-body reference, bundle code-splitting, Node 20 Actions notice. Next: product milestone. Older text below is history.
+
+Stabilized baseline (2026-10-24): see the top of `STATUS.md`. D-011/D-012 accepted; UI fixes (inspector close button and body-click and drag-safe outside-click dismissal, visible collision-free auto-placement, immediate 3D placement creation, focus framing to 25% of canvas height, selected-body ring removal) are on `bugfix/body-inspector-close`, not merged. Frontend build passes; browser E2E remains non-blocking backlog (T-010). Local frontend dependency and backend connection recovery are complete. No dependency manifest change was needed. Other backlog: larger-N performance, tree modes, three-body reference, bundle code-splitting, Node 20 Actions notice. Next: product milestone. Older text below is history.
 
 Review/merge `feature/production-rebound-simulation` (production engine done: P-001, P-002 and T-007 implemented; P-004 explained). Then compare `origin/validation/physics-first-principles`; frontend integrates against `API_CONTRACT.md`. Older text follows: start **P-001** (production collision/merger layer, spec in `PHYSICS_SPIKE.md`). Vaibhav: independent re-check of the energy/angular-momentum accounting and the P-003 stress tests.
 
