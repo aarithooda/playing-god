@@ -14,6 +14,7 @@ import type { BodyView } from '../../sim/viewModel';
 import type { Vec3 } from '../../api/types';
 import { BodyFields } from './BodyFields';
 import { btnStyle, errorTextStyle, panelStyle } from './styles';
+import { theme } from './theme';
 
 interface ControlPanelProps {
   bodies?: readonly BodyView[];
@@ -36,6 +37,8 @@ interface ControlPanelProps {
   pickedPosition?: { position: Vec3; nonce: number };
   onPlacementRadiusChange?: (radiusM: number) => void;
   onPlacementCreateResult?: (success: boolean) => void;
+  /** Increment to open the create form (used by the empty-universe call to action). */
+  openCreateRequest?: number;
 }
 
 export const ControlPanel: React.FC<ControlPanelProps> = ({
@@ -59,6 +62,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   pickedPosition,
   onPlacementRadiusChange,
   onPlacementCreateResult,
+  openCreateRequest = 0,
 }) => {
   const [creating, setCreating] = useState(false);
   const [values, setValues] = useState<FormValues>(NEW_BODY_DEFAULTS);
@@ -132,12 +136,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       : { ...current, px: defaults.px, py: defaults.py, pz: defaults.pz });
   }, [bodies, creating, positionManuallyEdited, values.radius]);
 
-  const toggleCreate = () => {
-    if (creating) {
-      onPlacementModeChange(false);
-      setCreating(false);
-      return;
-    }
+  const openCreate = () => {
     const defaults = defaultsForNewBody(bodies);
     setValues(defaults);
     onPlacementRadiusChange?.(Number(defaults.radius));
@@ -148,23 +147,31 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     setCreating(true);
   };
 
+  const toggleCreate = () => {
+    if (creating) {
+      onPlacementModeChange(false);
+      setCreating(false);
+    } else openCreate();
+  };
+
+  // The empty-universe call to action asks for the form to open.
+  useEffect(() => {
+    if (openCreateRequest > 0 && !creating) openCreate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openCreateRequest]);
+
   const submit = async () => createFromDraft(values);
 
   return (
     <div style={{
       ...panelStyle,
-      position: 'absolute',
-      top: '20px',
-      right: '20px',
-      width: '250px',
-      maxHeight: '60vh',
-      overflowY: 'auto',
+      width: '100%',
       display: 'flex',
       flexDirection: 'column',
       gap: '10px',
     }}>
-      <h3 style={{ margin: '0 0 4px 0', fontSize: '14px', opacity: 0.8 }}>Simulation</h3>
-      <div style={{ fontSize: '11px', opacity: 0.6 }}>
+      <h3 style={{ margin: '0 0 4px 0', fontSize: '14px' }}>Simulation</h3>
+      <div style={{ fontSize: '11px', color: theme.textMuted }}>
         Sim time: {simulationTimeS === null ? '—' : `${formatDuration(simulationTimeS)} (${simulationTimeS.toExponential(3)} s)`}
       </div>
       <div style={{ display: 'flex', gap: '5px' }}>
@@ -190,7 +197,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         />
       </div>
 
-      <div style={{ borderTop: '1px solid #333', paddingTop: '10px' }}>
+      <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: '10px' }}>
         <button style={btnStyle} onClick={toggleCreate} disabled={disabled}>
           {creating ? 'Cancel' : 'Add body…'}
         </button>

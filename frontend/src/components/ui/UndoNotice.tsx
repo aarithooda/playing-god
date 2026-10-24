@@ -13,7 +13,7 @@ export const UndoNotice: React.FC<UndoNoticeProps> = ({ bodyName, onUndo, onDism
   <div role="status" style={{
     ...panelStyle,
     position: 'absolute',
-    bottom: '28px',
+    bottom: '24px',
     left: '50%',
     transform: 'translateX(-50%)',
     display: 'flex',
@@ -21,7 +21,8 @@ export const UndoNotice: React.FC<UndoNoticeProps> = ({ bodyName, onUndo, onDism
     gap: '10px',
     padding: '8px 12px',
     fontSize: '13px',
-    whiteSpace: 'nowrap',
+    width: 'max-content',
+    maxWidth: 'calc(100% - 32px)',
   }}>
     <span>Created {bodyName}</span>
     <button type="button" style={btnStyle} onClick={onUndo}>Undo</button>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { BodyUpdateDto } from '../../api/types';
 import type { ActionResult } from '../../sim/useSimulation';
 import { formatNumber } from '../../sim/format';
@@ -12,6 +12,7 @@ import {
 import type { BodyView } from '../../sim/viewModel';
 import { BodyFields } from './BodyFields';
 import { btnStyle, errorTextStyle, panelStyle } from './styles';
+import { theme } from './theme';
 
 interface BodyInspectorProps {
   /** Confirmed backend state of the selected body (null when nothing is selected). */
@@ -31,12 +32,18 @@ interface BodyInspectorProps {
  * from the refreshed authoritative state, never from the draft.
  */
 export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDelete, onFocus, onClose }) => {
+  const panelRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState<Partial<FormValues>>({});
   const [errors, setErrors] = useState<FieldErrors>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const bodyId = body?.id;
+  // Bring the inspector into view when a different body is selected (the sidebar scrolls).
+  useEffect(() => {
+    if (bodyId) panelRef.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [bodyId]);
+
   useEffect(() => {
     setDraft({});
     setErrors({});
@@ -76,7 +83,7 @@ export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDe
   };
 
   return (
-    <div style={{ ...panelStyle, position: 'absolute', bottom: '20px', right: '20px', width: '280px', maxHeight: 'calc(100vh - 400px)', overflowY: 'auto' }}>
+    <div ref={panelRef} style={{ ...panelStyle, width: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '12px' }}>
         <h3 style={{ margin: 0, fontSize: '16px' }}>Body Inspector</h3>
         <button
@@ -94,13 +101,13 @@ export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDe
             justifyContent: 'center',
             fontSize: '16px',
             lineHeight: 1,
-            borderColor: '#666',
+            borderColor: theme.borderStrong,
           }}
         >
           ×
         </button>
       </div>
-      <p style={{ fontSize: '11px', opacity: 0.55, margin: '0 0 10px 0' }}>
+      <p style={{ fontSize: '11px', color: theme.textMuted, margin: '0 0 10px 0' }}>
         {body.id} · speed {formatNumber(body.speedMPerS)} m/s · SI units
       </p>
 
@@ -112,7 +119,7 @@ export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDe
         <button style={btnStyle} onClick={save} disabled={!dirty || busy}>Apply</button>
         <button style={btnStyle} onClick={() => { setDraft({}); setErrors({}); setServerError(null); }} disabled={!dirty || busy}>Revert</button>
         <button style={btnStyle} onClick={() => onFocus(body.id)}>Focus</button>
-        <button style={{ ...btnStyle, borderColor: '#a33' }} onClick={remove} disabled={busy}>Delete</button>
+        <button style={{ ...btnStyle, borderColor: theme.danger }} onClick={remove} disabled={busy}>Delete</button>
       </div>
     </div>
   );

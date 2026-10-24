@@ -8,6 +8,7 @@ import {
 } from '../../sim/diagnosticsFormat';
 import type { LoadStatus } from '../../sim/useSimulation';
 import { labelStyle, panelStyle } from './styles';
+import { theme } from './theme';
 
 interface DiagnosticsPanelProps {
   loadStatus: LoadStatus;
@@ -16,7 +17,7 @@ interface DiagnosticsPanelProps {
   issue: string | null;
 }
 
-const noteStyle: React.CSSProperties = { fontSize: '10px', opacity: 0.55, marginTop: '2px' };
+const noteStyle: React.CSSProperties = { fontSize: '11px', color: theme.textMuted, marginTop: '2px' };
 
 interface RowProps {
   id: string;
@@ -28,7 +29,7 @@ interface RowProps {
 const Row: React.FC<RowProps> = ({ id, label, value, note }) => (
   <div data-testid={`diag-${id}`} style={{ marginBottom: '8px' }}>
     <div style={labelStyle}>{label}</div>
-    <div data-testid={`diag-${id}-value`} style={{ fontSize: '13px', fontVariantNumeric: 'tabular-nums' }}>
+    <div data-testid={`diag-${id}-value`} style={{ fontSize: '13px', fontVariantNumeric: 'tabular-nums', fontFamily: theme.mono }}>
       {value}
     </div>
     {note && <div style={noteStyle}>{note}</div>}
@@ -42,7 +43,7 @@ export const DiagnosticsPanel: React.FC<DiagnosticsPanelProps> = ({ loadStatus, 
   let body: React.ReactNode;
   if (loadStatus !== 'ready') {
     body = (
-      <p role="status" style={{ fontSize: '12px', opacity: 0.6, margin: 0 }}>
+      <p role="status" style={{ fontSize: '12px', color: theme.textMuted, margin: 0 }}>
         {loadStatus === 'loading'
           ? 'Waiting for the simulation…'
           : 'Diagnostics unavailable: the simulation could not be loaded.'}
@@ -50,7 +51,7 @@ export const DiagnosticsPanel: React.FC<DiagnosticsPanelProps> = ({ loadStatus, 
     );
   } else if (diagnostics === null) {
     body = (
-      <p role="status" data-testid="diag-unavailable" style={{ fontSize: '12px', color: '#ffb366', margin: 0 }}>
+      <p role="status" data-testid="diag-unavailable" style={{ fontSize: '12px', color: theme.warn, margin: 0 }}>
         Diagnostics unavailable: {issue ?? 'no diagnostics were provided'}.
       </p>
     );
@@ -91,7 +92,7 @@ export const DiagnosticsPanel: React.FC<DiagnosticsPanelProps> = ({ loadStatus, 
           value={formatVector(diagnostics.bookedSpinKgM2PerS, 'kg·m²/s')}
           note="Orbital angular momentum booked by mergers. No rotation is simulated and it carries no energy."
         />
-        <div style={{ borderTop: '1px solid #444', paddingTop: '8px', marginTop: '4px' }}>
+        <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: '8px', marginTop: '4px' }}>
           <div style={{ ...labelStyle, marginBottom: '6px' }}>
             Derived here by adding backend values (not backend diagnostics)
           </div>
@@ -116,13 +117,7 @@ export const DiagnosticsPanel: React.FC<DiagnosticsPanelProps> = ({ loadStatus, 
     <div
       style={{
         ...panelStyle,
-        position: 'absolute',
-        bottom: '20px',
-        left: '20px',
-        width: '320px',
-        maxHeight: '60vh',
-        overflowY: 'auto',
-        boxSizing: 'border-box',
+        width: '100%',
       }}
     >
       <button
@@ -136,7 +131,7 @@ export const DiagnosticsPanel: React.FC<DiagnosticsPanelProps> = ({ loadStatus, 
           display: 'flex',
           justifyContent: 'space-between',
           width: '100%',
-          opacity: 0.85,
+          color: theme.text,
         }}
       >
         <h3 style={{ margin: 0, fontSize: '14px' }}>System diagnostics</h3>

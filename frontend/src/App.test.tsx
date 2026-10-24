@@ -1,0 +1,128 @@
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { earth, sun } from "./test/fixtures";
+
+const h = vi.hoisted(() => ({ empty: false, canvasProps: { current: null as any }, calls: [] as string[] }));
+
+vi.mock("./components/canvas/UniverseCanvas", () => ({
+  UniverseCanvas: (props: any) => {
+    // Record every callback the canvas could be asked to run, so tests can prove panels never trigger them.
+    h.canvasProps.current = {
+      ...props,
+      onClearSelection: (...a: unknown[]) => (h.calls.push("clear"), props.onClearSelection(...a)),
+      onPlacementConfirm: (...a: unknown[]) => (h.calls.push("confirm"), props.onPlacementConfirm(...a)),
+      onSelectBody: (...a: unknown[]) => (h.calls.push("select"), props.onSelectBody(...a)),
+    };
+    return <div data-testid="canvas" />;
+  },
+}));
+vi.mock("./api/client", async () => {
+  const fx = await import("./test/fixtures");
+  return { createApiClient: () => fx.fakeClient({ getState: async () => fx.state(h.empty ? [] : [fx.sun, fx.earth]) }) };
+});
+
+import App from "./App";
+
+const canvas = () => h.canvasProps.current;
+const setWidth = (w: number) => {
+  Object.defineProperty(window, "innerWidth", { configurable: true, value: w });
+  act(() => void window.dispatchEvent(new Event("resize")));
+};
+
+beforeEach(() => {
+  h.empty = false;
+  h.calls.length = 0;
+  Object.defineProperty(window, "innerWidth", { configurable: true, value: 1440 });
+});
+afterEach(cleanup);
+
+describe("App layout", () => {
+  it("starts with Controls open on the right and History & diagnostics tucked away on the left", async () => {
+    render(<App />);
+    await screen.findByText("Simulation");
+    expect(screen.getByTestId("sidebar-right").getAttribute("data-open")).toBe("true");
+    expect(screen.getByTestId("sidebar-left").getAttribute("data-open")).toBe("false");
+    expect(canvas().leftInset).toBe(40);
+    expect(canvas().rightInset).toBe(320);
+    await waitFor(() => expect(screen.getByTestId("backend-status").textContent).toMatch(/connected/));
+  });
+
+  it("puts Event History and the diagnostics panel in the left sidebar", async () => {
+    render(<App />);
+    await screen.findByText("Simulation");
+    const left = screen.getByTestId("sidebar-left");
+    expect(within(left).getByText("Event History")).toBeTruthy();
+    expect(within(left).getByRole("button", { name: /system diagnostics/i, hidden: true })).toBeTruthy();
+    expect(within(left).getByText("No events yet.")).toBeTruthy();
+  });
+
+  it("reports sidebar insets to the canvas as panels open and close (both open on a wide window)", async () => {
+    render(<App />);
+    await screen.findByText("Simulation");
+    fireEvent.click(screen.getByRole("button", { name: "Expand History & diagnostics" }));
+    expect([canvas().leftInset, canvas().rightInset]).toEqual([320, 320]);
+    fireEvent.click(screen.getByRole("button", { name: "Collapse Controls" }));
+    expect([canvas().leftInset, canvas().rightInset]).toEqual([320, 40]);
+  });
+
+  it("on a narrow window opening one sidebar closes the other", async () => {
+    setWidth(1000);
+    render(<App />);
+    await screen.findByText("Simulation");
+    fireEvent.click(screen.getByRole("button", { name: "Expand History & diagnostics" }));
+    expect([canvas().leftInset, canvas().rightInset]).toEqual([320, 40]);
+  });
+
+  it("shrinking the window with both sidebars open closes the left one", async () => {
+    render(<App />);
+    await screen.findByText("Simulation");
+    fireEvent.click(screen.getByRole("button", { name: "Expand History & diagnostics" }));
+    expect([canvas().leftInset, canvas().rightInset]).toEqual([320, 320]);
+    setWidth(900);
+    expect([canvas().leftInset, canvas().rightInset]).toEqual([40, 320]);
+  });
+
+  it("selecting a body opens a collapsed right sidebar and shows the inspector; empty-canvas click dismisses it", async () => {
+    render(<App />);
+    await screen.findByText("Simulation");
+    fireEvent.click(screen.getByRole("button", { name: "Collapse Controls" }));
+    expect(canvas().rightInset).toBe(40);
+    act(() => canvas().onSelectBody(earth.id));
+    expect(canvas().rightInset).toBe(320);
+    expect(await screen.findByText("Body Inspector")).toBeTruthy();
+    act(() => canvas().onClearSelection());
+    expect(screen.queryByText("Body Inspector")).toBeNull();
+  });
+
+  it("clicking controls or panels never dismisses the inspector, selects, or places a body", async () => {
+    render(<App />);
+    await screen.findByText("Simulation");
+    act(() => canvas().onSelectBody(sun.id));
+    await screen.findByText("Body Inspector");
+    h.calls.length = 0;
+    for (const target of [screen.getByText("Fit view"), screen.getByText("Event History"), screen.getByTestId("sidebar-right")]) {
+      fireEvent.pointerDown(target);
+      fireEvent.pointerUp(target);
+      fireEvent.click(target);
+    }
+    expect(screen.getByText("Body Inspector")).toBeTruthy();
+    expect(h.calls).toEqual([]);
+  });
+});
+
+describe("App first use", () => {
+  it("starts empty with one clear call to action that opens the create form", async () => {
+    h.empty = true;
+    render(<App />);
+    const cta = await screen.findByRole("button", { name: "Add your first body" });
+    expect(screen.getByText("The universe is empty")).toBeTruthy();
+    fireEvent.click(cta);
+    expect(await screen.findByRole("button", { name: "Create" })).toBeTruthy();
+  });
+
+  it("shows no call to action when bodies exist", async () => {
+    render(<App />);
+    await screen.findByText("Simulation");
+    expect(screen.queryByRole("button", { name: "Add your first body" })).toBeNull();
+  });
+});

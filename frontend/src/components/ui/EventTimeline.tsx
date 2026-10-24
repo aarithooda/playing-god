@@ -2,6 +2,7 @@ import React from 'react';
 import { formatDuration } from '../../sim/format';
 import type { EventView } from '../../sim/viewModel';
 import { panelStyle } from './styles';
+import { theme } from './theme';
 
 interface EventTimelineProps {
   events: EventView[];
@@ -20,32 +21,27 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({ events, bodyName }
   return (
     <div style={{
       ...panelStyle,
-      position: 'absolute',
-      top: '20px',
-      left: '20px',
-      width: '280px',
-      maxHeight: '400px',
-      overflowY: 'auto',
+      width: '100%',
     }}>
-      <h3 style={{ margin: '0 0 15px 0', fontSize: '14px', opacity: 0.8 }}>Event History</h3>
+      <h3 style={{ margin: '0 0 12px 0', fontSize: '14px' }}>Event History</h3>
       {events.length === 0 ? (
-        <p style={{ fontSize: '12px', opacity: 0.5, margin: 0 }}>No events yet.</p>
+        <p style={{ fontSize: '12px', color: theme.textMuted, margin: 0 }}>No events yet.</p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {newestFirst.map((event) => (
             <div key={event.id} data-testid="event-item" style={{
               padding: '8px',
-              background: 'rgba(255,255,255,0.05)',
+              background: theme.surfaceRaised,
               borderRadius: '4px',
               fontSize: '12px',
-              borderLeft: '3px solid #ff4444',
+              borderLeft: `3px solid ${theme.danger}`,
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
                 <strong>{event.type.toUpperCase()}</strong>
-                <span style={{ opacity: 0.5 }}>t = {formatDuration(event.simulationTimeS)}</span>
+                <span style={{ color: theme.textMuted }}>t = {formatDuration(event.simulationTimeS)}</span>
               </div>
               <div>{describeEvent(event, bodyName)}</div>
-              <div style={{ opacity: 0.5, marginTop: '3px' }}>
+              <div style={{ color: theme.textMuted, marginTop: '3px' }}>
                 result mass {event.resultMassKg.toExponential(3)} kg · KE lost {event.kineticEnergyLostJ.toExponential(2)} J
               </div>
             </div>

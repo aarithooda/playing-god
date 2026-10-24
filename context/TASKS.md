@@ -2,7 +2,7 @@
 Status: todo / in progress / blocked / done. Keep tasks small and independently testable.
 
 ## NEXT ACTION
-UI integration series (owner-approved plan): M0 done (PR #4); M1 inspector/focus/placement/undo on `integration/m1-inspector-placement` (see `STATUS.md`); next M2 panels, M3 selection outline, M4 axes/grid, M5 docs. Older text follows.
+UI integration series (owner-approved plan): M0 done (PR #4); M1 inspector/focus/placement/undo merged (PR #7); M2 panels on `integration/m2-panels` (see `STATUS.md`); next M3 selection outline, M4 axes/grid, M5 docs. Older text follows.
 
 B1 diagnostics merged (2026-10-24, T-011; top of `STATUS.md`). Next product step: T-012, the diagnostics panel (frontend owner). Older text follows.
 
@@ -53,7 +53,7 @@ Review/merge `feature/production-rebound-simulation` (production engine done: P-
 | T-007 | Implement planned endpoints (PATCH/DELETE bodies first), then start/pause/step/reset/events | high | done 2026-10-23: PATCH/DELETE/step/reset/events implemented; start/pause withdrawn (Play = client step loop) | backend dev | T-006; sim endpoints need D-008 | Contract rows flip to ✅ with tests |
 | T-008 | Resolve Vite `/api` rewrite vs `/api/v1` backend paths | high | done (frontend proxy forwards unchanged; verified in browser 2026-10-24) | frontend owner | T-006 | Frontend reaches `/api/v1/simulation/state`. (The 11 failing spike tests mentioned earlier are fixed: `pytest` is 88 passed.) |
 | T-011 | B1: system diagnostics in the state response (backend `compute_diagnostics`, `diagnostics` field) and frontend data path (types, strict parser, view model) | high | done 2026-10-24 (D-013 accepted; PRs #1 `d2352b0`, #2 `3ca349e`; pytest 259, vitest 69) | lead + Vaibhav (physics review) + Nikhil (consumer) | T-007 | merged with CI green |
-| T-012 | B1 UI: system diagnostics panel (units, "about origin" label, `null` as Undefined; drift indicators intentionally omitted) | medium | merged 2026-10-24 (PR #3, `ede80c0`, owner exception D-014); follow-up: relocate into the left sidebar when Nikhil's layout lands | lead (AI session); Nikhil reviews (shared `App.tsx`) | T-011 | panel shown with tests; no frontend physics; vitest 96 |
+| T-012 | B1 UI: system diagnostics panel (units, "about origin" label, `null` as Undefined; drift indicators intentionally omitted) | medium | merged 2026-10-24 (PR #3, `ede80c0`, owner exception D-014); follow-up done in M2: relocated into the left sidebar below Event History | lead (AI session); Nikhil reviews (shared `App.tsx`) | T-011 | panel shown with tests; no frontend physics; vitest 96 |
 
 ### Remote branch inventory — 2026-10-23
 Fetched and created local tracking refs for `feature/m0-rebound-physics-api` (Aarit) and `codex/3drender` (Nikhil). Their work remains unmerged; branch-local test/status claims are not main verification. See HANDOFF/STATUS for changed files and current tips. M0 task statuses on main remain unchanged pending review/integration.
