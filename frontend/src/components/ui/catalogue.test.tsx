@@ -11,56 +11,28 @@ import { ControlPanel } from "./ControlPanel";
 afterEach(cleanup);
 
 const ok = async (..._args: unknown[]) => ({ ok: true }) as const;
-function renderOpen(ui: React.ReactElement) {
-  const r = render(ui);
-  fireEvent.click(screen.getByRole("button", { name: "Show" }));
-  return r;
-}
-const notes = ["Catalogue entries are single bodies, not validated systems: nothing here has positions or velocities.", "Colour is a display choice, not a physical property."];
 
 describe("CataloguePanel", () => {
-  it("shows estimated badge and uncertainty", () => {
-    renderOpen(<CataloguePanel entries={[betelgeuseEntry, earthEntry]} notes={notes} onAdd={() => {}} disabled={false} />);
-    const bet = screen.getByTestId("catalogue-entry-betelgeuse");
-    expect(within(bet).getByText("Estimated")).toBeTruthy();
-    expect(bet.textContent).toMatch(/range/i);
-    expect(bet.textContent).toMatch(/16\.5.19 M/); // the published range, as published
-    expect(bet.textContent).toMatch(/model-dependent/);
-    const earthRow = screen.getByTestId("catalogue-entry-earth");
-    expect(within(earthRow).queryByText("Estimated")).toBeNull();
-    expect(earthRow.textContent).toMatch(/±/);
-    expect(earthRow.textContent).toMatch(/JPL SSD Planetary Physical Parameters/);
-  });
-
-  it("labels colour as display only and says entries are not validated systems", () => {
-    renderOpen(<CataloguePanel entries={[earthEntry]} notes={notes} onAdd={() => {}} disabled={false} />);
-    expect(screen.getByText(/Colour is a display choice/)).toBeTruthy();
-    expect(screen.getByText(/single bodies, not validated systems/)).toBeTruthy();
-    expect(screen.getByTitle("Colour: display only, not a physical property")).toBeTruthy();
-  });
-
-  it("discloses an illustrative value", () => {
-    const illustrative = { ...earthEntry, id: "toy", name: "Toy", properties: { ...earthEntry.properties, massKg: { ...earthEntry.properties.massKg, basis: "illustrative" as const } } };
-    renderOpen(<CataloguePanel entries={[illustrative]} notes={notes} onAdd={() => {}} disabled={false} />);
-    expect(within(screen.getByTestId("catalogue-entry-toy")).getByText("Illustrative")).toBeTruthy();
-  });
-
-  it("add hands over the entry and never mutates the catalogue", () => {
+  it("shows image-and-name tiles in a three-column grid and starts placement from a tile", () => {
     const entries = structuredClone([earthEntry]);
     const frozen = JSON.stringify(entries);
-    const onAdd = vi.fn();
-    renderOpen(<CataloguePanel entries={entries} notes={notes} onAdd={onAdd} disabled={false} />);
-    fireEvent.click(screen.getByRole("button", { name: "Add Earth to this universe…" }));
-    expect(onAdd).toHaveBeenCalledWith(entries[0]);
+    const onPlace = vi.fn();
+    render(<CataloguePanel entries={entries} onPlace={onPlace} disabled={false} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Planets" }));
+    const tile = screen.getByRole("button", { name: "Place Earth" });
+    expect(within(tile).getByRole("img").getAttribute("src")).toMatch(/earth_diffuse/);
+    expect(tile.textContent).toBe("Earth");
+    expect(tile.parentElement?.getAttribute("style")).toContain("repeat(3, minmax(0, 1fr))");
+    fireEvent.click(tile);
+    expect(onPlace).toHaveBeenCalledWith(entries[0]);
     expect(JSON.stringify(entries)).toBe(frozen);
   });
 
   it("is empty-safe and disabled while the universe is not usable", () => {
-    const { container, rerender } = render(<CataloguePanel entries={[]} notes={[]} onAdd={() => {}} disabled={false} />);
+    const { container, rerender } = render(<CataloguePanel entries={[]} onPlace={() => {}} disabled={false} />);
     expect(container.innerHTML).toBe("");
-    rerender(<CataloguePanel entries={[earthEntry]} notes={notes} onAdd={() => {}} disabled />);
-    fireEvent.click(screen.getByRole("button", { name: "Show" }));
-    expect((screen.getByRole("button", { name: "Add Earth to this universe…" }) as HTMLButtonElement).disabled).toBe(true);
+    rerender(<CataloguePanel entries={[earthEntry]} onPlace={() => {}} disabled />);
+    expect((screen.getByRole("button", { name: "Place Earth" }) as HTMLButtonElement).disabled).toBe(true);
   });
 });
 

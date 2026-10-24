@@ -3,7 +3,7 @@ import { Line } from '@react-three/drei';
 import { Color } from 'three';
 import type { TrajectoryInput } from '../../render/contract';
 import type { RenderTransform } from '../../sim/renderTransform';
-import { buildTimedPolylines, smoothTimedPolyline, spatialTrailProgress } from '../../sim/trajectory';
+import { buildTimedPolylines, smoothTimedPolyline, spatialTrailProgress, trimToLatestOrbit } from '../../sim/trajectory';
 
 interface TrajectoryLayerProps {
   trajectories: readonly TrajectoryInput[];
@@ -22,7 +22,8 @@ const REFERENCE_WIDTH = 1.2;
 export const TrajectoryLayer: React.FC<TrajectoryLayerProps> = ({ trajectories, transform, selectedBodyId }) => {
   const prepared = useMemo(
     () => trajectories.map((t) => {
-      const lines = buildTimedPolylines(t.samples, transform)
+      const recordedLines = buildTimedPolylines(t.samples, transform);
+      const lines = (t.role === 'active' ? recordedLines.map(trimToLatestOrbit) : recordedLines)
         .map(smoothTimedPolyline)
         .filter((line) => line.points.length >= 2);
       const selected = t.bodyId === selectedBodyId;

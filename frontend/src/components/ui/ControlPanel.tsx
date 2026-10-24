@@ -206,6 +206,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     setErrors({});
     setServerError(null);
     setCreating(true);
+    onPlacementModeChange(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [catalogueRequest?.nonce]);
 

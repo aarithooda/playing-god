@@ -198,24 +198,33 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
         if (referenceHistory.cache && referenceHistory.cache.universeId === otherRunId) out.push(trajectoryOf(referenceHistory.cache, comparisonBody, "reference"));
       }
       const livePositions = new Map(displayBodies.map((body) => [body.id, body.positionM]));
-      return out.filter((t) => t.samples.length > 0).map((trajectory) => {
+      return out.map((trajectory) => {
         // History is sampled discretely, but the active body is already moving between samples.
-        // Extend the active path to its current live position so the curve stays attached to it.
+        // A history fetch can see a newly committed step before its state response reaches this component. Keep the
+        // active path at or behind the displayed state, then extend it to that exact live position; otherwise the
+        // trail can jump ahead and appear detached at high simulation speeds.
         if (trajectory.role !== "active" || viewingHistory) return trajectory;
+        const currentTimeS = sim?.simulationTimeS;
+        const visibleSamples = currentTimeS === undefined
+          ? trajectory.samples
+          : trajectory.samples.filter((sample) => sample.simulationTimeS <= currentTimeS);
+        const visibleTrajectory = visibleSamples.length === trajectory.samples.length
+          ? trajectory
+          : { ...trajectory, samples: visibleSamples };
         const positionM = livePositions.get(trajectory.bodyId);
-        const latest = trajectory.samples[trajectory.samples.length - 1];
+        const latest = visibleSamples[visibleSamples.length - 1];
         if (!positionM || !latest || (
           latest.positionM.x === positionM.x && latest.positionM.y === positionM.y && latest.positionM.z === positionM.z
-        )) return trajectory;
+        )) return visibleTrajectory;
         return {
-          ...trajectory,
-          samples: [...trajectory.samples, {
-            simulationTimeS: sim?.simulationTimeS ?? latest.simulationTimeS,
+          ...visibleTrajectory,
+          samples: [...visibleSamples, {
+            simulationTimeS: currentTimeS ?? latest.simulationTimeS,
             positionM: { ...positionM },
             segment: latest.segment,
           }],
         };
-      });
+      }).filter((trajectory) => trajectory.samples.length > 0);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [showPaths, history.cache, referenceHistory.cache, hasRun, comparisonBody, otherRunId, pathIds.join("|"), displayBodies, sim?.simulationTimeS, viewingHistory],
@@ -335,7 +344,6 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
     setOpenCreateRequest((n) => n + 1);
   };
   const addFromCatalogue = (entry: CatalogueEntryDto) => {
-    setSidebars((s) => (s.right ? s : toggleSidebar(s, "right", true, windowWidth)));
     setCatalogueRequest((r) => ({ entry, nonce: (r?.nonce ?? 0) + 1 }));
   };
   const edge = insets(sidebars);
@@ -453,7 +461,12 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
         {placementMode && <PlacementHint position={placementPreview ? toPhysicsPosition(placementPreview, transform) : null} />}
       </div>
 
-      <Sidebar side="left" title="History & diagnostics" open={sidebars.left} onToggle={setSidebar("left")}>
+      <Sidebar side="left" title="Body catalogue & history" open={sidebars.left} onToggle={setSidebar("left")}>
+        <CataloguePanel
+          entries={props.catalogue.entries}
+          onPlace={addFromCatalogue}
+          disabled={!ready || viewingHistory || universe?.role === "baseline"}
+        />
         <EventTimeline
           events={simulation.events}
           bodyName={simulation.bodyName}
@@ -523,7 +536,6 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
           openCreateRequest={openCreateRequest}
           catalogueRequest={catalogueRequest}
         />
-        <CataloguePanel entries={props.catalogue.entries} notes={props.catalogue.notes} onAdd={addFromCatalogue} disabled={!ready} />
         <ViewPanel
           paths={showPaths}
           onPathsChange={setShowPaths}

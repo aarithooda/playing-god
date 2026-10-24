@@ -1,92 +1,123 @@
-import React, { useState } from 'react';
-import type { CatalogueEntryDto, CataloguePropertyDto } from '../../api/types';
+import React, { useEffect, useRef, useState } from 'react';
+import type { CatalogueEntryDto } from '../../api/types';
+import { resolveCelestialAssets } from '../../assets/registry';
 import { btnStyle, panelStyle } from './styles';
 import { theme } from './theme';
 
 interface CataloguePanelProps {
   entries: readonly CatalogueEntryDto[];
-  notes: readonly string[];
-  /** Hands the entry over as a starting point for the create form. The catalogue itself is never changed. */
-  onAdd: (entry: CatalogueEntryDto) => void;
+  onPlace: (entry: CatalogueEntryDto) => void;
   disabled: boolean;
 }
 
-function fmt(x: number): string {
-  return x.toExponential(4).replace(/\.?0+e/, 'e').replace('e+', 'e');
-}
-
-/** The value as published (with its unit), plus the SI value and its uncertainty where the source gave one. */
-function describe(p: CataloguePropertyDto, unit: string): string {
-  const u = p.uncertainty;
-  let spread = '';
-  if (u && 'range' in u) spread = ` (published range ${fmt(u.range[0])}–${fmt(u.range[1])} ${unit})`;
-  else if (u) spread = u.minus === u.plus ? ` ± ${fmt(u.plus)} ${unit}` : ` (−${fmt(u.minus)} / +${fmt(u.plus)} ${unit})`;
-  return `${fmt(p.value)} ${unit}${spread}`;
-}
-
-const BADGE: React.CSSProperties = {
-  fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: theme.warn, border: `1px solid ${theme.warn}`,
-  borderRadius: 3, padding: '1px 5px', marginLeft: 6,
-};
-
-/** A discoverable list of sourced single bodies. Estimated and illustrative values are disclosed wherever shown. */
-export const CataloguePanel: React.FC<CataloguePanelProps> = ({ entries, notes, onAdd, disabled }) => {
-  const [open, setOpen] = useState(false);
+/** A compact picker: choose a body, then click in the scene to place it. */
+export const CataloguePanel: React.FC<CataloguePanelProps> = ({ entries, onPlace, disabled }) => {
+  const [activeGroupId, setActiveGroupId] = useState<string | null>('stars');
+  const panelRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const clearSelectionOutsidePanel = (event: PointerEvent) => {
+      if (event.target instanceof Node && !panelRef.current?.contains(event.target)) {
+        setActiveGroupId(null);
+      }
+    };
+    document.addEventListener('pointerdown', clearSelectionOutsidePanel);
+    return () => document.removeEventListener('pointerdown', clearSelectionOutsidePanel);
+  }, []);
   if (entries.length === 0) return null;
+  const groups = [
+    { id: 'stars', name: 'Stars', entries: entries.filter((entry) => entry.kind === 'star') },
+    { id: 'planets', name: 'Planets', entries: entries.filter((entry) => entry.kind !== 'star' && entry.bodyType !== 'moon') },
+    { id: 'moons', name: 'Moons', entries: entries.filter((entry) => entry.bodyType === 'moon') },
+  ];
+  const activeGroup = groups.find((group) => group.id === activeGroupId);
   return (
-    <section aria-label="Body catalogue" style={{ ...panelStyle, width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h3 style={{ margin: 0, fontSize: 14 }}>Body catalogue</h3>
-        <button type="button" style={btnStyle} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-          {open ? 'Hide' : 'Show'}
-        </button>
+    <section ref={panelRef} aria-label="Body catalogue" style={{ ...panelStyle, width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <h3 style={{ margin: 0, fontSize: 14 }}>Body catalogue</h3>
+      <div role="tablist" aria-label="Body sets" style={{ display: 'flex', gap: 5 }}>
+        {groups.map((group) => {
+          const selected = group.id === activeGroupId;
+          return (
+            <button
+              key={group.id}
+              type="button"
+              role="tab"
+              id={`catalogue-tab-${group.id}`}
+              aria-selected={selected}
+              aria-controls={`catalogue-grid-${group.id}`}
+              onClick={() => setActiveGroupId(group.id)}
+              style={{
+                ...btnStyle,
+                flex: 1,
+                padding: '6px 3px',
+                borderColor: selected ? theme.accent : theme.borderStrong,
+                background: selected ? '#173152' : theme.surfaceRaised,
+                color: selected ? theme.text : theme.textMuted,
+                fontWeight: selected ? 700 : 500,
+              }}
+            >
+              {group.name}
+            </button>
+          );
+        })}
       </div>
-      {open && (
-        <>
-          {entries.map((e) => {
-            const estimated = e.properties.massKg.basis === 'estimated' || e.properties.radiusM.basis === 'estimated';
-            const illustrative = e.properties.massKg.basis === 'illustrative' || e.properties.radiusM.basis === 'illustrative';
+      {activeGroup && (
+        <div
+          role="tabpanel"
+          id={`catalogue-grid-${activeGroup.id}`}
+          aria-labelledby={`catalogue-tab-${activeGroup.id}`}
+          data-testid={`catalogue-group-${activeGroup.id}`}
+          style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 6 }}
+        >
+          {activeGroup.entries.map((entry) => {
+            const bodyType = entry.bodyType ?? (entry.kind === 'star' ? 'star' : 'default');
+            const image = resolveCelestialAssets(entry.assetKey, bodyType)?.diffuse;
             return (
-              <div key={e.id} data-testid={`catalogue-entry-${e.id}`} style={{ background: theme.surfaceRaised, borderRadius: 4, padding: 8, fontSize: 12 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span
-                    title="Colour: display only, not a physical property"
-                    style={{ width: 10, height: 10, borderRadius: '50%', background: e.visual.colorHex, display: 'inline-block' }}
+              <button
+                key={entry.id}
+                type="button"
+                data-testid={`catalogue-entry-${entry.id}`}
+                aria-label={`Place ${entry.name}`}
+                title={disabled ? `${entry.name} cannot be placed in the current view.` : `Place ${entry.name}: click here, then click a position in the scene.`}
+                disabled={disabled}
+                onClick={() => onPlace(entry)}
+                style={{
+                  ...btnStyle,
+                  minWidth: 0,
+                  minHeight: 84,
+                  padding: '7px 4px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 5,
+                  borderColor: theme.border,
+                }}
+              >
+                {image ? (
+                  <img
+                    src={image}
+                    alt={`${entry.name} preview`}
+                    draggable={false}
+                    style={{
+                      width: 44,
+                      height: 44,
+                      flex: '0 0 44px',
+                      borderRadius: '50%',
+                      objectFit: 'cover',
+                      backgroundColor: entry.visual.colorHex,
+                      boxShadow: '0 1px 7px #0009',
+                    }}
                   />
-                  <strong>{e.name}</strong>
-                  <span style={{ color: theme.textMuted }}>{e.bodyType ?? e.kind}</span>
-                  {estimated && <span style={BADGE}>Estimated</span>}
-                  {illustrative && <span style={BADGE}>Illustrative</span>}
-                </div>
-                <div>Mass: {describe(e.properties.massKg, 'kg')}</div>
-                <div style={{ color: theme.textMuted, fontSize: 11 }}>as published: {e.properties.massKg.sourceValue}</div>
-                <div>Radius: {describe(e.properties.radiusM, 'm')}</div>
-                <div style={{ color: theme.textMuted, fontSize: 11 }}>as published: {e.properties.radiusM.sourceValue}</div>
-                {[e.properties.massKg, e.properties.radiusM].map((p, i) => p.note && (
-                  <div key={i} style={{ color: theme.warn, fontSize: 11 }}>{i === 0 ? 'Mass' : 'Radius'}: {p.note}</div>
-                ))}
-                <div style={{ color: theme.textMuted, fontSize: 11 }}>
-                  Source: {e.properties.massKg.sources[0]?.citation}
-                  {e.properties.radiusM.sources[0]?.citation !== e.properties.massKg.sources[0]?.citation
-                    ? `; radius: ${e.properties.radiusM.sources[0]?.citation}` : ''}
-                </div>
-                {e.notes && <div style={{ color: theme.textMuted, fontSize: 11 }}>{e.notes}</div>}
-                <button
-                  type="button"
-                  style={{ ...btnStyle, marginTop: 6 }}
-                  disabled={disabled}
-                  aria-label={`Add ${e.name} to this universe…`}
-                  onClick={() => onAdd(e)}
-                >
-                  Add to this universe…
-                </button>
-              </div>
+                ) : (
+                  <span aria-hidden="true" style={{ width: 44, height: 44, borderRadius: '50%', background: entry.visual.colorHex }} />
+                )}
+                <span style={{ width: '100%', fontSize: 11, lineHeight: 1.2, textAlign: 'center', overflowWrap: 'anywhere' }}>
+                  {entry.name}
+                </span>
+              </button>
             );
           })}
-          {notes.map((n) => (
-            <p key={n} style={{ margin: 0, fontSize: 11, color: theme.textMuted }}>{n}</p>
-          ))}
-        </>
+        </div>
       )}
     </section>
   );

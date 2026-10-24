@@ -28,6 +28,54 @@ export function spatialTrailProgress(points: readonly ScenePosition[]): number[]
 }
 
 /**
+ * Retains at most the most recent completed orbit in a live trail. Keeping older laps makes a returning body paint the
+ * same curve repeatedly, which darkens the orbit. A return is recognized only after roughly 80% of the estimated
+ * circumference, so ordinary nearby samples and crossings do not reset the trail.
+ */
+export function trimToLatestOrbit(line: TrajectoryPolyline): TrajectoryPolyline {
+  const { points, simulationTimesS } = line;
+  if (points.length < 4) return line;
+
+  const min = [Infinity, Infinity, Infinity];
+  const max = [-Infinity, -Infinity, -Infinity];
+  for (const point of points) {
+    for (let axis = 0; axis < 3; axis += 1) {
+      min[axis] = Math.min(min[axis]!, point[axis]!);
+      max[axis] = Math.max(max[axis]!, point[axis]!);
+    }
+  }
+  const center = min.map((value, axis) => (value + max[axis]!) / 2);
+  const radius = Math.max(...points.map((point) => Math.hypot(
+    point[0] - center[0]!, point[1] - center[1]!, point[2] - center[2]!,
+  )));
+  if (!Number.isFinite(radius) || radius <= 0) return line;
+
+  const returnTolerance = radius * 0.04;
+  const minLoopDistance = 2 * Math.PI * radius * 0.8;
+  const current = points[points.length - 1]!;
+  const currentBefore = points[points.length - 2]!;
+  const currentDirection = [current[0] - currentBefore[0], current[1] - currentBefore[1], current[2] - currentBefore[2]];
+  const currentDirectionLength = Math.hypot(...currentDirection);
+  let traveled = 0;
+  for (let i = points.length - 2; i >= 0; i -= 1) {
+    const point = points[i]!;
+    const next = points[i + 1]!;
+    traveled += Math.hypot(point[0] - next[0], point[1] - next[1], point[2] - next[2]);
+    const direction = [next[0] - point[0], next[1] - point[1], next[2] - point[2]];
+    const directionLength = Math.hypot(...direction);
+    const sameDirection = currentDirectionLength > 0 && directionLength > 0
+      && (direction[0]! * currentDirection[0]! + direction[1]! * currentDirection[1]! + direction[2]! * currentDirection[2]!)
+        / (directionLength * currentDirectionLength) > 0.5;
+    if (traveled >= minLoopDistance && sameDirection && Math.hypot(
+      point[0] - current[0], point[1] - current[1], point[2] - current[2],
+    ) <= returnTolerance) {
+      return { points: points.slice(i), simulationTimesS: simulationTimesS.slice(i) };
+    }
+  }
+  return line;
+}
+
+/**
  * Smooths only the displayed line between recorded points. This is a bounded centripetal Catmull–Rom rendering interpolation,
  * not a prediction or additional simulation history; endpoints and their simulation times remain exact.
  */
