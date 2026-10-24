@@ -8,6 +8,7 @@ import { AxesOverlay, GridOverlay } from './ViewOverlays';
 import { DEFAULT_CAMERA_POSITION, type RenderTransform, type ScenePosition } from '../../sim/renderTransform';
 import { clampPlacementDepth, rayPlaneIntersection } from '../../sim/placement';
 import { sceneShiftPx } from '../ui/layout';
+import { framingDistanceScale } from '../../sim/framing';
 import {
   FOCUS_ANIMATION_S,
   focusDistanceForScreenHeight,
@@ -106,8 +107,14 @@ const CameraRig: React.FC<{
   focus?: FocusRequest;
   bodies: SceneBody[];
   onFocusRelease?: () => void;
-}> = ({ frameEpoch, focus, bodies, onFocusRelease }) => {
+  leftInset: number;
+  rightInset: number;
+}> = ({ frameEpoch, focus, bodies, onFocusRelease, leftInset, rightInset }) => {
   const camera = useThree((s) => s.camera);
+  const size = useThree((s) => s.size);
+  // Latest layout for the reset effect below, which must only run when the scene is refitted.
+  const layoutRef = useRef({ width: size.width, height: size.height, leftInset, rightInset });
+  layoutRef.current = { width: size.width, height: size.height, leftInset, rightInset };
   const controls = useThree((s) => s.controls) as unknown as OrbitTarget | null;
   const session = useRef<FocusSession | null>(null);
   // Latest props for the frame loop without re-running the effects below.
@@ -123,7 +130,9 @@ const CameraRig: React.FC<{
   };
 
   useEffect(() => {
-    camera.position.set(...DEFAULT_CAMERA_POSITION);
+    // Pull back just enough that the fitted scene is not hidden under a sidebar (1 on normal windows).
+    const s = framingDistanceScale({ fovDeg: (camera as PerspectiveCamera).fov, ...layoutRef.current });
+    camera.position.set(DEFAULT_CAMERA_POSITION[0] * s, DEFAULT_CAMERA_POSITION[1] * s, DEFAULT_CAMERA_POSITION[2] * s);
     release();
     if (controls) {
       controls.target.set(0, 0, 0);
@@ -389,7 +398,14 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
         onPreview={onPlacementPreview}
       />
       <OrbitControls makeDefault enabled={!placementMode} />
-      <CameraRig frameEpoch={frameEpoch} focus={focus} bodies={bodies} onFocusRelease={onFocusRelease} />
+      <CameraRig
+        frameEpoch={frameEpoch}
+        focus={focus}
+        bodies={bodies}
+        onFocusRelease={onFocusRelease}
+        leftInset={leftInset}
+        rightInset={rightInset}
+      />
       <ViewportInset leftInset={leftInset} rightInset={rightInset} />
     </Canvas>
   );

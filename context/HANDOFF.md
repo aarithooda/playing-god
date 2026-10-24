@@ -1,5 +1,12 @@
 # Handoff (latest — rewrite at end of each session)
 
+## M5 final verification and documentation (2026-10-24, Claude Sonnet 5.5) — latest
+1. State of `main` (`f3b0057`) and what is verified: top of `STATUS.md`. System layout and interaction contract: `ARCHITECTURE.md` (rewritten). User-facing usage: `README.md`.
+2. This PR adds one fix (`sim/framing.ts`: Fit view keeps the fitted scene inside the free area on narrow windows) plus docs. Commands: `python -m pytest`; `cd frontend && npm run typecheck && npm test && npm run build`; backend `.venv/Scripts/python.exe -m uvicorn backend.main:app --port 8000`; frontend `cd frontend && npm run dev`.
+3. **Restart any long-running backend** started before 2026-10-24 evening: it may run pre-D-011/D-012/D-021 code (the universe is in memory and is lost on restart).
+4. Open items: T-010 automated browser E2E; the history-system decision (only merger events are listed); Experiment 01 (not started); a worker process if native-integrate hangs ever need interrupting.
+5. Verification tip for WebGL: screenshots from the in-app browser pane are device-pixel crops and lag; measure with DOM rects and a framebuffer probe (see `WORKLOG.md`, 2026-10-24 M5).
+
 ## Simulation stall investigation (2026-10-24, Claude Sonnet 5.5) — latest
 1. The reported stall was a known IAS15 wedge (D-011) hitting a backend process that predates the fix, plus a lock/timeout design that let one stuck step make the whole app unusable. Details: `STATUS.md` (top), `WORKLOG.md`, proposed D-021, `API_CONTRACT.md` ("Concurrency").
 2. **Action for the owner:** the old backend (pid 5328, port 8000) is still running and frozen at t = 155344829.88 s. Restart it from the current checkout (`.venv/Scripts/python.exe -m uvicorn backend.main:app --port 8000`; this clears the in-memory universe). The three-Earth state is encoded in `tests/test_stall_resilience.py` (`INCIDENT_BODIES`) if you want to re-create it.
