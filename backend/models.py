@@ -113,7 +113,7 @@ class OrientationSpec(BaseModel):
 
 # Optional collision-engine fields of a body. They are OMITTED from responses when null, so a body without a material looks
 # exactly as before (D-033 DQ-2: no new body fields, no spin state).
-COLLISION_BODY_FIELDS = ("material", "spinRadPerS", "orientation", "representation", "originEventId", "debris")
+COLLISION_BODY_FIELDS = ("material", "spinRadPerS", "orientation", "representation", "originEventId", "debris", "fragmentClass")
 
 
 class SizeDistributionSpec(BaseModel):
@@ -187,6 +187,7 @@ class Body(BaseModel):
     representation: Literal["fragment", "debris-parcel"] | None = None  # present only for products of a collision (absent = "body")
     originEventId: str | None = None  # the collision event that created this body
     debris: DebrisSpec | None = None  # parcels only
+    fragmentClass: Literal["bound_to_remnant", "orbiting_system", "escaping"] | None = None  # fragments/parcels: dynamical class (Stage 7)
 
     @model_serializer(mode="wrap")
     def _omit_unset_collision_fields(self, handler):
@@ -224,6 +225,15 @@ class BodyUpdate(BaseModel):
         return self
 
 
+class EscapedLedger(BaseModel):
+    """Material that left the simulation through the explicit escape rule; totals including it are conserved."""
+
+    massKg: float
+    momentumKgMPerS: Vec3
+    angularMomentumAboutOriginKgM2PerS: Vec3
+    bodyCount: int
+
+
 class Diagnostics(BaseModel):
     """System-level quantities of the exact state in `bodies` (definitions: backend/diagnostics.py, API_CONTRACT.md).
     Each value is finite or null (undefined / overflow); vectors are all-or-nothing."""
@@ -238,12 +248,15 @@ class Diagnostics(BaseModel):
     # Additive and optional: present only when some body has a rotation state (Stage 2). The version stays 1, so older
     # clients, which are strict about `version`, keep working; the key is simply absent in every other state.
     spinAngularMomentumKgM2PerS: Vec3 | None = None
+    # Additive and optional (Stage 7): the escaped-material ledger, present only after some debris was removed by the escape rule.
+    escaped: "EscapedLedger | None" = None
 
     @model_serializer(mode="wrap")
     def _omit_absent_spin_term(self, handler):
         data = handler(self)
-        if data.get("spinAngularMomentumKgM2PerS") is None:
-            data.pop("spinAngularMomentumKgM2PerS", None)
+        for key in ("spinAngularMomentumKgM2PerS", "escaped"):
+            if data.get(key) is None:
+                data.pop(key, None)
         return data
 
 
@@ -310,8 +323,16 @@ AnyEvent = Annotated[Union[Event, CollisionEventOut], Field(discriminator="type"
 
 
 class StepResponse(SimulationState):
-    advancedS: float  # simulation time actually advanced (== dtS up to rounding)
+    advancedS: float  # simulation time actually advanced (== dtS up to rounding, unless `collision_budget_reached` is in `warnings`, DQ-10)
     events: list[AnyEvent]  # events that occurred during this step only
+    warnings: list[str] = []  # present only when non-empty: "collision_budget_reached" = the step ended early, advancedS < dtS
+
+    @model_serializer(mode="wrap")
+    def _omit_empty_warnings(self, handler):
+        data = handler(self)
+        if not data.get("warnings"):
+            data.pop("warnings", None)
+        return data
 
 
 class EventList(BaseModel):

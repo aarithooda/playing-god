@@ -39,9 +39,9 @@ def build_input(seq: int, impact: ImpactState, config: CollisionConfig, model_id
 
 
 def build_record(data: CollisionInput, spec: Optional[OutcomeSpec], selection_reasons: tuple[str, ...], warnings: tuple[str, ...],
-                 legacy_event_id: Optional[str], result: Optional[CollisionResult] = None) -> CollisionRecord:
+                 legacy_event_id: Optional[str], result: Optional[CollisionResult] = None, root_event_id: Optional[str] = None) -> CollisionRecord:
     return CollisionRecord(
-        event_id=data.event_id, parent_event_id=data.parent_event_id, root_event_id=data.parent_event_id or data.event_id,
+        event_id=data.event_id, parent_event_id=data.parent_event_id, root_event_id=root_event_id or data.parent_event_id or data.event_id,
         generation=data.generation, input=data, selection_reasons=selection_reasons, outcome_spec=spec, result=result,
         warnings=warnings, fidelity=dict(spec.fidelity) if spec is not None else {}, input_digest=data.input_digest,
         result_digest="" if result is None else result.result_digest, legacy_event_id=legacy_event_id)

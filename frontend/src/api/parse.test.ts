@@ -295,3 +295,27 @@ describe("collision products on bodies (Stage 4)", () => {
     rejects(() => parseBodyDto({ ...parcel, debris: { ...parcel.debris, sizeDistribution: { kind: "gaussian" } } }), "sizeDistribution.kind");
   });
 });
+
+describe("debris lifecycle fields (Stage 7)", () => {
+  const frag = { ...earth, id: "frag-3-1", representation: "fragment", originEventId: "col-3", fragmentClass: "escaping" };
+
+  it("parses the dynamical class of a fragment and leaves ordinary bodies without it", () => {
+    expect(parseBodyDto(frag).fragmentClass).toBe("escaping");
+    expect("fragmentClass" in parseBodyDto(earth)).toBe(false);
+    rejects(() => parseBodyDto({ ...frag, fragmentClass: "lost" }), "body.fragmentClass");
+  });
+
+  it("parses the escaped-material ledger of the diagnostics and keeps it absent otherwise", () => {
+    const escaped = { massKg: 1e3, momentumKgMPerS: { x: 1, y: 2, z: 3 }, angularMomentumAboutOriginKgM2PerS: { x: 0, y: 0, z: 4 }, bodyCount: 1 };
+    expect(parseDiagnosticsDto({ ...diagnostics, escaped }).escaped).toEqual(escaped);
+    expect("escaped" in parseDiagnosticsDto(diagnostics)).toBe(false);
+    rejects(() => parseDiagnosticsDto({ ...diagnostics, escaped: { ...escaped, bodyCount: "one" } }), "diagnostics.escaped.bodyCount");
+  });
+
+  it("parses the budget warning of a shortened step and keeps it absent for a normal step", () => {
+    const base = stepResponse([sun], 100, []);
+    expect(parseStepResponse({ ...base, warnings: ["collision_budget_reached"], advancedS: 40 }).warnings).toEqual(["collision_budget_reached"]);
+    expect("warnings" in parseStepResponse(base)).toBe(false);
+    rejects(() => parseStepResponse({ ...base, warnings: "x" }), "step.warnings");
+  });
+});

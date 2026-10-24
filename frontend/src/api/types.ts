@@ -49,6 +49,8 @@ export interface BodyDto {
   representation?: "fragment" | "debris-parcel";
   originEventId?: string;
   debris?: DebrisDto;
+  /** Fragments and parcels: dynamical class from the present state (Stage 7). Not a prediction. */
+  fragmentClass?: "bound_to_remnant" | "orbiting_system" | "escaping";
 }
 
 /** POST /api/v1/bodies request (the server generates `id`). `kind` defaults to "planet" on the server. */
@@ -112,6 +114,15 @@ export interface DiagnosticsDto {
   bookedSpinKgM2PerS: Vec3 | null;
   /** Sum of I*omega over bodies WITH a rotation state. Absent (not null) in every state without one. */
   spinAngularMomentumKgM2PerS?: Vec3 | null;
+  /** Material that left the simulation through the explicit escape rule (Stage 7); totals including it are conserved. Absent until then. */
+  escaped?: EscapedLedgerDto;
+}
+
+export interface EscapedLedgerDto {
+  massKg: number;
+  momentumKgMPerS: Vec3;
+  angularMomentumAboutOriginKgM2PerS: Vec3;
+  bodyCount: number;
 }
 
 export interface SimulationStateDto {
@@ -178,6 +189,8 @@ export type SimulationEventDto = MergerEventDto | CollisionEventDto;
 
 export interface StepResponseDto extends SimulationStateDto {
   advancedS: number;
+  /** Present only when non-empty: "collision_budget_reached" = the step ended early (advancedS < dtS), by design (DQ-10). */
+  warnings?: string[];
   events: SimulationEventDto[];
 }
 

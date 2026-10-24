@@ -8,6 +8,7 @@ import type {
   BodyType,
   CatalogueDto,
   DebrisDto,
+  EscapedLedgerDto,
   MaterialDto,
   OrientationDto,
   CataloguePropertyDto,
@@ -70,7 +71,7 @@ function vec3OrNull(v: unknown, what: string): Vec3 | null {
 /** Optional collision-engine fields of a body. Absent keys stay absent (older backends, bodies without a material). */
 function parseCollisionBodyFields(o: Record<string, unknown>): {
   material?: MaterialDto; spinRadPerS?: Vec3; orientation?: OrientationDto; representation?: "fragment" | "debris-parcel";
-  originEventId?: string; debris?: DebrisDto;
+  originEventId?: string; debris?: DebrisDto; fragmentClass?: "bound_to_remnant" | "orbiting_system" | "escaping";
 } {
   const out: ReturnType<typeof parseCollisionBodyFields> = {};
   if (o.representation !== undefined && o.representation !== null) {
@@ -78,6 +79,10 @@ function parseCollisionBodyFields(o: Record<string, unknown>): {
     out.representation = o.representation;
   }
   if (o.originEventId !== undefined && o.originEventId !== null) out.originEventId = str(o.originEventId, "body.originEventId");
+  if (o.fragmentClass !== undefined && o.fragmentClass !== null) {
+    if (o.fragmentClass !== "bound_to_remnant" && o.fragmentClass !== "orbiting_system" && o.fragmentClass !== "escaping") bad("body.fragmentClass");
+    out.fragmentClass = o.fragmentClass;
+  }
   if (o.debris !== undefined && o.debris !== null) {
     const d = obj(o.debris, "body.debris");
     const sd = d.sizeDistribution;
@@ -146,6 +151,8 @@ export function parseDiagnosticsDto(v: unknown): DiagnosticsDto {
     ...(o.spinAngularMomentumKgM2PerS === undefined
       ? {}
       : { spinAngularMomentumKgM2PerS: vec3OrNull(o.spinAngularMomentumKgM2PerS, "diagnostics.spinAngularMomentumKgM2PerS") }),
+    // additive (Stage 7): the escaped-material ledger, absent until some debris was removed by the escape rule
+    ...(o.escaped === undefined || o.escaped === null ? {} : { escaped: parseEscaped(o.escaped) }),
   };
 }
 
@@ -289,14 +296,35 @@ export function parseEventList(v: unknown): EventListDto {
   return { events: (o.events as unknown[]).map(parseEventDto) };
 }
 
+function parseEscaped(v: unknown): EscapedLedgerDto {
+  const o = obj(v, "diagnostics.escaped");
+  const vec = (x: unknown, what: string): Vec3 => {
+    const r = vec3OrNull(x, what);
+    if (r === null) bad(what);
+    return r;
+  };
+  return {
+    massKg: num(o.massKg, "diagnostics.escaped.massKg"),
+    momentumKgMPerS: vec(o.momentumKgMPerS, "diagnostics.escaped.momentumKgMPerS"),
+    angularMomentumAboutOriginKgM2PerS: vec(o.angularMomentumAboutOriginKgM2PerS, "diagnostics.escaped.angularMomentumAboutOriginKgM2PerS"),
+    bodyCount: num(o.bodyCount, "diagnostics.escaped.bodyCount"),
+  };
+}
+
 export function parseStepResponse(v: unknown): StepResponseDto {
   const o = obj(v, "step");
   const state = parseStateDto(v);
   if (!Array.isArray(o.events)) bad("step.events");
+  let warnings: string[] | undefined;
+  if (o.warnings !== undefined && o.warnings !== null) {
+    if (!Array.isArray(o.warnings)) bad("step.warnings");
+    warnings = (o.warnings as unknown[]).map((w) => str(w, "step.warnings[]"));
+  }
   return {
     ...state,
     advancedS: num(o.advancedS, "step.advancedS"),
     events: (o.events as unknown[]).map(parseEventDto),
+    ...(warnings && warnings.length ? { warnings } : {}),
   };
 }
 

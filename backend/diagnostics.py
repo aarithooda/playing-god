@@ -19,6 +19,7 @@ when two centres coincide (undefined) or on overflow. The function never raises 
 All sums use math.fsum and pair terms are symmetric, so the result does not depend on the order of the bodies.
 """
 import math
+from typing import Optional
 from typing import Iterable, Sequence
 
 DIAGNOSTICS_VERSION = 1
@@ -64,7 +65,8 @@ def _potential_energy(bodies: Sequence[BodyState], g: float) -> float | None:
     return energy if math.isfinite(energy) else None  # a NaN/inf `g`, or g*total overflowing, is undefined, not a value
 
 
-def compute_diagnostics(bodies: Sequence[BodyState], spins: Iterable[Vec], g: float, rotations: Iterable[Vec] = ()) -> dict:
+def compute_diagnostics(bodies: Sequence[BodyState], spins: Iterable[Vec], g: float, rotations: Iterable[Vec] = (),
+                        escaped: Optional[dict] = None) -> dict:
     """Diagnostics of one snapshot. `spins` are the booked spin vectors of the bodies that carry one; `rotations` are the
     spin angular momenta I*omega of the bodies that have a rotation state (empty for every pre-Stage-2 state)."""
     spin_rows = [tuple(s) for s in spins]
@@ -81,4 +83,8 @@ def compute_diagnostics(bodies: Sequence[BodyState], spins: Iterable[Vec], g: fl
     }
     if rotation_rows:
         result["spinAngularMomentumKgM2PerS"] = _vec_sum(rotation_rows)
+    if escaped:
+        result["escaped"] = {"massKg": escaped["massKg"], "momentumKgMPerS": _vec_sum([tuple(escaped["momentumKgMPerS"])]),
+                             "angularMomentumAboutOriginKgM2PerS": _vec_sum([tuple(escaped["angularMomentumKgM2PerS"])]),
+                             "bodyCount": len(escaped["bodies"])}
     return result
