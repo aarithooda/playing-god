@@ -1,0 +1,430 @@
+{
+  "id": "solar-system-j2000",
+  "name": "Solar System (J2000.0)",
+  "dataVersion": "1",
+  "description": "The Sun and the eight planets as point masses (planet systems at their barycentres), initial state from JPL Horizons at J2000.0.",
+  "epoch": {
+    "label": "J2000.0",
+    "jdTdb": 2451545.0,
+    "iso": "2000-01-01T12:00:00 TDB"
+  },
+  "frame": "Ecliptic and mean equinox of J2000.0 (Horizons REF_PLANE=ECLIPTIC, REF_SYSTEM=ICRF); right-handed; the x-y plane is the ecliptic",
+  "origin": "Barycentre of the included bodies (zero total momentum), shifted from the Solar System Barycenter",
+  "units": "SI: m, kg, s, m/s",
+  "gSI": 6.6743e-11,
+  "gSource": "CODATA 2018 (JPL SSD Astrodynamic Parameters); the engine's fixed value",
+  "history": {
+    "mode": "grid",
+    "sampleIntervalS": 432000.0
+  },
+  "validationEpochs": [
+    {
+      "jdTdb": 2451910.25,
+      "offsetDays": 365.25
+    },
+    {
+      "jdTdb": 2452275.5,
+      "offsetDays": 730.5
+    }
+  ],
+  "bodies": [
+    {
+      "id": "body-sun",
+      "name": "Sun",
+      "kind": "star",
+      "colorHex": "#ffcc33",
+      "colorNote": "display only",
+      "horizonsTarget": "10",
+      "gm": {
+        "valueM3PerS2": 1.3271244004127942e+20,
+        "sourceValue": "1.32712440041279419 x 10^20 m^3 s^-2",
+        "basis": "measured",
+        "source": "JPL SSD Astrodynamic Parameters (heliocentric gravitational constant, DE440)"
+      },
+      "radius": {
+        "valueM": 695700000.0,
+        "sourceValue": "6.957e8 m",
+        "basis": "nominal",
+        "source": "IAU 2015 Resolution B3 nominal solar radius (Mamajek et al., arXiv:1510.07674)"
+      },
+      "state": {
+        "jdTdb": 2451545.0,
+        "sourceFile": "10_2451545.0.txt",
+        "sourceSha256": "01dd25da43620227a4ba54575662a44aa7c6c0db91391e791c9f0d1f645e1205",
+        "sourceLine": "Target body name: Sun (10)                        {source: DE441}",
+        "positionM": [
+          -1067706805.380953,
+          -418275271.8194473,
+          30861817.2547682
+        ],
+        "velocityMPerS": [
+          9.312571926520471,
+          -12.82475570794162,
+          -0.1633507186350417
+        ],
+        "basis": "measured",
+        "note": "Horizons geometric state relative to the Solar System Barycenter, km -> m by x1000, before the barycentre shift"
+      }
+    },
+    {
+      "id": "body-mercury",
+      "name": "Mercury",
+      "kind": "planet",
+      "colorHex": "#9ca3af",
+      "colorNote": "display only",
+      "horizonsTarget": "199",
+      "gm": {
+        "valueM3PerS2": 22031868551000.0,
+        "sourceValue": "22031.868551 km^3/s^2",
+        "basis": "measured",
+        "source": "JPL SSD Astrodynamic Parameters, DE440 (Park et al. 2021, AJ 161:105)"
+      },
+      "radius": {
+        "valueM": 2439400.0,
+        "sourceValue": "2439.4 km",
+        "basis": "measured",
+        "source": "JPL SSD Planetary Physical Parameters, mean radius (Archinal et al. 2018)"
+      },
+      "state": {
+        "jdTdb": 2451545.0,
+        "sourceFile": "199_2451545.0.txt",
+        "sourceSha256": "a11386677fbc0f45d6508d7f5b4fc6ef9db68c9374ae5fe57ecaa36ee4f9bd09",
+        "sourceLine": "Target body name: Mercury (199)                   {source: DE441}",
+        "positionM": [
+          -20529433161.23468,
+          -67331550535.34345,
+          -3648992526.494771
+        ],
+        "velocityMPerS": [
+          37004.30442920571,
+          -11177.24068132644,
+          -4307.7914693768535
+        ],
+        "basis": "measured",
+        "note": "Horizons geometric state relative to the Solar System Barycenter, km -> m by x1000, before the barycentre shift"
+      }
+    },
+    {
+      "id": "body-venus",
+      "name": "Venus",
+      "kind": "planet",
+      "colorHex": "#e8c07a",
+      "colorNote": "display only",
+      "horizonsTarget": "299",
+      "gm": {
+        "valueM3PerS2": 324858592000000.0,
+        "sourceValue": "324858.592 km^3/s^2",
+        "basis": "measured",
+        "source": "JPL SSD Astrodynamic Parameters, DE440 (Park et al. 2021, AJ 161:105)"
+      },
+      "radius": {
+        "valueM": 6051800.0,
+        "sourceValue": "6051.8 km",
+        "basis": "measured",
+        "source": "JPL SSD Planetary Physical Parameters, mean radius (Archinal et al. 2018)"
+      },
+      "state": {
+        "jdTdb": 2451545.0,
+        "sourceFile": "299_2451545.0.txt",
+        "sourceSha256": "5930ba1eb00d616af13a524feab470530dba67e2a692267a4812e53b1593b4f3",
+        "sourceLine": "Target body name: Venus (299)                     {source: DE441}",
+        "positionM": [
+          -108524200857.5715,
+          -5303290247.691983,
+          6166496116.973171
+        ],
+        "velocityMPerS": [
+          1391.2186011899669,
+          -35153.11993215464,
+          -560.2056890007159
+        ],
+        "basis": "measured",
+        "note": "Horizons geometric state relative to the Solar System Barycenter, km -> m by x1000, before the barycentre shift"
+      }
+    },
+    {
+      "id": "body-earth",
+      "name": "Earth (Earth–Moon barycentre)",
+      "kind": "planet",
+      "colorHex": "#3b82f6",
+      "colorNote": "display only",
+      "horizonsTarget": "3",
+      "gm": {
+        "valueM3PerS2": 403503235625000.0,
+        "sourceValue": "398600.435507 km^3/s^2 + 4902.800118 km^3/s^2",
+        "basis": "measured",
+        "source": "JPL SSD Astrodynamic Parameters, DE440 (Park et al. 2021, AJ 161:105)",
+        "note": "Earth + Moon (Earth–Moon barycentre carries the mass of both)"
+      },
+      "radius": {
+        "valueM": 6371008.399999999,
+        "sourceValue": "6371.0084 km",
+        "basis": "assumed",
+        "source": "JPL SSD Planetary Physical Parameters, mean radius (Archinal et al. 2018)",
+        "note": "the point mass stands for a barycentre; the planet's own mean radius is used for collisions and display (not a physical claim about the barycentre)"
+      },
+      "state": {
+        "jdTdb": 2451545.0,
+        "sourceFile": "3_2451545.0.txt",
+        "sourceSha256": "b223325048fba07db7d023a55e8d200c87c503acd5d144a0b89b460f96e15cdb",
+        "sourceLine": "Target body name: Earth-Moon Barycenter (3)       {source: DE441}",
+        "positionM": [
+          -27570283695.09406,
+          144275680356.17148,
+          30691384.06456262
+        ],
+        "velocityMPerS": [
+          -29777.12821605761,
+          -5491.001578052183,
+          -0.1213773110433358
+        ],
+        "basis": "measured",
+        "note": "Horizons geometric state relative to the Solar System Barycenter, km -> m by x1000, before the barycentre shift"
+      }
+    },
+    {
+      "id": "body-mars",
+      "name": "Mars (system barycentre)",
+      "kind": "planet",
+      "colorHex": "#c1440e",
+      "colorNote": "display only",
+      "horizonsTarget": "4",
+      "gm": {
+        "valueM3PerS2": 42828375816000.0,
+        "sourceValue": "42828.375816 km^3/s^2",
+        "basis": "measured",
+        "source": "JPL SSD Astrodynamic Parameters, DE440 (Park et al. 2021, AJ 161:105)",
+        "note": "planetary system GM (planet + its moons), at the system barycentre"
+      },
+      "radius": {
+        "valueM": 3389500.0,
+        "sourceValue": "3389.5 km",
+        "basis": "assumed",
+        "source": "JPL SSD Planetary Physical Parameters, mean radius (Archinal et al. 2018)",
+        "note": "the point mass stands for a barycentre; the planet's own mean radius is used for collisions and display (not a physical claim about the barycentre)"
+      },
+      "state": {
+        "jdTdb": 2451545.0,
+        "sourceFile": "4_2451545.0.txt",
+        "sourceSha256": "4232b6b13cfd7a5c04ff655895ce3de7554f00b3244b9fd70aaf8d9810a7abac",
+        "sourceLine": "Target body name: Mars Barycenter (4)             {source: DE441}",
+        "positionM": [
+          206980433836.45142,
+          -2425327900.043258,
+          -5125427142.018681
+        ],
+        "velocityMPerS": [
+          1171.9850085317769,
+          26283.239783976358,
+          522.1336559764609
+        ],
+        "basis": "measured",
+        "note": "Horizons geometric state relative to the Solar System Barycenter, km -> m by x1000, before the barycentre shift"
+      }
+    },
+    {
+      "id": "body-jupiter",
+      "name": "Jupiter (system barycentre)",
+      "kind": "planet",
+      "colorHex": "#d9a066",
+      "colorNote": "display only",
+      "horizonsTarget": "5",
+      "gm": {
+        "valueM3PerS2": 1.267127641e+17,
+        "sourceValue": "126712764.1 km^3/s^2",
+        "basis": "measured",
+        "source": "JPL SSD Astrodynamic Parameters, DE440 (Park et al. 2021, AJ 161:105)",
+        "note": "planetary system GM (planet + its moons), at the system barycentre"
+      },
+      "radius": {
+        "valueM": 69911000.0,
+        "sourceValue": "69911.0 km",
+        "basis": "assumed",
+        "source": "JPL SSD Planetary Physical Parameters, mean radius (Archinal et al. 2018)",
+        "note": "the point mass stands for a barycentre; the planet's own mean radius is used for collisions and display (not a physical claim about the barycentre)"
+      },
+      "state": {
+        "jdTdb": 2451545.0,
+        "sourceFile": "5_2451545.0.txt",
+        "sourceSha256": "3e8411b2a7e8b5a3fe3203f78f11d18ee38c77a18446e27114f909b1d757b67e",
+        "sourceLine": "Target body name: Jupiter Barycenter (5)          {source: DE441}",
+        "positionM": [
+          597499876792.548,
+          439186453220.2049,
+          -15195998835.763811
+        ],
+        "velocityMPerS": [
+          -7900.525116640771,
+          11143.30834163639,
+          130.6993263541205
+        ],
+        "basis": "measured",
+        "note": "Horizons geometric state relative to the Solar System Barycenter, km -> m by x1000, before the barycentre shift"
+      }
+    },
+    {
+      "id": "body-saturn",
+      "name": "Saturn (system barycentre)",
+      "kind": "planet",
+      "colorHex": "#e0c97f",
+      "colorNote": "display only",
+      "horizonsTarget": "6",
+      "gm": {
+        "valueM3PerS2": 3.79405848418e+16,
+        "sourceValue": "37940584.8418 km^3/s^2",
+        "basis": "measured",
+        "source": "JPL SSD Astrodynamic Parameters, DE440 (Park et al. 2021, AJ 161:105)",
+        "note": "planetary system GM (planet + its moons), at the system barycentre"
+      },
+      "radius": {
+        "valueM": 58232000.0,
+        "sourceValue": "58232.0 km",
+        "basis": "assumed",
+        "source": "JPL SSD Planetary Physical Parameters, mean radius (Archinal et al. 2018)",
+        "note": "the point mass stands for a barycentre; the planet's own mean radius is used for collisions and display (not a physical claim about the barycentre)"
+      },
+      "state": {
+        "jdTdb": 2451545.0,
+        "sourceFile": "6_2451545.0.txt",
+        "sourceSha256": "cfb0b6aac6e6d2d862cdf6e288fa55efb1ed2e6c87fddb253470c9b1e027a9e1",
+        "sourceLine": "Target body name: Saturn Barycenter (6)           {source: DE441}",
+        "positionM": [
+          957317417414.3425,
+          982438181939.4076,
+          -55182185674.54088
+        ],
+        "velocityMPerS": [
+          -7422.709426014511,
+          6723.088956951871,
+          178.0864069576586
+        ],
+        "basis": "measured",
+        "note": "Horizons geometric state relative to the Solar System Barycenter, km -> m by x1000, before the barycentre shift"
+      }
+    },
+    {
+      "id": "body-uranus",
+      "name": "Uranus (system barycentre)",
+      "kind": "planet",
+      "colorHex": "#7dd3fc",
+      "colorNote": "display only",
+      "horizonsTarget": "7",
+      "gm": {
+        "valueM3PerS2": 5794556400000000.0,
+        "sourceValue": "5794556.4 km^3/s^2",
+        "basis": "measured",
+        "source": "JPL SSD Astrodynamic Parameters, DE440 (Park et al. 2021, AJ 161:105)",
+        "note": "planetary system GM (planet + its moons), at the system barycentre"
+      },
+      "radius": {
+        "valueM": 25362000.0,
+        "sourceValue": "25362.0 km",
+        "basis": "assumed",
+        "source": "JPL SSD Planetary Physical Parameters, mean radius (Archinal et al. 2018)",
+        "note": "the point mass stands for a barycentre; the planet's own mean radius is used for collisions and display (not a physical claim about the barycentre)"
+      },
+      "state": {
+        "jdTdb": 2451545.0,
+        "sourceFile": "7_2451545.0.txt",
+        "sourceSha256": "cb615791aaa965d1721ff70c4bf386ece84f20dcce67cc67645d84d75588673f",
+        "sourceLine": "Target body name: Uranus Barycenter (7)           {source: DE441}",
+        "positionM": [
+          2157907312953.845,
+          -2055043522509.252,
+          -35594627602.41723
+        ],
+        "velocityMPerS": [
+          4646.336807878125,
+          4614.8328256259365,
+          -43.05510952280978
+        ],
+        "basis": "measured",
+        "note": "Horizons geometric state relative to the Solar System Barycenter, km -> m by x1000, before the barycentre shift"
+      }
+    },
+    {
+      "id": "body-neptune",
+      "name": "Neptune (system barycentre)",
+      "kind": "planet",
+      "colorHex": "#3b5bdb",
+      "colorNote": "display only",
+      "horizonsTarget": "8",
+      "gm": {
+        "valueM3PerS2": 6836527100580000.0,
+        "sourceValue": "6836527.10058 km^3/s^2",
+        "basis": "measured",
+        "source": "JPL SSD Astrodynamic Parameters, DE440 (Park et al. 2021, AJ 161:105)",
+        "note": "planetary system GM (planet + its moons), at the system barycentre"
+      },
+      "radius": {
+        "valueM": 24622000.0,
+        "sourceValue": "24622.0 km",
+        "basis": "assumed",
+        "source": "JPL SSD Planetary Physical Parameters, mean radius (Archinal et al. 2018)",
+        "note": "the point mass stands for a barycentre; the planet's own mean radius is used for collisions and display (not a physical claim about the barycentre)"
+      },
+      "state": {
+        "jdTdb": 2451545.0,
+        "sourceFile": "8_2451545.0.txt",
+        "sourceSha256": "0c093e9900d374deeef966039f63b55b7257d77f0301657f0207aa349c323a3a",
+        "sourceLine": "Target body name: Neptune Barycenter (8)          {source: DE441}",
+        "positionM": [
+          2513978721723.721,
+          -3739132788548.089,
+          19063133757.64561
+        ],
+        "velocityMPerS": [
+          4475.214621751307,
+          3063.802317434378,
+          -166.2267093013879
+        ],
+        "basis": "measured",
+        "note": "Horizons geometric state relative to the Solar System Barycenter, km -> m by x1000, before the barycentre shift"
+      }
+    }
+  ],
+  "omitted": [
+    "dwarf planets",
+    "asteroids",
+    "comets",
+    "every separate moon (moons are out of scope; planets with moons are system barycentres)",
+    "general relativity",
+    "solar oblateness",
+    "non-gravitational forces"
+  ],
+  "assumptions": [
+    "Newtonian point-mass gravity",
+    "positions are DE441 vectors, masses are DE440 GM (the combined effect is measured by the committed validation tests)",
+    "m = GM / G, so the source GM is reproduced exactly"
+  ],
+  "limitations": [
+    "Earth is the Earth–Moon barycentre, up to about 4,940 km from Earth's centre",
+    "omitted bodies and relativity make the long-term evolution diverge from the real system"
+  ],
+  "retrieved": {
+    "utc": "2026-10-24T05:53:13Z",
+    "api": "https://ssd.jpl.nasa.gov/api/horizons.api"
+  },
+  "sources": [
+    {
+      "citation": "JPL Horizons System, vector ephemerides",
+      "url": "https://ssd-api.jpl.nasa.gov/doc/horizons.html"
+    },
+    {
+      "citation": "JPL SSD Astrodynamic Parameters (GM, au, G)",
+      "url": "https://ssd.jpl.nasa.gov/astro_par.html"
+    },
+    {
+      "citation": "Park et al. 2021, AJ 161:105 (DE440/DE441)",
+      "url": "https://ssd.jpl.nasa.gov/doc/Park.2021.AJ.DE440.pdf"
+    },
+    {
+      "citation": "JPL SSD Planetary Physical Parameters",
+      "url": "https://ssd.jpl.nasa.gov/planets/phys_par.html"
+    },
+    {
+      "citation": "IAU 2015 Resolution B3 (Mamajek et al.)",
+      "url": "https://arxiv.org/abs/1510.07674"
+    }
+  ]
+}
