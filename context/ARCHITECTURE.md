@@ -32,6 +32,7 @@ tests/      pytest: API, service, stress, step guard, stall resilience, diagnost
 - Axes and Grid are independent, off by default; the grid is also shown while placing (`gridVisible = userGrid || placementMode`) without changing the user's choice.
 - The Simulation panel carries the responsive View toolbar beside playback controls: independent Axes/Grid toggles, Overview (fit all bodies), and Focus selected. The view-control contract feeds the same overlay state to the toolbar and scene; compact widths shorten visible labels while retaining accessible names.
 - Starfield (`StarfieldShell`) keeps a stable apparent size when zoomed out; bodies keep at least 3 px on screen (`bodyDisplayScale`). Both are display-only.
+- Event History remains merger-only (the only event type in API v1), displays estimated contact time as an estimate and booked spin as bookkeeping, and can select the surviving result body while it remains in current backend state. The existing canvas selection highlight and inspector are reused.
 
 ## Dependencies [Implemented]
 | Dependency | Status |
@@ -42,7 +43,7 @@ tests/      pytest: API, service, stress, step guard, stall resilience, diagnost
 | three 0.186, @react-three/fiber 8, @react-three/drei 9.122 (Stars, OrbitControls, Outlines, Grid, Html) | used |
 
 ## Testing and CI [Implemented]
-CI (`.github/workflows/ci.yml`) runs backend `pytest` and frontend `tsc`, `vitest` and `vite build` on every push to `main` and every PR. There is **no automated browser end-to-end test** (T-010); browser behaviour is verified manually and recorded in `STATUS.md`. The 3D components (`CelestialBody`, `CameraRig`, overlays) have no unit tests because jsdom has no WebGL; their pure logic is extracted into `sim/*` and tested.
+CI (`.github/workflows/ci.yml`) runs backend `pytest`, frontend `tsc`, `vitest`, `vite build`, and Playwright browser journeys using a stubbed API on every push to `main` and every PR. Browser coverage includes merger result selection, keyboard operation, narrow layout, error recovery, and a frame-pacing profile at 1/16/64 bodies. The profile uses the configured headless browser with GPU disabled and is not hardware GPU timing. Browser journeys do not replace backend integration or WebGL pixel tests. The 3D components (`CelestialBody`, `CameraRig`, overlays) have no unit tests because jsdom has no WebGL; their pure logic is extracted into `sim/*` and tested.
 
 ## Known limitations
 - A single native `integrate` call that never reaches REBOUND's heartbeat cannot be interrupted in-process (would need a worker process).

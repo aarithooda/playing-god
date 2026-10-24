@@ -340,3 +340,28 @@
 - Backend on :8000 inspected before any decision: pid 18780, started from `25abca3`, healthy (state read in 6 ms), holding a real used universe (t = 2.574e9 s). Not restarted (state not restorable via the API); backed up read-only. Unrelated: the earlier stuck backend (pid 5328) had been restarted at the owner's request before.
 - Merged PR #12 (M5) with a pinned-head normal merge commit `a2de061` after CI success on that head. Re-verified the merged `main` (suites, CI) and re-ran the end-to-end scenarios on it (list in `STATUS.md`). Cleanup: archive tag for the one unmerged commit, explicit-list deletion of 16 remote branches (each verified as an ancestor of `main` immediately before), `git branch -d` for 13 local branches, removal of the stale worktree. Handover docs in this PR (#13); decision record D-024.
 - Experiment 01: looked for its definition in all context documents and README; there is none. Reported as a prerequisite, not guessed.
+
+## 2026-10-24 — UI-2 / UI-4 / UI-6 independent frontend work (Codex)
+- Started on dedicated branch `frontend/ui-2-4-6` from agreed `main` `d5220f9`; honored UI-0 ownership by leaving `UniverseCanvas.tsx` unchanged and deferring rendering metrics. `App.tsx` only wires the history panel.
+- Added bounded client-local history of backend-returned positions, a non-seeking timeline/controls, merger event estimate/spin details that exist in the API DTO, focus-visible/reduced-motion/accessibility refinements, and a Playwright CI/browser setup. Updated README and architecture; status/handoff/tasks updated.
+- Verification: TypeScript check passed; Vitest 212/212 across 25 files; production build succeeded with the existing >500 kB chunk warning; Playwright 2/2 passed; `git diff --check` passed. E2E uses stubbed API responses and does not replace integration against the eventual Simulation Lab contract. No backend files changed.
+- No push, merge, or rebase performed. Remote CI remains pending until the owner authorizes publishing.
+
+## 2026-10-24 — Remove reassigned UI-2 work (Codex)
+- Per the owner's request, removed UI-2 snapshot history implementation, hook state/recording, App wiring, component/tests and E2E history assertions. UI-4 merger metadata and UI-6 accessibility, Playwright infrastructure/recovery coverage, CI, and docs remain.
+- No changes to `UniverseCanvas.tsx`; no push, merge, or rebase. Verification after removal is pending.
+- Post-removal verification: typecheck passed; Vitest 204/204 across 23 files; production build succeeded with the existing >500 kB warning; Playwright 2/2 passed; diff check passed. E2E now covers merger metadata/responsive layout and recoverable load errors, with no history behavior.
+- Renamed the local branch to `frontend/ui-4-6` to reflect the remaining scope; it still tracks the same `origin/main` base and has not been published.
+
+## 2026-10-24 — Publish UI-4/UI-6 handoff branch (Codex)
+- After the owner's approval, published `frontend/ui-4-6` to `origin/frontend/ui-4-6` at `df13b6e`. The branch contains the retained UI-4/UI-6 work and the UI-2 removal; no merge or PR creation was performed.
+- Updated STATUS, HANDOFF, and TASKS to reflect the published branch and its review state. Existing verification evidence is recorded above; no new tests were run for this documentation-only update.
+
+## 2026-10-24 — Complete remaining UI-4/UI-6 work (Codex)
+- Created local `frontend/ui-4-6-completion` from the published `frontend/ui-4-6` branch. Added event-result selection using only the active API body IDs; the existing canvas selection highlight and Body Inspector are reused. No UI-0-owned scene/asset files or backend/API contracts changed.
+- Added Playwright coverage for keyboard operation at 390 px, backend disconnection/recovery, and an attached frame-pacing profile at 1/16/64 bodies. On this Windows Chrome 156 run at 1440x900 with GPU disabled, median frame intervals were 33.4/50.0/99.9 ms. These are headless software frame-pacing measurements, not hardware GPU performance claims.
+- Verification: typecheck passed; Vitest 206/206 (23 files); build passed with existing >500 kB chunk warning; Playwright 5/5; `git diff --check` passed. No push, PR, or merge performed. Real-hardware profiling and UI-0 coordination remain future integration work.
+
+## 2026-10-24 — Consolidate UI-4/UI-6 branch (Codex)
+- Per owner clarification, fast-forwarded the completed UI-4/UI-6 work into the existing `frontend/ui-4-6` branch so the deliverable remains on one branch. The redundant `frontend/ui-4-6-completion` branch is retired; no merge into `main` or PR was performed.
+- Updated STATUS, HANDOFF, TASKS, and this worklog to point to the consolidated branch.

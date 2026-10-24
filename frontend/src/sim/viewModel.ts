@@ -85,11 +85,13 @@ export interface EventView {
   id: string;
   type: SimulationEventDto["type"];
   simulationTimeS: number;
+  estimatedContactTimeS: number | null;
   bodyIds: string[];
   resultBodyId: string;
   resultMassKg: number;
   relativeSpeedMPerS: number;
   kineticEnergyLostJ: number;
+  spinAddedKgM2PerS: Vec3;
 }
 
 export function toEventView(dto: SimulationEventDto): EventView {
@@ -97,11 +99,13 @@ export function toEventView(dto: SimulationEventDto): EventView {
     id: dto.id,
     type: dto.type,
     simulationTimeS: dto.simulationTimeS,
+    estimatedContactTimeS: dto.estimatedContactTimeS,
     bodyIds: [...dto.bodyIds],
     resultBodyId: dto.resultBodyId,
     resultMassKg: dto.resultMassKg,
     relativeSpeedMPerS: dto.relativeSpeedMPerS,
     kineticEnergyLostJ: dto.kineticEnergyLostJ,
+    spinAddedKgM2PerS: { ...dto.spinAddedKgM2PerS },
   };
 }
 

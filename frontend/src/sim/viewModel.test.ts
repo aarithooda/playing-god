@@ -47,6 +47,10 @@ describe("DTO -> view model", () => {
 
   it("merges events by id without duplicating", () => {
     const e = toEventView(mergerEvent);
+    expect(e.estimatedContactTimeS).toBe(mergerEvent.estimatedContactTimeS);
+    expect(e.spinAddedKgM2PerS).toEqual(mergerEvent.spinAddedKgM2PerS);
+    e.spinAddedKgM2PerS.z = 0;
+    expect(mergerEvent.spinAddedKgM2PerS.z).toBe(1e40);
     const once = mergeEvents([], [e]);
     expect(mergeEvents(once, [e])).toBe(once);
     expect(mergeEvents(once, [{ ...e, id: "evt-2" }]).map((x) => x.id)).toEqual(["evt-1", "evt-2"]);

@@ -28,14 +28,14 @@ cd frontend && npm run dev
 ```
 
 ## Using it
-The universe starts empty: press **Add your first body** (or **Add body…**), fill in SI values or use **Choose position in 3D** and click in the scene. Click a body to select it (inspector opens on the right), double-click to focus the camera on it, click empty space to dismiss. **Play / Pause / Step Forward** advance the backend simulation; **Reset Universe** clears it. **Axes** and **Grid** (View section) are off by default; the grid is shown automatically while placing a body. The left sidebar holds the event history (mergers) and system diagnostics. Right after creating a body an **Undo** button is offered for a few seconds.
+The universe starts empty: press **Add your first body** (or **Add body…**), fill in SI values or use **Choose position in 3D** and click in the scene. Click a body to select it (inspector opens on the right), double-click to focus the camera on it, click empty space to dismiss. **Play / Pause / Step Forward** advance the backend simulation; **Reset Universe** clears it. **Axes** and **Grid** (View section) are off by default; the grid is shown automatically while placing a body. The left sidebar holds merger events and system diagnostics. Right after creating a body an **Undo** button is offered for a few seconds.
 
 ## Test
 ```bash
 python -m pytest                # from repo root, venv active: unit, API, stress, validation, spike, live-server smoke
-cd frontend && npm run typecheck && npm test && npm run build   # tsc, vitest, production build
+cd frontend && npm run typecheck && npm test && npm run build && npm run test:e2e   # tsc, vitest, build, Playwright browser journey
 ```
-CI (`.github/workflows/ci.yml`) runs exactly these on every push to `main` and every pull request. `tests/smoke/` starts a real uvicorn and drives the API over HTTP (API-only; there is no automated browser test). A step is cut off after `PG_STEP_TIME_LIMIT_S` seconds (default 10) with HTTP 503 and rolled back. Reads never wait for a running step; a write that cannot get the simulation lock in time answers 503 "busy" (`context/API_CONTRACT.md`, D-021). A backend started from older code keeps its old behaviour: restart it after pulling (the universe is in memory and is lost on restart).
+CI (`.github/workflows/ci.yml`) runs these checks on every push to `main` and every pull request. Playwright E2E uses a stubbed API to exercise merger-event display, recoverable errors, and responsive behavior; `tests/smoke/` starts a real uvicorn and drives the API over HTTP. A step is cut off after `PG_STEP_TIME_LIMIT_S` seconds (default 10) with HTTP 503 and rolled back. Reads never wait for a running step; a write that cannot get the simulation lock in time answers 503 "busy" (`context/API_CONTRACT.md`, D-021). A backend started from older code keeps its old behaviour: restart it after pulling (the universe is in memory and is lost on restart).
 The M0 physics spike tests (`tests/spike/`) need REBOUND and skip themselves without it: `pip install -r backend/experiments/requirements.txt`. Results and decision: `context/PHYSICS_SPIKE.md`.
 
 ## License
