@@ -361,3 +361,7 @@
 - Created local `frontend/ui-4-6-completion` from the published `frontend/ui-4-6` branch. Added event-result selection using only the active API body IDs; the existing canvas selection highlight and Body Inspector are reused. No UI-0-owned scene/asset files or backend/API contracts changed.
 - Added Playwright coverage for keyboard operation at 390 px, backend disconnection/recovery, and an attached frame-pacing profile at 1/16/64 bodies. On this Windows Chrome 156 run at 1440x900 with GPU disabled, median frame intervals were 33.4/50.0/99.9 ms. These are headless software frame-pacing measurements, not hardware GPU performance claims.
 - Verification: typecheck passed; Vitest 206/206 (23 files); build passed with existing >500 kB chunk warning; Playwright 5/5; `git diff --check` passed. No push, PR, or merge performed. Real-hardware profiling and UI-0 coordination remain future integration work.
+
+## 2026-10-24 — Consolidate UI-4/UI-6 branch (Codex)
+- Per owner clarification, fast-forwarded the completed UI-4/UI-6 work into the existing `frontend/ui-4-6` branch so the deliverable remains on one branch. The redundant `frontend/ui-4-6-completion` branch is retired; no merge into `main` or PR was performed.
+- Updated STATUS, HANDOFF, TASKS, and this worklog to point to the consolidated branch.

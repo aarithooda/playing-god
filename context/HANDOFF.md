@@ -1,7 +1,7 @@
 ## UI-4 / UI-6 handoff (2026-10-24, Codex) — latest
-1. New completion work is on local `frontend/ui-4-6-completion`, based on published `origin/frontend/ui-4-6` at `14fb679`. It is not pushed. UI-2 history work remains removed after reassignment to teammate 1.
+1. All UI-4/UI-6 work is on the single branch `frontend/ui-4-6`, based on agreed `main` `d5220f9`. UI-2 history work remains removed after reassignment to teammate 1.
 2. UI-4 now offers a merger-event action to highlight/select the surviving result body when that body is still present in current backend state. It uses existing selection behavior and opens Body Inspector. UI-6 now has keyboard/narrow viewport and disconnection-recovery browser tests, plus an attached rendering frame-pacing profile. No renderer, UI-0 registry/material, view-model, API, or backend files changed.
-3. Verified locally: frontend typecheck; Vitest 206/206 across 23 files; build (existing >500 kB warning); Playwright 5/5; diff check. The profile measured 1/16/64 bodies at median 33.4/50.0/99.9 ms per animation frame in Windows headless Chrome with GPU disabled by test config; treat as software frame pacing, not hardware GPU timing. E2E stubs backend responses. Do not push or merge without owner approval; real-hardware profiling and UI-0 integration remain follow-ups.
+3. Verified locally: frontend typecheck; Vitest 206/206 across 23 files; build (existing >500 kB warning); Playwright 5/5; diff check. The profile measured 1/16/64 bodies at median 33.4/50.0/99.9 ms per animation frame in Windows headless Chrome with GPU disabled by test config; treat as software frame pacing, not hardware GPU timing. E2E stubs backend responses. Do not merge into `main` without owner approval; real-hardware profiling and UI-0 integration remain follow-ups.
 # Handoff (latest — rewrite at end of each session)
 
 ## Final handover (2026-10-24, Claude Sonnet 5.5) — latest

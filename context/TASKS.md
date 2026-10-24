@@ -2,7 +2,7 @@
 Status: todo / in progress / blocked / done. Keep tasks small and independently testable.
 
 ## NEXT ACTION
-UI integration M0-M5 is merged. UI-2 history work was reassigned to teammate 1 and removed from `frontend/ui-4-6`. UI-4/UI-6 completion changes are on the local, unpushed `frontend/ui-4-6-completion` branch; see top of `STATUS.md`. The headless frame-pacing profile is not a hardware benchmark; coordinate any renderer optimization with UI-0. Experiment 01 remains undefined.
+UI integration M0-M5 is merged. UI-2 history work was reassigned to teammate 1 and removed from `frontend/ui-4-6`. Completed UI-4/UI-6 work is consolidated on `frontend/ui-4-6`; see top of `STATUS.md`. The headless frame-pacing profile is not a hardware benchmark; coordinate any renderer optimization with UI-0. Experiment 01 remains undefined.
 
 B1 diagnostics merged (2026-10-24, T-011; top of `STATUS.md`). Next product step: T-012, the diagnostics panel (frontend owner). Older text follows.
 
