@@ -15,6 +15,25 @@ export function projectedRadiusPx(radius: number, distance: number, fovDeg: numb
   return (radius * (viewportHeightPx / 2)) / (distance * Math.tan(halfFov));
 }
 
+/** Camera distance (scene units) of the default overview: the visibility floor is exactly its base size there. */
+export const OVERVIEW_DISTANCE = 80;
+/** Largest enlargement of the visibility floor when zooming in. */
+export const MAX_ZOOM_BOOST = 8;
+
+/**
+ * Factor on the visibility floor (>= 1): it grows like sqrt(OVERVIEW_DISTANCE / distance) as the camera closes in, so a
+ * body that is still sub-pixel at true scale (Earth beside its Moon) stays recognisable in a close view instead of
+ * shrinking to one pixel. The same factor applies to every body at a given camera distance, so order and the relation to
+ * other bodies are untouched; true size takes over as soon as it exceeds the floor.
+ */
+export function zoomBoost(distance: number): number {
+  if (!(distance > 0) || !Number.isFinite(distance)) return 1;
+  return Math.min(MAX_ZOOM_BOOST, Math.max(1, Math.sqrt(OVERVIEW_DISTANCE / distance)));
+}
+
+/** A body whose moon/primary is closer than this on screen is still drawn this large. */
+export const MIN_CROWDED_BODY_PX = 1;
+
 /** A planet drawn larger than its stored display size keeps at least this fraction of its moon distance clear. */
 export const APPARENT_RADIUS_FRACTION_OF_CLEARANCE = 0.5;
 
@@ -53,6 +72,11 @@ export function bodyDisplayScale(
       );
     }
     target = Math.max(target, apparentPx);
+  }
+  if (clearance !== undefined && clearance > 0) {
+    // Never enlarge a body past half the distance to its moon/primary, but keep it at least this visible.
+    const cap = APPARENT_RADIUS_FRACTION_OF_CLEARANCE * projectedRadiusPx(clearance, distance, fovDeg, viewportHeightPx);
+    target = Math.min(target, Math.max(MIN_CROWDED_BODY_PX, cap));
   }
   return px >= target ? 1 : target / px;
 }

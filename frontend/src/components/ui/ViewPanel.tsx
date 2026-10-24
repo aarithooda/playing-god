@@ -1,6 +1,7 @@
 import React from 'react';
 import { btnStyle, panelStyle } from './styles';
 import { theme } from './theme';
+import type { SizeMode } from '../../sim/renderTransform';
 
 interface ViewPanelProps {
   /** Axes and grid toggles. Omit all of them when the caller shows those controls elsewhere (the view toolbar). */
@@ -15,6 +16,9 @@ interface ViewPanelProps {
   onPathsChange?: (on: boolean) => void;
   /** Why fewer paths are drawn than expected (for example a crowded scene). */
   pathsNote?: string;
+  /** How bodies are sized: true physical proportions (default) or the earlier exaggerated, similar-looking sizes. */
+  sizeMode?: SizeMode;
+  onSizeModeChange?: (mode: SizeMode) => void;
 }
 
 const toggleStyle = (on: boolean): React.CSSProperties => ({
@@ -25,7 +29,7 @@ const toggleStyle = (on: boolean): React.CSSProperties => ({
 });
 
 /** Two independent view aids. Both start off. */
-export const ViewPanel: React.FC<ViewPanelProps> = ({ axes = false, grid = false, gridShownForPlacement = false, onAxesChange, onGridChange, paths = false, onPathsChange, pathsNote }) => (
+export const ViewPanel: React.FC<ViewPanelProps> = ({ axes = false, grid = false, gridShownForPlacement = false, onAxesChange, onGridChange, paths = false, onPathsChange, pathsNote, sizeMode = 'physical', onSizeModeChange }) => (
 
 
   <div style={panelStyle}>
@@ -48,6 +52,23 @@ export const ViewPanel: React.FC<ViewPanelProps> = ({ axes = false, grid = false
         {paths && pathsNote && (
           <p style={{ margin: '6px 0 0 0', fontSize: '11px', color: theme.textMuted }}>{pathsNote}</p>
         )}
+      </div>
+    )}
+    {onSizeModeChange && (
+      <div role="group" aria-label="Body sizes" style={{ marginTop: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button type="button" aria-pressed={sizeMode === 'physical'} style={toggleStyle(sizeMode === 'physical')} onClick={() => onSizeModeChange('physical')}>
+            Physical sizes
+          </button>
+          <button type="button" aria-pressed={sizeMode === 'exaggerated'} style={toggleStyle(sizeMode === 'exaggerated')} onClick={() => onSizeModeChange('exaggerated')}>
+            Exaggerated
+          </button>
+        </div>
+        <p style={{ margin: '6px 0 0 0', fontSize: '11px', color: theme.textMuted }}>
+          {sizeMode === 'physical'
+            ? 'True proportions (the Sun is ~109x Earth). From far away small bodies are enlarged on screen only enough to stay visible; zoom in to see true size.'
+            : 'Every body is drawn at a similar size so all stay visible. Sizes are not to scale.'}
+        </p>
       </div>
     )}
     {gridShownForPlacement && !grid && (

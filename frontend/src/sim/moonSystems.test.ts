@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MAX_RADIUS_FRACTION_OF_GAP, separateDisplayRadii } from "./radiusSeparation";
-import { bodyDisplayScale, MIN_BODY_SCREEN_RADIUS_PX, projectedRadiusPx } from "./bodyVisibility";
+import { bodyDisplayScale, MIN_BODY_SCREEN_RADIUS_PX, MIN_CROWDED_BODY_PX, projectedRadiusPx } from "./bodyVisibility";
 import { focusRadiusFor, systemIds } from "./moonSystems";
 import { nearPlaneForDistance, DEFAULT_NEAR, MIN_NEAR } from "./framing";
 import type { SceneBody } from "./viewModel";
@@ -75,7 +75,7 @@ describe("bodyDisplayScale with an apparent radius", () => {
   });
 
   it("never goes below the minimum on-screen size and is 1 when the body is already big enough", () => {
-    expect(bodyDisplayScale(0.001, 80, fov, h, { apparentRadius: 2, clearance: 1e-9 }) * projectedRadiusPx(0.001, 80, fov, h)).toBeCloseTo(MIN_BODY_SCREEN_RADIUS_PX);
+    expect(bodyDisplayScale(0.001, 80, fov, h, { apparentRadius: 2, clearance: 1e-9 }) * projectedRadiusPx(0.001, 80, fov, h)).toBeCloseTo(MIN_CROWDED_BODY_PX);
     expect(bodyDisplayScale(5, 20, fov, h, { apparentRadius: 2, clearance: 1 })).toBe(1);
   });
 });

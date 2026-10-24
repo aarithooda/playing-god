@@ -3,6 +3,9 @@
 import type { BodyDto, BodyKind, BodyType, DiagnosticsDto, SimulationEventDto, SimulationStateDto, SimulationStatus, Vec3 } from "../api/types";
 import {
   displayRadiusUnits,
+  physicalRadiusUnits,
+  visibleRadiusPx,
+  type SizeMode,
   toScenePosition,
   type RenderTransform,
   type ScenePosition,
@@ -57,6 +60,8 @@ export interface SceneBody {
   apparentRadius?: number;
   /** Scene distance to the nearest moon (for a planet) or to the primary (for a moon): caps the on-screen enlargement. */
   clearance?: number;
+  /** Smallest on-screen radius in CSS px ("physical" size mode): the body is enlarged on screen only up to this. */
+  visiblePx?: number;
 }
 
 /**
@@ -102,7 +107,8 @@ export function toSimulationView(dto: SimulationStateDto): SimulationView {
 export type DisplayBody = Pick<BodyView, "id" | "name" | "colorHex" | "kind" | "positionM" | "radiusM"> &
   Partial<Pick<BodyView, "bodyType" | "assetKey" | "primaryId">>;
 
-export function toSceneBody(body: DisplayBody, t: RenderTransform): SceneBody {
+export function toSceneBody(body: DisplayBody, t: RenderTransform, sizeMode: SizeMode = "exaggerated"): SceneBody {
+  const physical = sizeMode === "physical";
   return {
     id: body.id,
     name: body.name,
@@ -112,7 +118,8 @@ export function toSceneBody(body: DisplayBody, t: RenderTransform): SceneBody {
     ...(body.assetKey === undefined ? {} : { assetKey: body.assetKey }),
     ...(body.primaryId === undefined ? {} : { primaryId: body.primaryId }),
     position: toScenePosition(body.positionM, t),
-    radius: displayRadiusUnits(body.radiusM),
+    radius: physical ? physicalRadiusUnits(body.radiusM, t) : displayRadiusUnits(body.radiusM),
+    ...(physical ? { visiblePx: visibleRadiusPx(body.radiusM) } : {}),
   };
 }
 

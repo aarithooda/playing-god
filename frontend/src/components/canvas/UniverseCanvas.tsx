@@ -448,6 +448,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
           assetKey={body.assetKey}
           apparentRadius={body.apparentRadius}
           clearance={body.clearance}
+          visiblePx={body.visiblePx}
           isSelected={selectedBodyId === body.id}
           onClick={placementMode ? undefined : () => onSelectBody(body.id)}
           onDoubleClick={placementMode ? undefined : () => onFocusBody(body.id)}

@@ -2,7 +2,7 @@ import React, { useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Outlines, Sphere } from '@react-three/drei';
 import { Group, PerspectiveCamera, DoubleSide, BackSide } from 'three';
-import { bodyDisplayScale } from '../../sim/bodyVisibility';
+import { bodyDisplayScale, zoomBoost } from '../../sim/bodyVisibility';
 import { useCelestialMaterial } from './CelestialMaterial';
 import type { BodyKind, BodyType } from '../../api/types';
 
@@ -22,6 +22,8 @@ interface CelestialBodyProps {
   /** See SceneBody: far-away appearance of a planet that stores a small radius for its moons. */
   apparentRadius?: number;
   clearance?: number;
+  /** "physical" size mode: the on-screen radius (CSS px) the body is enlarged to at most when it would be smaller. */
+  visiblePx?: number;
   isSelected?: boolean;
   onClick?: () => void;
   onDoubleClick?: () => void;
@@ -37,6 +39,7 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
   assetKey,
   apparentRadius,
   clearance,
+  visiblePx,
   isSelected = false,
   onClick,
   onDoubleClick,
@@ -53,7 +56,7 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
     const [x, y, z] = position;
     const distance = Math.hypot(camera.position.x - x, camera.position.y - y, camera.position.z - z);
     body.current.scale.setScalar(
-      bodyDisplayScale(radius, distance, (camera as PerspectiveCamera).fov, size.height, { apparentRadius, clearance }),
+      bodyDisplayScale(radius, distance, (camera as PerspectiveCamera).fov, size.height, { minPx: visiblePx === undefined ? undefined : visiblePx * zoomBoost(distance), apparentRadius, clearance }),
     );
   });
 

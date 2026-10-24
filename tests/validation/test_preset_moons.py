@@ -309,3 +309,68 @@ def test_global_criterion_is_kept_for_symmetric_equal_masses():
     assert has_satellites(sim) is False
     select_ias15(sim)
     assert str(sim.integrator.adaptive_mode).lower().endswith("global")
+
+
+# ---------- regression: sizes, identities and the frontend fixture ----------
+SHARED_NO_MOONS = ("body-sun", "body-mercury", "body-venus", "body-mars", "body-uranus", "body-neptune")
+SHARED_WITH_MOONS = ("body-earth", "body-jupiter", "body-saturn")
+
+
+def test_shared_bodies_keep_identity_and_physical_radius_in_both_presets(preset):
+    """Loading the moons preset must not change any radius or id the nine-body preset has (Earth, Jupiter and Saturn use
+    their own mean radius in both) and must not make a planet a moon."""
+    old = {b.id: b for b in load_preset("solar-system-j2000").bodies}
+    new = {b.id: b for b in preset.bodies}
+    assert set(old) <= set(new)
+    assert [i for i in new if i in old] == list(old)  # same relative order
+    for bid in SHARED_NO_MOONS + SHARED_WITH_MOONS:
+        assert new[bid].radiusM == old[bid].radiusM, bid
+        assert new[bid].kind == old[bid].kind and new[bid].assetKey == old[bid].assetKey, bid
+        assert new[bid].bodyType == old[bid].bodyType and new[bid].primaryId is None, bid
+    assert new["body-earth"].radiusM == pytest.approx(6371008.4, rel=1e-15) and new["body-sun"].radiusM == 6.957e8
+    assert new["body-moon"].radiusM == pytest.approx(1737400.0, rel=1e-15)
+    assert new["body-sun"].radiusM > 100 * new["body-earth"].radiusM > 100 * 3 * new["body-moon"].radiusM
+
+
+def test_unrelated_initial_conditions_unchanged(preset):
+    old = {b.id: b for b in load_preset("solar-system-j2000").raw_bodies}
+    new = {b.id: b for b in preset.raw_bodies}
+    for bid in SHARED_NO_MOONS:
+        assert (new[bid].massKg, new[bid].positionM, new[bid].velocityMPerS) == (old[bid].massKg, old[bid].positionM, old[bid].velocityMPerS)
+
+
+def test_planets_and_moons_are_distinguished_by_primary_only(preset):
+    moons = {b.id for b in preset.bodies if b.primaryId is not None}
+    assert moons == set(MOONS)
+    assert {b.id for b in preset.bodies if b.bodyType == "moon"} == moons
+    by_id = {b.id for b in preset.bodies}
+    assert all(b.primaryId in by_id for b in preset.bodies if b.primaryId)
+
+
+def test_frontend_preset_fixture_is_current(preset):
+    """frontend/src/test/presetBodies.json feeds the frontend size/path regression tests; it must mirror the presets."""
+    fixture = json.loads((Path(__file__).resolve().parents[2] / "frontend" / "src" / "test" / "presetBodies.json").read_text(encoding="utf-8"))
+    for pid in ("solar-system-j2000", PID):
+        expected = [{"id": b.id, "name": b.name, "kind": b.kind, "radiusM": b.radiusM,
+                     "positionM": {"x": b.positionM[0], "y": b.positionM[1], "z": b.positionM[2]}, "colorHex": b.colorHex,
+                     "bodyType": b.bodyType, "assetKey": b.assetKey, "primaryId": b.primaryId} for b in load_preset(pid).bodies]
+        assert fixture[pid] == expected, pid
+
+
+def test_history_api_keeps_ids_radii_and_metadata_for_both_presets():
+    from fastapi.testclient import TestClient
+    from backend.main import app
+    client = TestClient(app)
+    for pid, count in (("solar-system-j2000", 9), (PID, 19)):
+        made = client.post("/api/v1/universes", json={"source": {"kind": "preset", "presetId": pid}, "activate": True}).json()
+        uid = made["id"]
+        epoch = client.get("/api/v1/universes").json()["activationEpoch"]
+        for _ in range(3):
+            client.post(f"/api/v1/universes/{uid}/step?activationEpoch={epoch}", json={"dtS": 432000.0})
+        hist = client.get(f"/api/v1/universes/{uid}/history").json()
+        expected = {b.id: b for b in load_preset(pid).bodies}
+        assert set(hist["bodies"]) == set(expected) and len(expected) == count
+        assert all(set(s["positionsM"]) == set(expected) for s in hist["samples"]) and len(hist["samples"]) >= 3
+        for bid, meta in hist["bodies"].items():
+            assert meta["radiusM"] == expected[bid].radiusM
+            assert meta["primaryId"] == expected[bid].primaryId and meta["bodyType"] == (expected[bid].bodyType or "default")

@@ -13,6 +13,7 @@ import type { BodyView } from '../../sim/viewModel';
 import { BodyFields } from './BodyFields';
 import { btnStyle, errorTextStyle, panelStyle } from './styles';
 import { theme } from './theme';
+import type { SizeMode } from '../../sim/renderTransform';
 
 interface BodyInspectorProps {
   /** Confirmed backend state of the selected body (null when nothing is selected). */
@@ -27,6 +28,8 @@ interface BodyInspectorProps {
   editBlockedReason?: string;
   /** Radius the scene actually draws for this body (display only), when it differs from the nominal display radius. */
   drawnRadiusUnits?: number;
+  /** "physical": the drawn radius is the true radius in scene units, not a crowding-reduced display radius. */
+  sizeMode?: SizeMode;
 }
 
 /**
@@ -37,7 +40,7 @@ interface BodyInspectorProps {
  * confirmed (live) backend value. Saving sends a PATCH and clears the draft; the shown values then come
  * from the refreshed authoritative state, never from the draft.
  */
-export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDelete, onFocus, onClose, focused = false, editBlockedReason, drawnRadiusUnits }) => {
+export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDelete, onFocus, onClose, focused = false, editBlockedReason, drawnRadiusUnits, sizeMode }) => {
   const panelRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState<Partial<FormValues>>({});
   const [kindDraft, setKindDraft] = useState<BodyKind | undefined>(undefined);
@@ -152,6 +155,7 @@ export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDe
           kind={kindDraft ?? body.kind}
           onKindChange={setKindDraft}
           drawnRadiusUnits={drawnRadiusUnits}
+          sizeMode={sizeMode}
         />
         {editBlockedReason && (
           <p role="status" style={{ fontSize: '11px', color: theme.textMuted, margin: '0 0 8px 0' }}>{editBlockedReason}</p>

@@ -63,3 +63,38 @@ export function fitTransform(positions: Vec3[]): RenderTransform {
 
 /** Camera placement matching a fitted scene (extent ~FIT_EXTENT_UNITS), kept in one place. */
 export const DEFAULT_CAMERA_POSITION: ScenePosition = [0, 0.9 * FIT_EXTENT_UNITS, 1.8 * FIT_EXTENT_UNITS];
+
+// ---- Body size modes -------------------------------------------------------------------------------------------
+// Two explicit, documented ways to size a body. Each depends only on the body itself, the display scale and the camera,
+// never on which other bodies exist.
+//
+//  "physical" (default): the sphere is the TRUE radius in scene units (radiusM / metersPerUnit), so the Sun is ~109x Earth
+//     and Earth ~3.7x the Moon, whatever else is loaded. At the overview scale that is far below a pixel, so the renderer
+//     enlarges a body on screen only as far as `visibleRadiusPx` (a floor that depends on the body's own radius, grows
+//     with it and is the same function for every body), and never beyond half the distance to its moon/primary.
+//     Zooming in therefore reveals true proportions; the floor never makes a smaller body bigger than a larger one.
+//  "exaggerated": the earlier logarithmic display radius (displayRadiusUnits) plus the crowding shrink
+//     (radiusSeparation.ts). Every body is of similar size; the ratios are NOT physical.
+export type SizeMode = "physical" | "exaggerated";
+export const DEFAULT_SIZE_MODE: SizeMode = "physical";
+
+/** IAU 2015 B3 nominal solar radius, the reference of the visibility floor (same value as the Solar System preset). */
+export const SUN_RADIUS_M = 6.957e8;
+/** On-screen radius, in CSS pixels, of a Sun-sized body at the overview (the floor's reference size). */
+export const VISIBLE_SUN_RADIUS_PX = 8;
+/** The floor grows with the square root of the physical radius (a Sun/Earth ratio of ~5 on screen instead of ~109). */
+export const VISIBLE_RADIUS_EXPONENT = 0.35;
+export const MIN_VISIBLE_RADIUS_PX = 1;
+export const MAX_VISIBLE_RADIUS_PX = 24;
+
+/** Scene radius of a body at true scale. */
+export function physicalRadiusUnits(radiusM: number, t: RenderTransform): number {
+  return radiusM / t.metersPerUnit;
+}
+
+/** Smallest on-screen radius (CSS px) a body is drawn with so it stays visible: a function of its own radius only. */
+export function visibleRadiusPx(radiusM: number): number {
+  if (!(radiusM > 0) || !Number.isFinite(radiusM)) return MIN_VISIBLE_RADIUS_PX;
+  const px = VISIBLE_SUN_RADIUS_PX * (radiusM / SUN_RADIUS_M) ** VISIBLE_RADIUS_EXPONENT;
+  return Math.min(MAX_VISIBLE_RADIUS_PX, Math.max(MIN_VISIBLE_RADIUS_PX, px));
+}
