@@ -428,3 +428,10 @@
 - Corrected `EXPERIMENT_01_SPEC.md` section 4.2 (barycentre drift about 580 km, not 0.6 km; the 9 mm/s figure unchanged) and aligned `EXPERIMENT_01_PROTOCOL.md` and D-028; the existing validation test already pinned the measured value.
 - Added `frontend/e2e/experiment01.e2e.mjs` and `npm run e2e` (dev-only `playwright-core` 1.64.1; the cached Playwright Chromium could not be launched from its virtualised folder, so the script falls back to an installed Chrome or Edge): 11 steps, three consecutive passes. T-010 closed for the Experiment 01 critical path; not wired into CI.
 - Fresh runs: pytest 492, vitest 372, tsc clean, build OK, e2e 11/11. PR #14 CI was green before this sprint; no reviews or comments.
+
+## 2026-10-24 — Collision & particle engine: planning only (Claude Opus 5.5)
+- Branch `planning/collision-particle-engine` (worktree `Playing God collision-particle-planning`) from `f2c2da3` (`feature/moons-system`; contains all of `main` `7148556`). Docs only; no production code or tests changed; no other worktree touched.
+- Added `COLLISION_ENGINE_PLAN.md`, `COLLISION_REQUIREMENT_TRACEABILITY.md`, `COLLISION_SCIENTIFIC_MODELS.md`, `COLLISION_RISK_REGISTER.md`, `COLLISION_SONNET_EXECUTION_GUIDE.md` and a verbatim copy of the owner's specification at `specs/COLLISION_PARTICLE_ENGINE_SPEC.md`.
+- Baseline at `f2c2da3`: pytest 567 passed (1 warning); tsc clean; vitest 433 passed (46 files); build OK; Playwright 7 failed only because no browser binaries are installed on this machine (CI installs them).
+- Planning probes (scratchpad, REBOUND 5.2.2): `stop()` inside `collision_resolve` returns cleanly; an unresolved overlap re-triggers ~15k callbacks per 0.5 s; `sim.add` inside the callback hung (>5 min); deferred resolution outside the callback conserved mass and momentum exactly; step(1e5 s) 0.034/0.121/0.339 s at N = 50/100/200.
+- Open: owner decisions DQ-1..DQ-14 (risk register §3); scientific checkpoint CP-SCI-1 (LS12 worked-example discrepancy, b_crit check value, unverified Genda 2012 / BA99 / HH11 constants). Nothing implemented.
