@@ -8,11 +8,14 @@ at load rejects missing sources, non-finite numbers and unknown bases.
 import copy
 import json
 import math
+import re
 from functools import lru_cache
 from pathlib import Path
 
 DATA_FILE = Path(__file__).resolve().parent / "catalogue_data.json"
 BASES = ("measured", "nominal", "estimated", "illustrative")
+BODY_TYPES = ("star", "rocky-planet", "gas-giant", "ice-giant", "moon", "asteroid", "default")
+ASSET_KEY_PATTERN = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
 
 class CatalogueDataError(Exception):
@@ -30,6 +33,11 @@ def _load() -> dict:
         if e["id"] in seen or e["kind"] not in ("star", "planet"):
             raise CatalogueDataError(f"bad catalogue entry {e.get('id')}")
         seen.add(e["id"])
+        body_type, asset_key = e.get("bodyType"), e.get("assetKey")
+        if body_type not in BODY_TYPES or not isinstance(asset_key, str) or not ASSET_KEY_PATTERN.fullmatch(asset_key):
+            raise CatalogueDataError(f"{e['id']}: renderer bodyType and assetKey are required and must be valid")
+        if (e["kind"] == "star") != (body_type == "star"):
+            raise CatalogueDataError(f"{e['id']}: bodyType {body_type!r} does not match kind {e['kind']!r}")
         for key in ("massKg", "radiusM"):
             p = e["properties"][key]
             if not (isinstance(p["value"], float) and math.isfinite(p["value"]) and p["value"] > 0):

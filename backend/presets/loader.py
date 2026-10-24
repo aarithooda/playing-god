@@ -133,7 +133,8 @@ def _build(data: dict) -> LoadedPreset:
         sources=(b["gm"]["source"], b["radius"]["source"], b["state"]["sourceFile"])) for b, m, r, p, v in raw]
     raw_bodies = [InitialBody(
         id=b["id"], name=b["name"], kind=b["kind"], massKg=m, radiusM=r, positionM=tuple(p), velocityMPerS=tuple(v),
-        colorHex=b["colorHex"],
+        colorHex=b["colorHex"], bodyType=b.get("bodyType"), assetKey=b.get("assetKey"),
+        primaryId=b.get("primaryId"),
         basis={"mass": b["gm"]["basis"], "radius": b["radius"]["basis"], "state": b["state"]["basis"]},
         sources=(b["gm"]["source"], b["radius"]["source"], b["state"]["sourceFile"])) for b, m, r, p, v in raw]
     summary = {"id": data["id"], "name": data["name"], "description": data["description"], "available": True,

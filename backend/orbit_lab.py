@@ -38,6 +38,7 @@ def _recentre(bodies: list[InitialBody]) -> list[InitialBody]:
     return [InitialBody(id=b.id, name=b.name, kind=b.kind, massKg=b.massKg, radiusM=b.radiusM,
                         positionM=tuple(b.positionM[k] - x0[k] for k in range(3)),
                         velocityMPerS=tuple(b.velocityMPerS[k] - v0[k] for k in range(3)), colorHex=b.colorHex,
+                        bodyType=b.bodyType, assetKey=b.assetKey, primaryId=b.primaryId,
                         basis=b.basis, sources=b.sources) for b in bodies]
 
 

@@ -12,11 +12,24 @@ export type BodyType = "star" | "rocky-planet" | "gas-giant" | "ice-giant" | "mo
 /** Stable rendering-asset identity assigned by the backend for recognized bodies; custom bodies omit it. */
 export type BodyAssetKey =
   | "sun"
+  | "mercury"
+  | "venus"
   | "earth"
   | "mars"
   | "jupiter"
+  | "saturn"
+  | "uranus"
   | "neptune"
   | "moon"
+  | "io"
+  | "europa"
+  | "ganymede"
+  | "callisto"
+  | "titan"
+  | "rhea"
+  | "iapetus"
+  | "dione"
+  | "tethys"
   | "proxima-centauri"
   | "trappist-1"
   | "sirius-a"
@@ -244,6 +257,9 @@ export interface CatalogueEntryDto {
   id: string;
   name: string;
   kind: BodyKind;
+  /** Renderer classification and stable texture identity; omitted on older catalogue responses. */
+  bodyType?: BodyType;
+  assetKey?: string;
   properties: { massKg: CataloguePropertyDto; radiusM: CataloguePropertyDto };
   visual: { colorHex: string; note: string };
   notes: string;

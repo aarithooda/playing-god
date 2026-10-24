@@ -10,6 +10,8 @@
       "id": "sun",
       "name": "Sun",
       "kind": "star",
+      "bodyType": "star",
+      "assetKey": "sun",
       "properties": {
         "massKg": {
           "value": 1.9884098713165342e+30,
@@ -55,6 +57,8 @@
       "id": "proxima-centauri",
       "name": "Proxima Centauri",
       "kind": "star",
+      "bodyType": "star",
+      "assetKey": "proxima-centauri",
       "properties": {
         "massKg": {
           "value": 2.4278484521223202e+29,
@@ -113,6 +117,8 @@
       "id": "trappist-1",
       "name": "TRAPPIST-1",
       "kind": "star",
+      "bodyType": "star",
+      "assetKey": "trappist-1",
       "properties": {
         "massKg": {
           "value": 1.78559206388685e+29,
@@ -171,6 +177,8 @@
       "id": "sirius-a",
       "name": "Sirius A",
       "kind": "star",
+      "bodyType": "star",
+      "assetKey": "sirius-a",
       "properties": {
         "massKg": {
           "value": 4.1020895632500795e+30,
@@ -229,6 +237,8 @@
       "id": "betelgeuse",
       "name": "Betelgeuse",
       "kind": "star",
+      "bodyType": "star",
+      "assetKey": "betelgeuse",
       "properties": {
         "massKg": {
           "value": 3.5294275204890403e+31,
@@ -288,9 +298,131 @@
       "notes": "A red supergiant: mass and radius are model-dependent estimates, not direct measurements."
     },
     {
+      "id": "mercury",
+      "name": "Mercury",
+      "kind": "planet",
+      "bodyType": "rocky-planet",
+      "assetKey": "mercury",
+      "properties": {
+        "massKg": {
+          "value": 3.3010299999999994e+23,
+          "uncertainty": {
+            "minus": 2.1e+19,
+            "plus": 2.1e+19
+          },
+          "basis": "measured",
+          "sourceValue": "0.330103 ± 0.000021 × 10^24 kg",
+          "sourceNumber": 0.330103,
+          "sourceUnit": "1e24kg",
+          "conversion": "0.330103 x 1e24 kg",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Physical Parameters",
+              "url": "https://ssd.jpl.nasa.gov/planets/phys_par.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 2.1e-05,
+            "plus": 2.1e-05
+          }
+        },
+        "radiusM": {
+          "value": 2439400.0,
+          "uncertainty": {
+            "minus": 100.0,
+            "plus": 100.0
+          },
+          "basis": "measured",
+          "sourceValue": "2439.4 ± 0.1 km (mean radius)",
+          "sourceNumber": 2439.4,
+          "sourceUnit": "km",
+          "conversion": "2439.4 x 1000 m",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Physical Parameters (Archinal et al. 2018)",
+              "url": "https://ssd.jpl.nasa.gov/planets/phys_par.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 0.1,
+            "plus": 0.1
+          }
+        }
+      },
+      "visual": {
+        "colorHex": "#9ca3af",
+        "note": "display only, not a physical property"
+      },
+      "notes": "Mercury alone."
+    },
+    {
+      "id": "venus",
+      "name": "Venus",
+      "kind": "planet",
+      "bodyType": "rocky-planet",
+      "assetKey": "venus",
+      "properties": {
+        "massKg": {
+          "value": 4.867309999999999e+24,
+          "uncertainty": {
+            "minus": 2.3e+20,
+            "plus": 2.3e+20
+          },
+          "basis": "measured",
+          "sourceValue": "4.86731 ± 0.00023 × 10^24 kg",
+          "sourceNumber": 4.86731,
+          "sourceUnit": "1e24kg",
+          "conversion": "4.86731 x 1e24 kg",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Physical Parameters",
+              "url": "https://ssd.jpl.nasa.gov/planets/phys_par.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 0.00023,
+            "plus": 0.00023
+          }
+        },
+        "radiusM": {
+          "value": 6051800.0,
+          "uncertainty": {
+            "minus": 1000.0,
+            "plus": 1000.0
+          },
+          "basis": "measured",
+          "sourceValue": "6051.8 ± 1.0 km (mean radius)",
+          "sourceNumber": 6051.8,
+          "sourceUnit": "km",
+          "conversion": "6051.8 x 1000 m",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Physical Parameters (Archinal et al. 2018)",
+              "url": "https://ssd.jpl.nasa.gov/planets/phys_par.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 1.0,
+            "plus": 1.0
+          }
+        }
+      },
+      "visual": {
+        "colorHex": "#e8c07a",
+        "note": "display only, not a physical property"
+      },
+      "notes": "Venus alone."
+    },
+    {
       "id": "earth",
       "name": "Earth",
       "kind": "planet",
+      "bodyType": "rocky-planet",
+      "assetKey": "earth",
       "properties": {
         "massKg": {
           "value": 5.97217e+24,
@@ -346,9 +478,71 @@
       "notes": "Earth alone, without the Moon."
     },
     {
+      "id": "moon",
+      "name": "Moon",
+      "kind": "planet",
+      "bodyType": "moon",
+      "assetKey": "moon",
+      "properties": {
+        "massKg": {
+          "value": 7.3457890715131185e+22,
+          "uncertainty": {
+            "minus": 1.49828446428839e+16,
+            "plus": 1.49828446428839e+16
+          },
+          "basis": "measured",
+          "sourceValue": "GM = 4902.8 ± 0.001 km^3 s^-2 (DE440)",
+          "sourceNumber": 4902.8,
+          "sourceUnit": "GM_km3s2",
+          "conversion": "GM = 4902.8 x 1e9 m^3/km^3 / 6.67430e-11 m^3 kg^-1 s^-2 (mass = GM / G)",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Satellite Physical Parameters",
+              "url": "https://ssd.jpl.nasa.gov/sats/phys_par/sep.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 0.001,
+            "plus": 0.001
+          }
+        },
+        "radiusM": {
+          "value": 1737400.0,
+          "uncertainty": {
+            "minus": 100.0,
+            "plus": 100.0
+          },
+          "basis": "measured",
+          "sourceValue": "1737.4 ± 0.1 km (mean radius)",
+          "sourceNumber": 1737.4,
+          "sourceUnit": "km",
+          "conversion": "1737.4 x 1000 m",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Satellite Physical Parameters (mean-radius ref. 1: Archinal et al. 2018)",
+              "url": "https://ssd.jpl.nasa.gov/sats/phys_par/sep.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 0.1,
+            "plus": 0.1
+          }
+        }
+      },
+      "visual": {
+        "colorHex": "#9ca3af",
+        "note": "display only, not a physical property"
+      },
+      "notes": "Single-body catalogue values; the source reports GM, converted to mass as GM / G."
+    },
+    {
       "id": "mars",
       "name": "Mars",
       "kind": "planet",
+      "bodyType": "rocky-planet",
+      "assetKey": "mars",
       "properties": {
         "massKg": {
           "value": 6.41691e+23,
@@ -404,9 +598,131 @@
       "notes": "Mars alone, without its moons."
     },
     {
+      "id": "phobos",
+      "name": "Phobos",
+      "kind": "planet",
+      "bodyType": "moon",
+      "assetKey": "phobos",
+      "properties": {
+        "massKg": {
+          "value": 1.061834199841182e+16,
+          "uncertainty": {
+            "minus": 8989706785730.34,
+            "plus": 8989706785730.34
+          },
+          "basis": "measured",
+          "sourceValue": "GM = 0.0007087 ± 6e-07 km^3 s^-2 (MAR097)",
+          "sourceNumber": 0.0007087,
+          "sourceUnit": "GM_km3s2",
+          "conversion": "GM = 0.0007087 x 1e9 m^3/km^3 / 6.67430e-11 m^3 kg^-1 s^-2 (mass = GM / G)",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Satellite Physical Parameters",
+              "url": "https://ssd.jpl.nasa.gov/sats/phys_par/sep.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 6e-07,
+            "plus": 6e-07
+          }
+        },
+        "radiusM": {
+          "value": 11080.0,
+          "uncertainty": {
+            "minus": 40.0,
+            "plus": 40.0
+          },
+          "basis": "measured",
+          "sourceValue": "11.08 ± 0.04 km (mean radius)",
+          "sourceNumber": 11.08,
+          "sourceUnit": "km",
+          "conversion": "11.08 x 1000 m",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Satellite Physical Parameters (mean-radius ref. 1: Archinal et al. 2018)",
+              "url": "https://ssd.jpl.nasa.gov/sats/phys_par/sep.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 0.04,
+            "plus": 0.04
+          }
+        }
+      },
+      "visual": {
+        "colorHex": "#8c8883",
+        "note": "display only, not a physical property"
+      },
+      "notes": "Single-body catalogue values; the source reports GM, converted to mass as GM / G."
+    },
+    {
+      "id": "deimos",
+      "name": "Deimos",
+      "kind": "planet",
+      "bodyType": "moon",
+      "assetKey": "deimos",
+      "properties": {
+        "massKg": {
+          "value": 1441349654645431.0,
+          "uncertainty": {
+            "minus": 41951965000074.914,
+            "plus": 41951965000074.914
+          },
+          "basis": "measured",
+          "sourceValue": "GM = 9.62e-05 ± 2.8e-06 km^3 s^-2 (MAR097)",
+          "sourceNumber": 9.62e-05,
+          "sourceUnit": "GM_km3s2",
+          "conversion": "GM = 9.62e-05 x 1e9 m^3/km^3 / 6.67430e-11 m^3 kg^-1 s^-2 (mass = GM / G)",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Satellite Physical Parameters",
+              "url": "https://ssd.jpl.nasa.gov/sats/phys_par/sep.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 2.8e-06,
+            "plus": 2.8e-06
+          }
+        },
+        "radiusM": {
+          "value": 6200.0,
+          "uncertainty": {
+            "minus": 240.0,
+            "plus": 240.0
+          },
+          "basis": "measured",
+          "sourceValue": "6.2 ± 0.24 km (mean radius)",
+          "sourceNumber": 6.2,
+          "sourceUnit": "km",
+          "conversion": "6.2 x 1000 m",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Satellite Physical Parameters (mean-radius ref. 1: Archinal et al. 2018)",
+              "url": "https://ssd.jpl.nasa.gov/sats/phys_par/sep.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 0.24,
+            "plus": 0.24
+          }
+        }
+      },
+      "visual": {
+        "colorHex": "#8c8883",
+        "note": "display only, not a physical property"
+      },
+      "notes": "Single-body catalogue values; the source reports GM, converted to mass as GM / G."
+    },
+    {
       "id": "jupiter",
       "name": "Jupiter",
       "kind": "planet",
+      "bodyType": "gas-giant",
+      "assetKey": "jupiter",
       "properties": {
         "massKg": {
           "value": 1.898125e+27,
@@ -462,9 +778,671 @@
       "notes": "Jupiter alone, without its moons."
     },
     {
+      "id": "io",
+      "name": "Io",
+      "kind": "planet",
+      "bodyType": "moon",
+      "assetKey": "io",
+      "properties": {
+        "massKg": {
+          "value": 8.929648757173038e+22,
+          "uncertainty": {
+            "minus": 2.0226840267893264e+16,
+            "plus": 2.0226840267893264e+16
+          },
+          "basis": "measured",
+          "sourceValue": "GM = 5959.91547 ± 0.00135 km^3 s^-2 (JUP365)",
+          "sourceNumber": 5959.91547,
+          "sourceUnit": "GM_km3s2",
+          "conversion": "GM = 5959.91547 x 1e9 m^3/km^3 / 6.67430e-11 m^3 kg^-1 s^-2 (mass = GM / G)",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Satellite Physical Parameters",
+              "url": "https://ssd.jpl.nasa.gov/sats/phys_par/sep.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 0.00135,
+            "plus": 0.00135
+          }
+        },
+        "radiusM": {
+          "value": 1821490.0,
+          "uncertainty": {
+            "minus": 500.0,
+            "plus": 500.0
+          },
+          "basis": "measured",
+          "sourceValue": "1821.49 ± 0.5 km (mean radius)",
+          "sourceNumber": 1821.49,
+          "sourceUnit": "km",
+          "conversion": "1821.49 x 1000 m",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Satellite Physical Parameters (mean-radius ref. 1: Archinal et al. 2018)",
+              "url": "https://ssd.jpl.nasa.gov/sats/phys_par/sep.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 0.5,
+            "plus": 0.5
+          }
+        }
+      },
+      "visual": {
+        "colorHex": "#e6c84a",
+        "note": "display only, not a physical property"
+      },
+      "notes": "Single-body catalogue values; the source reports GM, converted to mass as GM / G."
+    },
+    {
+      "id": "europa",
+      "name": "Europa",
+      "kind": "planet",
+      "bodyType": "moon",
+      "assetKey": "europa",
+      "properties": {
+        "massKg": {
+          "value": 4.7985737830184444e+22,
+          "uncertainty": {
+            "minus": 2.7118948803619856e+16,
+            "plus": 2.7118948803619856e+16
+          },
+          "basis": "measured",
+          "sourceValue": "GM = 3202.7121 ± 0.00181 km^3 s^-2 (JUP365)",
+          "sourceNumber": 3202.7121,
+          "sourceUnit": "GM_km3s2",
+          "conversion": "GM = 3202.7121 x 1e9 m^3/km^3 / 6.67430e-11 m^3 kg^-1 s^-2 (mass = GM / G)",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Satellite Physical Parameters",
+              "url": "https://ssd.jpl.nasa.gov/sats/phys_par/sep.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 0.00181,
+            "plus": 0.00181
+          }
+        },
+        "radiusM": {
+          "value": 1560800.0,
+          "uncertainty": {
+            "minus": 300.0,
+            "plus": 300.0
+          },
+          "basis": "measured",
+          "sourceValue": "1560.8 ± 0.3 km (mean radius)",
+          "sourceNumber": 1560.8,
+          "sourceUnit": "km",
+          "conversion": "1560.8 x 1000 m",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Satellite Physical Parameters (mean-radius ref. 1: Archinal et al. 2018)",
+              "url": "https://ssd.jpl.nasa.gov/sats/phys_par/sep.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 0.3,
+            "plus": 0.3
+          }
+        }
+      },
+      "visual": {
+        "colorHex": "#cdb89a",
+        "note": "display only, not a physical property"
+      },
+      "notes": "Single-body catalogue values; the source reports GM, converted to mass as GM / G."
+    },
+    {
+      "id": "ganymede",
+      "name": "Ganymede",
+      "kind": "planet",
+      "bodyType": "moon",
+      "assetKey": "ganymede",
+      "properties": {
+        "massKg": {
+          "value": 1.4814786194806946e+23,
+          "uncertainty": {
+            "minus": 3.700762626792323e+16,
+            "plus": 3.700762626792323e+16
+          },
+          "basis": "measured",
+          "sourceValue": "GM = 9887.83275 ± 0.00247 km^3 s^-2 (JUP365)",
+          "sourceNumber": 9887.83275,
+          "sourceUnit": "GM_km3s2",
+          "conversion": "GM = 9887.83275 x 1e9 m^3/km^3 / 6.67430e-11 m^3 kg^-1 s^-2 (mass = GM / G)",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Satellite Physical Parameters",
+              "url": "https://ssd.jpl.nasa.gov/sats/phys_par/sep.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 0.00247,
+            "plus": 0.00247
+          }
+        },
+        "radiusM": {
+          "value": 2631200.0,
+          "uncertainty": {
+            "minus": 1700.0,
+            "plus": 1700.0
+          },
+          "basis": "measured",
+          "sourceValue": "2631.2 ± 1.7 km (mean radius)",
+          "sourceNumber": 2631.2,
+          "sourceUnit": "km",
+          "conversion": "2631.2 x 1000 m",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Satellite Physical Parameters (mean-radius ref. 1: Archinal et al. 2018)",
+              "url": "https://ssd.jpl.nasa.gov/sats/phys_par/sep.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 1.7,
+            "plus": 1.7
+          }
+        }
+      },
+      "visual": {
+        "colorHex": "#8a7f73",
+        "note": "display only, not a physical property"
+      },
+      "notes": "Single-body catalogue values; the source reports GM, converted to mass as GM / G."
+    },
+    {
+      "id": "callisto",
+      "name": "Callisto",
+      "kind": "planet",
+      "bodyType": "moon",
+      "assetKey": "callisto",
+      "properties": {
+        "massKg": {
+          "value": 1.075660878294353e+23,
+          "uncertainty": {
+            "minus": 4.854441664294383e+16,
+            "plus": 4.854441664294383e+16
+          },
+          "basis": "measured",
+          "sourceValue": "GM = 7179.2834 ± 0.00324 km^3 s^-2 (JUP365)",
+          "sourceNumber": 7179.2834,
+          "sourceUnit": "GM_km3s2",
+          "conversion": "GM = 7179.2834 x 1e9 m^3/km^3 / 6.67430e-11 m^3 kg^-1 s^-2 (mass = GM / G)",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Satellite Physical Parameters",
+              "url": "https://ssd.jpl.nasa.gov/sats/phys_par/sep.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 0.00324,
+            "plus": 0.00324
+          }
+        },
+        "radiusM": {
+          "value": 2410300.0,
+          "uncertainty": {
+            "minus": 1500.0,
+            "plus": 1500.0
+          },
+          "basis": "measured",
+          "sourceValue": "2410.3 ± 1.5 km (mean radius)",
+          "sourceNumber": 2410.3,
+          "sourceUnit": "km",
+          "conversion": "2410.3 x 1000 m",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Satellite Physical Parameters (mean-radius ref. 1: Archinal et al. 2018)",
+              "url": "https://ssd.jpl.nasa.gov/sats/phys_par/sep.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 1.5,
+            "plus": 1.5
+          }
+        }
+      },
+      "visual": {
+        "colorHex": "#5b5148",
+        "note": "display only, not a physical property"
+      },
+      "notes": "Single-body catalogue values; the source reports GM, converted to mass as GM / G."
+    },
+    {
+      "id": "saturn",
+      "name": "Saturn",
+      "kind": "planet",
+      "bodyType": "gas-giant",
+      "assetKey": "saturn",
+      "properties": {
+        "massKg": {
+          "value": 5.68317e+26,
+          "uncertainty": {
+            "minus": 2.6e+22,
+            "plus": 2.6e+22
+          },
+          "basis": "measured",
+          "sourceValue": "568.317 ± 0.026 × 10^24 kg",
+          "sourceNumber": 568.317,
+          "sourceUnit": "1e24kg",
+          "conversion": "568.317 x 1e24 kg",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Physical Parameters",
+              "url": "https://ssd.jpl.nasa.gov/planets/phys_par.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 0.026,
+            "plus": 0.026
+          }
+        },
+        "radiusM": {
+          "value": 58232000.0,
+          "uncertainty": {
+            "minus": 6000.0,
+            "plus": 6000.0
+          },
+          "basis": "measured",
+          "sourceValue": "58232 ± 6 km (mean radius)",
+          "sourceNumber": 58232.0,
+          "sourceUnit": "km",
+          "conversion": "58232 x 1000 m",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Physical Parameters (Archinal et al. 2018)",
+              "url": "https://ssd.jpl.nasa.gov/planets/phys_par.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 6.0,
+            "plus": 6.0
+          }
+        }
+      },
+      "visual": {
+        "colorHex": "#e0c97f",
+        "note": "display only, not a physical property"
+      },
+      "notes": "Saturn alone, without its moons."
+    },
+    {
+      "id": "titan",
+      "name": "Titan",
+      "kind": "planet",
+      "bodyType": "moon",
+      "assetKey": "titan",
+      "properties": {
+        "massKg": {
+          "value": 1.3451803335181219e+23,
+          "uncertainty": {
+            "minus": 3745711160720975.0,
+            "plus": 3745711160720975.0
+          },
+          "basis": "measured",
+          "sourceValue": "GM = 8978.1371 ± 0.00025 km^3 s^-2 (SAT441)",
+          "sourceNumber": 8978.1371,
+          "sourceUnit": "GM_km3s2",
+          "conversion": "GM = 8978.1371 x 1e9 m^3/km^3 / 6.67430e-11 m^3 kg^-1 s^-2 (mass = GM / G)",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Satellite Physical Parameters",
+              "url": "https://ssd.jpl.nasa.gov/sats/phys_par/sep.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 0.00025,
+            "plus": 0.00025
+          }
+        },
+        "radiusM": {
+          "value": 2574760.0,
+          "uncertainty": {
+            "minus": 20.0,
+            "plus": 20.0
+          },
+          "basis": "measured",
+          "sourceValue": "2574.76 ± 0.02 km (mean radius)",
+          "sourceNumber": 2574.76,
+          "sourceUnit": "km",
+          "conversion": "2574.76 x 1000 m",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Satellite Physical Parameters (mean-radius ref. 1: Archinal et al. 2018)",
+              "url": "https://ssd.jpl.nasa.gov/sats/phys_par/sep.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 0.02,
+            "plus": 0.02
+          }
+        }
+      },
+      "visual": {
+        "colorHex": "#d69a3c",
+        "note": "display only, not a physical property"
+      },
+      "notes": "Single-body catalogue values; the source reports GM, converted to mass as GM / G."
+    },
+    {
+      "id": "rhea",
+      "name": "Rhea",
+      "kind": "planet",
+      "bodyType": "moon",
+      "assetKey": "rhea",
+      "properties": {
+        "massKg": {
+          "value": 2.3064853243036728e+21,
+          "uncertainty": {
+            "minus": 6142966303582399.0,
+            "plus": 6142966303582399.0
+          },
+          "basis": "measured",
+          "sourceValue": "GM = 153.94175 ± 0.00041 km^3 s^-2 (SAT441)",
+          "sourceNumber": 153.94175,
+          "sourceUnit": "GM_km3s2",
+          "conversion": "GM = 153.94175 x 1e9 m^3/km^3 / 6.67430e-11 m^3 kg^-1 s^-2 (mass = GM / G)",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Satellite Physical Parameters",
+              "url": "https://ssd.jpl.nasa.gov/sats/phys_par/sep.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 0.00041,
+            "plus": 0.00041
+          }
+        },
+        "radiusM": {
+          "value": 763500.0,
+          "uncertainty": {
+            "minus": 600.0,
+            "plus": 600.0
+          },
+          "basis": "measured",
+          "sourceValue": "763.5 ± 0.6 km (mean radius)",
+          "sourceNumber": 763.5,
+          "sourceUnit": "km",
+          "conversion": "763.5 x 1000 m",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Satellite Physical Parameters (mean-radius ref. 1: Archinal et al. 2018)",
+              "url": "https://ssd.jpl.nasa.gov/sats/phys_par/sep.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 0.6,
+            "plus": 0.6
+          }
+        }
+      },
+      "visual": {
+        "colorHex": "#b8b8b8",
+        "note": "display only, not a physical property"
+      },
+      "notes": "Single-body catalogue values; the source reports GM, converted to mass as GM / G."
+    },
+    {
+      "id": "iapetus",
+      "name": "Iapetus",
+      "kind": "planet",
+      "bodyType": "moon",
+      "assetKey": "iapetus",
+      "properties": {
+        "massKg": {
+          "value": 1.805659170250064e+21,
+          "uncertainty": {
+            "minus": 3.625848403577903e+16,
+            "plus": 3.625848403577903e+16
+          },
+          "basis": "measured",
+          "sourceValue": "GM = 120.51511 ± 0.00242 km^3 s^-2 (SAT441)",
+          "sourceNumber": 120.51511,
+          "sourceUnit": "GM_km3s2",
+          "conversion": "GM = 120.51511 x 1e9 m^3/km^3 / 6.67430e-11 m^3 kg^-1 s^-2 (mass = GM / G)",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Satellite Physical Parameters",
+              "url": "https://ssd.jpl.nasa.gov/sats/phys_par/sep.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 0.00242,
+            "plus": 0.00242
+          }
+        },
+        "radiusM": {
+          "value": 734300.0,
+          "uncertainty": {
+            "minus": 2800.0,
+            "plus": 2800.0
+          },
+          "basis": "measured",
+          "sourceValue": "734.3 ± 2.8 km (mean radius)",
+          "sourceNumber": 734.3,
+          "sourceUnit": "km",
+          "conversion": "734.3 x 1000 m",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Satellite Physical Parameters (mean-radius ref. 1: Archinal et al. 2018)",
+              "url": "https://ssd.jpl.nasa.gov/sats/phys_par/sep.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 2.8,
+            "plus": 2.8
+          }
+        }
+      },
+      "visual": {
+        "colorHex": "#8a8176",
+        "note": "display only, not a physical property"
+      },
+      "notes": "Single-body catalogue values; the source reports GM, converted to mass as GM / G."
+    },
+    {
+      "id": "dione",
+      "name": "Dione",
+      "kind": "planet",
+      "bodyType": "moon",
+      "assetKey": "dione",
+      "properties": {
+        "massKg": {
+          "value": 1.095486717708224e+21,
+          "uncertainty": {
+            "minus": 749142232144195.0,
+            "plus": 749142232144195.0
+          },
+          "basis": "measured",
+          "sourceValue": "GM = 73.11607 ± 5e-05 km^3 s^-2 (SAT441)",
+          "sourceNumber": 73.11607,
+          "sourceUnit": "GM_km3s2",
+          "conversion": "GM = 73.11607 x 1e9 m^3/km^3 / 6.67430e-11 m^3 kg^-1 s^-2 (mass = GM / G)",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Satellite Physical Parameters",
+              "url": "https://ssd.jpl.nasa.gov/sats/phys_par/sep.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 5e-05,
+            "plus": 5e-05
+          }
+        },
+        "radiusM": {
+          "value": 561400.0,
+          "uncertainty": {
+            "minus": 400.0,
+            "plus": 400.0
+          },
+          "basis": "measured",
+          "sourceValue": "561.4 ± 0.4 km (mean radius)",
+          "sourceNumber": 561.4,
+          "sourceUnit": "km",
+          "conversion": "561.4 x 1000 m",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Satellite Physical Parameters (mean-radius ref. 1: Archinal et al. 2018)",
+              "url": "https://ssd.jpl.nasa.gov/sats/phys_par/sep.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 0.4,
+            "plus": 0.4
+          }
+        }
+      },
+      "visual": {
+        "colorHex": "#c9c9c9",
+        "note": "display only, not a physical property"
+      },
+      "notes": "Single-body catalogue values; the source reports GM, converted to mass as GM / G."
+    },
+    {
+      "id": "tethys",
+      "name": "Tethys",
+      "kind": "planet",
+      "bodyType": "moon",
+      "assetKey": "tethys",
+      "properties": {
+        "massKg": {
+          "value": 6.174959171748349e+20,
+          "uncertainty": {
+            "minus": 4644681839294009.0,
+            "plus": 4644681839294009.0
+          },
+          "basis": "measured",
+          "sourceValue": "GM = 41.21353 ± 0.00031 km^3 s^-2 (SAT441)",
+          "sourceNumber": 41.21353,
+          "sourceUnit": "GM_km3s2",
+          "conversion": "GM = 41.21353 x 1e9 m^3/km^3 / 6.67430e-11 m^3 kg^-1 s^-2 (mass = GM / G)",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Satellite Physical Parameters",
+              "url": "https://ssd.jpl.nasa.gov/sats/phys_par/sep.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 0.00031,
+            "plus": 0.00031
+          }
+        },
+        "radiusM": {
+          "value": 531100.0,
+          "uncertainty": {
+            "minus": 600.0,
+            "plus": 600.0
+          },
+          "basis": "measured",
+          "sourceValue": "531.1 ± 0.6 km (mean radius)",
+          "sourceNumber": 531.1,
+          "sourceUnit": "km",
+          "conversion": "531.1 x 1000 m",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Satellite Physical Parameters (mean-radius ref. 1: Archinal et al. 2018)",
+              "url": "https://ssd.jpl.nasa.gov/sats/phys_par/sep.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 0.6,
+            "plus": 0.6
+          }
+        }
+      },
+      "visual": {
+        "colorHex": "#dedede",
+        "note": "display only, not a physical property"
+      },
+      "notes": "Single-body catalogue values; the source reports GM, converted to mass as GM / G."
+    },
+    {
+      "id": "uranus",
+      "name": "Uranus",
+      "kind": "planet",
+      "bodyType": "ice-giant",
+      "assetKey": "uranus",
+      "properties": {
+        "massKg": {
+          "value": 8.68099e+25,
+          "uncertainty": {
+            "minus": 4e+21,
+            "plus": 4e+21
+          },
+          "basis": "measured",
+          "sourceValue": "86.8099 ± 0.0040 × 10^24 kg",
+          "sourceNumber": 86.8099,
+          "sourceUnit": "1e24kg",
+          "conversion": "86.8099 x 1e24 kg",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Physical Parameters",
+              "url": "https://ssd.jpl.nasa.gov/planets/phys_par.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 0.004,
+            "plus": 0.004
+          }
+        },
+        "radiusM": {
+          "value": 25362000.0,
+          "uncertainty": {
+            "minus": 7000.0,
+            "plus": 7000.0
+          },
+          "basis": "measured",
+          "sourceValue": "25362 ± 7 km (mean radius)",
+          "sourceNumber": 25362.0,
+          "sourceUnit": "km",
+          "conversion": "25362 x 1000 m",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Physical Parameters (Archinal et al. 2018)",
+              "url": "https://ssd.jpl.nasa.gov/planets/phys_par.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 7.0,
+            "plus": 7.0
+          }
+        }
+      },
+      "visual": {
+        "colorHex": "#7dd3fc",
+        "note": "display only, not a physical property"
+      },
+      "notes": "Uranus alone, without its moons."
+    },
+    {
       "id": "neptune",
       "name": "Neptune",
       "kind": "planet",
+      "bodyType": "ice-giant",
+      "assetKey": "neptune",
       "properties": {
         "massKg": {
           "value": 1.024092e+26,

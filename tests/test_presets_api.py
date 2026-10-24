@@ -78,16 +78,16 @@ MOONS_PRESET = {"source": {"kind": "preset", "presetId": "solar-system-moons-j20
 MOON_PRIMARY = {"body-moon": "body-earth", "body-io": "body-jupiter", "body-europa": "body-jupiter",
                 "body-ganymede": "body-jupiter", "body-callisto": "body-jupiter", "body-titan": "body-saturn",
                 "body-rhea": "body-saturn", "body-iapetus": "body-saturn", "body-dione": "body-saturn",
-                "body-tethys": "body-saturn"}
+                "body-tethys": "body-saturn", "body-phobos": "body-mars", "body-deimos": "body-mars"}
 
 
 def test_moons_preset_listed_next_to_the_barycentre_preset(client):
     j = client.get("/api/v1/presets").json()["presets"]
     assert {"solar-system-j2000", "solar-system-moons-j2000"} <= {p["id"] for p in j}
     moons = next(p for p in j if p["id"] == "solar-system-moons-j2000")
-    assert moons["available"] is True and moons["bodyCount"] == 19 and moons["sampleIntervalS"] == 432000.0
+    assert moons["available"] is True and moons["bodyCount"] == 21 and moons["sampleIntervalS"] == 432000.0
     detail = client.get("/api/v1/presets/solar-system-moons-j2000").json()
-    assert len(detail["provenance"]["bodies"]) == 19
+    assert len(detail["provenance"]["bodies"]) == 21
 
 
 def test_moons_universe_serves_moons_as_real_bodies_with_primaries_and_steps_them(client):
@@ -97,7 +97,7 @@ def test_moons_universe_serves_moons_as_real_bodies_with_primaries_and_steps_the
     base = f"/api/v1/universes/{uid}"
     state = client.get(f"{base}/state").json()
     by = {b["id"]: b for b in state["bodies"]}
-    assert len(by) == 19
+    assert len(by) == 21
     for moon, primary in MOON_PRIMARY.items():
         assert by[moon]["bodyType"] == "moon" and by[moon]["primaryId"] == primary and by[moon]["assetKey"]
         assert by[moon]["kind"] == "planet"

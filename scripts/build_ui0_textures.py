@@ -1,4 +1,4 @@
-"""Build the UI-0 36-file texture manifest from licensed Solar System Scope source maps.
+"""Build the UI-0 texture manifest from licensed Solar System Scope source maps.
 
 Generated normal/roughness maps and tinted star variants are visual approximations, not scientific
 measurements. See frontend/src/assets/ASSET_HANDOFF.md and the accompanying attribution record.
@@ -14,13 +14,20 @@ from PIL import Image, ImageEnhance
 
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_OUTPUTS = 36
+EXPECTED_OUTPUTS = 54
 EXPECTED_FILENAMES = {
     f"{prefix}_{kind}.jpg"
     for prefix in (
-        "earth", "mars", "jupiter", "neptune", "generic_rocky", "generic_gas", "generic_ice", "generic_asteroid"
+        "mercury", "venus", "earth", "mars", "jupiter", "neptune",
+        "generic_rocky", "generic_gas", "generic_ice", "generic_asteroid"
     )
     for kind in ("diffuse", "normal", "roughness")
+} | {
+    f"{prefix}_diffuse.jpg"
+    for prefix in ("moon", "io", "europa", "ganymede", "callisto", "titan", "rhea", "iapetus", "dione", "tethys")
+} | {
+    f"{prefix}_diffuse.jpg"
+    for prefix in ("saturn", "uranus")
 } | {
     f"{prefix}_{kind}.jpg"
     for prefix in ("sun", "betelgeuse", "proxima", "sirius", "trappist1", "generic_star")
@@ -91,11 +98,20 @@ def build_star(image: Image.Image, output_dir: Path, prefix: str) -> None:
     save_jpg(emissive, output_dir, f"{prefix}_emissive.jpg")
 
 
+def build_specific_diffuse(raw_dir: Path, output_dir: Path, source: str, prefix: str) -> None:
+    """Save a body-specific diffuse map when its type-level material maps are shared."""
+    save_jpg(load_rgb(raw_dir, source), output_dir, f"{prefix}_diffuse.jpg")
+
+
 def build(raw_dir: Path, output_dir: Path) -> list[Path]:
+    build_planet(raw_dir, output_dir, "2k_mercury.jpg", "mercury", bump_strength=4.0, base_roughness=0.90)
+    build_planet(raw_dir, output_dir, "2k_venus_surface.jpg", "venus", bump_strength=2.0, base_roughness=0.85)
     build_planet(raw_dir, output_dir, "2k_earth_daymap.jpg", "earth", bump_strength=2.5, base_roughness=0.65)
     build_planet(raw_dir, output_dir, "2k_mars.jpg", "mars", bump_strength=3.5, base_roughness=0.85)
     build_planet(raw_dir, output_dir, "2k_jupiter.jpg", "jupiter", bump_strength=0.8, base_roughness=0.55)
     build_planet(raw_dir, output_dir, "2k_neptune.jpg", "neptune", bump_strength=0.6, base_roughness=0.50)
+    build_specific_diffuse(raw_dir, output_dir, "2k_saturn.jpg", "saturn")
+    build_specific_diffuse(raw_dir, output_dir, "2k_uranus.jpg", "uranus")
 
     sun = load_rgb(raw_dir, "2k_sun.jpg")
     build_star(sun, output_dir, "sun")
@@ -108,7 +124,7 @@ def build(raw_dir: Path, output_dir: Path) -> list[Path]:
     build_planet(raw_dir, output_dir, "2k_mercury.jpg", "generic_rocky", bump_strength=4.0, base_roughness=0.90)
     build_planet(raw_dir, output_dir, "2k_saturn.jpg", "generic_gas", bump_strength=0.7, base_roughness=0.55)
     build_planet(raw_dir, output_dir, "2k_uranus.jpg", "generic_ice", bump_strength=0.5, base_roughness=0.45)
-    # Moon imagery is only a generic rocky visual fallback, not an asteroid surface claim.
+    # Generic moon imagery is only a rocky fallback, not a specific asteroid surface claim.
     build_planet(raw_dir, output_dir, "2k_moon.jpg", "generic_asteroid", bump_strength=5.0, base_roughness=0.95)
 
     outputs = sorted(output_dir.glob("*.jpg"))

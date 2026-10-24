@@ -197,10 +197,28 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
         if (history.cache && !out.some((t) => t.bodyId === comparisonBody)) out.push(trajectoryOf(history.cache, comparisonBody, "active"));
         if (referenceHistory.cache && referenceHistory.cache.universeId === otherRunId) out.push(trajectoryOf(referenceHistory.cache, comparisonBody, "reference"));
       }
-      return out.filter((t) => t.samples.length > 0);
+      const livePositions = new Map(displayBodies.map((body) => [body.id, body.positionM]));
+      return out.filter((t) => t.samples.length > 0).map((trajectory) => {
+        // History is sampled discretely, but the active body is already moving between samples.
+        // Extend the active path to its current live position so the curve stays attached to it.
+        if (trajectory.role !== "active" || viewingHistory) return trajectory;
+        const positionM = livePositions.get(trajectory.bodyId);
+        const latest = trajectory.samples[trajectory.samples.length - 1];
+        if (!positionM || !latest || (
+          latest.positionM.x === positionM.x && latest.positionM.y === positionM.y && latest.positionM.z === positionM.z
+        )) return trajectory;
+        return {
+          ...trajectory,
+          samples: [...trajectory.samples, {
+            simulationTimeS: sim?.simulationTimeS ?? latest.simulationTimeS,
+            positionM: { ...positionM },
+            segment: latest.segment,
+          }],
+        };
+      });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [showPaths, history.cache, referenceHistory.cache, hasRun, comparisonBody, otherRunId, pathIds.join("|")],
+    [showPaths, history.cache, referenceHistory.cache, hasRun, comparisonBody, otherRunId, pathIds.join("|"), displayBodies, sim?.simulationTimeS, viewingHistory],
   );
   useEffect(() => {
     if (viewingHistory) setPlacementMode(false);

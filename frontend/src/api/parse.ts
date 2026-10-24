@@ -368,10 +368,15 @@ export function parseCatalogue(v: unknown): CatalogueDto {
       const props = obj(q.properties, "catalogue.entry.properties");
       const visual = obj(q.visual, "catalogue.entry.visual");
       if (q.kind !== "star" && q.kind !== "planet") bad("catalogue.entry.kind");
+      const bodyType = q.bodyType === undefined ? undefined : typeof q.bodyType === "string" && BODY_TYPES.includes(q.bodyType as BodyType)
+        ? q.bodyType as BodyType : bad("catalogue.entry.bodyType");
+      if (q.assetKey !== undefined && typeof q.assetKey !== "string") bad("catalogue.entry.assetKey");
       return {
         id: str(q.id, "entry.id"),
         name: str(q.name, "entry.name"),
         kind: q.kind,
+        ...(bodyType === undefined ? {} : { bodyType }),
+        ...(typeof q.assetKey === "string" ? { assetKey: q.assetKey } : {}),
         properties: {
           massKg: parseCatalogueProperty(props.massKg, "entry.massKg"),
           radiusM: parseCatalogueProperty(props.radiusM, "entry.radiusM"),

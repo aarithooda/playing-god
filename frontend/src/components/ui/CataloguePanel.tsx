@@ -54,7 +54,7 @@ export const CataloguePanel: React.FC<CataloguePanelProps> = ({ entries, notes, 
                     style={{ width: 10, height: 10, borderRadius: '50%', background: e.visual.colorHex, display: 'inline-block' }}
                   />
                   <strong>{e.name}</strong>
-                  <span style={{ color: theme.textMuted }}>{e.kind}</span>
+                  <span style={{ color: theme.textMuted }}>{e.bodyType ?? e.kind}</span>
                   {estimated && <span style={BADGE}>Estimated</span>}
                   {illustrative && <span style={BADGE}>Illustrative</span>}
                 </div>

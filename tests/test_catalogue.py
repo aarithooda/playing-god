@@ -10,11 +10,14 @@ from backend.main import app
 
 G = 6.67430e-11
 # Independent unit table: the test must not reuse the builder's factors.
-FACTOR = {"Msun": 1.3271244e20 / G, "Rsun": 6.957e8, "GM_m3s2": 1.0 / G, "1e24kg": 1.0e24, "km": 1.0e3, "m": 1.0}
+FACTOR = {"Msun": 1.3271244e20 / G, "Rsun": 6.957e8, "GM_m3s2": 1.0 / G, "GM_km3s2": 1.0e9 / G, "1e24kg": 1.0e24, "km": 1.0e3, "m": 1.0}
 
 EXPECTED = {
     "stars": ["sun", "proxima-centauri", "trappist-1", "sirius-a", "betelgeuse"],
-    "planets": ["earth", "mars", "jupiter", "neptune"],
+    "planets": [
+        "mercury", "venus", "earth", "moon", "mars", "phobos", "deimos", "jupiter", "io", "europa",
+        "ganymede", "callisto", "saturn", "titan", "rhea", "iapetus", "dione", "tethys", "uranus", "neptune",
+    ],
 }
 
 

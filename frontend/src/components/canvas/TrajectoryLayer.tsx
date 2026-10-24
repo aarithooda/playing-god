@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { Line } from '@react-three/drei';
+import { CatmullRomCurve3, Vector3 } from 'three';
 import type { TrajectoryInput } from '../../render/contract';
 import type { RenderTransform } from '../../sim/renderTransform';
 import { buildPolylines } from '../../sim/trajectory';
@@ -11,6 +12,18 @@ interface TrajectoryLayerProps {
 
 const ACTIVE_WIDTH = 1.5;
 const REFERENCE_WIDTH = 1.2;
+const CURVE_SUBDIVISIONS = 4;
+
+/** Add render-only points between samples so orbital arcs do not look like joined straight chords. */
+function smoothPolyline(points: [number, number, number][]): Vector3[] {
+  if (points.length < 3) return points.map((point) => new Vector3(...point));
+  const curve = new CatmullRomCurve3(
+    points.map((point) => new Vector3(...point)),
+    false,
+    'centripetal',
+  );
+  return curve.getPoints((points.length - 1) * CURVE_SUBDIVISIONS);
+}
 
 /**
  * Draws recorded paths (UI-0). The active run is solid; the reference run (the other Orbit Lab run) is dashed and
@@ -19,7 +32,12 @@ const REFERENCE_WIDTH = 1.2;
  */
 export const TrajectoryLayer: React.FC<TrajectoryLayerProps> = ({ trajectories, transform }) => {
   const prepared = useMemo(
-    () => trajectories.map((t) => ({ t, lines: buildPolylines(t.samples, transform).filter((l) => l.length >= 2) })),
+    () => trajectories.map((t) => ({
+      t,
+      lines: buildPolylines(t.samples, transform)
+        .filter((line) => line.length >= 2)
+        .map(smoothPolyline),
+    })),
     [trajectories, transform],
   );
   return (

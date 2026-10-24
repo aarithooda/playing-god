@@ -47,7 +47,7 @@
   },
   {
    "id": "body-earth",
-   "name": "Earth (Earth\u2013Moon barycentre)",
+   "name": "Earth (Earth–Moon barycentre)",
    "kind": "planet",
    "radiusM": 6371008.399999999,
    "positionM": {
@@ -214,18 +214,48 @@
   },
   {
    "id": "body-mars",
-   "name": "Mars (system barycentre)",
+   "name": "Mars",
    "kind": "planet",
    "radiusM": 3389500.0,
    "positionM": {
-    "x": 206980530907.6637,
-    "y": -2425317621.2162113,
-    "z": -5125444915.496467
+    "x": 206980530907.67328,
+    "y": -2425317621.017622,
+    "z": -5125444915.49104
    },
    "colorHex": "#c1440e",
    "bodyType": "rocky-planet",
    "assetKey": "mars",
    "primaryId": null
+  },
+  {
+   "id": "body-phobos",
+   "name": "Phobos",
+   "kind": "planet",
+   "radiusM": 11080.0,
+   "positionM": {
+    "x": 206978541929.74478,
+    "y": -2434605144.6784563,
+    "z": -5124886754.063013
+   },
+   "colorHex": "#8c8883",
+   "bodyType": "moon",
+   "assetKey": "phobos",
+   "primaryId": "body-mars"
+  },
+  {
+   "id": "body-deimos",
+   "name": "Deimos",
+   "kind": "planet",
+   "radiusM": 6200.0,
+   "positionM": {
+    "x": 206990897347.96188,
+    "y": -2445312960.0898433,
+    "z": -5131975459.484036
+   },
+   "colorHex": "#8c8883",
+   "bodyType": "moon",
+   "assetKey": "deimos",
+   "primaryId": "body-mars"
   },
   {
    "id": "body-jupiter",

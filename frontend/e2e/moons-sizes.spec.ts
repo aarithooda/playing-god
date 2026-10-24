@@ -51,8 +51,8 @@ test("moons preset: all bodies listed, nested under their planet, physical sizes
   await expect(page.getByTestId("backend-status")).toContainText("connected");
 
   const list = page.getByRole("region", { name: "Bodies" });
-  await expect(list.getByRole("listitem")).toHaveCount(19);
-  for (const name of ["Sun", "Earth", "Moon", "Jupiter", "Io", "Europa", "Ganymede", "Callisto", "Saturn", "Titan", "Neptune (system barycentre)"]) {
+  await expect(list.getByRole("listitem")).toHaveCount(21);
+  for (const name of ["Sun", "Earth", "Moon", "Mars", "Phobos", "Deimos", "Jupiter", "Io", "Europa", "Ganymede", "Callisto", "Saturn", "Titan", "Neptune (system barycentre)"]) {
     await expect(list.getByRole("button", { name, exact: true })).toBeVisible();
   }
   await expect(page.getByRole("button", { name: "Universe View" })).toHaveAttribute("aria-pressed", "true");

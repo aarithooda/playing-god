@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import type { BodyCreateDto, BodyKind, CatalogueEntryDto } from '../../api/types';
+import type { BodyCreateDto, BodyKind, BodyType, CatalogueEntryDto } from '../../api/types';
 import { formatDuration } from '../../sim/format';
 import { MAX_SPEED_EXP, MIN_SPEED_EXP, type ActionResult } from '../../sim/useSimulation';
 import {
@@ -93,7 +93,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   const [errors, setErrors] = useState<FieldErrors>({});
   // The type is not a text field; it is sent only when it is not the backend default (planet) or came from the catalogue.
   const [kind, setKind] = useState<BodyKind>('planet');
-  const [catalogueEntry, setCatalogueEntry] = useState<{ id: string; name: string } | null>(null);
+  const [catalogueEntry, setCatalogueEntry] = useState<{ id: string; name: string; bodyType?: BodyType; assetKey?: string } | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // A second create request (for example a double press) must not start while one is in flight.
@@ -114,6 +114,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       ...parsed.value,
       ...(kind !== 'planet' || catalogueEntry ? { kind } : {}),
       ...(catalogueEntry ? { catalogueEntryId: catalogueEntry.id } : {}),
+      ...(catalogueEntry?.bodyType ? { bodyType: catalogueEntry.bodyType } : {}),
+      ...(catalogueEntry?.assetKey ? { assetKey: catalogueEntry.assetKey } : {}),
     };
     const result = await onCreate(payload).finally(() => {
       creatingRef.current = false;
@@ -197,7 +199,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       color: entry.visual.colorHex,
     });
     setKind(entry.kind);
-    setCatalogueEntry({ id: entry.id, name: entry.name });
+    setCatalogueEntry({ id: entry.id, name: entry.name, bodyType: entry.bodyType, assetKey: entry.assetKey });
     onPlacementRadiusChange?.(entry.properties.radiusM.value);
     setPositionManuallyEdited(false);
     positionManuallyEditedRef.current = false;

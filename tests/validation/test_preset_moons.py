@@ -21,22 +21,26 @@ SRC = Path(loader.SOURCES_DIR) / "horizons"
 G = 6.67430e-11
 GM = {  # km^3/s^2
     "body-earth": 398600.435507, "body-moon": 4902.800118,
+    "body-mars": 42828.375816 - 0.0007087 - 0.0000962, "body-phobos": 0.0007087, "body-deimos": 0.0000962,
     "body-io": 5959.9155, "body-europa": 3202.7121, "body-ganymede": 9887.8328, "body-callisto": 7179.2834,
     "body-titan": 8978.14, "body-rhea": 153.94, "body-iapetus": 120.52, "body-dione": 73.116, "body-tethys": 41.21}
-SYSTEM_GM = {"body-earth": 398600.435507 + 4902.800118, "body-jupiter": 126712764.1, "body-saturn": 37940584.8418}
+SYSTEM_GM = {"body-earth": 398600.435507 + 4902.800118, "body-mars": 42828.375816,
+             "body-jupiter": 126712764.1, "body-saturn": 37940584.8418}
 MOONS = {"body-moon": "body-earth", "body-io": "body-jupiter", "body-europa": "body-jupiter",
          "body-ganymede": "body-jupiter", "body-callisto": "body-jupiter", "body-titan": "body-saturn",
          "body-rhea": "body-saturn", "body-iapetus": "body-saturn", "body-dione": "body-saturn",
-         "body-tethys": "body-saturn"}
+         "body-tethys": "body-saturn", "body-phobos": "body-mars", "body-deimos": "body-mars"}
 RADIUS_KM = {"body-moon": 1737.4, "body-io": 1821.49, "body-europa": 1560.8, "body-ganymede": 2631.2,
              "body-callisto": 2410.3, "body-titan": 2575.5, "body-rhea": 764.5, "body-iapetus": 734.5,
-             "body-dione": 562.5, "body-tethys": 536.3}
+             "body-dione": 562.5, "body-tethys": 536.3, "body-phobos": 11.08, "body-deimos": 6.2}
 TARGET = {"body-sun": "10", "body-mercury": "199", "body-venus": "299", "body-earth": "399", "body-moon": "301",
-          "body-mars": "4", "body-jupiter": "599", "body-io": "501", "body-europa": "502", "body-ganymede": "503",
+          "body-mars": "499", "body-phobos": "401", "body-deimos": "402", "body-jupiter": "599",
+          "body-io": "501", "body-europa": "502", "body-ganymede": "503",
           "body-callisto": "504", "body-saturn": "699", "body-titan": "606", "body-rhea": "605",
           "body-iapetus": "608", "body-dione": "604", "body-tethys": "603", "body-uranus": "7", "body-neptune": "8"}
 # published mean sidereal periods in days (JPL SSD satellite mean elements)
-PERIOD_D = {"body-moon": 27.3217, "body-io": 1.769138, "body-europa": 3.551181, "body-ganymede": 7.154553,
+PERIOD_D = {"body-moon": 27.3217, "body-phobos": 0.3187, "body-deimos": 1.2625,
+            "body-io": 1.769138, "body-europa": 3.551181, "body-ganymede": 7.154553,
             "body-callisto": 16.689018, "body-titan": 15.945421, "body-tethys": 1.887802, "body-dione": 2.736915}
 
 
@@ -72,8 +76,8 @@ def preset():
 # ---------- data and provenance ----------
 def test_body_set_order_and_count(preset):
     assert [b.id for b in preset.bodies] == list(TARGET)
-    assert preset.summary["bodyCount"] == 19
-    assert [b.kind for b in preset.bodies] == ["star"] + ["planet"] * 18
+    assert preset.summary["bodyCount"] == 21
+    assert [b.kind for b in preset.bodies] == ["star"] + ["planet"] * 20
 
 
 def test_metadata_and_primaries(preset):
@@ -95,7 +99,7 @@ def test_raw_to_si_exact_and_hashes():
         assert b["state"]["velocityMPerS"] == [v * 1000.0 for v in row[3:]]
         digest = hashlib.sha256((SRC / b["state"]["sourceFile"]).read_bytes()).hexdigest()
         assert digest == b["state"]["sourceSha256"] == retrieved["files"][b["state"]["sourceFile"]]["sha256"]
-        assert re.search(r"\{source: (DE441|jup365_merged|sat441l)\}", b["state"]["sourceLine"])
+        assert re.search(r"\{source: (DE441|jup365_merged|sat441l|mar099)\}", b["state"]["sourceLine"])
 
 
 def test_masses_and_radii(preset):
@@ -112,7 +116,7 @@ def test_masses_and_radii(preset):
 def test_planets_without_listed_moons_unchanged_from_barycentre_preset(preset):
     old = {b.id: b for b in load_preset("solar-system-j2000").raw_bodies}
     new = {b.id: b for b in preset.raw_bodies}
-    for bid in ("body-sun", "body-mercury", "body-venus", "body-mars", "body-uranus", "body-neptune"):
+    for bid in ("body-sun", "body-mercury", "body-venus", "body-uranus", "body-neptune"):
         assert new[bid].massKg == old[bid].massKg
         assert new[bid].positionM == old[bid].positionM and new[bid].velocityMPerS == old[bid].velocityMPerS
 
@@ -144,7 +148,8 @@ def test_zero_total_momentum_and_barycentre_centre(preset):
 def test_moon_relative_to_planet_geometry(preset):
     """Frame/units check: separations, binding and orbit planes of the moons relative to their planet."""
     by = {b.id: b for b in preset.bodies}
-    expect_km = {"body-moon": (357e3, 407e3), "body-io": (415e3, 430e3), "body-europa": (660e3, 685e3),
+    expect_km = {"body-moon": (357e3, 407e3), "body-phobos": (9e3, 9.8e3), "body-deimos": (22.5e3, 24.5e3),
+                 "body-io": (415e3, 430e3), "body-europa": (660e3, 685e3),
                  "body-ganymede": (1060e3, 1080e3), "body-callisto": (1850e3, 1910e3),
                  "body-titan": (1180e3, 1260e3), "body-rhea": (520e3, 535e3), "body-iapetus": (3400e3, 3700e3),
                  "body-dione": (373e3, 382e3), "body-tethys": (292e3, 298e3)}
@@ -262,7 +267,7 @@ def test_energy_and_angular_momentum_conserved(run):
 
 def test_no_collisions_and_every_body_remains(run):
     assert run["events"] == []
-    assert len(run["end"].bodies) == 19
+    assert len(run["end"].bodies) == 21
 
 
 def test_planet_systems_follow_the_barycentre_model(run):
@@ -312,7 +317,7 @@ def test_global_criterion_is_kept_for_symmetric_equal_masses():
 
 
 # ---------- regression: sizes, identities and the frontend fixture ----------
-SHARED_NO_MOONS = ("body-sun", "body-mercury", "body-venus", "body-mars", "body-uranus", "body-neptune")
+SHARED_NO_MOONS = ("body-sun", "body-mercury", "body-venus", "body-uranus", "body-neptune")
 SHARED_WITH_MOONS = ("body-earth", "body-jupiter", "body-saturn")
 
 
@@ -336,7 +341,8 @@ def test_unrelated_initial_conditions_unchanged(preset):
     old = {b.id: b for b in load_preset("solar-system-j2000").raw_bodies}
     new = {b.id: b for b in preset.raw_bodies}
     for bid in SHARED_NO_MOONS:
-        assert (new[bid].massKg, new[bid].positionM, new[bid].velocityMPerS) == (old[bid].massKg, old[bid].positionM, old[bid].velocityMPerS)
+        assert (new[bid].positionM, new[bid].velocityMPerS) == (old[bid].positionM, old[bid].velocityMPerS)
+        assert new[bid].massKg == old[bid].massKg
 
 
 def test_planets_and_moons_are_distinguished_by_primary_only(preset):
@@ -361,7 +367,7 @@ def test_history_api_keeps_ids_radii_and_metadata_for_both_presets():
     from fastapi.testclient import TestClient
     from backend.main import app
     client = TestClient(app)
-    for pid, count in (("solar-system-j2000", 9), (PID, 19)):
+    for pid, count in (("solar-system-j2000", 9), (PID, 21)):
         made = client.post("/api/v1/universes", json={"source": {"kind": "preset", "presetId": pid}, "activate": True}).json()
         uid = made["id"]
         epoch = client.get("/api/v1/universes").json()["activationEpoch"]
