@@ -4,7 +4,8 @@ import { OrbitControls } from '@react-three/drei';
 import { Group, PerspectiveCamera, Raycaster, Vector2, Vector3 } from 'three';
 import { CelestialBody } from './CelestialBody';
 import { StarfieldShell } from './StarfieldShell';
-import { DEFAULT_CAMERA_POSITION, type ScenePosition } from '../../sim/renderTransform';
+import { AxesOverlay, GridOverlay } from './ViewOverlays';
+import { DEFAULT_CAMERA_POSITION, type RenderTransform, type ScenePosition } from '../../sim/renderTransform';
 import { clampPlacementDepth, rayPlaneIntersection } from '../../sim/placement';
 import { sceneShiftPx } from '../ui/layout';
 import {
@@ -47,6 +48,10 @@ interface UniverseCanvasProps {
   /** Pixels of the full-bleed canvas covered by the sidebars; the scene is centred in what remains. */
   leftInset?: number;
   rightInset?: number;
+  /** Display scale, needed by the optional axes/grid overlays. */
+  transform: RenderTransform;
+  showAxes?: boolean;
+  showGrid?: boolean;
 }
 
 interface OrbitTarget {
@@ -339,6 +344,9 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
   onPlacementPreview,
   leftInset = 0,
   rightInset = 0,
+  transform,
+  showAxes = false,
+  showGrid = false,
 }) => {
   return (
     <Canvas
@@ -353,6 +361,8 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
     >
       <color attach="background" args={['#050505']} />
       <StarfieldShell />
+      {showGrid && <GridOverlay transform={transform} />}
+      {showAxes && <AxesOverlay transform={transform} />}
 
       <ambientLight intensity={0.3} />
       <pointLight position={[10, 10, 10]} intensity={1} />

@@ -323,3 +323,8 @@
 - **Replay on that recovered state (out of tree):** old code (`git archive 8d7ab36`) did not return in 60 s at `dt=1e7` or `1e5`; current `main` returned in 2.3 s with `merger, merger`. Conclusion: the numerical failure is the already-known D-011 wedge; the live process predates the fix. The original start state is unavailable, so the first 4.8 years were not reproduced.
 - **Why the UI looked half-alive:** `/healthz` is lock-free; `GET /state` shared the step's lock; the frontend had no timeouts and queued the initial load behind everything else. Fixes and tests as in `STATUS.md`; decision proposed as D-021. Also added a frontend resync after a step with unknown outcome and honest "reachable but not responding" wording.
 - Unrelated PR #9 (M3) was not touched.
+
+## 2026-10-24 — M4: axes and grid (Claude Sonnet 5.5)
+- Started from `main` `f32d52d` (M3 #9 and stall fix #10 merged; no open PRs). First verified the mapping in `renderTransform.ts` (scene = (x, z, -y)): the physics x-y plane is the horizontal scene plane, so the grid is drei's `Grid` at scene y = 0 and the axes are built through `toScenePosition` rather than a second hand-derived mapping.
+- Chose drei `Grid` (shader plane, no geometry/dependency cost, fades by itself) and plain `lineSegments` for the axes; labels are drei `Html` (DOM) so no font is downloaded. Cell size is a 1-2-5 metre value near 5 scene units, so the legend number is readable and stays fixed while the display scale is held. Placement shows the grid through a derived value (`userGrid || placementMode`), never by writing the user's setting.
+- Browser pass caught washed-out axis colours (sRGB hex used as linear vertex colour), fixed. Owner exception: D-022 (takes effect only if the owner merges).
