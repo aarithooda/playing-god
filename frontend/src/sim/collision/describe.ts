@@ -58,7 +58,7 @@ export function describeRecord(detail: CollisionDetailDto, bodyName: (id: string
   const i = r.impact;
   const outcome = r.outcome?.outcome ?? "legacy merge";
   const headline =
-    `${outcome.replace(/_/g, " ")}: ${bodyName(i.projectileId)} hit ${bodyName(i.targetId)} at ${formatSci(i.impactSpeedMPerS)} m/s, ` +
+    `${outcome.replace(/_/g, " ")}: ${bodyName(i.projectileId)} hit ${bodyName(i.targetId)} at ${formatSci(i.impactSpeedMPerS)} m/s relative speed at detection, ` +
     `${i.impactAngleDeg.toFixed(1)}° from the normal (Q_R ${formatSci(i.specificImpactEnergyJPerKg)} J/kg)`;
   const lineage =
     r.parentEventId === null

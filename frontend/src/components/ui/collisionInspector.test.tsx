@@ -176,6 +176,13 @@ describe("the inspector component", () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
+  it("labels the headline speed as measured at detection, not at contact", () => {
+    render(<CollisionInspector {...base} />);
+    const headline = screen.getByTestId("inspector-headline").textContent ?? "";
+    expect(headline).toContain("relative speed at detection");
+    expect(headline).not.toMatch(/at (estimated )?contact/);
+  });
+
   it("lists several identical products without duplicate React keys (the real backend emits equal debris parcels)", () => {
     const parcel = { bodyId: "debris-1-0", representation: "debris-parcel" as const, massKgAtEvent: 4.8e20, exists: true, fragmentClass: "escaping" as const, massKgNow: 4.8e20 };
     const twins = { ...detail, products: [parcel, { ...parcel, bodyId: "debris-1-1" }] };

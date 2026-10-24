@@ -32,11 +32,11 @@ export function describeEvent(event: EventView, bodyName: (id: string) => string
   if (event.type === 'collision') {
     const [target, projectile] = event.bodyIds;
     return `${OUTCOME_LABEL[event.outcome] ?? event.outcome}: ${bodyName(projectile ?? '?')} hit ${bodyName(target ?? '?')} ` +
-      `at ${event.impactSpeedMPerS.toPrecision(3)} m/s, ${event.impactAngleDeg.toFixed(1)}° from the normal`;
+      `at ${event.impactSpeedMPerS.toPrecision(3)} m/s relative speed at detection, ${event.impactAngleDeg.toFixed(1)}° from the normal`;
   }
   const [survivor, absorbed] = event.bodyIds;
   return `${bodyName(absorbed ?? '?')} merged into ${bodyName(survivor ?? event.resultBodyId)} ` +
-    `at ${event.relativeSpeedMPerS.toPrecision(3)} m/s`;
+    `at ${event.relativeSpeedMPerS.toPrecision(3)} m/s relative speed at detection`;
 }
 
 export const EventTimeline: React.FC<EventTimelineProps> = ({
