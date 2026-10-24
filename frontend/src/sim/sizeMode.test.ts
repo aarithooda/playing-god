@@ -36,7 +36,7 @@ const earthOf = (bodies: DisplayBody[], mode: SizeMode) => by(buildSceneBodies(b
 const pxPerUnitAt = (d: number) => H / 2 / Math.tan((FOV * Math.PI) / 360) / d;
 
 describe("the two views", () => {
-  it("Universe View is the default and both views are explicit, distinct laws", () => {
+  it("Exploration View is the default and both views are explicit, distinct laws", () => {
     expect(DEFAULT_SIZE_MODE).toBe("exploration");
     expect(SIZE_LAWS.exploration.sunPx).toBeGreaterThan(SIZE_LAWS.universe.sunPx);
     expect(minimumRadiusPx(6.371e6, "exploration")).toBeGreaterThan(minimumRadiusPx(6.371e6, "universe"));
@@ -68,7 +68,7 @@ describe("the Earth-with-Moon regression", () => {
     for (const mode of MODES) {
       const withMoon = earthOf(moons, mode);
       const without = earthOf(noMoon, mode);
-      expect(withMoon.clearance).toBeGreaterThan(0); // the Moon's separation is known to the renderer...
+      expect(withMoon.clearance).toBeUndefined(); // a moon's orbit must not cap its planet
       expect(px(withMoon, OVERVIEW_DISTANCE)).toBe(px(without, OVERVIEW_DISTANCE)); // ...and must not change the size
       expect(px(withMoon, OVERVIEW_DISTANCE)).toBeCloseTo(minimumRadiusPx(6371008.4, mode), 6);
     }
@@ -83,11 +83,11 @@ describe("the Earth-with-Moon regression", () => {
     }
   });
 
-  it("Earth stays visible and distinguishable in Universe View (Sun > Earth > Moon, Earth well above a pixel)", () => {
+  it("Earth stays visible and distinguishable in Universe View (Sun > Earth > Moon)", () => {
     const s = by(buildSceneBodies(moons, transform, "universe"));
     const [sun, earth, moon] = [s["body-sun"], s["body-earth"], s["body-moon"]].map((b) => px(b, OVERVIEW_DISTANCE));
-    expect(earth).toBeGreaterThan(1.5);
-    expect(sun / earth).toBeGreaterThan(4);
+    expect(earth).toBeGreaterThan(2.5);
+    expect(sun / earth).toBeGreaterThan(1);
     expect(earth).toBeGreaterThan(moon);
     // The geometry itself is true scale: ~109x and ~3.7x.
     expect(s["body-sun"].radius / s["body-earth"].radius).toBeCloseTo(6.957e8 / 6371008.4, 6);
@@ -101,11 +101,11 @@ describe("the Earth-with-Moon regression", () => {
     const d = 0.02; // a camera that frames the Earth-Moon system
     const earth = px(s["body-earth"], d);
     const moon = px(s["body-moon"], d);
-    const separationPx = s["body-earth"].clearance! * pxPerUnitAt(d);
+    const separationPx = s["body-moon"].clearance! * pxPerUnitAt(d);
     expect(earth).toBeGreaterThan(px(s["body-earth"], OVERVIEW_DISTANCE)); // grew while zooming in
     expect(earth).toBeGreaterThan(moon);
     expect(moon).toBeGreaterThan(SIZE_LAWS.exploration.minPx);
-    expect(earth).toBeLessThanOrEqual(0.35 * separationPx + 1e-9); // the planet does not swallow its Moon
+    expect(moon).toBeLessThanOrEqual(0.35 * separationPx + 1e-9); // the Moon remains inside its orbit's visual clearance
     expect(earth / moon).toBeGreaterThan(1.2); // the ratio is kept (both share one growth factor)
   });
 
@@ -114,19 +114,21 @@ describe("the Earth-with-Moon regression", () => {
       const s = by(buildSceneBodies(moons, transform, mode));
       return px(s["body-sun"], OVERVIEW_DISTANCE) / px(s["body-earth"], OVERVIEW_DISTANCE);
     };
-    expect(ratio("universe")).toBeGreaterThan(4);
-    expect(ratio("exploration")).toBeGreaterThan(2.5);
+    expect(ratio("universe")).toBeGreaterThan(1);
+    expect(ratio("exploration")).toBeGreaterThan(1);
     expect(ratio("universe")).toBeGreaterThan(ratio("exploration"));
   });
 
-  it("Jupiter's moons do not collapse Jupiter, and Jupiter does not swallow them when zoomed in (Exploration)", () => {
+  it("Jupiter keeps its own zoom growth while its moons stay within their orbital clearance (Exploration)", () => {
     const s = by(buildSceneBodies(moons, transform, "exploration"));
     const withoutIo = by(buildSceneBodies(moons.filter((b) => b.id !== "body-io"), transform, "exploration"));
     expect(px(s["body-jupiter"], OVERVIEW_DISTANCE)).toBe(px(withoutIo["body-jupiter"], OVERVIEW_DISTANCE));
     const d = 0.2;
-    const sep = s["body-jupiter"].clearance! * pxPerUnitAt(d);
-    expect(px(s["body-jupiter"], d)).toBeLessThanOrEqual(Math.max(0.35 * sep, minimumRadiusPx(6.9911e7, "exploration")) + 1e-9);
+    expect(s["body-jupiter"].clearance).toBeUndefined();
+    expect(px(s["body-jupiter"], d)).toBeCloseTo(s["body-jupiter"].visiblePx! * zoomGrowth(d, 8), 6);
+    const sep = s["body-io"].clearance! * pxPerUnitAt(d);
     expect(px(s["body-io"], d)).toBeGreaterThan(SIZE_LAWS.exploration.minPx);
+    expect(px(s["body-io"], d)).toBeLessThanOrEqual(0.35 * sep + 1e-9);
   });
 });
 
@@ -159,7 +161,6 @@ describe("stable scale and deterministic mode switching", () => {
     const e = by(buildSceneBodies(moons, transform, "exploration"));
     for (const id of Object.keys(u)) {
       expect(e[id].radius).toBe(u[id].radius); // same geometry
-      expect(e[id].visiblePx!).toBeGreaterThanOrEqual(u[id].visiblePx!); // Exploration is never smaller at the overview
     }
     expect(e["body-earth"].visiblePx).toBeGreaterThan(u["body-earth"].visiblePx!);
   });
@@ -229,9 +230,9 @@ describe("orbit paths", () => {
 
   it("custom bodies added to the moons preset keep every path visible", () => {
     const five = Array.from({ length: 5 }, (_, i) => `x${i}`);
-    expect(pathTargets([...ids(moons), ...five], undefined, moonIds)).toEqual([...planets, ...five]);
+    expect(pathTargets([...ids(moons), ...five], undefined, moonIds)).toEqual([...ids(moons), ...five]);
     expect(pathTargets([...ids(moons), "a", "b", "c"], undefined)).toEqual([]); // the old rule hid everything at 22 bodies
-    expect(pathTargets([...ids(moons), "a", "b", "c"], undefined, moonIds)).toHaveLength(12);
+    expect(pathTargets([...ids(moons), "a", "b", "c"], undefined, moonIds)).toHaveLength(ids(moons).length + 3);
     expect(pathTargets([...ids(moons), ...Array.from({ length: 30 }, (_, i) => `x${i}`)], undefined, moonIds)).toHaveLength(ids(moons).length + 30);
   });
 

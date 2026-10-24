@@ -55,7 +55,7 @@ test("moons preset: all bodies listed, nested under their planet, physical sizes
   for (const name of ["Sun", "Earth", "Moon", "Mars", "Phobos", "Deimos", "Jupiter", "Io", "Europa", "Ganymede", "Callisto", "Saturn", "Titan", "Neptune (system barycentre)"]) {
     await expect(list.getByRole("button", { name, exact: true })).toBeVisible();
   }
-  await expect(page.getByRole("button", { name: "Universe View" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Exploration View" })).toHaveAttribute("aria-pressed", "true");
 
   // The documented default mode draws true proportions: Sun >> Earth > Moon (radii 695,700 / 6,371.0084 / 1,737.4 km).
   const sun = await drawnRadius(page, "Sun");
@@ -65,11 +65,12 @@ test("moons preset: all bodies listed, nested under their planet, physical sizes
   expect(earth / moon).toBeGreaterThan(3);
   expect(earth / moon).toBeLessThan(4);
 
-  // Both views draw the true radius: switching to Exploration View and back changes no reported size.
+  // Switching views changes display sizing, not the inspector's scene-unit radius.
+  await page.getByRole("button", { name: "Universe View" }).click();
+  await expect(page.getByRole("button", { name: "Universe View" })).toHaveAttribute("aria-pressed", "true");
+  expect(await drawnRadius(page, "Earth")).toBe(earth); // same geometry in the other view
   await page.getByRole("button", { name: "Exploration View" }).click();
   await expect(page.getByRole("button", { name: "Exploration View" })).toHaveAttribute("aria-pressed", "true");
-  expect(await drawnRadius(page, "Earth")).toBe(earth); // same geometry in the other view
-  await page.getByRole("button", { name: "Universe View" }).click();
   expect(await drawnRadius(page, "Earth")).toBe(earth);
 
   // Framing and selecting the bodies of the report does not change any size or raise errors.
@@ -88,5 +89,5 @@ test("original preset: no moon list and the same default size mode", async ({ pa
   await page.goto("/");
   await expect(page.getByTestId("backend-status")).toContainText("connected");
   await expect(page.getByRole("region", { name: "Bodies" })).toHaveCount(0); // the list appears only for scenes with moons
-  await expect(page.getByRole("button", { name: "Universe View" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Exploration View" })).toHaveAttribute("aria-pressed", "true");
 });

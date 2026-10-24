@@ -229,8 +229,6 @@ describe("Show paths", () => {
   it("passes recorded paths to the renderer through the trajectories input: all bodies, or the selected one", async () => {
     render(<App />);
     await openTimeline();
-    expect(canvas().trajectories).toEqual([]);
-    fireEvent.click(screen.getByRole("button", { name: "Show paths" }));
     expect(canvas().trajectories.map((t: any) => t.bodyId).sort()).toEqual([earth.id, sun.id].sort());
     const t = canvas().trajectories.find((x: any) => x.bodyId === earth.id);
     expect(t.key).toBe("uni-default:1:" + earth.id);
@@ -247,7 +245,6 @@ describe("Show paths", () => {
   it("viewing history does not change what the paths show (they are the recorded history, not the viewed sample)", async () => {
     render(<App />);
     await openTimeline();
-    fireEvent.click(screen.getByRole("button", { name: "Show paths" }));
     const before = canvas().trajectories.find((x: any) => x.bodyId === earth.id).samples.length;
     fireEvent.change(screen.getByLabelText("History position"), { target: { value: "1" } });
     expect(canvas().trajectories.find((x: any) => x.bodyId === earth.id).samples.length).toBe(before - 1); // history view hides the live-only endpoint

@@ -67,12 +67,12 @@ export const DEFAULT_CAMERA_POSITION: ScenePosition = [0, 0.78 * FIT_EXTENT_UNIT
 // ---- Rendering views: Universe and Exploration ------------------------------------------------------------------
 // Two deliberate ways to DRAW the same simulation. Neither changes a radius, mass, position, force or time; both use the
 // TRUE radius for the geometry (radiusM / metersPerUnit) and differ only in how large a body is guaranteed to look on
-// screen. Minimum sizes depend on the body's radius and view; exploration limits zoom growth for planet-moon systems so
-// a planet cannot swallow its moons.
+// screen. Minimum sizes depend on the body's radius and view; exploration limits moon zoom growth by orbital clearance,
+// while parent planets keep their own size law.
 //
 //  "universe"    (Universe View): stars render at 3.9 px radius; non-star bodies have a 3.6 px overview cap.
 //  "exploration" (Exploration View, default): the same compact star/body envelope keeps the Sun from covering the inner
-//     planets. The body-size curve still uses its own radius reference (22 px for the nominal Sun), so Earth remains
+//     planets. The body-size curve still uses its own radius reference (23.5 px for the nominal Sun), so Earth remains
 //     larger than Mercury and Jupiter remains larger than Earth before the display cap. The Sun uses a fixed world-space
 //     visibility boost and follows camera zoom; moons grow up to 8x, limited by their moon-orbit clearance, while
 //     planets follow their own size law without a moon-dependent cap.
@@ -98,7 +98,7 @@ export interface SizeLaw {
 
 export const SIZE_LAWS: Record<SizeMode, SizeLaw> = {
   universe: { sunPx: 18, starPx: 3.9, maxBodyPx: 3.6, exponent: 0.35, minPx: 2.5, maxPx: 30, maxZoomGrowth: 1 },
-  exploration: { sunPx: 22, starPx: 3.9, maxBodyPx: 3.6, exponent: 0.4, minPx: 2.2, maxPx: 36, maxZoomGrowth: 8 },
+  exploration: { sunPx: 23.5, starPx: 3.9, maxBodyPx: 3.6, exponent: 0.4, minPx: 2.5, maxPx: 36, maxZoomGrowth: 8 },
 };
 
 /** Scene radius of a body at true scale: the only geometry either view uses. */

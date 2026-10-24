@@ -13,13 +13,13 @@ function propNames(source: string): string[] {
 }
 
 describe("UI-0 renderer boundary", () => {
-  it("the canvas gains exactly two inputs, trajectories and labeledBodyIds, beyond the props it had before", () => {
+  it("the canvas exposes trajectory, label and overview framing inputs", () => {
     const before = [
       "bodies", "selectedBodyId", "onSelectBody", "onFocusBody", "onClearSelection", "frameEpoch", "focus", "onFocusRelease",
       "placementMode", "placementRadius", "onPlacementConfirm", "onPlacementCancel", "onPlacementPreview", "leftInset",
       "rightInset", "transform", "showAxes", "showGrid", "viewControls", // viewControls: the UI view-toolbar contract (UI foundation)
     ];
-    expect(propNames(canvasSource).sort()).toEqual([...before, "trajectories", "labeledBodyIds"].sort());
+    expect(propNames(canvasSource).sort()).toEqual([...before, "trajectories", "labeledBodyIds", "overviewZoom"].sort());
     expect(canvasSource).toMatch(/trajectories\?: readonly TrajectoryInput\[\]/);
   });
 
