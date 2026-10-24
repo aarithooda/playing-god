@@ -9,7 +9,7 @@ import { AxesOverlay, GridOverlay } from './ViewOverlays';
 import { DEFAULT_CAMERA_POSITION, type RenderTransform, type ScenePosition } from '../../sim/renderTransform';
 import { clampPlacementDepth, rayPlaneIntersection } from '../../sim/placement';
 import { sceneShiftPx } from '../ui/layout';
-import { framingDistanceScale } from '../../sim/framing';
+import { framingDistanceScale, nearPlaneFor } from '../../sim/framing';
 import {
   FOCUS_ANIMATION_S,
   focusDistanceForScreenHeight,
@@ -170,6 +170,17 @@ const CameraRig: React.FC<{
     // Only a new focus request should (re)start a focus, not every body movement.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus?.nonce, controls]);
+
+  // Keep the near plane inside the smallest displayed body, so focusing a tiny (crowded) body does not clip it away.
+  useFrame(() => {
+    let minRadius = Infinity;
+    for (const b of bodiesRef.current) minRadius = Math.min(minRadius, b.radius);
+    const near = nearPlaneFor(minRadius);
+    if (camera.near !== near) {
+      camera.near = near;
+      camera.updateProjectionMatrix();
+    }
+  });
 
   useFrame((_, delta) => {
     const s = session.current;
@@ -362,6 +373,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
   showGrid = false,
   trajectories = [],
 }) => {
+  const hasStar = bodies.some((b) => b.kind === 'star');
   return (
     <Canvas
       camera={{ position: DEFAULT_CAMERA_POSITION, fov: 50, far: 2000 }}
@@ -380,8 +392,17 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
       {trajectories.length > 0 && <TrajectoryLayer trajectories={trajectories} transform={transform} />}
 
       <ambientLight intensity={0.3} />
-      <pointLight position={[10, 10, 10]} intensity={1} />
-      <pointLight position={[-10, -10, -10]} intensity={0.5} />
+      {hasStar ? (
+        // Planets are lit by the stars that are in the scene (no distance falloff: scene units are arbitrary).
+        bodies.filter((b) => b.kind === 'star').map((b) => (
+          <pointLight key={b.id} position={b.position} intensity={2.2} decay={0} />
+        ))
+      ) : (
+        <>
+          <pointLight position={[10, 10, 10]} intensity={1} />
+          <pointLight position={[-10, -10, -10]} intensity={0.5} />
+        </>
+      )}
 
       {bodies.map((body) => (
         <CelestialBody
