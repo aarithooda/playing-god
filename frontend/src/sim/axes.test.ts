@@ -41,12 +41,12 @@ describe("axisSegments", () => {
     }
   });
 
-  it("uses distinct conventional colours per axis and puts each label just past the + end", () => {
+  it("uses distinct conventional colours and keeps labels near the fitted scene", () => {
     expect(new Set(Object.values(AXIS_COLORS)).size).toBe(3);
     for (const seg of axisSegments(t)) {
       const end = Math.hypot(...seg.to);
       const label = Math.hypot(...seg.labelAt);
-      expect(label).toBeGreaterThan(end);
+      expect(label).toBeLessThan(end);
       expect(seg.color).toBe(AXIS_COLORS[seg.axis]);
     }
   });

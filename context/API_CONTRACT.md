@@ -100,6 +100,71 @@ Remove all bodies and events, time back to 0. Deterministic: the same inputs aft
 ### ✅ `GET /api/v1/events`
 Response 200 `{"events":[Event, ...]}`, oldest first (latest 1000 since the last reset). Verified by `tests/test_events_endpoint.py`: empty shape, field set and values of head-on and grazing mergers, null `estimatedContactTimeS` at exact tangency, agreement with the step response, persistence across quiet steps and body edits/deletes, reset (log cleared, ids keep counting), rolled-back and timed-out steps (no event, id not consumed), the 1000-event cap, cascades. Only GET is allowed (405 otherwise).
 
+## Universes (Simulation Lab, added in M1)
+Spec: `context/specs/SIMULATION_LAB_SPEC.md`; design: `context/EXPERIMENT_01_IMPLEMENTATION_PLAN.md` sections 6-7. Each universe is an
+independent backend-owned engine. One universe is **active** at a time (initially `uni-default`, epoch 1); every activation increments
+the **activation epoch**. Only the active universe can be mutated or advanced, and a mutation must echo the epoch it was issued under.
+The legacy routes above are unchanged and act on `uni-default`; their mutations answer 409 `universe_not_active` while another universe is active.
+`Body` additionally carries `kind` (`"star"|"planet"`, default `"planet"`, patchable) and `catalogueEntryId` (provenance only, nullable).
+
+Coded errors keep the `{"detail": ...}` shape and add `"code"`: 404 `universe_not_found` (detail says "deleted" for a deleted id),
+409 `universe_not_active`, `stale_activation`, `stale_revision`, `deactivated_during_step`, `active_universe_delete`, `universe_limit` (8 universes), `baseline_protected`.
+Mutations: `?activationEpoch=<int>` is required (422 if missing); `&expectedRevision=<int>` is optional and rejects a duplicate/stale request.
+
+| Route | Notes |
+|---|---|
+| `GET /api/v1/universes` | `{universes: [UniverseSummary], activeUniverseId, activationEpoch}` |
+| `POST /api/v1/universes` | `{name?, source: {kind:"empty"}, activate?}` -> 201 `UniverseSummary` (presets: see `/presets`, M3) |
+| `GET /api/v1/universes/{uid}` | `UniverseSummary` = `{id, name, role, presetId, experimentId, active, simulationTimeS, bodyCount, revision, status: "idle"|"mutating", lastFailure, createdAtIso, epochLabel, historyMode}` |
+| `DELETE /api/v1/universes/{uid}` | 204; the active universe cannot be deleted |
+| `POST /api/v1/universes/{uid}/activate` | `{activeUniverseId, activationEpoch, previous: {universeId, simulationTimeS, revision} | null}`; never integrates; the outgoing universe's running step is cancelled and rolled back. Activating the already-active universe changes nothing. |
+| `GET /api/v1/universes/{uid}/state`, `/events` | any universe; state = SimulationState + `universeId`, `revision` |
+| `POST /api/v1/universes/{uid}/bodies`, `PATCH|DELETE .../bodies/{id}` | as the legacy routes, plus the epoch query |
+| `POST /api/v1/universes/{uid}/step`, `/reset` | step response and reset state carry `universeId`, `revision`. **Reset returns the universe to its initial state**: empty for a sandbox, the loaded preset/experiment state otherwise; history returns to sample 0 under a new generation. |
+| `GET /api/v1/universes/{uid}/snapshots`; `POST .../snapshots?activationEpoch` `{name?}` -> 201; `POST .../snapshots/{sid}/restore?activationEpoch`; `DELETE .../snapshots/{sid}?activationEpoch` | `SnapshotSummary = {id, name, createdAtIso, simulationTimeS, bodyCount, revision, controlled}`. At most 10 per universe (409 `snapshot_limit`); 404 `snapshot_not_found`; 500 `restore_failed` leaves the state unchanged; baseline runs answer 409 `baseline_protected`. Restore returns `UniverseState`. |
+| `GET /api/v1/universes/{uid}/history?generation&fromIndex=0&bodyIds=a,b&limit<=5000` | See "History" below. Any universe, no epoch, never waits for a running step. |
+
+### Snapshot guarantee (in-memory, this process only)
+A snapshot is a REBOUND `Simulation.copy()` plus the service state (bodies, ids, names, colours, kinds, merger ledgers, events, history, controlled flag). Restore brings back the exact physical state and time. Continuation after a restore with the same sequence of `dtS` is **bit-identical** within one process (`tests/test_snapshots.py::test_snapshot_restore_bitwise_continuation`); this is not promised across restarts, machines, OS or REBOUND versions. Event ids are never reused. Failed-step rollback is unchanged (records rebuild, D-012: not bitwise).
+
+### History
+`{universeId, mode: "grid"|"step", sampleIntervalS, generation, firstIndex, nextIndex, droppedBefore, truncated, samples: [{index, simulationTimeS, segment, positionsM: {bodyId: [x,y,z]}}], bodies: {bodyId: {name, colorHex, radiusM, kind}}}`.
+Recorded by the engine only. `grid` mode (presets, Orbit Lab): a sample at exactly k x interval (the engine lands on each); recording stops at 200,000 positions (`truncated`). `step` mode (sandbox): one sample per committed change (step, add, edit, delete), a ring that drops the oldest (`droppedBefore`). `segment` increases at physical edits, adds, deletes and mergers: never join points across it. Only committed samples are visible. `generation` changes on reset and restore; a request with another generation starts at `firstIndex`. Metadata is kept for bodies that later merged away.
+
+
+`revision` is +1 per committed change and is present in every universe response. A step that is cancelled (switch), refused at commit
+(stale epoch) or fails is rolled back completely: `lastFailure = {kind, message, atSimulationTimeS, atIso}` is set until the next success.
+
+## Presets (M3)
+| Route | Notes |
+|---|---|
+| `GET /api/v1/presets` | `{presets: [{id, name, description, available, unavailableReason, bodyCount, epochLabel, dataVersion, historyMode, sampleIntervalS}]}`. A preset whose data fails validation is listed with `available: false` and a reason. Currently one: `solar-system-j2000`. Kepler-90 is not offered; TRAPPIST-1 only if it passes its gate (`context/PRESETS.md`). |
+| `GET /api/v1/presets/{pid}` | summary + full `provenance` (sources, bases, omissions, limitations); 404 `preset_not_found` |
+| `POST /api/v1/universes` with `source: {kind: "preset", presetId}` | **always creates a new universe** (role `preset`, history mode `grid`, revision 1, t = 0); existing universes are never replaced. Unknown id: 404 `preset_not_found`; invalid or tampered data: 500 `preset_invalid` and nothing is created. Reset of such a universe returns to the loaded state. |
+| `GET /api/v1/universes/{uid}/provenance` | `{sourceKind, presetId, presetDataVersion, epoch, frame, origin, units, initialStateDigest, derivedFrom, modification, controlled, firstUncontrolledAtS, audit}` |
+
+## Catalogue (M5)
+`GET /api/v1/catalogue` (read-only; POST/PUT/PATCH/DELETE answer 405) returns `{notes: [string], entries: [Entry]}` with nine sourced single-body definitions: stars Sun, Proxima Centauri, TRAPPIST-1, Sirius A, Betelgeuse; planets Earth, Mars, Jupiter, Neptune.
+`Entry = {id, name, kind: "star"|"planet", properties: {massKg: Property, radiusM: Property}, visual: {colorHex, note: "display only, not a physical property"}, notes}` and
+`Property = {value (SI), uncertainty: {minus, plus} | {range: [lo, hi]} | null, basis: "measured"|"nominal"|"estimated"|"illustrative", sourceValue (as published, with unit), sourceNumber, sourceUnit, conversion, sources: [{citation, url, retrieved}], note?}`.
+`estimated` (currently only Betelgeuse, whose mass is the midpoint of a published range, disclosed) and `illustrative` values must be disclosed wherever shown. Entries carry no positions or velocities, are not validated systems, and are copies: creating or editing a body never changes them. Values and sources are listed in `backend/catalogue_data.json` (built by `scripts/catalogue/build_catalogue.py`; `tests/test_catalogue.py` re-derives each value from its recorded source number). M☉ is converted with the IAU 2015 nominal GM☉ᴺ = 1.3271244e20 m³/s² divided by G; R☉ with the nominal 6.957e8 m.
+Creating a body (`POST .../bodies`) may carry `kind` and `catalogueEntryId`; `kind` must be `star` or `planet` (422 otherwise), `catalogueEntryId` must name a catalogue entry (422 otherwise) and is provenance only. `PATCH` accepts `kind`. A body's `radiusM` is its physical (collision) radius; the 3D view draws bodies at an exaggerated display size that is never sent to or returned by the API.
+
+## Orbit Lab (M8)
+Spec: `context/specs/EXPERIMENT_01_SPEC.md`; protocol and measured results: `context/EXPERIMENT_01_PROTOCOL.md`. A system is defined in `backend/orbit_lab_systems.json`. The baseline universe (role `baseline`) is an immutable reference; the modified run (role `modified`) is derived from the baseline's **initial** snapshot with exactly one change.
+
+| Route | Notes |
+|---|---|
+| `GET /api/v1/orbit-lab/systems` | `{systems: [{id, name, presetId, bodyIds, selectableBodyIds, speedFactors, observationWindowS, sampleIntervalS, historyMode, modelNote, description}]}` |
+| `POST /api/v1/orbit-lab/experiments` `{systemId}` | 201 `Experiment`: creates the baseline (grid history) **and activates it**. 404 `system_not_found`; 500 `preset_invalid` (nothing created); 409 `universe_limit` |
+| `GET /api/v1/orbit-lab/experiments`, `GET .../{eid}` | `Experiment = {id, systemId, name, createdAtIso, baselineUniverseId, modifiedUniverseId, baseline: UniverseSummary, modified: UniverseSummary|null, activeUniverseId, activationEpoch, system, initialState: {epoch, jdTdb, frame, origin, units, digest, bodies: [{id, name, massKg, radiusM, positionM[3], velocityMPerS[3], speedMPerS}], modelNote}, modification|null}`. 404 `experiment_not_found` |
+| `DELETE .../{eid}` | 204; 409 `experiment_has_active_run` if either run is the active universe |
+| `POST .../{eid}/modified-run` `{bodyId, speedFactor, replaceExisting=false}` | 201 `Experiment`; does **not** activate the run. Only `body-earth` and the exact factors 0.90, 0.95, 1.05, 1.10 are accepted: otherwise 422 (`body_not_allowed`, `factor_not_allowed`, or a schema error for extra fields, NaN, wrong types) and nothing changes. An existing run without `replaceExisting`: 409 `modified_run_exists`; replacing the active run: 409 `experiment_has_active_run`. `modification = {baselineUniverseId, baselineInitialDigest, bodyId, originalVelocityMPerS, modifiedVelocityMPerS, speedFactor, units: "m/s", createdAtIso}` |
+| `GET .../{eid}/initial-differences` | `{experimentId, baselineUniverseId, modifiedUniverseId, differences: [{bodyId, field, baseline, modified}], configEqual, config}`; the first release shows exactly one difference (`velocityMPerS`). 409 `no_modified_run` |
+| `GET .../{eid}/comparison?bodyId=` | `{bodyId, sampleIntervalS, observationWindowS, baseline: {universeId, simulationTimeS, sampleCount}, modified: {...}|null, commonSampleCount, timesS, baselinePositionM, modifiedPositionM, separationM, windowCompleteBoth, complete, issues, timesDiffer, comparedUpToS, controlled, firstUncontrolledAtS, modification}`. Only the common sample times both runs have reached (at most the 731-sample window); a missing modified run, a run that has not advanced, truncation, a missing body or an uncontrolled run are listed in `issues` (200, never an empty success). 422 for a body outside the experiment |
+
+Universe rules that apply to experiment runs (409 `baseline_protected`): the baseline accepts no body create/update/delete and no snapshot create/restore/delete; both runs refuse deletion through `DELETE /universes/{uid}`. Reset works on either run and affects only that run. Editing a modified run (when active) is allowed, audited, and flips `controlled` to false (see `GET /universes/{uid}/provenance`: `controlled`, `firstUncontrolledAtS`, `audit`); reset restores `controlled`.
+
 ### Withdrawn / planned
 - `POST /simulation/start` and `/simulation/pause`: **not implemented and no longer planned**; Play/Pause is client-side scheduling of `step` requests.
 - 🕓 Checkpoint save/restore: not specified (REBOUND restore works, but the resolver, ledgers and event log would have to be rebuilt; M0.6).

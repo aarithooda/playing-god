@@ -115,7 +115,7 @@ describe("App layout", () => {
     act(() => canvas().onSelectBody(sun.id));
     await screen.findByText("Body Inspector");
     h.calls.length = 0;
-    for (const target of [screen.getByText("Fit view"), screen.getByText("Event History"), screen.getByTestId("sidebar-right")]) {
+    for (const target of [screen.getByRole("button", { name: "Fit view to all bodies" }), screen.getByText("Event History"), screen.getByTestId("sidebar-right")]) {
       fireEvent.pointerDown(target);
       fireEvent.pointerUp(target);
       fireEvent.click(target);
@@ -126,6 +126,26 @@ describe("App layout", () => {
 });
 
 describe("App focus", () => {
+  it("connects the shared view toolbar to the scene, overview, and selected-body focus", async () => {
+    render(<App />);
+    await screen.findByText("Simulation");
+
+    fireEvent.click(screen.getByRole("button", { name: "Axes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Grid" }));
+    expect(canvas().viewControls.state.axesVisible).toBe(true);
+    expect(canvas().viewControls.state.gridEnabled).toBe(true);
+
+    act(() => canvas().onSelectBody(earth.id));
+    const focus = screen.getByRole("button", { name: "Focus selected body" }) as HTMLButtonElement;
+    expect(focus.disabled).toBe(false);
+    fireEvent.click(focus);
+    expect(canvas().focus.bodyId).toBe(earth.id);
+
+    const frameBefore = canvas().frameEpoch;
+    fireEvent.click(screen.getByRole("button", { name: "Fit view to all bodies" }));
+    expect(canvas().frameEpoch).toBe(frameBefore + 1);
+  });
+
   it("a focus request names the body and the inspector shows Focused only for that body until the camera lets go", async () => {
     render(<App />);
     await screen.findByText("Simulation");
@@ -174,6 +194,18 @@ describe("App first use", () => {
   });
 });
 
+describe("App CRUD feedback", () => {
+  it("shows the bottom message for a successful body addition", async () => {
+    render(<App />);
+    await screen.findByText("Simulation");
+    fireEvent.click(screen.getByText("Add body…"));
+    fireEvent.click(screen.getByText("Create"));
+    expect((await screen.findByTestId("crud-feedback")).textContent).toMatch(/Added/);
+    expect(screen.queryByText(/Created /)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    expect(await screen.findByText(/Undid adding/)).toBeTruthy();
+  });
+});
 describe("App: connection health and simulation loading are different states", () => {
   it("says the backend is reachable while the simulation state is still loading (no 'Connecting' when connected)", async () => {
     h.stateMode = "hang";
@@ -208,38 +240,38 @@ describe("App view aids: axes and grid", () => {
   it("starts with both off and passes the display scale to the canvas", async () => {
     render(<App />);
     await screen.findByText("Simulation");
-    expect([canvas().showAxes, canvas().showGrid]).toEqual([false, false]);
+    expect([canvas().viewControls.state.axesVisible, canvas().viewControls.state.gridEnabled || canvas().placementMode]).toEqual([false, false]);
     expect(pressed("Axes")).toBe("false");
     expect(pressed("Grid")).toBe("false");
     expect(canvas().transform.metersPerUnit).toBeGreaterThan(0);
     expect(screen.queryByTestId("view-legend")).toBeNull();
   });
 
-  it("toggles axes and grid independently and labels the visible one with its units", async () => {
+  it("toggles axes and grid independently and labels the visible overlay", async () => {
     render(<App />);
     await screen.findByText("Simulation");
     fireEvent.click(screen.getByRole("button", { name: "Axes" }));
-    expect([canvas().showAxes, canvas().showGrid]).toEqual([true, false]);
-    expect(screen.getByTestId("view-legend").textContent).toMatch(/Axes through/);
+    expect([canvas().viewControls.state.axesVisible, canvas().viewControls.state.gridEnabled || canvas().placementMode]).toEqual([true, false]);
+    expect(screen.getByTestId("view-legend").textContent).toMatch(/Axes extend through/);
     expect(screen.getByTestId("view-legend").textContent).not.toMatch(/per cell/);
 
     fireEvent.click(screen.getByRole("button", { name: "Grid" }));
-    expect([canvas().showAxes, canvas().showGrid]).toEqual([true, true]);
+    expect([canvas().viewControls.state.axesVisible, canvas().viewControls.state.gridEnabled || canvas().placementMode]).toEqual([true, true]);
     expect(screen.getByTestId("view-legend").textContent).toMatch(/m per cell/);
 
     fireEvent.click(screen.getByRole("button", { name: "Axes" }));
-    expect([canvas().showAxes, canvas().showGrid]).toEqual([false, true]);
+    expect([canvas().viewControls.state.axesVisible, canvas().viewControls.state.gridEnabled || canvas().placementMode]).toEqual([false, true]);
   });
 
   it("shows the grid while placing a body without changing the user's Grid setting, then restores it", async () => {
     render(<App />);
     await screen.findByText("Simulation");
     startPlacement();
-    expect(canvas().showGrid).toBe(true); // temporary aid
+    expect((canvas().viewControls.state.gridEnabled || canvas().placementMode)).toBe(true); // temporary aid
     expect(pressed("Grid")).toBe("false"); // the user's own choice is untouched
     expect(screen.getByTestId("grid-placement-note")).toBeTruthy();
     stopPlacement();
-    expect(canvas().showGrid).toBe(false); // back to what the user chose
+    expect((canvas().viewControls.state.gridEnabled || canvas().placementMode)).toBe(false); // back to what the user chose
     expect(screen.queryByTestId("grid-placement-note")).toBeNull();
   });
 
@@ -248,9 +280,9 @@ describe("App view aids: axes and grid", () => {
     await screen.findByText("Simulation");
     fireEvent.click(screen.getByRole("button", { name: "Grid" }));
     startPlacement();
-    expect([canvas().showAxes, canvas().showGrid]).toEqual([false, true]);
+    expect([canvas().viewControls.state.axesVisible, canvas().viewControls.state.gridEnabled || canvas().placementMode]).toEqual([false, true]);
     stopPlacement();
-    expect([canvas().showAxes, canvas().showGrid]).toEqual([false, true]);
+    expect([canvas().viewControls.state.axesVisible, canvas().viewControls.state.gridEnabled || canvas().placementMode]).toEqual([false, true]);
     expect(pressed("Grid")).toBe("true");
   });
 
@@ -260,8 +292,8 @@ describe("App view aids: axes and grid", () => {
     fireEvent.click(screen.getByRole("button", { name: "Grid" })); // on
     startPlacement();
     fireEvent.click(screen.getByRole("button", { name: "Grid" })); // user turns it off while placing
-    expect(canvas().showGrid).toBe(true); // still shown for placement
+    expect((canvas().viewControls.state.gridEnabled || canvas().placementMode)).toBe(true); // still shown for placement
     stopPlacement();
-    expect(canvas().showGrid).toBe(false);
+    expect((canvas().viewControls.state.gridEnabled || canvas().placementMode)).toBe(false);
   });
 });

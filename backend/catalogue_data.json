@@ -1,0 +1,523 @@
+{
+  "version": "1",
+  "notes": [
+    "Catalogue entries are single bodies, not validated systems: nothing here has positions or velocities.",
+    "Colour is a display choice, not a physical property.",
+    "A catalogue entry is a reusable copy: adding it to a universe never changes the catalogue."
+  ],
+  "entries": [
+    {
+      "id": "sun",
+      "name": "Sun",
+      "kind": "star",
+      "properties": {
+        "massKg": {
+          "value": 1.9884098713165342e+30,
+          "uncertainty": null,
+          "basis": "measured",
+          "sourceValue": "GM☉ = 1.32712440041279419e20 m^3 s^-2",
+          "sourceNumber": 1.3271244004127942e+20,
+          "sourceUnit": "GM_m3s2",
+          "conversion": "GM☉ = 1.32712440041279419e20 m^3 s^-2 / 6.6743e-11 m^3 kg^-1 s^-2 (mass = GM / G)",
+          "sources": [
+            {
+              "citation": "JPL SSD Astrodynamic Parameters (heliocentric gravitational constant, DE440)",
+              "url": "https://ssd.jpl.nasa.gov/astro_par.html",
+              "retrieved": "2026-10-24"
+            }
+          ]
+        },
+        "radiusM": {
+          "value": 695700000.0,
+          "uncertainty": null,
+          "basis": "nominal",
+          "sourceValue": "6.957e8 m",
+          "sourceNumber": 695700000.0,
+          "sourceUnit": "m",
+          "conversion": "6.957e8 m unchanged",
+          "sources": [
+            {
+              "citation": "IAU 2015 Resolution B3 (Mamajek et al. 2015)",
+              "url": "https://arxiv.org/abs/1510.07674",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "note": "a defined standard value, not a best estimate"
+        }
+      },
+      "visual": {
+        "colorHex": "#fdb813",
+        "note": "display only, not a physical property"
+      },
+      "notes": "The Sun's mass is GM☉ / G; the radius is the IAU nominal value."
+    },
+    {
+      "id": "proxima-centauri",
+      "name": "Proxima Centauri",
+      "kind": "star",
+      "properties": {
+        "massKg": {
+          "value": 2.4278484521223202e+29,
+          "uncertainty": {
+            "minus": 4.374501715535712e+27,
+            "plus": 4.374501715535712e+27
+          },
+          "basis": "measured",
+          "sourceValue": "0.1221 ± 0.0022 M☉",
+          "sourceNumber": 0.1221,
+          "sourceUnit": "Msun",
+          "conversion": "0.1221 x (1.3271244e20 m^3/s^2 / 6.6743e-11 m^3 kg^-1 s^-2), the IAU 2015 B3 nominal solar mass parameter divided by G",
+          "sources": [
+            {
+              "citation": "NASA Exoplanet Archive, Proxima Cen host-star row: Faria et al. 2022, A&A 658, A115",
+              "url": "https://exoplanetarchive.ipac.caltech.edu/overview/Proxima%20Cen",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 0.0022,
+            "plus": 0.0022
+          }
+        },
+        "radiusM": {
+          "value": 98093699.99999999,
+          "uncertainty": {
+            "minus": 14609700.0,
+            "plus": 14609700.0
+          },
+          "basis": "measured",
+          "sourceValue": "0.141 ± 0.021 R☉",
+          "sourceNumber": 0.141,
+          "sourceUnit": "Rsun",
+          "conversion": "0.141 x 6.957e8 m, the IAU 2015 B3 nominal solar radius",
+          "sources": [
+            {
+              "citation": "NASA Exoplanet Archive, Proxima Cen host-star rows (the same value is listed with Anglada-Escudé et al. 2016, Nature 536, 437)",
+              "url": "https://exoplanetarchive.ipac.caltech.edu/overview/Proxima%20Cen",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 0.021,
+            "plus": 0.021
+          }
+        }
+      },
+      "visual": {
+        "colorHex": "#e0573a",
+        "note": "display only, not a physical property"
+      },
+      "notes": "A red dwarf. The radius uncertainty is about 15%."
+    },
+    {
+      "id": "trappist-1",
+      "name": "TRAPPIST-1",
+      "kind": "star",
+      "properties": {
+        "massKg": {
+          "value": 1.78559206388685e+29,
+          "uncertainty": {
+            "minus": 4.573342702605517e+27,
+            "plus": 4.573342702605517e+27
+          },
+          "basis": "measured",
+          "sourceValue": "0.0898 ± 0.0023 M☉",
+          "sourceNumber": 0.0898,
+          "sourceUnit": "Msun",
+          "conversion": "0.0898 x (1.3271244e20 m^3/s^2 / 6.6743e-11 m^3 kg^-1 s^-2), the IAU 2015 B3 nominal solar mass parameter divided by G",
+          "sources": [
+            {
+              "citation": "Agol et al. 2021, PSJ 2:1, doi:10.3847/PSJ/abd022 (via the NASA Exoplanet Archive host-star row)",
+              "url": "https://exoplanetarchive.ipac.caltech.edu/overview/TRAPPIST-1",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 0.0023,
+            "plus": 0.0023
+          }
+        },
+        "radiusM": {
+          "value": 82927440.0,
+          "uncertainty": {
+            "minus": 904410.0,
+            "plus": 904410.0
+          },
+          "basis": "measured",
+          "sourceValue": "0.1192 ± 0.0013 R☉",
+          "sourceNumber": 0.1192,
+          "sourceUnit": "Rsun",
+          "conversion": "0.1192 x 6.957e8 m, the IAU 2015 B3 nominal solar radius",
+          "sources": [
+            {
+              "citation": "Agol et al. 2021, PSJ 2:1, doi:10.3847/PSJ/abd022 (via the NASA Exoplanet Archive host-star row)",
+              "url": "https://exoplanetarchive.ipac.caltech.edu/overview/TRAPPIST-1",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 0.0013,
+            "plus": 0.0013
+          }
+        }
+      },
+      "visual": {
+        "colorHex": "#c0392b",
+        "note": "display only, not a physical property"
+      },
+      "notes": "Only the star: this entry is not the TRAPPIST-1 planetary system."
+    },
+    {
+      "id": "sirius-a",
+      "name": "Sirius A",
+      "kind": "star",
+      "properties": {
+        "massKg": {
+          "value": 4.1020895632500795e+30,
+          "uncertainty": {
+            "minus": 4.573342702605517e+28,
+            "plus": 4.573342702605517e+28
+          },
+          "basis": "measured",
+          "sourceValue": "2.063 ± 0.023 M☉",
+          "sourceNumber": 2.063,
+          "sourceUnit": "Msun",
+          "conversion": "2.063 x (1.3271244e20 m^3/s^2 / 6.6743e-11 m^3 kg^-1 s^-2), the IAU 2015 B3 nominal solar mass parameter divided by G",
+          "sources": [
+            {
+              "citation": "Bond et al. 2017, ApJ 840, 70, doi:10.3847/1538-4357/aa6af8 (dynamical mass)",
+              "url": "https://arxiv.org/abs/1703.10625",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 0.023,
+            "plus": 0.023
+          }
+        },
+        "radiusM": {
+          "value": 1192708080.0,
+          "uncertainty": {
+            "minus": 6261299.999999999,
+            "plus": 6261299.999999999
+          },
+          "basis": "measured",
+          "sourceValue": "1.7144 ± 0.0090 R☉",
+          "sourceNumber": 1.7144,
+          "sourceUnit": "Rsun",
+          "conversion": "1.7144 x 6.957e8 m, the IAU 2015 B3 nominal solar radius",
+          "sources": [
+            {
+              "citation": "Bond et al. 2017, ApJ 840, 70, doi:10.3847/1538-4357/aa6af8 (interferometric radius of Davis et al. 2011, adjusted to their parallax)",
+              "url": "https://arxiv.org/abs/1703.10625",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 0.009,
+            "plus": 0.009
+          }
+        }
+      },
+      "visual": {
+        "colorHex": "#cfe3ff",
+        "note": "display only, not a physical property"
+      },
+      "notes": "Sirius A only; its white-dwarf companion Sirius B is not included."
+    },
+    {
+      "id": "betelgeuse",
+      "name": "Betelgeuse",
+      "kind": "star",
+      "properties": {
+        "massKg": {
+          "value": 3.5294275204890403e+31,
+          "uncertainty": {
+            "range": [
+              3.2808762866517842e+31,
+              3.777978754326297e+31
+            ]
+          },
+          "basis": "estimated",
+          "sourceValue": "16.5–19 M☉ (range; value is the midpoint 17.75)",
+          "sourceNumber": 17.75,
+          "sourceUnit": "Msun",
+          "conversion": "16.5–19 M☉ x (1.3271244e20 m^3/s^2 / 6.6743e-11 m^3 kg^-1 s^-2), the IAU 2015 B3 nominal solar mass parameter divided by G",
+          "sources": [
+            {
+              "citation": "Joyce et al. 2020, ApJ 902, 63, doi:10.3847/1538-4357/abb8db (present-day mass from evolutionary modelling)",
+              "url": "https://arxiv.org/abs/2006.09837",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceRange": [
+            16.5,
+            19.0
+          ],
+          "note": "model-dependent estimate; the value shown is the midpoint of the published range"
+        },
+        "radiusM": {
+          "value": 531514800000.0,
+          "uncertainty": {
+            "minus": 43133400000.0,
+            "plus": 80701200000.0
+          },
+          "basis": "estimated",
+          "sourceValue": "764 (+116/−62) R☉",
+          "sourceNumber": 764.0,
+          "sourceUnit": "Rsun",
+          "conversion": "764 x 6.957e8 m, the IAU 2015 B3 nominal solar radius",
+          "sources": [
+            {
+              "citation": "Joyce et al. 2020, ApJ 902, 63, doi:10.3847/1538-4357/abb8db (model prediction)",
+              "url": "https://arxiv.org/abs/2006.09837",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 62.0,
+            "plus": 116.0
+          },
+          "note": "model-dependent estimate"
+        }
+      },
+      "visual": {
+        "colorHex": "#ff6a3d",
+        "note": "display only, not a physical property"
+      },
+      "notes": "A red supergiant: mass and radius are model-dependent estimates, not direct measurements."
+    },
+    {
+      "id": "earth",
+      "name": "Earth",
+      "kind": "planet",
+      "properties": {
+        "massKg": {
+          "value": 5.97217e+24,
+          "uncertainty": {
+            "minus": 2.7999999999999997e+20,
+            "plus": 2.7999999999999997e+20
+          },
+          "basis": "measured",
+          "sourceValue": "5.97217 ± 0.00028 × 10^24 kg",
+          "sourceNumber": 5.97217,
+          "sourceUnit": "1e24kg",
+          "conversion": "5.97217 x 1e24 kg",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Physical Parameters",
+              "url": "https://ssd.jpl.nasa.gov/planets/phys_par.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 0.00028,
+            "plus": 0.00028
+          }
+        },
+        "radiusM": {
+          "value": 6371008.399999999,
+          "uncertainty": {
+            "minus": 0.1,
+            "plus": 0.1
+          },
+          "basis": "measured",
+          "sourceValue": "6371.0084 ± 0.0001 km (mean radius)",
+          "sourceNumber": 6371.0084,
+          "sourceUnit": "km",
+          "conversion": "6371.0084 x 1000 m",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Physical Parameters (Archinal et al. 2018)",
+              "url": "https://ssd.jpl.nasa.gov/planets/phys_par.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 0.0001,
+            "plus": 0.0001
+          }
+        }
+      },
+      "visual": {
+        "colorHex": "#3b82f6",
+        "note": "display only, not a physical property"
+      },
+      "notes": "Earth alone, without the Moon."
+    },
+    {
+      "id": "mars",
+      "name": "Mars",
+      "kind": "planet",
+      "properties": {
+        "massKg": {
+          "value": 6.41691e+23,
+          "uncertainty": {
+            "minus": 3e+19,
+            "plus": 3e+19
+          },
+          "basis": "measured",
+          "sourceValue": "0.641691 ± 0.000030 × 10^24 kg",
+          "sourceNumber": 0.641691,
+          "sourceUnit": "1e24kg",
+          "conversion": "0.641691 x 1e24 kg",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Physical Parameters",
+              "url": "https://ssd.jpl.nasa.gov/planets/phys_par.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 3e-05,
+            "plus": 3e-05
+          }
+        },
+        "radiusM": {
+          "value": 3389500.0,
+          "uncertainty": {
+            "minus": 200.0,
+            "plus": 200.0
+          },
+          "basis": "measured",
+          "sourceValue": "3389.50 ± 0.2 km (mean radius)",
+          "sourceNumber": 3389.5,
+          "sourceUnit": "km",
+          "conversion": "3389.50 x 1000 m",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Physical Parameters (Archinal et al. 2018)",
+              "url": "https://ssd.jpl.nasa.gov/planets/phys_par.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 0.2,
+            "plus": 0.2
+          }
+        }
+      },
+      "visual": {
+        "colorHex": "#c1440e",
+        "note": "display only, not a physical property"
+      },
+      "notes": "Mars alone, without its moons."
+    },
+    {
+      "id": "jupiter",
+      "name": "Jupiter",
+      "kind": "planet",
+      "properties": {
+        "massKg": {
+          "value": 1.898125e+27,
+          "uncertainty": {
+            "minus": 8.8e+22,
+            "plus": 8.8e+22
+          },
+          "basis": "measured",
+          "sourceValue": "1898.125 ± 0.088 × 10^24 kg",
+          "sourceNumber": 1898.125,
+          "sourceUnit": "1e24kg",
+          "conversion": "1898.125 x 1e24 kg",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Physical Parameters",
+              "url": "https://ssd.jpl.nasa.gov/planets/phys_par.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 0.088,
+            "plus": 0.088
+          }
+        },
+        "radiusM": {
+          "value": 69911000.0,
+          "uncertainty": {
+            "minus": 6000.0,
+            "plus": 6000.0
+          },
+          "basis": "measured",
+          "sourceValue": "69911 ± 6 km (mean radius)",
+          "sourceNumber": 69911.0,
+          "sourceUnit": "km",
+          "conversion": "69911 x 1000 m",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Physical Parameters (Archinal et al. 2018)",
+              "url": "https://ssd.jpl.nasa.gov/planets/phys_par.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 6.0,
+            "plus": 6.0
+          }
+        }
+      },
+      "visual": {
+        "colorHex": "#d9a066",
+        "note": "display only, not a physical property"
+      },
+      "notes": "Jupiter alone, without its moons."
+    },
+    {
+      "id": "neptune",
+      "name": "Neptune",
+      "kind": "planet",
+      "properties": {
+        "massKg": {
+          "value": 1.024092e+26,
+          "uncertainty": {
+            "minus": 4.8e+21,
+            "plus": 4.8e+21
+          },
+          "basis": "measured",
+          "sourceValue": "102.4092 ± 0.0048 × 10^24 kg",
+          "sourceNumber": 102.4092,
+          "sourceUnit": "1e24kg",
+          "conversion": "102.4092 x 1e24 kg",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Physical Parameters",
+              "url": "https://ssd.jpl.nasa.gov/planets/phys_par.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 0.0048,
+            "plus": 0.0048
+          }
+        },
+        "radiusM": {
+          "value": 24622000.0,
+          "uncertainty": {
+            "minus": 19000.0,
+            "plus": 19000.0
+          },
+          "basis": "measured",
+          "sourceValue": "24622 ± 19 km (mean radius)",
+          "sourceNumber": 24622.0,
+          "sourceUnit": "km",
+          "conversion": "24622 x 1000 m",
+          "sources": [
+            {
+              "citation": "JPL SSD Planetary Physical Parameters (Archinal et al. 2018)",
+              "url": "https://ssd.jpl.nasa.gov/planets/phys_par.html",
+              "retrieved": "2026-10-24"
+            }
+          ],
+          "sourceUncertainty": {
+            "minus": 19.0,
+            "plus": 19.0
+          }
+        }
+      },
+      "visual": {
+        "colorHex": "#3b5bdb",
+        "note": "display only, not a physical property"
+      },
+      "notes": "Neptune alone, without its moons."
+    }
+  ]
+}

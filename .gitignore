@@ -11,6 +11,8 @@ node_modules/
 dist/
 *.tsbuildinfo
 npm-debug.log*
+playwright-report/
+test-results/
 
 # Secrets / local config
 .env

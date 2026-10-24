@@ -40,6 +40,21 @@ describe("body display scale", () => {
     }
   });
 
+  it("keeps a very small body visible while preserving a larger body's size", () => {
+    const smallRadius = 0.3;
+    const largeRadius = 6;
+    const distance = 1_000;
+    const smallScale = bodyDisplayScale(smallRadius, distance, FOV, H);
+    const largeScale = bodyDisplayScale(largeRadius, distance, FOV, H);
+    const smallPixels = projectedRadiusPx(smallRadius * smallScale, distance, FOV, H);
+    const largePixels = projectedRadiusPx(largeRadius * largeScale, distance, FOV, H);
+
+    expect(smallScale).toBeGreaterThan(1);
+    expect(smallPixels).toBeCloseTo(MIN_BODY_SCREEN_RADIUS_PX, 6);
+    expect(largeScale).toBe(1);
+    expect(largePixels).toBeGreaterThan(smallPixels);
+  });
+
   it("falls back to scale 1 for degenerate input", () => {
     for (const [r, d, fov, h] of [[0, 10, FOV, H], [1, 0, FOV, H], [1, NaN, FOV, H], [1, Infinity, FOV, H], [1, 10, 0, H], [1, 10, FOV, 0]]) {
       expect(bodyDisplayScale(r, d, fov, h)).toBe(1);
