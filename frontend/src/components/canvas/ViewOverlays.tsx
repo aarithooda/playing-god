@@ -10,8 +10,8 @@ import type { RenderTransform } from '../../sim/renderTransform';
 
 const CELL_COLOR = '#26364a';
 const SECTION_COLOR = '#41638a';
-/** Scene units over which the grid fades out, so it never reads as an infinite wall at the horizon. */
-const GRID_FADE_DISTANCE = 220;
+/** Keep the shader grid visible across the camera far plane, with only a distant horizon fade. */
+const GRID_FADE_DISTANCE = 10_000;
 
 /** Horizontal grid on the physics x-y plane (z = 0), cells of a 1-2-5 number of metres. */
 export const GridOverlay: React.FC<{ transform: RenderTransform }> = ({ transform }) => {

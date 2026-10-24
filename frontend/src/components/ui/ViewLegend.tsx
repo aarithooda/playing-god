@@ -8,12 +8,10 @@ interface ViewLegendProps {
   showAxes: boolean;
   showGrid: boolean;
   cellMeters: number;
-  /** Physical half-length of each axis, metres. */
-  axisHalfLengthM: number;
 }
 
-/** Units for whatever overlay is visible: what a grid cell and an axis length are in metres. */
-export const ViewLegend: React.FC<ViewLegendProps> = ({ showAxes, showGrid, cellMeters, axisHalfLengthM }) => {
+/** Scale reference for the visible grid and directional axis labels. */
+export const ViewLegend: React.FC<ViewLegendProps> = ({ showAxes, showGrid, cellMeters }) => {
   if (!showAxes && !showGrid) return null;
   return (
     <div data-testid="view-legend" style={{ ...panelStyle, padding: '6px 10px', fontSize: 11, color: theme.textMuted, lineHeight: 1.5 }}>
@@ -24,7 +22,7 @@ export const ViewLegend: React.FC<ViewLegendProps> = ({ showAxes, showGrid, cell
       )}
       {showAxes && (
         <div>
-          Axes through (0, 0, 0), ±{formatNumber(axisHalfLengthM)} m:{' '}
+          Axes extend through (0, 0, 0):{' '}
           <span style={{ color: AXIS_COLORS.x }}>x</span> <span style={{ color: AXIS_COLORS.y }}>y</span>{' '}
           <span style={{ color: AXIS_COLORS.z }}>z (up)</span>
         </div>

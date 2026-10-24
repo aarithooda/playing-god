@@ -247,12 +247,12 @@ describe("App view aids: axes and grid", () => {
     expect(screen.queryByTestId("view-legend")).toBeNull();
   });
 
-  it("toggles axes and grid independently and labels the visible one with its units", async () => {
+  it("toggles axes and grid independently and labels the visible overlay", async () => {
     render(<App />);
     await screen.findByText("Simulation");
     fireEvent.click(screen.getByRole("button", { name: "Axes" }));
     expect([canvas().viewControls.state.axesVisible, canvas().viewControls.state.gridEnabled || canvas().placementMode]).toEqual([true, false]);
-    expect(screen.getByTestId("view-legend").textContent).toMatch(/Axes through/);
+    expect(screen.getByTestId("view-legend").textContent).toMatch(/Axes extend through/);
     expect(screen.getByTestId("view-legend").textContent).not.toMatch(/per cell/);
 
     fireEvent.click(screen.getByRole("button", { name: "Grid" }));

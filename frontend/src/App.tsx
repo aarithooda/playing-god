@@ -23,7 +23,6 @@ import {
 } from "./sim/renderTransform";
 import { useSimulation } from "./sim/useSimulation";
 import { toSceneBody } from "./sim/viewModel";
-import { axisHalfLengthMeters } from "./sim/axes";
 import { gridCell } from "./sim/gridScale";
 import { UNDO_WINDOW_MS, useUndoableCreate } from "./sim/useUndoableCreate";
 import type { ViewControlContract } from "./sim/viewControlContract";
@@ -264,7 +263,6 @@ export default function App() {
             showAxes={showAxes}
             showGrid={gridVisible}
             cellMeters={gridCell(transform.metersPerUnit).cellMeters}
-            axisHalfLengthM={axisHalfLengthMeters(transform)}
           />
           {simulation.actionError && (
             <p role="alert" style={{ ...panelStyle, margin: 0, padding: "6px 10px", fontSize: 12, borderColor: theme.danger }}>
