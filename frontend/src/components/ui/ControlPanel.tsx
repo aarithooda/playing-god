@@ -207,7 +207,12 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           {creating ? 'Cancel' : 'Add body…'}
         </button>
         {creating && (
-          <div style={{ marginTop: '10px' }}>
+          <form
+            aria-label="Create body"
+            noValidate
+            onSubmit={(event) => { event.preventDefault(); void submit(); }}
+            style={{ marginTop: '10px' }}
+          >
             <BodyFields
               values={values}
               errors={errors}
@@ -217,8 +222,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               onPickPosition={() => onPlacementModeChange(!placementMode)}
             />
             {serverError && <p role="alert" style={errorTextStyle}>{serverError}</p>}
-            <button style={btnStyle} onClick={submit} disabled={busy}>Create</button>
-          </div>
+            <button type="submit" style={btnStyle} disabled={busy}>Create</button>
+          </form>
         )}
       </div>
     </div>

@@ -18,8 +18,9 @@ describe("BodyInspector", () => {
 
   it("labels radius in metres and shows the confirmed SI values", () => {
     render(<BodyInspector body={toBodyView(earth)} onSave={ok} onDelete={ok} onFocus={() => {}} />);
-    expect((screen.getByLabelText("Radius (m)") as HTMLInputElement).value).toBe("6.371e6");
+    expect((screen.getByLabelText("Physical radius (m)") as HTMLInputElement).value).toBe("6.371e6");
     expect(screen.queryByText(/km/)).toBeNull();
+    expect(screen.getByTestId("inspect-visual-radius").textContent).toMatch(/Rendered visual radius: .* scene units/);
     expect((screen.getByLabelText("Mass (kg)") as HTMLInputElement).value).toBe("5.972e24");
   });
 
@@ -36,10 +37,12 @@ describe("BodyInspector", () => {
   it("validates locally and does not call the API for invalid input", () => {
     const onSave = vi.fn(ok);
     render(<BodyInspector body={toBodyView(earth)} onSave={onSave} onDelete={ok} onFocus={() => {}} />);
-    fireEvent.change(screen.getByLabelText("Radius (m)"), { target: { value: "-3" } });
+    fireEvent.change(screen.getByLabelText("Physical radius (m)"), { target: { value: "-3" } });
     fireEvent.click(screen.getByText("Apply"));
     expect(onSave).not.toHaveBeenCalled();
     expect(screen.getByText(/Must be > 0/)).toBeTruthy();
+    expect((screen.getByLabelText("Physical radius (m)") as HTMLInputElement).getAttribute("aria-invalid")).toBe("true");
+    expect((screen.getByLabelText("Physical radius (m)") as HTMLInputElement).getAttribute("aria-describedby")).toBe("inspect-radius-error");
   });
 
   it("keeps the draft and shows the server error when the backend rejects the edit", async () => {
@@ -62,10 +65,17 @@ describe("BodyInspector", () => {
     expect((screen.getByLabelText("Position (m) Y") as HTMLInputElement).value).toBe("2e10");
   });
 
-  it("Delete calls onDelete with the body id", async () => {
+  it("requires explicit confirmation before deleting a body", async () => {
     const onDelete = vi.fn(ok);
     render(<BodyInspector body={toBodyView(sun)} onSave={ok} onDelete={onDelete} onFocus={() => {}} />);
-    fireEvent.click(screen.getByText("Delete"));
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    expect(screen.getByText("Delete Sun?")).toBeTruthy();
+    expect(onDelete).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Keep body" }));
+    expect(onDelete).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete body" }));
     await waitFor(() => expect(onDelete).toHaveBeenCalledWith(sun.id));
   });
 });
@@ -112,7 +122,7 @@ describe("ControlPanel", () => {
     fireEvent.click(screen.getByText("Add body…"));
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Moon" } });
     fireEvent.change(screen.getByLabelText("Mass (kg)"), { target: { value: "7.342e22" } });
-    fireEvent.click(screen.getByText("Create"));
+    fireEvent.submit(screen.getByRole("form", { name: "Create body" }));
     await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
     expect(onCreate.mock.calls[0][0]).toMatchObject({
       name: "Moon",
@@ -128,10 +138,10 @@ describe("ControlPanel", () => {
     render(<ControlPanel {...base} onCreate={onCreate} />);
     fireEvent.click(screen.getByText("Add body…"));
     fireEvent.change(screen.getByLabelText("Mass (kg)"), { target: { value: "0" } });
-    fireEvent.click(screen.getByText("Create"));
+    fireEvent.submit(screen.getByRole("form", { name: "Create body" }));
     expect(onCreate).not.toHaveBeenCalled();
     fireEvent.change(screen.getByLabelText("Mass (kg)"), { target: { value: "1e20" } });
-    fireEvent.click(screen.getByText("Create"));
+    fireEvent.submit(screen.getByRole("form", { name: "Create body" }));
     await screen.findByText("name: too long");
   });
 
