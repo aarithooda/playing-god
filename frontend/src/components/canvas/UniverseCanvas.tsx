@@ -4,6 +4,7 @@ import { OrbitControls } from '@react-three/drei';
 import { Group, PerspectiveCamera, Raycaster, Vector2, Vector3 } from 'three';
 import { CelestialBody } from './CelestialBody';
 import { StarfieldShell } from './StarfieldShell';
+import { TrajectoryLayer } from './TrajectoryLayer';
 import { AxesOverlay, GridOverlay } from './ViewOverlays';
 import { DEFAULT_CAMERA_POSITION, type RenderTransform, type ScenePosition } from '../../sim/renderTransform';
 import { clampPlacementDepth, rayPlaneIntersection } from '../../sim/placement';
@@ -17,6 +18,7 @@ import {
   type TrackingState,
 } from '../../sim/focusTracking';
 import type { SceneBody } from '../../sim/viewModel';
+import type { TrajectoryInput } from '../../render/contract';
 
 export interface FocusRequest {
   nonce: number;
@@ -53,6 +55,8 @@ interface UniverseCanvasProps {
   transform: RenderTransform;
   showAxes?: boolean;
   showGrid?: boolean;
+  /** Recorded paths to draw (UI-0). Display only; they never affect framing or focus. */
+  trajectories?: readonly TrajectoryInput[];
 }
 
 interface OrbitTarget {
@@ -356,6 +360,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
   transform,
   showAxes = false,
   showGrid = false,
+  trajectories = [],
 }) => {
   return (
     <Canvas
@@ -372,6 +377,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
       <StarfieldShell />
       {showGrid && <GridOverlay transform={transform} />}
       {showAxes && <AxesOverlay transform={transform} />}
+      {trajectories.length > 0 && <TrajectoryLayer trajectories={trajectories} transform={transform} />}
 
       <ambientLight intensity={0.3} />
       <pointLight position={[10, 10, 10]} intensity={1} />
@@ -383,6 +389,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
           position={body.position}
           radius={body.radius}
           color={body.color}
+          kind={body.kind}
           name={body.name}
           isSelected={selectedBodyId === body.id}
           onClick={placementMode ? undefined : () => onSelectBody(body.id)}

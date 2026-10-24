@@ -38,6 +38,7 @@ export interface SceneBody {
   id: string;
   name: string;
   color: string;
+  kind: BodyKind;
   position: ScenePosition;
   /** Display radius in scene units (exaggerated, NOT the physical radius). */
   radius: number;
@@ -75,6 +76,7 @@ export function toSceneBody(body: BodyView, t: RenderTransform): SceneBody {
     id: body.id,
     name: body.name,
     color: body.colorHex,
+    kind: body.kind,
     position: toScenePosition(body.positionM, t),
     radius: displayRadiusUnits(body.radiusM),
   };

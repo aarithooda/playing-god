@@ -3,6 +3,8 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { Outlines, Sphere } from '@react-three/drei';
 import { Group, PerspectiveCamera } from 'three';
 import { bodyDisplayScale } from '../../sim/bodyVisibility';
+import type { BodyKind } from '../../api/types';
+import { materialForKind } from './bodyMaterial';
 
 /** Selected-body silhouette: constant on-screen width (CSS px), whatever the body's size or the zoom. */
 export const SELECTION_OUTLINE_PX = 1.5;
@@ -12,6 +14,8 @@ interface CelestialBodyProps {
   position: [number, number, number];
   radius: number;
   color: string;
+  /** Stars glow; planets are lit by the scene. */
+  kind?: BodyKind;
   name: string;
   isSelected?: boolean;
   onClick?: () => void;
@@ -22,6 +26,7 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
   position,
   radius,
   color,
+  kind,
   name,
   isSelected = false,
   onClick,
@@ -54,7 +59,7 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
     >
       <group ref={body}>
         <Sphere args={[radius, 32, 32]}>
-          <meshStandardMaterial color={color} />
+          <meshStandardMaterial {...materialForKind(kind, color)} />
           {/* Mounted only while selected, so deselecting (or selecting another body) leaves nothing behind.
               The outline is a back-face shell inside the body's scaled group: it follows the enlarged
               minimum on-screen size, is occluded by nearer bodies, and never changes the body itself. */}
