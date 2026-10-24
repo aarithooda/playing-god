@@ -33,7 +33,8 @@ class UnknownPresetError(Exception):
 class LoadedPreset:
     summary: dict
     provenance: dict
-    bodies: list[InitialBody]
+    bodies: list[InitialBody]  # centred on the barycentre of all included bodies
+    raw_bodies: list[InitialBody]  # the same bodies exactly as archived (Solar System Barycenter frame, SI)
     history_mode: str
     sample_interval_s: float
 
@@ -109,10 +110,15 @@ def _build(data: dict) -> LoadedPreset:
         colorHex=b["colorHex"],
         basis={"mass": b["gm"]["basis"], "radius": b["radius"]["basis"], "state": b["state"]["basis"]},
         sources=(b["gm"]["source"], b["radius"]["source"], b["state"]["sourceFile"])) for b, m, r, p, v in raw]
+    raw_bodies = [InitialBody(
+        id=b["id"], name=b["name"], kind=b["kind"], massKg=m, radiusM=r, positionM=tuple(p), velocityMPerS=tuple(v),
+        colorHex=b["colorHex"],
+        basis={"mass": b["gm"]["basis"], "radius": b["radius"]["basis"], "state": b["state"]["basis"]},
+        sources=(b["gm"]["source"], b["radius"]["source"], b["state"]["sourceFile"])) for b, m, r, p, v in raw]
     summary = {"id": data["id"], "name": data["name"], "description": data["description"], "available": True,
                "unavailableReason": None, "bodyCount": len(bodies), "epochLabel": data["epoch"]["label"],
                "dataVersion": data["dataVersion"], "historyMode": hist["mode"], "sampleIntervalS": float(interval)}
-    return LoadedPreset(summary, data, bodies, hist["mode"], float(interval))
+    return LoadedPreset(summary, data, bodies, raw_bodies, hist["mode"], float(interval))
 
 
 def list_presets() -> list[dict]:

@@ -1,0 +1,19 @@
+{
+  "version": "1",
+  "systems": [
+    {
+      "id": "exp01-sun-emb-j2000",
+      "name": "Sun + Earth\u2013Moon barycentre (J2000)",
+      "presetId": "solar-system-j2000",
+      "bodyIds": ["body-sun", "body-earth"],
+      "recentre": "included-barycentre",
+      "selectableBodyIds": ["body-earth"],
+      "speedFactors": [0.90, 0.95, 1.05, 1.10],
+      "observationWindowS": 63072000.0,
+      "historyMode": "grid",
+      "sampleIntervalS": 86400.0,
+      "modelNote": "Two-body model: Sun + Earth\u2013Moon barycentre; positions are barycentres; not a forecast of Earth's real position. The Moon, the other planets, relativity and non-gravitational forces are absent; a real velocity change would act on two bodies.",
+      "description": "How does changing a planet's initial velocity affect its subsequent orbit? The baseline is the Sun and the Earth\u2013Moon barycentre at J2000.0; the modified run scales the barycentre's initial speed and keeps its direction."
+    }
+  ]
+}
