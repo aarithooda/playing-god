@@ -4,11 +4,12 @@ import { OrbitControls } from '@react-three/drei';
 import { Group, PerspectiveCamera, Raycaster, Vector2, Vector3 } from 'three';
 import { CelestialBody } from './CelestialBody';
 import { StarfieldShell } from './StarfieldShell';
+import { TrajectoryLayer } from './TrajectoryLayer';
 import { AxesOverlay, GridOverlay } from './ViewOverlays';
 import { DEFAULT_CAMERA_POSITION, type RenderTransform, type ScenePosition } from '../../sim/renderTransform';
 import { clampPlacementDepth, rayPlaneIntersection } from '../../sim/placement';
 import { sceneShiftPx } from '../ui/layout';
-import { framingDistanceScale } from '../../sim/framing';
+import { framingDistanceScale, nearPlaneFor } from '../../sim/framing';
 import {
   FOCUS_ANIMATION_S,
   focusDistanceForScreenHeight,
@@ -18,6 +19,7 @@ import {
 } from '../../sim/focusTracking';
 import type { SceneBody } from '../../sim/viewModel';
 import type { ViewControlContract } from '../../sim/viewControlContract';
+import type { TrajectoryInput } from '../../render/contract';
 
 export interface FocusRequest {
   nonce: number;
@@ -56,6 +58,8 @@ interface UniverseCanvasProps {
   /** Compatibility inputs retained for existing canvas callers. */
   showAxes?: boolean;
   showGrid?: boolean;
+  /** Recorded paths to draw (UI-0). Display only; they never affect framing or focus. */
+  trajectories?: readonly TrajectoryInput[];
 }
 
 interface OrbitTarget {
@@ -169,6 +173,17 @@ const CameraRig: React.FC<{
     // Only a new focus request should (re)start a focus, not every body movement.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus?.nonce, controls]);
+
+  // Keep the near plane inside the smallest displayed body, so focusing a tiny (crowded) body does not clip it away.
+  useFrame(() => {
+    let minRadius = Infinity;
+    for (const b of bodiesRef.current) minRadius = Math.min(minRadius, b.radius);
+    const near = nearPlaneFor(minRadius);
+    if (camera.near !== near) {
+      camera.near = near;
+      camera.updateProjectionMatrix();
+    }
+  });
 
   useFrame((_, delta) => {
     const s = session.current;
@@ -360,9 +375,11 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
   viewControls,
   showAxes = false,
   showGrid = false,
+  trajectories = [],
 }) => {
   const axesVisible = viewControls?.state.axesVisible ?? showAxes;
   const gridEnabled = viewControls?.state.gridEnabled ?? showGrid;
+  const hasStar = bodies.some((b) => b.kind === 'star');
   return (
     <Canvas
       camera={{ position: DEFAULT_CAMERA_POSITION, fov: 50, far: 2000 }}
@@ -378,10 +395,20 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
       <StarfieldShell />
       {(gridEnabled || placementMode) && <GridOverlay transform={transform} />}
       {axesVisible && <AxesOverlay transform={transform} />}
+      {trajectories.length > 0 && <TrajectoryLayer trajectories={trajectories} transform={transform} />}
 
-      <ambientLight intensity={0.6} />
-      <pointLight position={[10, 10, 10]} intensity={1.2} />
-      <pointLight position={[-10, -10, -10]} intensity={0.6} />
+      <ambientLight intensity={hasStar ? 0.3 : 0.6} />
+      {hasStar ? (
+        // Planets are lit by the stars that are in the scene (no distance falloff: scene units are arbitrary).
+        bodies.filter((b) => b.kind === 'star').map((b) => (
+          <pointLight key={b.id} position={b.position} intensity={2.2} decay={0} />
+        ))
+      ) : (
+        <>
+          <pointLight position={[10, 10, 10]} intensity={1.2} />
+          <pointLight position={[-10, -10, -10]} intensity={0.6} />
+        </>
+      )}
 
       {bodies.map((body) => (
         <CelestialBody
@@ -389,6 +416,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
           position={body.position}
           radius={body.radius}
           color={body.color}
+          kind={body.kind}
           name={body.name}
           bodyType={body.bodyType}
           assetKey={body.assetKey}

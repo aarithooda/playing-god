@@ -4,12 +4,15 @@ export type ApiErrorKind = "network" | "http" | "invalid-response" | "timeout";
 export class ApiError extends Error {
   readonly kind: ApiErrorKind;
   readonly status?: number;
+  /** The backend's machine-readable error code (e.g. "stale_activation"), when it sent one. */
+  readonly code?: string;
 
-  constructor(kind: ApiErrorKind, message: string, status?: number) {
+  constructor(kind: ApiErrorKind, message: string, status?: number, code?: string) {
     super(message);
     this.name = "ApiError";
     this.kind = kind;
     this.status = status;
+    this.code = code;
   }
 }
 

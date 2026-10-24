@@ -1,4 +1,5 @@
 import React from 'react';
+import type { BodyKind } from '../../api/types';
 import type { FieldErrors, FieldKey, FormValues } from '../../sim/validation';
 import { displayRadiusUnits } from '../../sim/renderTransform';
 import { btnStyle, errorTextStyle, fieldGroup, inputStyle, labelStyle } from './styles';
@@ -10,6 +11,9 @@ interface BodyFieldsProps {
   idPrefix: string;
   onPickPosition?: () => void;
   isPickingPosition?: boolean;
+  /** When given, a "Type" (star / planet) selector is shown. `kind` is the physics role, not the renderer's bodyType. */
+  kind?: BodyKind;
+  onKindChange?: (kind: BodyKind) => void;
 }
 
 const SCALARS: Array<{ key: FieldKey; label: string }> = [
@@ -21,7 +25,7 @@ const VECTORS: Array<{ label: string; keys: [FieldKey, FieldKey, FieldKey] }> = 
   { label: 'Velocity (m/s): X, Y, Z', keys: ['vx', 'vy', 'vz'] },
 ];
 
-export const BodyFields: React.FC<BodyFieldsProps> = ({ values, errors, onChange, idPrefix, onPickPosition, isPickingPosition = false }) => (
+export const BodyFields: React.FC<BodyFieldsProps> = ({ values, errors, onChange, idPrefix, onPickPosition, isPickingPosition = false, kind, onKindChange }) => (
   <>
     <fieldset style={sectionStyle}>
       <legend style={sectionTitleStyle}>Identity and appearance</legend>
@@ -32,6 +36,16 @@ export const BodyFields: React.FC<BodyFieldsProps> = ({ values, errors, onChange
           onChange={(e) => onChange('name', e.target.value)} />
         {errors.name && <span id={idPrefix + '-name-error'} role="alert" style={errorTextStyle}>{errors.name}</span>}
       </div>
+      {kind !== undefined && onKindChange && (
+        <div style={fieldGroup}>
+          <label style={labelStyle} htmlFor={idPrefix + '-kind'}>Type</label>
+          <select id={idPrefix + '-kind'} style={inputStyle} value={kind}
+            onChange={(e) => onKindChange(e.target.value === 'star' ? 'star' : 'planet')}>
+            <option value="planet">Planet</option>
+            <option value="star">Star</option>
+          </select>
+        </div>
+      )}
       <div style={fieldGroup}>
         <label style={labelStyle} htmlFor={idPrefix + '-color'}>Color</label>
         <div style={{ display: 'flex', gap: '5px' }}>

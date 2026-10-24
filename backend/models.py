@@ -1,7 +1,9 @@
 """Pydantic models for the API contract (see context/API_CONTRACT.md). SI units throughout."""
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from backend.catalogue import catalogue_ids
 
 # Request bounds (documented in the contract). Finite floats only: NaN and +/-Infinity are rejected.
 MAX_MASS_KG = 1.0e45  # ~5e14 solar masses
@@ -11,6 +13,8 @@ MAX_SPEED_M_PER_S = 2.99792458e8  # speed of light: this is a Newtonian simulato
 MIN_STEP_S = 1.0e-6
 MAX_STEP_S = 1.0e8  # ~3.2 years per request; Play = many bounded requests
 MAX_BODIES = 200
+
+BodyKind = Literal["star", "planet"]
 
 
 class Vec3(BaseModel):
@@ -54,6 +58,15 @@ class BodyCreate(BaseModel):
     positionM: Position3
     velocityMPerS: Velocity3
     colorHex: str = Field(pattern=r"^#[0-9a-fA-F]{6}$")
+    kind: BodyKind = "planet"
+    catalogueEntryId: str | None = Field(default=None, min_length=1, max_length=64)  # provenance only
+
+    @field_validator("catalogueEntryId")
+    @classmethod
+    def _known_catalogue_entry(cls, v: str | None) -> str | None:
+        if v is not None and v not in catalogue_ids():
+            raise ValueError(f"unknown catalogue entry: {v}")
+        return v
 
 
 class Body(BaseModel):
@@ -66,6 +79,8 @@ class Body(BaseModel):
     positionM: Vec3
     velocityMPerS: Vec3
     colorHex: str
+    kind: BodyKind = "planet"
+    catalogueEntryId: str | None = None
 
 
 class BodyUpdate(BaseModel):
@@ -79,6 +94,7 @@ class BodyUpdate(BaseModel):
     positionM: Position3 | None = None
     velocityMPerS: Velocity3 | None = None
     colorHex: str | None = Field(default=None, pattern=r"^#[0-9a-fA-F]{6}$")
+    kind: BodyKind | None = None
 
     @model_validator(mode="after")
     def _non_empty_and_no_nulls(self) -> "BodyUpdate":
