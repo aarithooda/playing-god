@@ -175,5 +175,14 @@ describe("EventTimeline", () => {
     expect(item.textContent).toContain("Earth merged into Sun");
     expect(item.textContent).toContain("t = 2 h");
     expect(item.textContent).toContain("1.989e+30 kg");
+    expect(item.textContent).toContain("estimated contact t = 1.94 h");
+    expect(item.textContent).toContain("straight-line estimate, not exact; detection time is at integrator-step granularity");
+    expect(item.textContent).toContain("spin booked (0, 0, 1.000e40) kg·m²/s");
+    expect(item.textContent).toContain("no rotation dynamics");
+  });
+
+  it("labels an unavailable contact estimate without inventing a timestamp", () => {
+    render(<EventTimeline events={[toEventView({ ...mergerEvent, estimatedContactTimeS: null })]} bodyName={(id) => id} />);
+    expect(screen.getByTestId("event-item").textContent).toContain("estimated contact unavailable");
   });
 });
