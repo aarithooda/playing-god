@@ -13,7 +13,7 @@ from backend.errors import CodedError
 from backend.impact.applier import realise as real_realise
 from backend.impact.config import CollisionConfig
 from backend.models import EventList, StepResponse
-from backend.simulation import G_SI, SimulationFailure, SimulationService
+from backend.simulation import G_SI, LEGACY_MERGE_CONFIG, SimulationFailure, SimulationService
 from tests.helpers import dump, make
 from tests.impact import legacy_scenarios as ls
 from tests.impact.scenarios import G
@@ -141,7 +141,7 @@ def test_a_pair_without_materials_in_outcome_v1_keeps_the_legacy_merger_and_the_
 
 
 def test_mode_legacy_merge_never_emits_collision_events_even_with_materials():
-    svc, *_ = pair_service(3.0, svc=SimulationService())
+    svc, *_ = pair_service(3.0, svc=SimulationService(LEGACY_MERGE_CONFIG))
     out = svc.step(svc.approach_s)
     assert [e.type for e in out.events] == ["merger"] and svc.collision_records() == []
 

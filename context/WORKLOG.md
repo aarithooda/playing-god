@@ -491,3 +491,9 @@
 - REBOUND defect: the 1,000-event sweep produced a particle name that read as None or garbage; reduced to plain REBOUND and fixed by `add_named_particle` (D-044). Initial failures reported honestly: the sweep failure was not reproducible between runs because body ids are random uuids and ids order tie-breaks (seeded to reproduce).
 - Timing: the Stage 1 latency test failed once at N=50 (9 ms vs 15 ms, no code change on that path) and passed on rerun; made more robust (9 repeats, 6 ms slack).
 - CP-4b is a human review point: the evidence is this entry, D-043 and the Stage 4a traceability rows.
+
+## 2026-10-24 — Collision engine, Stage 4b: default mode for new sandboxes (Claude Sonnet 5.5)
+- Branch `collision/stage-4b-default-mode` (from `collision/stage-4a-application`). The owner accepted the Stage 4a implementation evidence (D-045); this is not a scientific sign-off and CP-SCI-1 stays provisional and unsigned.
+- Change: one constant flipped plus explicit `LEGACY_MERGE_CONFIG` for presets and Orbit Lab (`backend/api_universes.py`, `backend/orbit_lab.py`, `backend/simulation.py`, `backend/impact/config.py`). New `tests/impact/test_mode_defaults.py` (11 tests).
+- Initial full run after the flip: 16 failures, all tests that pinned the legacy default or exercised the legacy resolver on a default-constructed service (2 contract tests, 9 golden/equivalence tests, 3 detection tests, 1 engine test, 1 `_resolver` test). Each was fixed by making the legacy intent explicit (`LEGACY_MERGE_CONFIG`) or by updating the default contract; no assertion was weakened. Only 1 of the ~570 pre-existing tests outside `tests/impact/` needed a change, so the old suite now runs on the new path for default universes.
+- Evidence: 1092 backend (1081 + 11 new) / 449 vitest / tsc clean / build OK. Playwright not run (browsers missing locally).

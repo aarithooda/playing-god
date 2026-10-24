@@ -260,7 +260,7 @@ def test_site_and_event_bounds():
 # ---------------------------------------------------------------------------------------------------------------
 def test_config_defaults_match_the_plan():
     cfg = c.CollisionConfig()
-    assert (cfg.mode, cfg.seed) == ("legacy-merge", 12345)
+    assert (cfg.mode, cfg.seed) == ("outcome-v1", 12345)  # the sandbox default since Stage 4b (D-045)
     assert (cfg.max_tracked_fragments_per_event, cfg.max_tracked_fragments_total) == (16, 64)
     assert (cfg.max_debris_parcels_per_event, cfg.max_debris_parcels_total) == (4, 32)
     assert (cfg.max_resolutions_per_step, cfg.max_fragmenting_generation, cfg.reserve_for_user) == (64, 2, 8)
@@ -271,11 +271,11 @@ def test_config_defaults_match_the_plan():
     assert (t.dissipated_energy_floor_rel, t.contact_distance_rel, t.replay_cross_platform_rel) == (1e-9, 1e-9, 1e-12)
 
 
-def test_default_sandbox_mode_is_legacy_merge_until_stage_4b():
-    """D-033: flipped only by Stage 4 step 4b. A change here must come with tests/impact/test_mode_defaults.py."""
-    assert config.DEFAULT_SANDBOX_MODE == "legacy-merge"
-    assert c.DEFAULT_SANDBOX_MODE == "legacy-merge"
-    assert c.CollisionConfig().mode == "legacy-merge"
+def test_default_sandbox_mode_is_outcome_v1_since_stage_4b():
+    """D-033/D-045: flipped by Stage 4 step 4b (CP-4b). The per-role behaviour is pinned in tests/impact/test_mode_defaults.py."""
+    assert config.DEFAULT_SANDBOX_MODE == "outcome-v1"
+    assert c.DEFAULT_SANDBOX_MODE == "outcome-v1"
+    assert c.CollisionConfig().mode == "outcome-v1"
 
 
 def test_config_validation():

@@ -179,9 +179,13 @@ def _digest(sim: rebound.Simulation, meta: dict, history_mode: str, sample_inter
     return hashlib.sha256(json.dumps(doc, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
+# Presets and Orbit Lab runs keep the legacy resolver until Stage 11 whatever the sandbox default is (D-045).
+LEGACY_MERGE_CONFIG = CollisionConfig(mode="legacy-merge")
+
+
 class SimulationService:
     def __init__(self, collision_config: CollisionConfig | None = None) -> None:
-        # The mode is fixed when the engine is created (D-033). The default is today's behaviour, bit for bit.
+        # The mode is fixed when the engine is created (D-033). The default is the sandbox mode (outcome-v1 since 4b, D-045).
         self.collision_config = collision_config or CollisionConfig()
         self._deferred = self.collision_config.mode == "outcome-v1"
         self._lock = threading.RLock()

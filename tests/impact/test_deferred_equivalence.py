@@ -22,7 +22,7 @@ import random
 import pytest
 
 from backend.impact.config import CollisionConfig
-from backend.simulation import SimulationService
+from backend.simulation import LEGACY_MERGE_CONFIG, SimulationService
 from tests.impact import legacy_scenarios as ls
 
 SWEEP_INDICES = [0, 4, 5, 6, 14, 16]
@@ -624,7 +624,7 @@ def deferred() -> SimulationService:
 
 
 def legacy() -> SimulationService:
-    return SimulationService()
+    return SimulationService(LEGACY_MERGE_CONFIG)
 
 
 def spec_for(name):

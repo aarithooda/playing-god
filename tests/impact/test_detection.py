@@ -14,7 +14,7 @@ import backend.simulation as simulation
 from backend.impact.config import CollisionConfig
 from backend.impact.detection import ContactCandidate, ContactRecorder, order_key
 from backend.impact.records import MAX_COLLISION_RECORDS, record_id, trim
-from backend.simulation import SimulationFailure, SimulationService
+from backend.simulation import LEGACY_MERGE_CONFIG, SimulationFailure, SimulationService
 from tests.helpers import dump
 from tests.impact import legacy_scenarios as ls
 
@@ -87,14 +87,9 @@ def test_order_key_is_contact_time_then_sorted_ids():
 # ---------------------------------------------------------------------------------------------------------------
 # Modes
 # ---------------------------------------------------------------------------------------------------------------
-def test_every_universe_defaults_to_legacy_merge_and_records_nothing():
-    """D-033: the mode default is flipped only by Stage 4 step 4b. Until then no universe uses the new path."""
-    from backend import universes
-
-    assert SimulationService().collision_config.mode == "legacy-merge"
-    registry = universes.get_registry()
-    assert registry.get(universes.DEFAULT_UNIVERSE_ID).engine.collision_config.mode == "legacy-merge"
-    svc, steps = loaded("probe_heavy_created_first", factory=SimulationService)
+def test_a_legacy_merge_universe_records_nothing():
+    """The defaults per universe role are pinned in test_mode_defaults.py (D-045); this is the legacy resolver itself."""
+    svc, steps = loaded("probe_heavy_created_first", factory=lambda: SimulationService(LEGACY_MERGE_CONFIG))
     svc.step(steps[0])
     assert len(svc.events()) == 1 and svc.collision_records() == []  # legacy resolver: no records, same events as before
 
@@ -103,14 +98,14 @@ def test_mode_is_fixed_by_the_constructor_and_survives_derivation_defaults():
     svc = deferred()
     assert svc.collision_config.mode == "outcome-v1" and svc._deferred
     svc.load_bodies([ls.body("a", 1.0, 1.0)], history_mode="step")
-    derived = SimulationService.from_snapshot(svc.capture_snapshot(), history_mode="step")
-    assert derived.collision_config.mode == "legacy-merge"  # Orbit Lab runs stay legacy until Stage 11 (D-033)
+    derived = SimulationService.from_snapshot(svc.capture_snapshot(), history_mode="step", collision_config=LEGACY_MERGE_CONFIG)
+    assert derived.collision_config.mode == "legacy-merge"  # Orbit Lab runs stay legacy until Stage 11 (D-033, D-045)
     explicit = SimulationService.from_snapshot(svc.capture_snapshot(), history_mode="step", collision_config=CollisionConfig(mode="outcome-v1"))
     assert explicit.collision_config.mode == "outcome-v1"
 
 
 def test_the_callback_is_registered_per_mode_and_again_after_a_rolled_back_step():
-    legacy = SimulationService()
+    legacy = SimulationService(LEGACY_MERGE_CONFIG)
     assert legacy._collision_callback() == legacy._resolver.resolve
     svc, steps = loaded("probe_heavy_created_first")
     assert svc._collision_callback() == svc._recorder.resolve

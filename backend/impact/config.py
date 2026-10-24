@@ -25,9 +25,10 @@ class CollisionTolerances(Contract):
 
 
 CollisionMode = Literal["legacy-merge", "outcome-v1"]
-# The mode of a newly created sandbox universe. It is "legacy-merge" until Stage 4 step 4b (CP-4b) flips this one
-# constant (D-033); presets and Orbit Lab runs stay "legacy-merge" until Stage 11 regardless of it.
-DEFAULT_SANDBOX_MODE: CollisionMode = "legacy-merge"
+# The mode of a newly created sandbox universe, including the startup `uni-default` (flipped at Stage 4 step 4b, D-045).
+# Presets and Orbit Lab runs stay "legacy-merge" until Stage 11 regardless of it: they construct their engines with LEGACY_MERGE_MODE.
+DEFAULT_SANDBOX_MODE: CollisionMode = "outcome-v1"
+LEGACY_MERGE_MODE: CollisionMode = "legacy-merge"  # backend.simulation.LEGACY_MERGE_CONFIG is the importable config
 DEFAULT_SEED = 12345  # == backend.simulation.RAND_SEED (not imported: backend.impact must not depend on the service)
 MAX_SEED = 2**63 - 1
 
