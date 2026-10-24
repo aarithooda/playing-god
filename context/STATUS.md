@@ -5,7 +5,10 @@
 # Status
 _Concise authoritative snapshot. Update after every meaningful session._
 
-## Collision engine — Stages 9-10 (2026-10-25, Claude Sonnet 5.5) — newest
+## Collision engine — browser verification of Stage 9 (2026-10-25, Claude Sonnet 5.5) — newest
+- **Done** on `collision/browser-verification`: `frontend/e2e/collision-effects.spec.ts` (7 tests) passes in headless Chromium 153 (chrome-headless-shell, revision 1243) with --disable-gpu, i.e. software WebGL, driven by Playwright 1.64.1 against a STUBBED API; not a GPU run, not a headed browser, not Firefox/Safari, not the real backend; two rendering defects fixed (D-057); evidence in `context/evidence/stage9-webgl/`. 502 vitest / tsc clean / build OK; 14 e2e (7 new + 7 existing) pass in headless software-WebGL Chromium; backend unchanged (1373). **Not verified:** GPU, other browsers, caps/time scale/frame pacing with effects, real-backend end to end. **Blocked on the owner:** DQ-3 and a named human reviewer (CP-SCI-1, CP-5).
+
+## Collision engine — Stages 9-10 (2026-10-25, Claude Sonnet 5.5)
 - **Done** on `collision/stage-9-visualization`: visual description backend, UI-0 extension and effects logic (CP-3, D-053..D-056), CollisionState serialisation and isolation tests (DQ-11 (a)). 1373 backend / 502 vitest / tsc clean / build OK. **Not run:** Playwright, any browser or WebGL check of the renderer. CP-SCI-1 and CP-5 pending.
 
 ## Collision engine — Stage 8 (2026-10-25, Claude Sonnet 5.5)
