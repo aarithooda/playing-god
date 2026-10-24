@@ -398,3 +398,8 @@
 ## 2026-10-24 — Simulation Lab / Experiment 01, M12: documentation and PR (Claude Sonnet 5.5)
 - Updated `API_CONTRACT.md` (universes, snapshots, history, presets, catalogue, Orbit Lab, written with each endpoint), `ARCHITECTURE.md` (UI-0, UI-2, universes, module layout, limits), `DECISIONS.md` (D-025 to D-028), `STATUS.md` (verification, scientific values, journey, section 20 checklist), `TASKS.md`, `HANDOFF.md`, `README.md`, `PRESETS.md`, `EXPERIMENT_01_PROTOCOL.md`. Final fresh runs: pytest 492 passed, tsc clean, vitest 372 passed (39 files), build OK. My backend (:8011) and Vite (:5183) were stopped.
 - Observed on origin: a branch `frontend/ui-4-6-completion` appeared during the work; it is not mine and was not touched or used.
+
+## 2026-10-24 — Finalisation sprint (Claude Sonnet 5.5)
+- Corrected `EXPERIMENT_01_SPEC.md` section 4.2 (barycentre drift about 580 km, not 0.6 km; the 9 mm/s figure unchanged) and aligned `EXPERIMENT_01_PROTOCOL.md` and D-028; the existing validation test already pinned the measured value.
+- Added `frontend/e2e/experiment01.e2e.mjs` and `npm run e2e` (dev-only `playwright-core` 1.64.1; the cached Playwright Chromium could not be launched from its virtualised folder, so the script falls back to an installed Chrome or Edge): 11 steps, three consecutive passes. T-010 closed for the Experiment 01 critical path; not wired into CI.
+- Fresh runs: pytest 492, vitest 372, tsc clean, build OK, e2e 11/11. PR #14 CI was green before this sprint; no reviews or comments.

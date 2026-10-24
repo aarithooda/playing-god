@@ -25,6 +25,7 @@ PLAYING GOD is licensed under GPL-3.0-only (see `LICENSE`). This file lists the 
 | @vitejs/plugin-react | 4.7.0 | MIT |
 | TypeScript | 5.9.3 | Apache-2.0 |
 | Three.js | not yet installed | MIT (verify when added) |
+| playwright-core (dev only, `npm run e2e`; no browser is downloaded) | 1.64.1 | Apache-2.0 |
 
 ## Transitive dependencies
 The other Python packages in the `.venv` declare MIT, BSD, Apache-2.0, PSF-2.0 or MPL-2.0 (`certifi`, MPL-2.0, file-level copyleft, no conflict with GPL-3.0). All are generally considered GPL-3.0-compatible. Re-run the check when dependencies change (`importlib.metadata` for Python, `package.json` `license` fields for npm) and update this file; add Three.js and any other new dependency before release.

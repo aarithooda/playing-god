@@ -68,7 +68,7 @@ The system must record the original velocity, modified velocity, units, selected
 
 Resetting the run to its derived initial state makes it controlled again. The audit record of the earlier change is kept.
 
-**Unavoidable documented difference:** changing the Earth–Moon barycentre's velocity also changes the system's total momentum. As a result the barycentre of the modified run moves at about m/(M+m)·Δv relative to the baseline's: about 9 mm/s for ×1.10, about 0.6 km over the observation window. This is a direct physical consequence of the single intended change, not a second change. It is about 10⁻⁷ of the position differences the experiment shows.
+**Unavoidable documented difference:** changing the Earth–Moon barycentre's velocity also changes the system's total momentum. As a result the barycentre of the modified run moves at about m/(M+m)·Δv relative to the baseline's: about 9 mm/s for ×1.10 (measured 9.2 mm/s), which is about 580 km over the 730-day observation window (9.2 mm/s × 6.3 × 10⁷ s). This is a direct physical consequence of the single intended change, not a second change. It is small compared with the position differences the experiment shows (about 10⁻⁵ to 10⁻⁶ of separations of 10¹⁰–10¹¹ m) but it is not negligible in absolute terms, and it is part of what the comparison measures.
 
 ### 4.3 Independent simulation state
 The baseline and modified run must have separate backend-owned mutable simulation state.
@@ -310,3 +310,4 @@ Draft 0.2 wording that was replaced or extended:
 Added in Draft 0.3: the labelled paragraphs in §4.1, §4.2, §5, §6, §8, §9 and §10, Appendix A, and the resolved §13.
 
 - **Draft 0.3, amendment 1 (2026-10-24):** added the measured Moon-omission consequences (§5, Appendix A) and the evidence-status note on Appendix A. No requirement changed.
+- **Draft 0.3, correction 2 (2026-10-24, by the implementer, to be confirmed by the owner):** §4.2 barycentre drift corrected from "about 0.6 km" and "about 10⁻⁷" to about 580 km and about 10⁻⁵ to 10⁻⁶ (a unit slip; the 9 mm/s figure and the mechanism were right). Protected by `tests/validation/test_experiment01.py::test_exp01_modified_barycentre_motion_is_the_documented_consequence`.

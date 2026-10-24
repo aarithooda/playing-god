@@ -57,7 +57,7 @@ Threshold 1e-10 x a (about 12-19 m): the margin is about 400x to 1000x. A delibe
 | Repeatability | same digests, bit-identical trajectories in one process | identical |
 | Modified-run system barycentre speed (x1.10) | about m/(M+m) x dv | 9.21 mm/s |
 
-**Specification discrepancy (reported, not edited):** spec section 4.2 says the barycentre drift is "about 0.6 km over the observation window" and "about 10^-7 of the position differences". 9.2 mm/s over 730 d is about **580 km**, so that sentence has a 1000x unit slip (about 6e-6 to 6e-5 of the 10^10 to 10^11 m separations). The mechanism and the 9 mm/s figure are right; the test asserts the measured ~580 km. The owner may wish to correct the spec text.
+**Specification correction (2026-10-24):** spec section 4.2 originally said the barycentre drift is "about 0.6 km over the observation window" and "about 10^-7 of the position differences". 9.2 mm/s over 730 d is about **580 km** (about 6e-6 to 6e-5 of the 10^10 to 10^11 m separations), so that sentence had a 1000x unit slip; the 9 mm/s figure and the mechanism were right. The spec text was corrected in the finalisation sprint (Draft 0.3, correction 2, revision record) and the test asserts the measured ~580 km. The owner confirms the correction at review.
 
 ## Not claimed
 Any real-world prediction; bit-identical results across processes, machines, OS or REBOUND versions; Moon dynamics.

@@ -53,7 +53,7 @@ Frontend (renderer-independent; the modules under `sim/history/` and `HistoryTim
 | three 0.186, @react-three/fiber 8, @react-three/drei 9.122 (Stars, OrbitControls, Outlines, Grid, Html) | used |
 
 ## Testing and CI [Implemented]
-CI (`.github/workflows/ci.yml`) runs backend `pytest` and frontend `tsc`, `vitest` and `vite build` on every push to `main` and every PR. There is **no automated browser end-to-end test** (T-010); browser behaviour is verified manually and recorded in `STATUS.md`. The 3D components (`CelestialBody`, `CameraRig`, overlays) have no unit tests because jsdom has no WebGL; their pure logic is extracted into `sim/*` and tested.
+CI (`.github/workflows/ci.yml`) runs backend `pytest` and frontend `tsc`, `vitest` and `vite build` on every push to `main` and every PR. The critical Experiment 01 browser journey is automated by `frontend/e2e/experiment01.e2e.mjs` (`cd frontend && npm run e2e`; playwright-core drives a local Chrome/Chromium against its own backend and Vite on ports 8011/5183; it is opt-in and not in CI); the broader manual journey is recorded in `STATUS.md`. The 3D components (`CelestialBody`, `CameraRig`, overlays) have no unit tests because jsdom has no WebGL; their pure logic is extracted into `sim/*` and tested.
 
 ## Known limitations
 - A single native `integrate` call that never reaches REBOUND's heartbeat cannot be interrupted in-process (would need a worker process).
