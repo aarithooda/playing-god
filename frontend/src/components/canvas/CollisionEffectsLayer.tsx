@@ -33,8 +33,17 @@ export const CollisionEffectsLayer: React.FC<CollisionEffectsLayerProps> = ({ ef
                 <meshBasicMaterial color="#fff6d8" transparent opacity={e.flash.intensity * e.flash.remaining01} depthWrite={false} />
               </mesh>
             )}
-            <Html center distanceFactor={undefined} style={{ pointerEvents: 'none', fontSize: '10px', color: '#c8d1dc', whiteSpace: 'nowrap', transform: 'translateY(-18px)' }}>
-              <span data-testid="collision-effect-label">{e.label}</span>
+            <Html center distanceFactor={undefined} pointerEvents="none" style={{ pointerEvents: 'none', fontSize: '10px', color: '#c8d1dc', whiteSpace: 'nowrap', transform: 'translateY(-18px)' }}>
+              {/* data-* values mirror the effect input so a browser test can read what was drawn (they change nothing) */}
+              <span
+                data-testid="collision-effect-label"
+                data-event-id={e.eventId}
+                data-flash-remaining={e.flash ? e.flash.remaining01.toFixed(3) : '0'}
+                data-particles={e.particles.length}
+                data-cloud-radius-m={e.cloud ? e.cloud.radiusM.toFixed(0) : '0'}
+              >
+                {e.label}
+              </span>
             </Html>
           </group>
           <DebrisParticles points={e.particles} transform={transform} colorHex={e.colorHex} />

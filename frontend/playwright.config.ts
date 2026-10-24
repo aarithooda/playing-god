@@ -11,7 +11,11 @@ export default defineConfig({
     ...devices["Desktop Chrome"],
     baseURL: "http://127.0.0.1:5178",
     trace: "retain-on-failure",
-    launchOptions: { args: ["--disable-gpu", "--disable-dev-shm-usage"] },
+    // PW_CHROMIUM_PATH: use an already installed Chromium when the one this Playwright version expects is not installed.
+    launchOptions: {
+      args: ["--disable-gpu", "--disable-dev-shm-usage"],
+      ...(process.env.PW_CHROMIUM_PATH ? { executablePath: process.env.PW_CHROMIUM_PATH } : {}),
+    },
   },
   webServer: {
     command: "npm run dev -- --host 127.0.0.1 --port 5178 --strictPort",
