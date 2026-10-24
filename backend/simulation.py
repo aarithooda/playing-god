@@ -981,6 +981,15 @@ class SimulationService:
             raise NotFoundError(f"unknown body id: {body_id}")
         return body.radiusM, state.simulationTimeS, tuple(self._sites.get(body_id, ()))
 
+    def collision_state(self):
+        """The versioned `CollisionState` of this universe (D-054): a read-only value with a canonical JSON form. Nothing is written
+        anywhere and no loader exists: OD-5 (no persistence across restarts) stands."""
+        from backend.impact.collision_state import build_collision_state
+
+        with self._guard():
+            return build_collision_state(self.collision_config, self._event_seq, self._materials, self._rotations, self._products, self._sites,
+                                         self._collision_records, self._escaped, self._resolver.spin, self._resolver.heat_J)
+
     def collision_records(self) -> list:
         """Committed collision records, oldest first (mode "outcome-v1" only; empty in "legacy-merge")."""
         return list(self._collision_records)
