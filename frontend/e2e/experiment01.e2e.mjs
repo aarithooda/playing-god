@@ -41,6 +41,7 @@ async function until(fn, what, timeoutMs = 30000) {
       if (v) return v;
       last = v;
     } catch (e) {
+      if (e && e.fatal) throw e;
       last = e;
     }
     if (Date.now() > end) throw new Error(`timed out waiting for ${what} (last: ${last})`);
@@ -64,6 +65,8 @@ function spawnServer(cmd, args, opts) {
   p.stdout.on("data", (d) => (out += d));
   p.stderr.on("data", (d) => (out += d));
   p.output = () => out;
+  p.on("error", (e) => (p.failure = e)); // for example the interpreter does not exist: reported by the readiness waits below
+  p.on("exit", (code) => (p.exited = code));
   procs.push(p);
   return p;
 }
@@ -150,8 +153,14 @@ try {
     cwd: frontend,
     env: { ...process.env, BACKEND_URL: API },
   });
-  await until(async () => (await fetch(`${API}/healthz`)).ok, "backend health");
-  await until(async () => (await fetch(`${APP}/healthz`)).ok, "vite proxy to the backend");
+  const alive = () => {
+    for (const p of procs) {
+      if (p.failure) throw Object.assign(new Error(`a server could not be started: ${p.failure.message}`), { fatal: true });
+      if (p.exited !== undefined) throw Object.assign(new Error(`a server exited early (code ${p.exited}): ${p.output().slice(-800)}`), { fatal: true });
+    }
+  };
+  await until(async () => (alive(), (await fetch(`${API}/healthz`)).ok), "backend health", 60000);
+  await until(async () => (alive(), (await fetch(`${APP}/healthz`)).ok), "vite proxy to the backend", 60000);
 
   browser = await launchBrowser();
   page = await browser.newPage({ viewport: { width: 1500, height: 900 } });
