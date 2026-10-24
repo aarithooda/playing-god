@@ -27,6 +27,7 @@ from typing import Callable, Optional
 from backend.collisions import add_named_particle
 from backend.errors import CodedError
 from backend.impact import conservation as cons
+from backend.impact import damage
 from backend.impact import fragments as frag
 from backend.impact import rotation as rot
 from backend.impact.contracts import (BodyImpactState, BodyPost, CollisionInput, CollisionResult, DebrisDescriptor, Fidelity, MassLedger,
@@ -357,9 +358,16 @@ def realise(data: CollisionInput, spec: OutcomeSpec, g: float, parcel_allowed: b
     ledger = MassLedger(consumed_bodies_kg=m_tot, remnants_kg=math.fsum(p.mass_kg for p in (*transformed, *created) if p.representation == "body"),
                         fragments_kg=math.fsum(p.mass_kg for p in created if p.representation == "fragment"),
                         parcels_kg=math.fsum(p.mass_kg for p in parcels), escaped_kg=0.0, returned_to_remnant_kg=returned)
+    surviving = {p.id for p in (*transformed, *created)}
+    sites, site_warnings = damage.build_sites(data, outcome, tgt.material_profile, prj.material_profile,
+                                              tgt.id in surviving, prj.id in surviving)
+    warnings.extend(site_warnings)
+    if sites:
+        fidelity["siteCraterSize"] = Fidelity.UNSUPPORTED
+        fidelity["sitePropagation"] = Fidelity.APPROXIMATION if any(s.propagation.wave_speed_m_per_s for s in sites) else Fidelity.UNSUPPORTED
     result = CollisionResult(
         event_id=data.event_id, outcome=outcome, removed_body_ids=tuple(removed), transformed=tuple(transformed), created=tuple(created),
-        debris_parcels=tuple(parcels), impact_sites=(), mass_ledger=ledger, conservation=report, warnings=tuple(dict.fromkeys(warnings)),
+        debris_parcels=tuple(parcels), impact_sites=sites, mass_ledger=ledger, conservation=report, warnings=tuple(dict.fromkeys(warnings)),
         fidelity=fidelity, fields_extra={"placementShiftJ": shift, "momentumClosureRecoilMPerS": recoil_report})
     return CollisionResult.from_dict({**result.to_dict(), "resultDigest": result.compute_digest()})
 
@@ -388,6 +396,13 @@ def validate_result(result: CollisionResult, live_ids: set[str], data: Collision
             d = _norm(_sub(products[i][1], products[j][1]))
             if d < (products[i][2] + products[j][2]) * (1.0 - 1.0e-12):
                 raise ResultInvalid(f"products {products[i][0]} and {products[j][0]} overlap ({d:.6g} m < {products[i][2] + products[j][2]:.6g} m)")
+    site_ids = [s.site_id for s in result.impact_sites]
+    if len(set(site_ids)) != len(site_ids):
+        raise ResultInvalid("duplicate impact site ids")
+    survivors = {p.id for p in (*result.transformed, *result.created)}
+    for s in result.impact_sites:
+        if s.body_id not in survivors:
+            raise ResultInvalid(f"impact site {s.site_id} is on {s.body_id}, which does not survive the event")
     if abs(result.mass_ledger.consumed_bodies_kg - data.impact.total_mass_kg) > 1e-12 * data.impact.total_mass_kg:
         raise ResultInvalid("the mass ledger does not match the impact")
 
@@ -410,6 +425,7 @@ class ApplyState:
     ledger: object  # heat_J and spin (booked-spin ledger)
     make_meta: Callable[[object, str, str], object]  # (parent display metadata, new_id, role) -> display metadata
     bump_segment: Callable[[], None]
+    sites: Optional[dict] = None  # body id -> tuple of ImpactSite (body-local); None = the caller keeps no site table
 
 
 def apply_result(result: CollisionResult, state: ApplyState) -> None:
@@ -423,6 +439,8 @@ def apply_result(result: CollisionResult, state: ApplyState) -> None:
     consumed_spin = [(0.0, 0.0, 0.0)]
     for pid in result.removed_body_ids:
         state.materials.pop(pid, None)
+        if state.sites is not None:
+            state.sites.pop(pid, None)  # a retired body takes its surface records with it
         old = state.rotations.pop(pid, None)
         if old is not None:
             consumed_spin.append(rot.spin_angular_momentum(old))
@@ -448,6 +466,13 @@ def apply_result(result: CollisionResult, state: ApplyState) -> None:
                            z=parcel.position_m.z, vx=parcel.velocity_m_per_s.x, vy=parcel.velocity_m_per_s.y, vz=parcel.velocity_m_per_s.z)
         state.meta[parcel.id] = state.make_meta(parent_meta, parcel.id, "parcel")
         state.products[parcel.id] = ("debris-parcel", parcel.origin_event_id, parcel.debris)
+    if state.sites is not None:
+        for site in result.impact_sites:
+            kept = list(state.sites.get(site.body_id, ()))
+            kept.append(site)
+            if len(kept) > damage.MAX_SITES_PER_BODY:
+                kept = damage.merge_sites(kept, f"agg-{site.event_id.split('-', 1)[1]}-{site.body_id}")
+            state.sites[site.body_id] = tuple(kept)
     # energy and angular momentum that no state represents go to the existing ledgers (nothing vanishes)
     c = result.conservation
     state.ledger.heat_J += max(c.energy.dissipated_j, 0.0)

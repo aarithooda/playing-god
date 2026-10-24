@@ -55,6 +55,12 @@ ITEMS: dict[str, ProvisionalItem] = {i.id: i for i in (
                     "engineering", "no source; the tracked/untracked split is a budget policy, not a physical law"),
     ProvisionalItem("FRAG-parcel-dmin", "untracked population diameter range [1e-3, 1] x its upper cut", "engineering choice",
                     "engineering", "no source; only a numerical truncation of the statistical descriptor"),
+    ProvisionalItem("PROP-geodesic-front", "front arrival t = t_site + R D / c; relative spreading factor sqrt(sin_reg(D_ref)/sin_reg(D))", "plan 3.8 / 4.8 (Schultz & Gault 1975, Meschede et al. 2011: cited, not read)",
+                    "engineering", "reduced-order approximation, never a resolved shock; no profile has a verified wave speed, so every shipped profile is static (D-050)"),
+    ProvisionalItem("DMG-falloff-exponent", "local damage proxy (r_inner/r)^1 outside the footprint", "engineering placeholder", "engineering",
+                    "qualitative only; no source; carries no mass, momentum or force"),
+    ProvisionalItem("PROP-regularisation", "sin_reg(D) = sqrt(sin^2 D + 0.05^2)", "engineering choice (plan 4.8: 'regularised near 0 and pi')", "engineering",
+                    "the 0.05 rad width is arbitrary; only the labelled geometric factor depends on it"),
     ProvisionalItem("ESC-physical-radii", "merge criterion v_i <= sqrt(2 G M_tot / (R_t + R_p))", "Genda et al. 2012 eq. 8 / CS22 (physical radii)", "engineering",
                     "LS12 uses R_C1 in its scaling; both speeds are recorded"),
 )}

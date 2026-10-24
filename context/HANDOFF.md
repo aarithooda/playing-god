@@ -4,7 +4,10 @@
 3. Verified locally: frontend typecheck; Vitest 206/206 across 23 files; build (existing >500 kB warning); Playwright 5/5; diff check. The profile measured 1/16/64 bodies at median 33.4/50.0/99.9 ms per animation frame in Windows headless Chrome with GPU disabled by test config; treat as software frame pacing, not hardware GPU timing. E2E stubs backend responses. Do not merge into `main` without owner approval; real-hardware profiling and UI-0 integration remain follow-ups.
 # Handoff (latest — rewrite at end of each session)
 
-## Collision engine, Stage 5 done (2026-10-24, Claude Sonnet 5.5) — latest
+## Collision engine, Stage 6 done (2026-10-24, Claude Sonnet 5.5) — latest
+000. Branch `collision/stage-6-damage` (stacked on stage-5). Impact sites exist (body-local, bounded, in all state paths) and `GET /api/v1/universes/{uid}/bodies/{id}/surface` serves them. **Every shipped profile is the STATIC fallback: no wave speed has a source** (D-050). The propagation model is implemented and tested with a clearly synthetic profile. Crater size/ejecta extent are unmodelled (cratering Unsupported). **Next gates:** (a) to get a propagating front on a real body, someone must supply a verifiable, applicable wave speed per profile with provenance (basis measured/literature, value, units, assumption); (b) Stage 7 (lifecycle: classification, reaccretion, secondary impacts) needs DQ-10 (cascade control) and builds on the Stage 5 fragments; (c) CP-SCI-1 still unsigned.
+
+## Collision engine, Stage 5 done (2026-10-24, Claude Sonnet 5.5)
 00. Branch `collision/stage-5-fragments` (stacked on stage-4b). DQ-4/5/6 decided (D-046..D-048); implementation choices D-049. Disruption/erosion/accretion now produce a remnant, tracked fragments (`frag-<seq>-<k>`) and up to 4 parcels; budgets never drop mass. **Open scientific dependencies (block calling any of this validated):** CP-SCI-1 unsigned; ejection multiplier 1.05-1.10 and the 50 % tracked share are provisional; LS12 beta unverified; cratering Unsupported until an HH11 source is documented. **Next:** Stage 6 (damage/propagation) needs wave-speed sources per profile (missing wave speeds -> static site); Stage 7 (lifecycle, secondary impacts) needs DQ-10 (cascade control). Hit-and-run debris is still the single-parcel placeholder.
 
 ## Collision engine, Stage 4b done (2026-10-24, Claude Sonnet 5.5)
