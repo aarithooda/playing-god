@@ -130,6 +130,13 @@ describe("physical radius vs displayed size", () => {
     expect((screen.getByLabelText("Physical radius (m)") as HTMLInputElement).value).toBe("6.371e6"); // never the display size
   });
 
+  it("the radius readout reports the radius actually drawn when crowding reduced it", () => {
+    const { rerender } = render(<BodyInspector body={toBodyView(earth)} onSave={ok} onDelete={ok} onFocus={() => {}} />);
+    expect(screen.getByTestId("inspect-visual-radius").textContent).toMatch(/Rendered visual radius: 2\.\d\d scene units \(display only\)\./);
+    rerender(<BodyInspector body={toBodyView(earth)} onSave={ok} onDelete={ok} onFocus={() => {}} drawnRadiusUnits={0.21} />);
+    expect(screen.getByTestId("inspect-visual-radius").textContent).toMatch(/0\.21 scene units .*reduced from 2\.\d\d so nearby bodies do not overlap/);
+  });
+
   it("changing the type sends only the kind", async () => {
     const onSave = vi.fn(ok);
     render(<BodyInspector body={toBodyView(earth)} onSave={onSave} onDelete={ok} onFocus={() => {}} />);

@@ -512,6 +512,7 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
         <BodyInspector
           body={viewingHistory ? null : selectedBody}
           focused={selectedBody !== null && selectedBody.id === focusedBodyId}
+          drawnRadiusUnits={sceneBodies.find((b) => b.id === selectedBodyId)?.radius}
           editBlockedReason={universe?.role === "baseline" ? BASELINE_LOCK : simulation.playing ? "Pause to edit: changes are applied between steps." : undefined}
           onSave={updateWithFeedback}
           onDelete={deleteWithFeedback}

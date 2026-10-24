@@ -25,6 +25,8 @@ interface BodyInspectorProps {
   focused?: boolean;
   /** When set, editing is blocked and this is why (for example "Pause to edit."). */
   editBlockedReason?: string;
+  /** Radius the scene actually draws for this body (display only), when it differs from the nominal display radius. */
+  drawnRadiusUnits?: number;
 }
 
 /**
@@ -35,7 +37,7 @@ interface BodyInspectorProps {
  * confirmed (live) backend value. Saving sends a PATCH and clears the draft; the shown values then come
  * from the refreshed authoritative state, never from the draft.
  */
-export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDelete, onFocus, onClose, focused = false, editBlockedReason }) => {
+export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDelete, onFocus, onClose, focused = false, editBlockedReason, drawnRadiusUnits }) => {
   const panelRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState<Partial<FormValues>>({});
   const [kindDraft, setKindDraft] = useState<BodyKind | undefined>(undefined);
@@ -149,6 +151,7 @@ export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDe
           idPrefix="inspect"
           kind={kindDraft ?? body.kind}
           onKindChange={setKindDraft}
+          drawnRadiusUnits={drawnRadiusUnits}
         />
         {editBlockedReason && (
           <p role="status" style={{ fontSize: '11px', color: theme.textMuted, margin: '0 0 8px 0' }}>{editBlockedReason}</p>
