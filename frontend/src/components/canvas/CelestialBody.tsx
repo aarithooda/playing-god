@@ -1,8 +1,12 @@
 import React, { useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
-import { Sphere } from '@react-three/drei';
+import { useFrame, useThree } from '@react-three/fiber';
+import { Outlines, Sphere } from '@react-three/drei';
 import { Group, PerspectiveCamera } from 'three';
 import { bodyDisplayScale } from '../../sim/bodyVisibility';
+
+/** Selected-body silhouette: constant on-screen width (CSS px), whatever the body's size or the zoom. */
+export const SELECTION_OUTLINE_PX = 1.5;
+export const SELECTION_OUTLINE_COLOR = '#f2f7ff';
 
 interface CelestialBodyProps {
   position: [number, number, number];
@@ -24,6 +28,8 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
   onDoubleClick,
 }) => {
   const body = useRef<Group>(null);
+  // drei's Outlines measures thickness in drawing-buffer pixels, so convert from CSS pixels.
+  const dpr = useThree((s) => s.viewport.dpr);
 
   // Display-only: lift the body to a minimum on-screen size when zoomed far out (sim/bodyVisibility.ts).
   // The scaled mesh is also what pointer picking ray-casts, so clicks match what is drawn.
@@ -48,11 +54,11 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
     >
       <group ref={body}>
         <Sphere args={[radius, 32, 32]}>
-          <meshStandardMaterial
-            color={color}
-            emissive={isSelected ? color : 'black'}
-            emissiveIntensity={isSelected ? 0.5 : 0}
-          />
+          <meshStandardMaterial color={color} />
+          {/* Mounted only while selected, so deselecting (or selecting another body) leaves nothing behind.
+              The outline is a back-face shell inside the body's scaled group: it follows the enlarged
+              minimum on-screen size, is occluded by nearer bodies, and never changes the body itself. */}
+          {isSelected && <Outlines thickness={SELECTION_OUTLINE_PX * dpr} color={SELECTION_OUTLINE_COLOR} />}
         </Sphere>
       </group>
     </group>
