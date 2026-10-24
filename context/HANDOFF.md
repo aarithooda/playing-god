@@ -1,4 +1,10 @@
 ## UI-4 / UI-6 handoff (2026-10-24, Codex) — latest
+
+## Integration branch `integration/collision-engine` (2026-10-25, Claude Sonnet 5.5) - latest
+1. Local branch only (nothing pushed/merged): `main` `7148556` + `feature/moons-system` + `collision/stage-11-12` (the entire linear collision stack), merged without conflicts. Read `context/INTEGRATION_BRANCH.md` first: inventory, install/run, how to reproduce a collision, exact test commands and results, limitations, test plan.
+2. New: `npm run e2e:collision` (real backend, real UI); fix for duplicate keys in `CollisionInspector`. Playwright needs `PW_CHROMIUM_PATH` here (cached Chromium revision mismatch).
+3. Not verified: GPU/headed rendering, effect-heavy frame pacing, Experiment 01 journey on this branch, cross-platform replay. Governance wording unchanged (D-059: owner-accepted, not independently validated).
+
 1. All UI-4/UI-6 work is on the single branch `frontend/ui-4-6`, based on agreed `main` `d5220f9`. UI-2 history work remains removed after reassignment to teammate 1.
 2. UI-4 now offers a merger-event action to highlight/select the surviving result body when that body is still present in current backend state. It uses existing selection behavior and opens Body Inspector. UI-6 now has keyboard/narrow viewport and disconnection-recovery browser tests, plus an attached rendering frame-pacing profile. No renderer, UI-0 registry/material, view-model, API, or backend files changed.
 3. Verified locally: frontend typecheck; Vitest 206/206 across 23 files; build (existing >500 kB warning); Playwright 5/5; diff check. The profile measured 1/16/64 bodies at median 33.4/50.0/99.9 ms per animation frame in Windows headless Chrome with GPU disabled by test config; treat as software frame pacing, not hardware GPU timing. E2E stubs backend responses. Do not merge into `main` without owner approval; real-hardware profiling and UI-0 integration remain follow-ups.

@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "e2e": "node e2e/experiment01.e2e.mjs",
+    "e2e:collision": "node e2e/collision.real-backend.e2e.mjs",
     "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test"
   },

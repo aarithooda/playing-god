@@ -25,8 +25,8 @@ function List({ title, items }: { title: string; items: string[] }) {
     <div style={{ marginTop: '8px' }}>
       <strong style={{ fontSize: '11px' }}>{title}</strong>
       <ul style={{ margin: '2px 0 0 0', paddingLeft: '16px' }}>
-        {items.map((t) => (
-          <li key={t} style={small}>
+        {items.map((t, i) => (
+          <li key={`${i}:${t}`} style={small}>
             {t}
           </li>
         ))}

@@ -176,6 +176,15 @@ describe("the inspector component", () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
+  it("lists several identical products without duplicate React keys (the real backend emits equal debris parcels)", () => {
+    const parcel = { bodyId: "debris-1-0", representation: "debris-parcel" as const, massKgAtEvent: 4.8e20, exists: true, fragmentClass: "escaping" as const, massKgNow: 4.8e20 };
+    const twins = { ...detail, products: [parcel, { ...parcel, bodyId: "debris-1-1" }] };
+    const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    render(<CollisionInspector {...base} detail={twins} bodyName={() => "Debris of Target"} />);
+    expect(err.mock.calls.filter((c) => String(c[0]).includes("same key"))).toEqual([]);
+    err.mockRestore();
+  });
+
   it("shows loading and error states", () => {
     const { rerender } = render(<CollisionInspector {...base} detail={null} status="loading" />);
     expect(screen.getByText(/Loading the record/)).toBeTruthy();

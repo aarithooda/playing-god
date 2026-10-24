@@ -188,10 +188,10 @@ Universe rules that apply to experiment runs (409 `baseline_protected`): the bas
 - State is in-memory, single process, lost on restart; no authentication; at most 200 bodies.
 
 ## Assumptions / known issues
-- **Vite proxy mismatch:** `frontend/vite.config.ts` strips `/api` while the backend serves `/api/v1/...`; owned by the frontend session (T-008).
+- Vite proxy: `frontend/vite.config.ts` forwards `/api` and `/healthz` unchanged (no prefix rewrite; verified on `integration/collision-engine` by the real-backend journey). `BACKEND_URL` overrides the target.
 - Bounds on mass/radius/position are generous sanity limits, not physical claims.
 
-## Planned: collision engine (NOT implemented; no endpoint or field below exists yet)
+## Collision engine: original plan (STALE HEADING: Stages 0-10 are implemented; later sections of this file describe what exists; this list was written before Stage 0)
 Source: `COLLISION_ENGINE_PLAN.md` sections 4 and 6. Everything is additive; existing shapes and `merger` events stay valid.
 - Contract classes (internal, Stage 0): `backend/impact/contracts.py`. JSON is camelCase with SI-unit suffixes, vectors as `{x, y, z}`, `schemaVersion: 1`; readers reject unknown keys.
 - Planned body fields (optional): `material`, `spinRadPerS`, `orientation`, `representation`, `originEventId`, `fragmentClass`, `debris` (Stage 2/5). A body without `material` resolves with exactly today's merger (D-033, DQ-2).
