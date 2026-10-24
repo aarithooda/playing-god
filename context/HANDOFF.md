@@ -1,5 +1,12 @@
 # Handoff (latest — rewrite at end of each session)
 
+## Final handover (2026-10-24, Claude Sonnet 5.5) — latest
+1. Read the FINAL HANDOVER section at the top of `STATUS.md`: it has the merged-PR table with SHAs, the teammate-work dispositions, the deleted-branch SHAs, the verification evidence and the Experiment 01 readiness assessment. `ARCHITECTURE.md` is current.
+2. Repository state: only `main` remains (local = `origin/main`), plus the tag `archive/frontend-close-body-inspector` (the one unmerged, superseded commit). Verify with `git fetch --all --prune && git branch -a && git tag`.
+3. **Running backend caveat:** the owner's backend on :8000 (pid 18780) was started from `25abca3`: it has D-011/D-012 but not D-021, and it holds a real universe (one merged body, t = 2.574e9 s, one merger) that cannot be restored through the API after a restart. It was not restarted. To use D-021 behaviour, restart it from current `main` (`.venv/Scripts/python.exe -m uvicorn backend.main:app --port 8000`) and accept or re-create the universe (body parameters are in `STATUS.md`).
+4. Before Experiment 01: the owner must supply its protocol (it is not in the repo); checkpoints (save/restore) and approximate tidal deformation from the brief are not implemented; browser behaviour has no automated E2E (T-010).
+5. Verification recipe for WebGL geometry without trusting screenshots: DOM rects (`getBoundingClientRect`) plus a framebuffer probe (in a double `requestAnimationFrame`, `readPixels` from the canvas context and cluster bright blobs); the pane must be visible (`show_pane preview`) or rAF does not fire. Real-click mapping: probe it with a `pointerdown` listener (CSS px = frame px x innerWidth/800).
+
 ## M5 final verification and documentation (2026-10-24, Claude Sonnet 5.5) — latest
 1. State of `main` (`f3b0057`) and what is verified: top of `STATUS.md`. System layout and interaction contract: `ARCHITECTURE.md` (rewritten). User-facing usage: `README.md`.
 2. This PR adds one fix (`sim/framing.ts`: Fit view keeps the fitted scene inside the free area on narrow windows) plus docs. Commands: `python -m pytest`; `cd frontend && npm run typecheck && npm test && npm run build`; backend `.venv/Scripts/python.exe -m uvicorn backend.main:app --port 8000`; frontend `cd frontend && npm run dev`.

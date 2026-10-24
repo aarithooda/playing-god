@@ -2,7 +2,7 @@
 Status: todo / in progress / blocked / done. Keep tasks small and independently testable.
 
 ## NEXT ACTION
-UI integration series (owner-approved plan) M0-M4 merged; **M5 final verification and documentation** on `integration/m5-final-docs` (see `STATUS.md`, awaiting review). After M5 the planned UI work is complete; open items: T-010 browser E2E, the history-system decision, Experiment 01 (not started).
+UI integration series M0-M5 **complete and merged** (PRs #4, #7, #8, #9, #11, #12; stall fix #10); repository handed over, see the FINAL HANDOVER section at the top of `STATUS.md`. Next: the owner defines and starts Experiment 01 (not defined in the repo, not started). Open items: T-010 browser E2E, the history-system decision, checkpoints/tidal (brief features not implemented).
 
 B1 diagnostics merged (2026-10-24, T-011; top of `STATUS.md`). Next product step: T-012, the diagnostics panel (frontend owner). Older text follows.
 
@@ -57,7 +57,7 @@ Review/merge `feature/production-rebound-simulation` (production engine done: P-
 
 | T-013 | Simulation stall resilience: lock-free committed reads, bounded mutation waits (503 busy), API client timeouts, recoverable load error, resync after unknown-outcome step | high | implemented 2026-10-24 on `fix/simulation-stall-resilience`, PR #10, D-021 accepted by the owner (no independent review) | AI session; owner decides merge | T-007, D-011, D-012 | tests in `tests/test_stall_resilience.py`, `api/client.test.ts`, hook/App tests; limitation: a native integrate that never reaches the heartbeat is not interruptible in-process |
 
-| T-014 | UI integration series: inspector/focus/placement (M1), sidebars/layout (M2), outline and focus follow (M3), axes and grid (M4), final verification and docs (M5) | high | M1-M4 merged 2026-10-24 (PRs #7, #8, #9, #11); M5 PR open | AI session; owner decided merges (D-018, D-019, D-020, D-022, D-023: no independent review) | T-012 | acceptance checklist in `STATUS.md` |
+| T-014 | UI integration series: inspector/focus/placement (M1), sidebars/layout (M2), outline and focus follow (M3), axes and grid (M4), final verification and docs (M5) | high | M1-M5 merged 2026-10-24 (PRs #7, #8, #9, #11, #12) | AI session; owner decided merges (D-018, D-019, D-020, D-022, D-023: no independent review) | T-012 | acceptance checklist in `STATUS.md` |
 
 ### Remote branch inventory — 2026-10-23
 Fetched and created local tracking refs for `feature/m0-rebound-physics-api` (Aarit) and `codex/3drender` (Nikhil). Their work remains unmerged; branch-local test/status claims are not main verification. See HANDOFF/STATUS for changed files and current tips. M0 task statuses on main remain unchanged pending review/integration.

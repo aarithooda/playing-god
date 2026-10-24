@@ -47,4 +47,5 @@ CI (`.github/workflows/ci.yml`) runs backend `pytest` and frontend `tsc`, `vites
 - A single native `integrate` call that never reaches REBOUND's heartbeat cannot be interrupted in-process (would need a worker process).
 - The history panel lists backend merger events only; creation, edits and deletes are not logged (separate decision pending).
 - Sidebar-aware framing happens when the scene is (re)fitted; opening a sidebar afterwards does not re-frame (use Fit view).
+- Brief features not implemented: checkpoint save/restore (only studied in M0.6) and approximate tidal deformation; the diagnostics panel has no baseline/drift indicators.
 - Physics limitations and approximations: `API_CONTRACT.md` ("Physics limitations") and `PHYSICS_SPIKE.md`.
