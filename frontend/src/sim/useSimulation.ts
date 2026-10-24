@@ -3,7 +3,10 @@
 // integrator: every position shown comes from a state/step response.
 //
 // Concurrency: every request that touches the simulation goes through one FIFO queue, so at most one
-// is in flight and responses are applied in request order. Play schedules the next step only after
+// is in flight and responses are applied in request order. The API client bounds every request with a
+// timeout, so a request the backend never answers fails instead of blocking the queue (and with it every
+// later load, retry and action) forever. Connection health (/healthz) and simulation loading are separate
+// states: the backend can be reachable while the simulation is busy or unresponsive. Play schedules the next step only after
 // the previous one resolved (never an unbounded queue); Pause stops scheduling and lets any
 // in-flight step finish and apply.
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -187,12 +190,24 @@ export function useSimulation(client: ApiClient, options: SimulationOptions = {}
       return "ok";
     } catch (e) {
       noteFailure(e);
+      if (e instanceof ApiError && (e.kind === "timeout" || e.kind === "network" || e.kind === "invalid-response")) {
+        // The outcome of the step is unknown (it may or may not have run). Never guess: re-read the committed
+        // state. The failed response itself is never applied, so the displayed time cannot jump ahead on a failure.
+        if (mounted.current) {
+          setActionError(`${e.message}. The step may not have completed; showing the last state the backend reported.`);
+        }
+        try {
+          await enqueue(() => refreshState());
+        } catch {
+          /* the last known state stays on screen and the error above stays visible */
+        }
+      }
       return "failed";
     } finally {
       stepPending.current = false;
       if (mounted.current) setStepping(false);
     }
-  }, [client, enqueue, applySim, noteFailure, noteSuccess]);
+  }, [client, enqueue, applySim, noteFailure, noteSuccess, refreshState]);
 
   // Play loop: strictly sequential steps separated by tickMs. Cleanup on pause/unmount.
   useEffect(() => {

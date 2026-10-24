@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { earth, sun } from "./test/fixtures";
 
-const h = vi.hoisted(() => ({ empty: false, canvasProps: { current: null as any }, calls: [] as string[] }));
+const h = vi.hoisted(() => ({ stateMode: "normal" as "normal" | "hang" | "fail-once", failed: false, empty: false, canvasProps: { current: null as any }, calls: [] as string[] }));
 
 vi.mock("./components/canvas/UniverseCanvas", () => ({
   UniverseCanvas: (props: any) => {
@@ -18,7 +18,20 @@ vi.mock("./components/canvas/UniverseCanvas", () => ({
 }));
 vi.mock("./api/client", async () => {
   const fx = await import("./test/fixtures");
-  return { createApiClient: () => fx.fakeClient({ getState: async () => fx.state(h.empty ? [] : [fx.sun, fx.earth]) }) };
+  const { ApiError } = await import("./api/errors");
+  return {
+    createApiClient: () =>
+      fx.fakeClient({
+        getState: async () => {
+          if (h.stateMode === "hang") return new Promise<never>(() => {}); // backend reachable, simulation silent
+          if (h.stateMode === "fail-once" && !h.failed) {
+            h.failed = true;
+            throw new ApiError("timeout", "The backend did not answer GET /api/v1/simulation/state within 8 s");
+          }
+          return fx.state(h.empty ? [] : [fx.sun, fx.earth]);
+        },
+      }),
+  };
 });
 
 import App from "./App";
@@ -31,6 +44,8 @@ const setWidth = (w: number) => {
 
 beforeEach(() => {
   h.empty = false;
+  h.stateMode = "normal";
+  h.failed = false;
   h.calls.length = 0;
   Object.defineProperty(window, "innerWidth", { configurable: true, value: 1440 });
 });
@@ -124,5 +139,28 @@ describe("App first use", () => {
     render(<App />);
     await screen.findByText("Simulation");
     expect(screen.queryByRole("button", { name: "Add your first body" })).toBeNull();
+  });
+});
+
+describe("App: connection health and simulation loading are different states", () => {
+  it("says the backend is reachable while the simulation state is still loading (no 'Connecting' when connected)", async () => {
+    h.stateMode = "hang";
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId("backend-status").textContent).toMatch(/connected/));
+    expect(screen.getByText(/Backend reachable\. Loading the simulation state/)).toBeTruthy();
+    expect(screen.queryByText(/Connecting to the simulation backend/)).toBeNull();
+  });
+
+  it("turns a failed load into an explained, recoverable error and Retry recovers", async () => {
+    h.stateMode = "fail-once";
+    render(<App />);
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toMatch(/Cannot load the simulation: The backend did not answer/);
+    expect(alert.textContent).toMatch(/answers health checks, but the simulation itself did not respond/);
+    expect(screen.getByTestId("backend-status").textContent).toMatch(/connected/);
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("Simulation")).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 });

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApiClient } from "./client";
 import { ApiError } from "./errors";
 import { earth, mergerEvent, state, stepResponse, sun } from "../test/fixtures";
@@ -93,5 +93,73 @@ describe("api client", () => {
     await expect(c.getState()).rejects.toMatchObject({ kind: "invalid-response" });
     f.mockResolvedValueOnce(jsonResponse({ status: "paused", simulationTimeS: 0, bodies: [{ id: "x" }] }));
     await expect(c.getState()).rejects.toMatchObject({ kind: "invalid-response" });
+  });
+});
+
+describe("api client: every request settles", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  const never = () => new Promise<Response>(() => {}); // a backend that accepts the connection and never answers
+
+  it("a read the backend never answers fails with a timeout instead of waiting forever (even if fetch ignores abort)", async () => {
+    const f = mockFetch(never);
+    const c = createApiClient({ fetchImpl: f as unknown as typeof fetch, readTimeoutMs: 5_000 });
+    const result = c.getState().then(() => "resolved", (e: unknown) => e);
+    await vi.advanceTimersByTimeAsync(4_999);
+    expect(vi.getTimerCount()).toBe(1); // still waiting
+    await vi.advanceTimersByTimeAsync(2);
+    const error = (await result) as ApiError;
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error.kind).toBe("timeout");
+    expect(error.message).toMatch(/did not answer GET \/api\/v1\/simulation\/state within 5 s/);
+  });
+
+  it("aborts the underlying fetch when the deadline passes", async () => {
+    const f = vi.fn<(url: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(
+      (_url, init) => new Promise((_resolve, reject) => init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")))),
+    );
+    const c = createApiClient({ fetchImpl: f as unknown as typeof fetch, readTimeoutMs: 1_000 });
+    const result = c.health().then(() => "resolved", (e: unknown) => e);
+    await vi.advanceTimersByTimeAsync(1_001);
+    expect(((await result) as ApiError).kind).toBe("timeout"); // not "network": the abort was ours
+    expect(f.mock.calls[0][1]?.signal?.aborted).toBe(true);
+  });
+
+  it("a response whose body never arrives also times out", async () => {
+    const stalledBody = { ok: true, status: 200, json: () => new Promise(() => {}) } as unknown as Response;
+    const c = createApiClient({ fetchImpl: (async () => stalledBody) as unknown as typeof fetch, readTimeoutMs: 1_000 });
+    const result = c.getState().then(() => "resolved", (e: unknown) => e);
+    await vi.advanceTimersByTimeAsync(1_001);
+    expect(((await result) as ApiError).kind).toBe("timeout");
+  });
+
+  it("uses the longer write timeout for steps and mutations than for reads", async () => {
+    const c = createApiClient({ fetchImpl: mockFetch(never) as unknown as typeof fetch, readTimeoutMs: 1_000, writeTimeoutMs: 9_000 });
+    const read = c.getState().then(() => "resolved", (e: unknown) => e);
+    const step = c.step(10).then(() => "resolved", (e: unknown) => e);
+    await vi.advanceTimersByTimeAsync(1_001);
+    expect(((await read) as ApiError).kind).toBe("timeout");
+    let stepSettled = false;
+    void step.then(() => (stepSettled = true));
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(stepSettled).toBe(false); // the step is still allowed to run
+    await vi.advanceTimersByTimeAsync(4_000);
+    expect(((await step) as ApiError).kind).toBe("timeout");
+  });
+
+  it("a request that finishes in time leaves no timer behind and is not turned into an error later", async () => {
+    const c = createApiClient({ fetchImpl: mockFetch(async () => jsonResponse(state([sun]))) as unknown as typeof fetch, readTimeoutMs: 1_000 });
+    await expect(c.getState()).resolves.toBeTruthy();
+    expect(vi.getTimerCount()).toBe(0);
+    await vi.advanceTimersByTimeAsync(5_000); // would surface an unhandled rejection if the deadline were left armed
+  });
+
+  it("still reports an HTTP 503 from the backend with its detail", async () => {
+    const f = mockFetch(async () => jsonResponse({ detail: "the simulation is busy (a step is still running)" }, 503));
+    const error = await createApiClient({ fetchImpl: f as unknown as typeof fetch }).step(10).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).status).toBe(503);
+    expect((error as ApiError).message).toMatch(/busy/);
   });
 });
