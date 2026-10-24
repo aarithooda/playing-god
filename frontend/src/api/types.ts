@@ -7,6 +7,20 @@ export interface Vec3 {
   z: number;
 }
 
+export type BodyType = "star" | "rocky-planet" | "gas-giant" | "ice-giant" | "asteroid" | "default";
+
+/** Stable rendering-asset identity assigned by the backend for recognized bodies; custom bodies omit it. */
+export type BodyAssetKey =
+  | "sun"
+  | "earth"
+  | "mars"
+  | "jupiter"
+  | "neptune"
+  | "proxima-centauri"
+  | "trappist-1"
+  | "sirius-a"
+  | "betelgeuse";
+
 export interface BodyDto {
   id: string;
   name: string;
@@ -15,10 +29,17 @@ export interface BodyDto {
   positionM: Vec3;
   velocityMPerS: Vec3;
   colorHex: string;
+  /** Optional until the backend contract supplies stable body classification. */
+  bodyType?: BodyType;
+  /** Stable identity for a specific licensed visual asset set; custom or unknown bodies omit it. */
+  assetKey?: string;
 }
 
 /** POST /api/v1/bodies request (the server generates `id`). */
-export type BodyCreateDto = Omit<BodyDto, "id">;
+export type BodyCreateDto = Omit<BodyDto, "id" | "bodyType" | "assetKey"> & {
+  bodyType?: BodyType;
+  assetKey?: string;
+};
 
 /** PATCH /api/v1/bodies/{id} request: any non-empty subset; vectors are replaced whole. */
 export type BodyUpdateDto = Partial<BodyCreateDto>;

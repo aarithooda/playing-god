@@ -373,9 +373,9 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
       {showGrid && <GridOverlay transform={transform} />}
       {showAxes && <AxesOverlay transform={transform} />}
 
-      <ambientLight intensity={0.3} />
-      <pointLight position={[10, 10, 10]} intensity={1} />
-      <pointLight position={[-10, -10, -10]} intensity={0.5} />
+      <ambientLight intensity={0.6} />
+      <pointLight position={[10, 10, 10]} intensity={1.2} />
+      <pointLight position={[-10, -10, -10]} intensity={0.6} />
 
       {bodies.map((body) => (
         <CelestialBody
@@ -384,6 +384,8 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
           radius={body.radius}
           color={body.color}
           name={body.name}
+          bodyType={body.bodyType}
+          assetKey={body.assetKey}
           isSelected={selectedBodyId === body.id}
           onClick={placementMode ? undefined : () => onSelectBody(body.id)}
           onDoubleClick={placementMode ? undefined : () => onFocusBody(body.id)}

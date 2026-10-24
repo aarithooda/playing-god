@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseDiagnosticsDto, parseStateDto, parseStepResponse } from "./parse";
+import { parseBodyDto, parseDiagnosticsDto, parseStateDto, parseStepResponse } from "./parse";
 import { ApiError } from "./errors";
 import { diagnostics, earth, mergerEvent, state, stepResponse, sun } from "../test/fixtures";
 
@@ -80,6 +80,40 @@ describe("parseDiagnosticsDto", () => {
         "angularMomentumAboutOriginKgM2PerS.y",
       );
     }
+  });
+});
+
+describe("body rendering metadata", () => {
+  it("accepts known classification and stable asset keys", () => {
+    expect(parseBodyDto({ ...earth, bodyType: "rocky-planet", assetKey: "earth" })).toMatchObject({
+      bodyType: "rocky-planet",
+      assetKey: "earth",
+    });
+  });
+
+  it("keeps older and custom bodies valid when optional rendering metadata is absent", () => {
+    const { bodyType: _type, assetKey: _key, ...legacyBody } = earth;
+    expect(parseBodyDto(legacyBody)).toEqual(legacyBody);
+  });
+
+  it("accepts the current API response shape with bodyType but no assetKey", () => {
+    const parsed = parseBodyDto({ ...earth, bodyType: "default" });
+    expect(parsed.bodyType).toBe("default");
+    expect(parsed.assetKey).toBeUndefined();
+  });
+
+  it("accepts the finalized nullable asset key and falls back for a null classification", () => {
+    const parsed = parseBodyDto({ ...earth, bodyType: null, assetKey: null });
+    expect(parsed.bodyType).toBeUndefined();
+    expect(parsed.assetKey).toBeUndefined();
+  });
+
+  it("uses the default fallback for unknown classifications and tolerates unregistered asset keys", () => {
+    expect(parseBodyDto({ ...earth, bodyType: "comet" }).bodyType).toBeUndefined();
+    const futureBody = parseBodyDto({ ...earth, bodyType: "comet", assetKey: "future-asset" });
+    expect(futureBody.bodyType).toBeUndefined();
+    expect(futureBody.assetKey).toBe("future-asset");
+    expect(parseBodyDto({ ...earth, assetKey: "future-asset" }).assetKey).toBe("future-asset");
   });
 });
 

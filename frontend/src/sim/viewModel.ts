@@ -1,6 +1,6 @@
 // DTO -> view model mapping. Physical quantities keep their SI names and values; the view model only
 // adds derived read-only values (speed). Scene (render) values are produced separately by toSceneBody.
-import type { BodyDto, DiagnosticsDto, SimulationEventDto, SimulationStateDto, SimulationStatus, Vec3 } from "../api/types";
+import type { BodyDto, BodyType, DiagnosticsDto, SimulationEventDto, SimulationStateDto, SimulationStatus, Vec3 } from "../api/types";
 import {
   displayRadiusUnits,
   toScenePosition,
@@ -16,6 +16,8 @@ export interface BodyView {
   positionM: Vec3;
   velocityMPerS: Vec3;
   colorHex: string;
+  bodyType: BodyType;
+  assetKey?: string;
   /** |velocityMPerS| in m/s (derived). */
   speedMPerS: number;
 }
@@ -34,6 +36,8 @@ export interface SceneBody {
   id: string;
   name: string;
   color: string;
+  bodyType: BodyType;
+  assetKey?: string;
   position: ScenePosition;
   /** Display radius in scene units (exaggerated, NOT the physical radius). */
   radius: number;
@@ -49,6 +53,8 @@ export function toBodyView(dto: BodyDto): BodyView {
     positionM: { ...dto.positionM },
     velocityMPerS: { ...v },
     colorHex: dto.colorHex,
+    bodyType: dto.bodyType ?? "default",
+    ...(dto.assetKey === undefined ? {} : { assetKey: dto.assetKey }),
     speedMPerS: Math.hypot(v.x, v.y, v.z),
   };
 }
@@ -68,6 +74,8 @@ export function toSceneBody(body: BodyView, t: RenderTransform): SceneBody {
     id: body.id,
     name: body.name,
     color: body.colorHex,
+    bodyType: body.bodyType,
+    ...(body.assetKey === undefined ? {} : { assetKey: body.assetKey }),
     position: toScenePosition(body.positionM, t),
     radius: displayRadiusUnits(body.radiusM),
   };

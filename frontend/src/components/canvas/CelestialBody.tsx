@@ -1,8 +1,10 @@
 import React, { useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Outlines, Sphere } from '@react-three/drei';
-import { Group, PerspectiveCamera } from 'three';
+import { Group, PerspectiveCamera, DoubleSide, BackSide } from 'three';
 import { bodyDisplayScale } from '../../sim/bodyVisibility';
+import { useCelestialMaterial } from './CelestialMaterial';
+import type { BodyType } from '../../api/types';
 
 /** Selected-body silhouette: constant on-screen width (CSS px), whatever the body's size or the zoom. */
 export const SELECTION_OUTLINE_PX = 1.5;
@@ -13,6 +15,8 @@ interface CelestialBodyProps {
   radius: number;
   color: string;
   name: string;
+  bodyType?: BodyType;
+  assetKey?: string;
   isSelected?: boolean;
   onClick?: () => void;
   onDoubleClick?: () => void;
@@ -23,11 +27,14 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
   radius,
   color,
   name,
+  bodyType = 'default',
+  assetKey,
   isSelected = false,
   onClick,
   onDoubleClick,
 }) => {
   const body = useRef<Group>(null);
+  const { assets, textures, material } = useCelestialMaterial(bodyType, assetKey, color);
   // drei's Outlines measures thickness in drawing-buffer pixels, so convert from CSS pixels.
   const dpr = useThree((s) => s.viewport.dpr);
 
@@ -54,12 +61,39 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
     >
       <group ref={body}>
         <Sphere args={[radius, 32, 32]}>
-          <meshStandardMaterial color={color} />
+          <primitive object={material} attach="material" />
           {/* Mounted only while selected, so deselecting (or selecting another body) leaves nothing behind.
               The outline is a back-face shell inside the body's scaled group: it follows the enlarged
               minimum on-screen size, is occluded by nearer bodies, and never changes the body itself. */}
           {isSelected && <Outlines thickness={SELECTION_OUTLINE_PX * dpr} color={SELECTION_OUTLINE_COLOR} />}
         </Sphere>
+        {assets?.atmosphereColor && (
+          <Sphere args={[radius * 1.045, 32, 32]} raycast={() => undefined}>
+            <meshPhysicalMaterial
+              color={assets.atmosphereColor}
+              transparent
+              opacity={assets.atmosphereOpacity ?? 0.12}
+              side={BackSide}
+              depthWrite={false}
+              roughness={0.2}
+              metalness={0}
+            />
+          </Sphere>
+        )}
+        {textures.rings && (
+          <mesh rotation={[Math.PI / 2, 0, 0]} raycast={() => undefined}>
+            <ringGeometry args={[radius * 1.35, radius * 2.15, 96]} />
+            <meshBasicMaterial
+              map={textures.rings}
+              color="#ffffff"
+              transparent
+              opacity={0.9}
+              side={DoubleSide}
+              depthWrite={false}
+              alphaTest={0.04}
+            />
+          </mesh>
+        )}
       </group>
     </group>
   );
