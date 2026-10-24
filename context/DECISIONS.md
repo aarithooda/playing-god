@@ -296,3 +296,9 @@ Entry format: Date · Decision · Context/reason · Alternatives · Consequences
 - Records: `col-<n>` shares the event counter with `evt-<n>` (`CollisionRecord.legacy_event_id` links them; field added, additive). Records are part of rollback, checkpoint, snapshot, restore and derive; at most 1,000 are kept.
 - Detection envelope: `SimulationService.last_detection` and `ImpactState.chunkCriterionSatisfied` report chunks whose curvature criterion was overridden by `MAX_CHUNKS_PER_STEP`. Not an API field yet.
 - Consequences: the Stage 0 import-boundary test is an allow-list (`collisions.py`, `simulation.py`). Open: the CP-1 decision above; Stage 2 may not start until CP-1 is accepted (guide).
+
+## D-036 — CP-1 accepted by the owner; Stage 2 authorised (branch `collision/stage-2-materials-spin`)
+- Date: 2026-10-24
+- Status: **accepted by the project owner (Aarit)** in the implementation session, in chat, after the Stage 1 report.
+- Decision: the CP-1 evidence of Stage 1 (golden comparisons, legacy regression, collision-free latency, the identified differences and limitations; D-035) is accepted. Stage 2 is authorised. `legacy-merge` stays byte for byte as it is: the legacy defect documented as D-035 is **not** to be fixed or altered under this authorisation (D-035 option a). `outcome-v1` stays isolated from default universe behaviour until the approved rollout steps (Stage 4 step 4b, Stage 11).
+- Boundaries unchanged: this does not approve CP-SCI-1, does not answer DQ-7/8/9, authorises no disputed scientific constant and no stage whose prerequisites remain unmet.

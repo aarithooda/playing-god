@@ -465,3 +465,6 @@
 - Latency (best of 5, same machine, collision-free step(1e5 s), star + N-1 orbiting bodies): N=50 legacy 0.0115 s / new 0.0103 s; N=100 0.0353 / 0.0352; N=200 0.1450 / 0.1344. The planning probe P5 (0.034 / 0.121 / 0.339 s) was a different machine and setup; the comparison that matters is same-machine legacy vs new.
 - Insertion-order determinism (20 orders of four pairs): identity, order and masses identical; detection times spread 1.9e-3 s of 4.85 s in BOTH modes (IAS15 step grid vs round-off).
 - CP-1 decisions requested: (a) accept the evidence so Stage 2 may begin; (b) for the legacy defect keep `legacy-merge` exact (recommended, D-033) or fix it. Not done in Stage 1 (by plan): post-apply overlap check (Stage 4), records API (Stage 8), rotation/material in the capture (Stage 2).
+
+## 2026-10-24 — CP-1 accepted (owner, in chat)
+- The owner accepted the Stage 1 CP-1 evidence and authorised Stage 2 (see D-036). Legacy defect D-035 stays unfixed in `legacy-merge`. CP-SCI-1, DQ-7/8/9 and all later gates are unchanged. Stage 2 started on `collision/stage-2-materials-spin` (from `c6d2643`).
