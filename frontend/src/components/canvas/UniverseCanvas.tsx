@@ -7,25 +7,22 @@ import { StarfieldShell } from './StarfieldShell';
 import { DEFAULT_CAMERA_POSITION, type ScenePosition } from '../../sim/renderTransform';
 import { clampPlacementDepth, rayPlaneIntersection } from '../../sim/placement';
 import { sceneShiftPx } from '../ui/layout';
+import {
+  FOCUS_ANIMATION_S,
+  focusDistanceForScreenHeight,
+  smoothstep,
+  stepTracking,
+  type TrackingState,
+} from '../../sim/focusTracking';
 import type { SceneBody } from '../../sim/viewModel';
 
 export interface FocusRequest {
   nonce: number;
+  /** The body to focus and then follow. */
+  bodyId: string;
   position: ScenePosition;
   /** Displayed (scene) radius of the focused body. */
   radius: number;
-}
-
-/** A focused body's silhouette fills this fraction of the viewport height. */
-const FOCUS_SCREEN_HEIGHT_FRACTION = 0.25;
-const FOCUS_ANIMATION_S = 0.65;
-
-function focusDistanceForScreenHeight(radius: number, camera: PerspectiveCamera): number {
-  // A sphere's projected silhouette is r / (sqrt(d² - r²) * tan(fov / 2)) of the viewport height.
-  // Solve for d so every focused body has the same apparent height, whatever its displayed radius.
-  const halfFov = (camera.fov * Math.PI) / 360;
-  const scaledFraction = FOCUS_SCREEN_HEIGHT_FRACTION * Math.tan(halfFov);
-  return radius * Math.sqrt(1 + 1 / (scaledFraction * scaledFraction));
 }
 
 interface UniverseCanvasProps {
@@ -39,6 +36,8 @@ interface UniverseCanvasProps {
   frameEpoch: number;
   /** Moves the orbit target to a body and uses a consistent body-relative view distance. */
   focus?: FocusRequest;
+  /** The camera stopped following the focused body (user panned away, refit, or the body is gone). */
+  onFocusRelease?: () => void;
   placementMode: boolean;
   placementRadius: number;
   onPlacementConfirm: (position: ScenePosition) => void;
@@ -80,30 +79,56 @@ const ViewportInset: React.FC<{ leftInset: number; rightInset: number }> = ({ le
   return null;
 };
 
-/** Camera framing/focus lives inside the Canvas so it can reach the camera and OrbitControls. */
-const CameraRig: React.FC<{ frameEpoch: number; focus?: FocusRequest }> = ({ frameEpoch, focus }) => {
+/**
+ * Camera framing and focus live inside the Canvas so they can reach the camera and OrbitControls.
+ *
+ * A focus request eases the orbit target onto the body and frames it at a fixed screen size (the same
+ * view direction is kept, so there is no jump in orientation). Afterwards the body is tracked: the
+ * camera and target are carried along with its displayed position, so orbit and zoom stay centred on
+ * it while the simulation runs. Tracking ends if the user pans the target away, the scene is refitted
+ * (frameEpoch) or the body disappears. Everything here is display-only.
+ */
+interface FocusSession {
+  bodyId: string;
+  /** Final camera offset from the body (view direction at request time, framed distance). */
+  offset: Vector3;
+  animation?: { elapsed: number; startPosition: Vector3; startTarget: Vector3 };
+  tracking?: TrackingState;
+}
+
+const CameraRig: React.FC<{
+  frameEpoch: number;
+  focus?: FocusRequest;
+  bodies: SceneBody[];
+  onFocusRelease?: () => void;
+}> = ({ frameEpoch, focus, bodies, onFocusRelease }) => {
   const camera = useThree((s) => s.camera);
   const controls = useThree((s) => s.controls) as unknown as OrbitTarget | null;
-  const animation = useRef<{
-    elapsed: number;
-    startPosition: Vector3;
-    endPosition: Vector3;
-    startTarget: Vector3;
-    endTarget: Vector3;
-  } | null>(null);
+  const session = useRef<FocusSession | null>(null);
+  // Latest props for the frame loop without re-running the effects below.
+  const bodiesRef = useRef(bodies);
+  bodiesRef.current = bodies;
+  const releaseRef = useRef(onFocusRelease);
+  releaseRef.current = onFocusRelease;
+
+  const release = () => {
+    if (!session.current) return;
+    session.current = null;
+    releaseRef.current?.();
+  };
 
   useEffect(() => {
     camera.position.set(...DEFAULT_CAMERA_POSITION);
-    animation.current = null;
+    release();
     if (controls) {
       controls.target.set(0, 0, 0);
       controls.update();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [frameEpoch, camera, controls]);
 
   useEffect(() => {
     if (!focus || !controls) return;
-    const [x, y, z] = focus.position;
     let offsetX = camera.position.x - controls.target.x;
     let offsetY = camera.position.y - controls.target.y;
     let offsetZ = camera.position.z - controls.target.z;
@@ -112,34 +137,68 @@ const CameraRig: React.FC<{ frameEpoch: number; focus?: FocusRequest }> = ({ fra
       [offsetX, offsetY, offsetZ] = DEFAULT_CAMERA_POSITION;
       distance = Math.hypot(offsetX, offsetY, offsetZ);
     }
-    // Every focus request frames the body to the same fraction of the viewport height, even after
-    // the user has zoomed manually, so repeated focus requests cannot accumulate zoom.
-    const zoom = focusDistanceForScreenHeight(focus.radius, camera as PerspectiveCamera) / distance;
-    animation.current = {
-      elapsed: 0,
-      startPosition: camera.position.clone(),
-      endPosition: new Vector3(x + offsetX * zoom, y + offsetY * zoom, z + offsetZ * zoom),
-      startTarget: new Vector3(controls.target.x, controls.target.y, controls.target.z),
-      endTarget: new Vector3(x, y, z),
+    // Every focus request frames the body to the same fraction of the viewport height, even after the
+    // user has zoomed manually, so repeated focus requests cannot accumulate zoom.
+    const zoom = focusDistanceForScreenHeight(focus.radius, (camera as PerspectiveCamera).fov) / distance;
+    session.current = {
+      bodyId: focus.bodyId,
+      offset: new Vector3(offsetX * zoom, offsetY * zoom, offsetZ * zoom),
+      animation: {
+        elapsed: 0,
+        startPosition: camera.position.clone(),
+        startTarget: new Vector3(controls.target.x, controls.target.y, controls.target.z),
+      },
     };
-    // Only a new focus request should move the camera, not every body movement.
+    // Only a new focus request should (re)start a focus, not every body movement.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus?.nonce, controls]);
 
   useFrame((_, delta) => {
-    const motion = animation.current;
-    if (!motion || !controls) return;
-    motion.elapsed = Math.min(motion.elapsed + delta, FOCUS_ANIMATION_S);
-    const t = motion.elapsed / FOCUS_ANIMATION_S;
-    const eased = t * t * (3 - 2 * t);
-    camera.position.lerpVectors(motion.startPosition, motion.endPosition, eased);
-    controls.target.set(
-      motion.startTarget.x + (motion.endTarget.x - motion.startTarget.x) * eased,
-      motion.startTarget.y + (motion.endTarget.y - motion.startTarget.y) * eased,
-      motion.startTarget.z + (motion.endTarget.z - motion.startTarget.z) * eased,
-    );
-    controls.update();
-    if (t >= 1) animation.current = null;
+    const s = session.current;
+    if (!s || !controls) return;
+    const body = bodiesRef.current.find((b) => b.id === s.bodyId);
+    if (!body) {
+      release();
+      return;
+    }
+    const [bx, by, bz] = body.position;
+
+    if (s.animation) {
+      const a = s.animation;
+      a.elapsed = Math.min(a.elapsed + delta, FOCUS_ANIMATION_S);
+      const t = smoothstep(a.elapsed / FOCUS_ANIMATION_S);
+      // Aim at the body's live position, so a moving body is not missed.
+      camera.position.set(
+        a.startPosition.x + (bx + s.offset.x - a.startPosition.x) * t,
+        a.startPosition.y + (by + s.offset.y - a.startPosition.y) * t,
+        a.startPosition.z + (bz + s.offset.z - a.startPosition.z) * t,
+      );
+      controls.target.set(
+        a.startTarget.x + (bx - a.startTarget.x) * t,
+        a.startTarget.y + (by - a.startTarget.y) * t,
+        a.startTarget.z + (bz - a.startTarget.z) * t,
+      );
+      controls.update();
+      if (a.elapsed >= FOCUS_ANIMATION_S) {
+        s.animation = undefined;
+        s.tracking = { lastBodyPosition: [bx, by, bz], expectedTarget: [controls.target.x, controls.target.y, controls.target.z] };
+      }
+      return;
+    }
+
+    if (!s.tracking) return;
+    const step = stepTracking(s.tracking, [bx, by, bz], [controls.target.x, controls.target.y, controls.target.z]);
+    if (step.released) {
+      release();
+      return;
+    }
+    const [dx, dy, dz] = step.delta;
+    if (dx !== 0 || dy !== 0 || dz !== 0) {
+      camera.position.set(camera.position.x + dx, camera.position.y + dy, camera.position.z + dz);
+      controls.target.set(controls.target.x + dx, controls.target.y + dy, controls.target.z + dz);
+      controls.update();
+    }
+    s.tracking = { lastBodyPosition: [bx, by, bz], expectedTarget: [controls.target.x, controls.target.y, controls.target.z] };
   });
 
   return null;
@@ -272,6 +331,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
   onClearSelection,
   frameEpoch,
   focus,
+  onFocusRelease,
   placementMode,
   placementRadius,
   onPlacementConfirm,
@@ -319,7 +379,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
         onPreview={onPlacementPreview}
       />
       <OrbitControls makeDefault enabled={!placementMode} />
-      <CameraRig frameEpoch={frameEpoch} focus={focus} />
+      <CameraRig frameEpoch={frameEpoch} focus={focus} bodies={bodies} onFocusRelease={onFocusRelease} />
       <ViewportInset leftInset={leftInset} rightInset={rightInset} />
     </Canvas>
   );

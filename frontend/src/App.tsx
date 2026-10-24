@@ -45,6 +45,8 @@ export default function App() {
   const [transform, setTransform] = useState<RenderTransform>({ metersPerUnit: DEFAULT_METERS_PER_UNIT });
   const [frameEpoch, setFrameEpoch] = useState(0);
   const [focus, setFocus] = useState<FocusRequest | undefined>(undefined);
+  // The body the camera is currently following (cleared when the camera lets go of it).
+  const [focusedBodyId, setFocusedBodyId] = useState<string | undefined>(undefined);
   // Controls (right) are open on first use; History and diagnostics (left) are tucked away.
   const [sidebars, setSidebars] = useState<SidebarState>({ left: false, right: true });
   const windowWidth = useWindowWidth();
@@ -90,9 +92,11 @@ export default function App() {
       const sceneBody = toSceneBody(body, transform);
       setFocus((f) => ({
         nonce: (f?.nonce ?? 0) + 1,
+        bodyId: id,
         position: sceneBody.position,
         radius: sceneBody.radius,
       }));
+      setFocusedBodyId(id);
     }
   };
 
@@ -150,6 +154,7 @@ export default function App() {
         onClearSelection={closeInspector}
         frameEpoch={frameEpoch}
         focus={focus}
+        onFocusRelease={() => setFocusedBodyId(undefined)}
         placementMode={placementMode}
         placementRadius={displayRadiusUnits(Number.isFinite(placementRadiusM) && placementRadiusM > 0 ? placementRadiusM : 6.371e6)}
         onPlacementConfirm={confirmPlacement}
@@ -228,6 +233,7 @@ export default function App() {
         />
         <BodyInspector
           body={selectedBody}
+          focused={selectedBody !== null && selectedBody.id === focusedBodyId}
           onSave={simulation.updateBody}
           onDelete={simulation.deleteBody}
           onFocus={focusBody}
