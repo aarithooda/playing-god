@@ -489,3 +489,6 @@ Entry format: Date · Decision · Context/reason · Alternatives · Consequences
 - Date: 2026-10-25. Under D-059: CP-5 is WAIVED by the owner, not signed; no outcome is independently validated.
 - Added `tests/impact/test_scenarios_e2e.py` (9 tests), `tests/impact/test_performance.py` (2), `context/STAGE12_DOD_AUDIT.md`. Results: backend 1399 passed; vitest 502; tsc clean; build OK; Playwright 14 passed (software WebGL, stubbed API).
 - **Unmet criteria, reported honestly:** DOD-2 (matrix rows not all VERIFIED: 44 MISS, 14 open, 94 PART, many stale but not individually re-audited); frame pacing with 8 effects and 20,000 particles unmeasured; browser scenario G, GPU/other browsers/real backend not run; cross-platform replay tolerance not implemented. Stage 12 is therefore NOT marked done; it is `[-]` with these items open.
+
+## D-062 — Traceability re-audit (Stage 12 follow-up)
+- Date: 2026-10-25. Under D-059. All 135 MISS/open/PART rows were re-checked against existing tests and documents. 59 became VERIFIED (software, provisional science), 75 stay PART with their gaps stated, 1 is WAIVED (OD33-REVIEW), none stays MISS. DOD-2 stays UNMET (75 PART rows in the matrix). Details: `context/STAGE12_DOD_AUDIT.md`, `COLLISION_REQUIREMENT_TRACEABILITY.md`.

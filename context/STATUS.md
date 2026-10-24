@@ -6,6 +6,7 @@
 _Concise authoritative snapshot. Update after every meaningful session._
 
 ## Collision engine - Stage 12 audit done, criteria partly unmet (D-061) (2026-10-25, Claude Sonnet 5.5) - newest
+- Re-audit (D-062): traceability rows re-checked; 156 VERIFIED, 75 PART, 0 MISS in the matrix; DOD-2 still UNMET.
 - Branch `collision/stage-11-12`. Scenarios A-H, performance checks and the DoD audit ran (`context/STAGE12_DOD_AUDIT.md`): 1399 backend / 502 vitest / 14 e2e pass. UNMET: per-row matrix re-audit (DOD-2), frame pacing with effects, browser scenario G, GPU/real-backend runs. CP-SCI-1/CP-5 waived by the owner (D-059), not signed; nothing independently validated. Nothing pushed.
 
 ## Collision engine - Stage 11 done (D-060) (2026-10-25, Claude Sonnet 5.5)

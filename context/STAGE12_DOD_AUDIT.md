@@ -36,7 +36,7 @@
 | ID | Assessment | Status |
 |---|---|---|
 | DOD-1 ten features addressed | implemented in software behind provisional science | MET in software; science not validated |
-| DOD-2 every requirement has evidence | the matrix still holds 44 MISS, 14 open and 94 PART rows; many MISS rows are stale (implemented, never re-marked), but they have not been individually re-audited | **UNMET** |
+| DOD-2 every requirement has evidence | re-audited row by row (D-062): 59 rows moved to VERIFIED with named tests, 0 MISS remain, 75 PART rows remain, each with its gap stated | **UNMET** (75 PART) |
 | DOD-3 scenarios pass or have approved limits | A–D, F, G, H pass in the backend; limits stated above; browser scenario G and frame pacing missing | PARTIAL |
 | DOD-4 outcomes driven by selected models | selector/realiser tests | MET in software (provisional) |
 | DOD-5 localized impacts | static sites only | PARTIAL |
@@ -52,9 +52,12 @@
 | CP-5 human sign-off | **WAIVED by the owner (D-059); no human signed** | WAIVED, not signed |
 
 ## Unmet or open (honest list)
-1. DOD-2: per-row re-audit of the traceability matrix not done (58 MISS/open, 94 PART).
+1. DOD-2: the per-row re-audit is done (D-062); 75 rows are still PART. Main causes: no sourced wave speed, cratering constants, structure classes or LS12 inputs for named bodies; crater/ejecta extent and several visual phases not modelled or drawn; no GPU, other-browser or real-backend run; cross-platform replay tolerance not implemented; M-PROP-4/5 (equation of state, thermal) deliberately absent; science PROVISIONAL, UD-1/UD-2 open.
 2. Frame pacing with effects/particles: unmeasured; no GPU, no other browser, no real-backend end-to-end run.
 3. Cross-platform replay tolerance: not implemented.
 4. Wave speed, cratering constants, structure classes, LS12 for planets: unsourced; UD-1/UD-2 unresolved; every model PROVISIONAL.
 5. Stale documents: `COLLISION_SCIENTIFIC_MODELS.md` header, risk R-22.
 6. Stage 11 values were fetched through a web-fetch sub-agent and not re-read by a human.
+
+## Re-audit of the traceability matrix (D-062, 2026-10-25)
+Of 135 rows that were MISS, open or PART: 59 are now VERIFIED, citing existing tests (software evidence, provisional science, owner-accepted D-059, not independently validated); 75 stay PART (60 unchanged with their gap re-confirmed, 15 rewritten with sharper evidence and limits) and 1 (OD33-REVIEW) is WAIVED by D-059, not signed. No row was marked VERIFIED without a named test or document; no test was run or changed for this pass beyond the full suites already green. The cited test names were checked to exist.

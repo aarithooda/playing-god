@@ -5,6 +5,7 @@
 # Handoff (latest — rewrite at end of each session)
 
 ## Collision engine - Stage 12 audit done, criteria partly unmet (D-061) (2026-10-25, Claude Sonnet 5.5) - latest
+0000000000. Re-audit (D-062) done: 59 rows moved to VERIFIED with named tests, 75 PART remain, none MISS; DOD-2 still UNMET; details in STAGE12_DOD_AUDIT.md.
 000000000. Stage 12 ran under D-059/D-061; see `context/STAGE12_DOD_AUDIT.md` for the commands and the unmet list (DOD-2 per-row audit of 44 MISS / 14 open / 94 PART rows; frame pacing with effects unmeasured; no GPU/real-backend run). Stage 12 stays `[-]`. Playwright regenerates `context/evidence/stage9-webgl/*.png`; those two diffs are not committed. Nothing pushed or merged.
 
 ## Collision engine, Stage 11 done (D-060) (2026-10-25, Claude Sonnet 5.5)
