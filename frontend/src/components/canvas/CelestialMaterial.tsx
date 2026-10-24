@@ -95,6 +95,18 @@ async function loadTexture(
   return undefined;
 }
 
+/** Share of the display colour mixed into the shared grey Moon map for moons that have no map of their own. */
+export const MOON_TINT_STRENGTH = 0.55;
+
+/**
+ * Colour multiplied into the diffuse map. White (the map as is) for everything but a moon without its own asset: those
+ * share one grey Moon map, tinted towards the body's display colour so Io, Europa, Titan... can be told apart.
+ */
+export function mapTint(bodyType: BodyType, assetKey: string | undefined, color: string): string {
+  if (bodyType !== "moon" || assetKey === "moon") return "#ffffff";
+  return `#${new THREE.Color("#ffffff").lerp(new THREE.Color(color), MOON_TINT_STRENGTH).getHexString()}`;
+}
+
 /** Loads optional maps without suspense: missing/unavailable files keep the body visible via its color. */
 export function useCelestialMaterial(bodyType: BodyType, assetKey: string | undefined, color: string) {
   const assets = useMemo(() => resolveCelestialAssets(assetKey, bodyType), [assetKey, bodyType]);
@@ -144,7 +156,7 @@ export function useCelestialMaterial(bodyType: BodyType, assetKey: string | unde
     const hasColorMap = Boolean(textures.diffuse);
 
     const parameters: THREE.MeshStandardMaterialParameters = {
-      color: hasColorMap ? "#ffffff" : color,
+      color: hasColorMap ? mapTint(bodyType, assetKey, color) : color,
       roughness: isGasGiant || isIceGiant ? 0.72 : 0.9,
       metalness: bodyType === "asteroid" ? 0.12 : 0,
       // Keep textured bodies emissive-free so white fill cannot desaturate their map colors.
@@ -156,7 +168,7 @@ export function useCelestialMaterial(bodyType: BodyType, assetKey: string | unde
     if (textures.roughness) parameters.roughnessMap = textures.roughness;
     if (textures.emissive) parameters.emissiveMap = textures.emissive;
     return new THREE.MeshStandardMaterial(parameters);
-  }, [bodyType, color, textures]);
+  }, [bodyType, assetKey, color, textures]);
 
   useEffect(() => () => material.dispose(), [material]);
 

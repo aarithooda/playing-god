@@ -19,6 +19,11 @@ interface CelestialBodyProps {
   name: string;
   bodyType?: BodyType;
   assetKey?: string;
+  /** Minimum on-screen radius (CSS px) at the overview, zoom-in growth and moon-system limit: see SceneBody. */
+  visiblePx?: number;
+  maxGrowth?: number;
+  clearance?: number;
+  systemPx?: number;
   isSelected?: boolean;
   onClick?: () => void;
   onDoubleClick?: () => void;
@@ -32,6 +37,10 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
   name,
   bodyType = 'default',
   assetKey,
+  visiblePx,
+  maxGrowth,
+  clearance,
+  systemPx,
   isSelected = false,
   onClick,
   onDoubleClick,
@@ -47,7 +56,9 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
     if (!body.current || !(camera as PerspectiveCamera).isPerspectiveCamera) return;
     const [x, y, z] = position;
     const distance = Math.hypot(camera.position.x - x, camera.position.y - y, camera.position.z - z);
-    body.current.scale.setScalar(bodyDisplayScale(radius, distance, (camera as PerspectiveCamera).fov, size.height));
+    body.current.scale.setScalar(
+      bodyDisplayScale(radius, distance, (camera as PerspectiveCamera).fov, size.height, { minPx: visiblePx, maxGrowth, clearance, systemPx }),
+    );
   });
 
   return (

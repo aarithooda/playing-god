@@ -1,0 +1,426 @@
+{
+ "solar-system-j2000": [
+  {
+   "id": "body-sun",
+   "name": "Sun",
+   "kind": "star",
+   "radiusM": 695700000.0,
+   "positionM": {
+    "x": -1067609734.131794,
+    "y": -418264992.9741089,
+    "z": 30844043.768738527
+   },
+   "colorHex": "#ffcc33",
+   "bodyType": "star",
+   "assetKey": "sun",
+   "primaryId": null
+  },
+  {
+   "id": "body-mercury",
+   "name": "Mercury",
+   "kind": "planet",
+   "radiusM": 2439400.0,
+   "positionM": {
+    "x": -20529336089.98552,
+    "y": -67331540256.498116,
+    "z": -3649010299.9808006
+   },
+   "colorHex": "#9ca3af",
+   "bodyType": "rocky-planet",
+   "assetKey": "mercury",
+   "primaryId": null
+  },
+  {
+   "id": "body-venus",
+   "name": "Venus",
+   "kind": "planet",
+   "radiusM": 6051800.0,
+   "positionM": {
+    "x": -108524103786.32234,
+    "y": -5303279968.846644,
+    "z": 6166478343.487142
+   },
+   "colorHex": "#e8c07a",
+   "bodyType": "rocky-planet",
+   "assetKey": "venus",
+   "primaryId": null
+  },
+  {
+   "id": "body-earth",
+   "name": "Earth (Earth\u2013Moon barycentre)",
+   "kind": "planet",
+   "radiusM": 6371008.399999999,
+   "positionM": {
+    "x": -27570186623.8449,
+    "y": 144275690635.0168,
+    "z": 30673610.578532945
+   },
+   "colorHex": "#3b82f6",
+   "bodyType": "rocky-planet",
+   "assetKey": "earth",
+   "primaryId": null
+  },
+  {
+   "id": "body-mars",
+   "name": "Mars (system barycentre)",
+   "kind": "planet",
+   "radiusM": 3389500.0,
+   "positionM": {
+    "x": 206980530907.70056,
+    "y": -2425317621.19792,
+    "z": -5125444915.50471
+   },
+   "colorHex": "#c1440e",
+   "bodyType": "rocky-planet",
+   "assetKey": "mars",
+   "primaryId": null
+  },
+  {
+   "id": "body-jupiter",
+   "name": "Jupiter (system barycentre)",
+   "kind": "planet",
+   "radiusM": 69911000.0,
+   "positionM": {
+    "x": 597499973863.7971,
+    "y": 439186463499.05023,
+    "z": -15196016609.249842
+   },
+   "colorHex": "#d9a066",
+   "bodyType": "gas-giant",
+   "assetKey": "jupiter",
+   "primaryId": null
+  },
+  {
+   "id": "body-saturn",
+   "name": "Saturn (system barycentre)",
+   "kind": "planet",
+   "radiusM": 58232000.0,
+   "positionM": {
+    "x": 957317514485.5917,
+    "y": 982438192218.2529,
+    "z": -55182203448.02691
+   },
+   "colorHex": "#e0c97f",
+   "bodyType": "gas-giant",
+   "assetKey": "saturn",
+   "primaryId": null
+  },
+  {
+   "id": "body-uranus",
+   "name": "Uranus (system barycentre)",
+   "kind": "planet",
+   "radiusM": 25362000.0,
+   "positionM": {
+    "x": 2157907410025.0942,
+    "y": -2055043512230.4065,
+    "z": -35594645375.90326
+   },
+   "colorHex": "#7dd3fc",
+   "bodyType": "ice-giant",
+   "assetKey": "uranus",
+   "primaryId": null
+  },
+  {
+   "id": "body-neptune",
+   "name": "Neptune (system barycentre)",
+   "kind": "planet",
+   "radiusM": 24622000.0,
+   "positionM": {
+    "x": 2513978818794.97,
+    "y": -3739132778269.2437,
+    "z": 19063115984.15958
+   },
+   "colorHex": "#3b5bdb",
+   "bodyType": "ice-giant",
+   "assetKey": "neptune",
+   "primaryId": null
+  }
+ ],
+ "solar-system-moons-j2000": [
+  {
+   "id": "body-sun",
+   "name": "Sun",
+   "kind": "star",
+   "radiusM": 695700000.0,
+   "positionM": {
+    "x": -1067609734.1686789,
+    "y": -418264992.9924005,
+    "z": 30844043.776982468
+   },
+   "colorHex": "#ffcc33",
+   "bodyType": "star",
+   "assetKey": "sun",
+   "primaryId": null
+  },
+  {
+   "id": "body-mercury",
+   "name": "Mercury",
+   "kind": "planet",
+   "radiusM": 2439400.0,
+   "positionM": {
+    "x": -20529336090.022408,
+    "y": -67331540256.5164,
+    "z": -3649010299.9725566
+   },
+   "colorHex": "#9ca3af",
+   "bodyType": "rocky-planet",
+   "assetKey": "mercury",
+   "primaryId": null
+  },
+  {
+   "id": "body-venus",
+   "name": "Venus",
+   "kind": "planet",
+   "radiusM": 6051800.0,
+   "positionM": {
+    "x": -108524103786.35922,
+    "y": -5303279968.864937,
+    "z": 6166478343.495385
+   },
+   "colorHex": "#e8c07a",
+   "bodyType": "rocky-planet",
+   "assetKey": "venus",
+   "primaryId": null
+  },
+  {
+   "id": "body-earth",
+   "name": "Earth",
+   "kind": "planet",
+   "radiusM": 6371008.399999999,
+   "positionM": {
+    "x": -27566643411.59918,
+    "y": 144279031799.55695,
+    "z": 30232894.351027466
+   },
+   "colorHex": "#3b82f6",
+   "bodyType": "rocky-planet",
+   "assetKey": "earth",
+   "primaryId": null
+  },
+  {
+   "id": "body-moon",
+   "name": "Moon",
+   "kind": "planet",
+   "radiusM": 1737400.0,
+   "positionM": {
+    "x": -27858251795.78689,
+    "y": 144004052057.88376,
+    "z": 66504090.97801849
+   },
+   "colorHex": "#9ca3af",
+   "bodyType": "moon",
+   "assetKey": "moon",
+   "primaryId": "body-earth"
+  },
+  {
+   "id": "body-mars",
+   "name": "Mars (system barycentre)",
+   "kind": "planet",
+   "radiusM": 3389500.0,
+   "positionM": {
+    "x": 206980530907.6637,
+    "y": -2425317621.2162113,
+    "z": -5125444915.496467
+   },
+   "colorHex": "#c1440e",
+   "bodyType": "rocky-planet",
+   "assetKey": "mars",
+   "primaryId": null
+  },
+  {
+   "id": "body-jupiter",
+   "name": "Jupiter",
+   "kind": "planet",
+   "radiusM": 69911000.0,
+   "positionM": {
+    "x": 597500014922.8958,
+    "y": 439186414955.18054,
+    "z": -15196017629.210495
+   },
+   "colorHex": "#d9a066",
+   "bodyType": "gas-giant",
+   "assetKey": "jupiter",
+   "primaryId": null
+  },
+  {
+   "id": "body-io",
+   "name": "Io",
+   "kind": "planet",
+   "radiusM": 1821490.0,
+   "positionM": {
+    "x": 597899729159.2253,
+    "y": 439315681606.1271,
+    "z": -15185354373.137224
+   },
+   "colorHex": "#e6c84a",
+   "bodyType": "moon",
+   "assetKey": "io",
+   "primaryId": "body-jupiter"
+  },
+  {
+   "id": "body-europa",
+   "name": "Europa",
+   "kind": "planet",
+   "radiusM": 1560800.0,
+   "positionM": {
+    "x": 596938770449.1484,
+    "y": 438830401896.56915,
+    "z": -15213971726.849695
+   },
+   "colorHex": "#cdb89a",
+   "bodyType": "moon",
+   "assetKey": "europa",
+   "primaryId": "body-jupiter"
+  },
+  {
+   "id": "body-ganymede",
+   "name": "Ganymede",
+   "kind": "planet",
+   "radiusM": 2631200.0,
+   "positionM": {
+    "x": 596678669828.0355,
+    "y": 438501026130.8505,
+    "z": -15230575366.558846
+   },
+   "colorHex": "#8a7f73",
+   "bodyType": "moon",
+   "assetKey": "ganymede",
+   "primaryId": "body-jupiter"
+  },
+  {
+   "id": "body-callisto",
+   "name": "Callisto",
+   "kind": "planet",
+   "radiusM": 2410300.0,
+   "positionM": {
+    "x": 597825094653.5289,
+    "y": 441038674988.8822,
+    "z": -15131262862.812395
+   },
+   "colorHex": "#5b5148",
+   "bodyType": "moon",
+   "assetKey": "callisto",
+   "primaryId": "body-jupiter"
+  },
+  {
+   "id": "body-saturn",
+   "name": "Saturn",
+   "kind": "planet",
+   "radiusM": 58232000.0,
+   "positionM": {
+    "x": 957317749181.553,
+    "y": 982438017966.3356,
+    "z": -55182135654.97815
+   },
+   "colorHex": "#e0c97f",
+   "bodyType": "gas-giant",
+   "assetKey": "saturn",
+   "primaryId": null
+  },
+  {
+   "id": "body-titan",
+   "name": "Titan",
+   "kind": "planet",
+   "radiusM": 2575500.0,
+   "positionM": {
+    "x": 956370946243.1041,
+    "y": 983204885998.0363,
+    "z": -55485095642.65482
+   },
+   "colorHex": "#d69a3c",
+   "bodyType": "moon",
+   "assetKey": "titan",
+   "primaryId": "body-saturn"
+  },
+  {
+   "id": "body-rhea",
+   "name": "Rhea",
+   "kind": "planet",
+   "radiusM": 764500.0,
+   "positionM": {
+    "x": 956792986803.8329,
+    "y": 982436533483.0074,
+    "z": -55127494575.00248
+   },
+   "colorHex": "#b8b8b8",
+   "bodyType": "moon",
+   "assetKey": "rhea",
+   "primaryId": "body-saturn"
+  },
+  {
+   "id": "body-iapetus",
+   "name": "Iapetus",
+   "kind": "planet",
+   "radiusM": 734500.0,
+   "positionM": {
+    "x": 954463975942.7808,
+    "y": 980418089647.8079,
+    "z": -54131378741.84989
+   },
+   "colorHex": "#8a8176",
+   "bodyType": "moon",
+   "assetKey": "iapetus",
+   "primaryId": "body-saturn"
+  },
+  {
+   "id": "body-dione",
+   "name": "Dione",
+   "kind": "planet",
+   "radiusM": 562500.0,
+   "positionM": {
+    "x": 957546297815.152,
+    "y": 982164202419.0023,
+    "z": -55060993910.65764
+   },
+   "colorHex": "#c9c9c9",
+   "bodyType": "moon",
+   "assetKey": "dione",
+   "primaryId": "body-saturn"
+  },
+  {
+   "id": "body-tethys",
+   "name": "Tethys",
+   "kind": "planet",
+   "radiusM": 536300.0,
+   "positionM": {
+    "x": 957534782943.0198,
+    "y": 982251576879.9077,
+    "z": -55111544657.12153
+   },
+   "colorHex": "#dedede",
+   "bodyType": "moon",
+   "assetKey": "tethys",
+   "primaryId": "body-saturn"
+  },
+  {
+   "id": "body-uranus",
+   "name": "Uranus (system barycentre)",
+   "kind": "planet",
+   "radiusM": 25362000.0,
+   "positionM": {
+    "x": 2157907410025.0571,
+    "y": -2055043512230.4248,
+    "z": -35594645375.89501
+   },
+   "colorHex": "#7dd3fc",
+   "bodyType": "ice-giant",
+   "assetKey": "uranus",
+   "primaryId": null
+  },
+  {
+   "id": "body-neptune",
+   "name": "Neptune (system barycentre)",
+   "kind": "planet",
+   "radiusM": 24622000.0,
+   "positionM": {
+    "x": 2513978818794.9336,
+    "y": -3739132778269.2617,
+    "z": 19063115984.167824
+   },
+   "colorHex": "#3b5bdb",
+   "bodyType": "ice-giant",
+   "assetKey": "neptune",
+   "primaryId": null
+  }
+ ]
+}

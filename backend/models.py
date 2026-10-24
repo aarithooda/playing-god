@@ -17,7 +17,7 @@ MAX_BODIES = 200
 BodyKind = Literal["star", "planet"]
 
 # Renderer metadata (display only; never read by the physics). `kind` is the coarse role, `bodyType` the visual class.
-BodyType = Literal["star", "rocky-planet", "gas-giant", "ice-giant", "asteroid", "default"]
+BodyType = Literal["star", "rocky-planet", "gas-giant", "ice-giant", "moon", "asteroid", "default"]
 ASSET_KEY_PATTERN = r"^[a-z0-9]+(-[a-z0-9]+)*$"  # stable lowercase-kebab identifier, e.g. "earth", "proxima-centauri"
 ASSET_KEY_MAX_LENGTH = 64
 
@@ -107,6 +107,7 @@ class Body(BaseModel):
     catalogueEntryId: str | None = None
     bodyType: BodyType = "default"  # always present
     assetKey: str | None = None  # always present; null = no specific asset, use the bodyType fallback
+    primaryId: str | None = None  # always present; id of the body this one orbits (moon -> planet). Display only
 
 
 class BodyUpdate(BaseModel):

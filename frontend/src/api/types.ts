@@ -7,7 +7,7 @@ export interface Vec3 {
   z: number;
 }
 
-export type BodyType = "star" | "rocky-planet" | "gas-giant" | "ice-giant" | "asteroid" | "default";
+export type BodyType = "star" | "rocky-planet" | "gas-giant" | "ice-giant" | "moon" | "asteroid" | "default";
 
 /** Stable rendering-asset identity assigned by the backend for recognized bodies; custom bodies omit it. */
 export type BodyAssetKey =
@@ -16,6 +16,7 @@ export type BodyAssetKey =
   | "mars"
   | "jupiter"
   | "neptune"
+  | "moon"
   | "proxima-centauri"
   | "trappist-1"
   | "sirius-a"
@@ -38,10 +39,12 @@ export interface BodyDto {
   bodyType?: BodyType;
   /** Stable identity for a specific licensed visual asset set; custom or unknown bodies omit it. */
   assetKey?: string;
+  /** Id of the body this one orbits (a moon's planet). Relationship metadata only: positions are always the simulated ones. */
+  primaryId?: string;
 }
 
 /** POST /api/v1/bodies request (the server generates `id`). `kind` defaults to "planet" on the server. */
-export type BodyCreateDto = Omit<BodyDto, "id" | "kind" | "catalogueEntryId" | "bodyType" | "assetKey"> & {
+export type BodyCreateDto = Omit<BodyDto, "id" | "kind" | "catalogueEntryId" | "bodyType" | "assetKey" | "primaryId"> & {
   kind?: BodyKind;
   catalogueEntryId?: string | null;
   bodyType?: BodyType;
@@ -197,6 +200,10 @@ export interface HistoryBodyMetaDto {
   colorHex: string;
   radiusM: number;
   kind: string;
+  /** Present when the backend records renderer metadata (older backends omit them). */
+  bodyType?: BodyType;
+  assetKey?: string;
+  primaryId?: string;
 }
 
 export interface HistoryPageDto {

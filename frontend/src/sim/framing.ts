@@ -39,6 +39,19 @@ export const MIN_NEAR = 1e-5;
 /** The near plane is this fraction of the smallest displayed radius, so a focused body is never clipped. */
 export const NEAR_FRACTION_OF_MIN_RADIUS = 0.25;
 
+/** The near plane is at most this fraction of the distance to the nearest body centre, so that body is never clipped. */
+export const NEAR_FRACTION_OF_NEAREST_DISTANCE = 0.1;
+
+/**
+ * Near-plane distance from how close the camera is to the closest body centre. Tiny display radii (a planet with moons)
+ * would otherwise pull the near plane to ~1e-4 even for a far camera, which wrecks depth precision for the whole scene
+ * and makes a moon flicker against its planet. Display only.
+ */
+export function nearPlaneForDistance(nearestBodyDistance: number): number {
+  if (!(nearestBodyDistance > 0) || !Number.isFinite(nearestBodyDistance)) return DEFAULT_NEAR;
+  return Math.min(DEFAULT_NEAR, Math.max(MIN_NEAR, nearestBodyDistance * NEAR_FRACTION_OF_NEAREST_DISTANCE));
+}
+
 /**
  * Near-plane distance for the current scene. Displayed radii can be very small when a close pair of bodies forces the
  * radii down (sim/radiusSeparation.ts); focusing such a body puts the camera closer than the default near plane, which

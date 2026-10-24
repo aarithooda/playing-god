@@ -36,6 +36,12 @@ export const CELESTIAL_ASSETS: Record<BodyAssetKey, CelestialAssetSet> = {
     normal: texture("neptune", "normal"),
     roughness: texture("neptune", "roughness"),
   },
+  // Earth's Moon uses the Moon map the generic fallback is derived from (see ATTRIBUTION.md).
+  moon: {
+    diffuse: texture("generic_asteroid", "diffuse"),
+    normal: texture("generic_asteroid", "normal"),
+    roughness: texture("generic_asteroid", "roughness"),
+  },
   "proxima-centauri": { diffuse: texture("proxima", "diffuse"), emissive: texture("proxima", "emissive") },
   "trappist-1": { diffuse: texture("trappist1", "diffuse"), emissive: texture("trappist1", "emissive") },
   "sirius-a": { diffuse: texture("sirius", "diffuse"), emissive: texture("sirius", "emissive") },
@@ -59,6 +65,12 @@ export const TYPE_FALLBACK_ASSETS: Partial<Record<BodyType, CelestialAssetSet>> 
     diffuse: texture("generic_ice", "diffuse"),
     normal: texture("generic_ice", "normal"),
     roughness: texture("generic_ice", "roughness"),
+  },
+  // Other moons have no map of their own: the grey Moon map, tinted by the body's display colour (CelestialMaterial).
+  moon: {
+    diffuse: texture("generic_asteroid", "diffuse"),
+    normal: texture("generic_asteroid", "normal"),
+    roughness: texture("generic_asteroid", "roughness"),
   },
   asteroid: {
     diffuse: texture("generic_asteroid", "diffuse"),

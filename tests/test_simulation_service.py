@@ -321,12 +321,26 @@ def test_resolver_exception_fails_step_and_rolls_back(svc, monkeypatch):
 
 # ---------- step-cap policy and robustness ----------
 def test_chunk_limit_matches_curvature_criterion(svc):
-    """Two bodies at distance d: a_rel = G(m1+m2)/d^2, limit = sqrt(8 * 0.01 * (r1+r2) / a_rel)."""
-    d = 1.0e7
+    """Two bodies 1.1e5 m from contact: a_rel = G(m1+m2)/d^2, limit = sqrt(8 * 0.01 * (r1+r2) / a_rel)."""
+    d = 1.2e5
     svc.add_body(make("a", 1.0e24, 1.0e5))
     svc.add_body(make("b", 1.0e22, 1.0e4, x=(d, 0, 0)))
     a_rel = G * (1.0e24 + 1.0e22) / d ** 2
     assert svc._chunk_limit() == pytest.approx(math.sqrt(0.08 * 1.1e5 / a_rel), rel=1e-12)
+
+
+def test_chunk_limit_relaxed_only_for_pair_that_cannot_touch(svc):
+    """A distant pair may take a chunk longer than the curvature limit, but never one in which it could reach contact:
+    gap - v*t - a*t^2/2 stays positive for the allowed chunk."""
+    d = 1.0e8
+    svc.add_body(make("a", 1.0e24, 1.0e5))
+    svc.add_body(make("b", 1.0e22, 1.0e4, x=(d, 0, 0)))
+    a_rel = G * (1.0e24 + 1.0e22) / d ** 2
+    curvature = math.sqrt(0.08 * 1.1e5 / a_rel)
+    limit = svc._chunk_limit()
+    assert limit > curvature
+    assert (d - 1.1e5) - 0.5 * a_rel * limit ** 2 > 0.0
+    assert limit == pytest.approx(0.5 * math.sqrt(2.0 * (d - 1.1e5) / a_rel), rel=1e-12)
 
 
 def test_radial_infall_through_one_large_step_merges_exactly_once(svc):

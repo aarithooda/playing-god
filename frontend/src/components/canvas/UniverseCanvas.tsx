@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
+import { Html, OrbitControls } from '@react-three/drei';
 import { Group, PerspectiveCamera, Raycaster, Vector2, Vector3 } from 'three';
 import { CelestialBody } from './CelestialBody';
 import { StarfieldShell } from './StarfieldShell';
@@ -9,7 +9,7 @@ import { AxesOverlay, GridOverlay } from './ViewOverlays';
 import { DEFAULT_CAMERA_POSITION, type RenderTransform, type ScenePosition } from '../../sim/renderTransform';
 import { clampPlacementDepth, rayPlaneIntersection } from '../../sim/placement';
 import { sceneShiftPx } from '../ui/layout';
-import { framingDistanceScale, nearPlaneFor } from '../../sim/framing';
+import { framingDistanceScale, nearPlaneForDistance } from '../../sim/framing';
 import {
   FOCUS_ANIMATION_S,
   focusDistanceForScreenHeight,
@@ -60,6 +60,8 @@ interface UniverseCanvasProps {
   showGrid?: boolean;
   /** Recorded paths to draw (UI-0). Display only; they never affect framing or focus. */
   trajectories?: readonly TrajectoryInput[];
+  /** Bodies that get a name tag in the scene (the selected body's planet system). */
+  labeledBodyIds?: readonly string[];
 }
 
 interface OrbitTarget {
@@ -90,6 +92,26 @@ const ViewportInset: React.FC<{ leftInset: number; rightInset: number }> = ({ le
   });
 
   return null;
+};
+
+/** Name tags for the bodies the user is looking at (a selected moon system), drawn as DOM next to each body. */
+const BodyLabels: React.FC<{ bodies: SceneBody[]; labeledIds: readonly string[] }> = ({ bodies, labeledIds }) => {
+  if (labeledIds.length === 0) return null;
+  const wanted = new Set(labeledIds);
+  return (
+    <>
+      {bodies.filter((b) => wanted.has(b.id)).map((b) => (
+        <Html key={b.id} position={b.position} zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
+          <div
+            data-testid={`body-label-${b.id}`}
+            style={{ transform: 'translate(8px, -18px)', color: '#e6edf7', fontSize: 11, whiteSpace: 'nowrap', textShadow: '0 0 3px #000, 0 0 3px #000' }}
+          >
+            {b.name}
+          </div>
+        </Html>
+      ))}
+    </>
+  );
 };
 
 /**
@@ -174,11 +196,14 @@ const CameraRig: React.FC<{
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus?.nonce, controls]);
 
-  // Keep the near plane inside the smallest displayed body, so focusing a tiny (crowded) body does not clip it away.
+  // Keep the near plane in front of the nearest body (so focusing a tiny body does not clip it away) but as far out as
+  // that allows: a needlessly small near plane ruins depth precision, and a moon would flicker against its planet.
   useFrame(() => {
-    let minRadius = Infinity;
-    for (const b of bodiesRef.current) minRadius = Math.min(minRadius, b.radius);
-    const near = nearPlaneFor(minRadius);
+    let nearest = Infinity;
+    for (const b of bodiesRef.current) {
+      nearest = Math.min(nearest, Math.hypot(camera.position.x - b.position[0], camera.position.y - b.position[1], camera.position.z - b.position[2]));
+    }
+    const near = nearPlaneForDistance(nearest);
     if (camera.near !== near) {
       camera.near = near;
       camera.updateProjectionMatrix();
@@ -376,6 +401,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
   showAxes = false,
   showGrid = false,
   trajectories = [],
+  labeledBodyIds = [],
 }) => {
   const axesVisible = viewControls?.state.axesVisible ?? showAxes;
   const gridEnabled = viewControls?.state.gridEnabled ?? showGrid;
@@ -420,11 +446,17 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
           name={body.name}
           bodyType={body.bodyType}
           assetKey={body.assetKey}
+          visiblePx={body.visiblePx}
+          maxGrowth={body.maxGrowth}
+          clearance={body.clearance}
+          systemPx={body.systemPx}
           isSelected={selectedBodyId === body.id}
           onClick={placementMode ? undefined : () => onSelectBody(body.id)}
           onDoubleClick={placementMode ? undefined : () => onFocusBody(body.id)}
         />
       ))}
+
+      <BodyLabels bodies={bodies} labeledIds={labeledBodyIds} />
 
       <PlacementCursor
         active={placementMode}

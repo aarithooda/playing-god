@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseBodyDto, parseDiagnosticsDto, parseStateDto, parseStepResponse } from "./parse";
+import { parseBodyDto, parseDiagnosticsDto, parseHistoryPage, parseStateDto, parseStepResponse } from "./parse";
 import { ApiError } from "./errors";
 import { diagnostics, earth, mergerEvent, state, stepResponse, sun } from "../test/fixtures";
 
@@ -114,6 +114,29 @@ describe("body rendering metadata", () => {
     expect(futureBody.bodyType).toBeUndefined();
     expect(futureBody.assetKey).toBe("future-asset");
     expect(parseBodyDto({ ...earth, assetKey: "future-asset" }).assetKey).toBe("future-asset");
+  });
+});
+
+describe("moon metadata", () => {
+  const io = { ...earth, id: "body-io", name: "Io", bodyType: "moon", assetKey: "io", primaryId: "body-jupiter" };
+
+  it("accepts the moon type and a primary id on live bodies", () => {
+    expect(parseBodyDto(io)).toMatchObject({ bodyType: "moon", assetKey: "io", primaryId: "body-jupiter" });
+  });
+
+  it("treats a null or absent primary as no primary, and rejects a malformed one", () => {
+    expect("primaryId" in parseBodyDto({ ...io, primaryId: null })).toBe(false);
+    expect("primaryId" in parseBodyDto({ ...io, primaryId: undefined })).toBe(false);
+    rejects(() => parseBodyDto({ ...io, primaryId: 5 }), "body.primaryId");
+  });
+
+  it("keeps renderer metadata on history body metadata, and tolerates older backends without it", () => {
+    const page = (meta: object) => parseHistoryPage({
+      universeId: "u", mode: "grid", sampleIntervalS: 1, generation: 0, firstIndex: 0, nextIndex: 0, droppedBefore: 0,
+      truncated: false, samples: [], bodies: { "body-io": { name: "Io", colorHex: "#fff", radiusM: 1, kind: "planet", ...meta } },
+    });
+    expect(page({ bodyType: "moon", assetKey: "io", primaryId: "body-jupiter" }).bodies["body-io"]).toMatchObject({ bodyType: "moon", assetKey: "io", primaryId: "body-jupiter" });
+    expect(page({}).bodies["body-io"]).toEqual({ name: "Io", colorHex: "#fff", radiusM: 1, kind: "planet" });
   });
 });
 

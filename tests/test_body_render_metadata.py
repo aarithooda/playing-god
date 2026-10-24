@@ -94,7 +94,7 @@ def test_every_allowed_body_type_is_accepted(client, body_type):
     assert create(client, kind=kind, bodyType=body_type)["bodyType"] == body_type
 
 
-@pytest.mark.parametrize("bad", ["Star", "rocky_planet", "planet", "moon", "", 5, ["star"]])
+@pytest.mark.parametrize("bad", ["Star", "rocky_planet", "planet", "comet", "", 5, ["star"]])
 def test_invalid_body_type_is_rejected_on_create_and_update(client, bad):
     assert client.post("/api/v1/bodies", json=payload(bodyType=bad)).status_code == 422
     b = create(client, x=5000.0)
@@ -237,7 +237,7 @@ def test_preset_loader_rejects_bad_metadata(tmp_path, monkeypatch):
     shutil.copytree(loader.DATA_DIR, tmp_path / "data")
     shutil.copytree(Path(loader.DATA_DIR).parent / "sources", tmp_path / "sources")
     path = tmp_path / "data" / "solar-system-j2000.json"
-    for field, value in (("bodyType", "moon"), ("assetKey", "Not Kebab"), ("bodyType", "rocky-planet")):
+    for field, value in (("bodyType", "comet"), ("assetKey", "Not Kebab"), ("bodyType", "rocky-planet")):
         data = json.loads(Path(loader.DATA_DIR, "solar-system-j2000.json").read_text(encoding="utf-8"))
         data["bodies"][0][field] = value  # body 0 is the Sun, a star: "rocky-planet" contradicts its kind
         path.write_text(json.dumps(data), encoding="utf-8")
