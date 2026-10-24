@@ -106,3 +106,31 @@ Entry format: Date · Decision · Context/reason · Alternatives · Consequences
 - Known issue deferred: the panel is mounted bottom-left (`absolute`, `bottom: 20px; left: 20px`) against the older layout and overlaps the full-height Event History sidebar in Nikhil's `panel` layout (`origin/panel`, not merged). **It must be resolved when that layout is integrated:** move `DiagnosticsPanel` into the left sidebar's scrollable content below Event History (an `inSidebar` prop like `EventTimeline`'s), remove the obsolete bottom-left mount, and add a test for the new placement.
 - Scope: this decision applies to PR #3 only. It does not change, waive or weaken the review requirement for any other or future PR; `TEAM_WORKFLOW.md` is unchanged and contains no waiver.
 - Status: accepted 2026-10-24 by the project owner (Aarit), as a one-time exception.
+
+## D-015 — One-time owner exception: PR #5 merged without the normal independent review
+- Date: 2026-10-24
+- Decision: **a documented, one-PR-only exception to `TEAM_WORKFLOW.md`** ("Pull requests need one reviewer from another area and passing tests"). PR #5 (starfield zoom stability and minimum on-screen body size, branch `frontend/starfield-zoom-stability`) is merged by project-owner decision **without** a recorded independent review. **No independent review was recorded**: GitHub shows no review or approval on the PR, and none occurred. The only checks are the author's own (an AI session working for the owner), the owner's manual visual verification in the browser, and CI.
+- Scope of the change (frontend only): a `StarfieldShell` that scales drei's `<Stars>` shell uniformly with camera distance beyond 700 scene units (with star point-size compensation and a larger `camera.far`), and a display-only minimum 3 px on-screen radius for celestial bodies. Physics, backend, API, camera controls and body positions are untouched.
+- Reason: the owner wants the zoom fix on `main` before the remaining UI branches are integrated one at a time.
+- Conditions: CI (backend pytest and frontend tsc/vitest/build) must pass on the exact PR head being merged, checked immediately before merging; normal GitHub merge commit; no direct push to `main`, no force-push. The code is commit `7445312`; the PR head is that commit plus the docs-only commit that records this decision (no code differs). Local results at `7445312`: pytest 259 passed (isolated venv), tsc clean, vitest 117, build OK.
+- Scope of the exception: **PR #5 only.** It does not change, waive or weaken the review requirement for any other or future PR (including the remaining UI branches); `TEAM_WORKFLOW.md` is unchanged and contains no waiver. It does not extend or renew D-014, which covered PR #3 only.
+- Status: accepted 2026-10-24 by the project owner (Aarit), as a one-time exception.
+
+
+## D-016 — One-time owner exception: docs PR #6 merged without the normal independent review
+- Date: 2026-10-24
+- Decision: **a documented, one-PR-only exception to `TEAM_WORKFLOW.md`** ("Pull requests need one reviewer from another area and passing tests"). PR #6 (docs only: the `context/STATUS.md` and `context/WORKLOG.md` entries recording the merge of PR #5, branch `docs/starfield-zoom-merged`) is merged by project-owner decision **without** a recorded independent review. **No independent review was recorded**: GitHub shows no review or approval on the PR, and none occurred.
+- Reason: record the confirmed PR #5 merge on `main` so project status is accurate before the remaining UI branches are integrated.
+- Conditions: documentation only, no code; CI must pass on the exact PR head being merged, checked immediately before merging (head `0347d0a` plus the docs-only commit that records this decision); normal GitHub merge commit; no direct push to `main`, no force-push.
+- Scope of the exception: **PR #6 only.** It does not extend D-014 (PR #3) or D-015 (PR #5), and it does not change, waive or weaken the review requirement for any other or future PR. `TEAM_WORKFLOW.md` is unchanged.
+- Status: accepted 2026-10-24 by the project owner (Aarit), as a one-time exception.
+
+## D-017 — One-time owner exception: docs PR #4 merged without the normal independent review
+- Date: 2026-10-24
+- Decision: **a documented, one-PR-only exception to `TEAM_WORKFLOW.md`** ("Pull requests need one reviewer from another area and passing tests"). PR #4 (docs only: `context/STATUS.md`, `TASKS.md` and `WORKLOG.md` entries recording the T-012 merge, branch `docs/t012-merged`) is merged by project-owner decision **without** a recorded independent review. **No independent review was recorded**: GitHub shows no review or approval on the PR, and none occurred.
+- Authorization: the project owner (Aarit) stated in chat that, as the only person currently implementing and integrating, they authorize proceeding with the UI integration series without waiting for teammate reviews, with each exception recorded here one PR at a time. This entry covers PR #4 only.
+- Reason: PR #4 conflicted with `main` in `STATUS.md` and `WORKLOG.md`; reconciling it first (milestone M0) keeps later integration PRs from re-resolving the same documentation conflicts.
+- What was done: `origin/main` (`7f9aea0`) was merged into `docs/t012-merged` with a normal merge commit (no force-push, no rewrite); in the two conflicts every entry from both sides was kept (the starfield zoom-stability entries stay on top, the T-012 "MERGED" rewrite replaces the stale "PR open" heading, and the D-014 worklog entry precedes the starfield worklog entry). The PR's own diff against `main` stays documentation only.
+- Conditions: CI must pass on the exact PR head being merged, checked immediately before merging; normal GitHub merge commit; no direct push to `main`, no force-push.
+- Scope of the exception: **PR #4 only.** It does not extend D-014, D-015 or D-016, and it does not change, waive or weaken the review requirement for any other or future PR. `TEAM_WORKFLOW.md` is unchanged. Later integration PRs get their own entries.
+- Status: accepted 2026-10-24 by the project owner (Aarit), as a one-time exception.
