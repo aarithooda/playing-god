@@ -37,6 +37,24 @@ describe("render transform", () => {
     expect(units).toBeGreaterThan(FIT_EXTENT_UNITS / 2.5);
   });
 
+  it("fits a large 200-body system into the overview extent", () => {
+    const positions = Array.from({ length: 200 }, (_, i) => {
+      const angle = (2 * Math.PI * i) / 200;
+      const distance = 1e11 + i * 5e11;
+      return {
+        x: Math.cos(angle) * distance,
+        y: Math.sin(angle) * distance,
+        z: (i - 100) * 7e11,
+      };
+    });
+    const t = fitTransform(positions);
+    const farthestCoordinate = Math.max(...positions.flatMap((p) => [Math.abs(p.x), Math.abs(p.y), Math.abs(p.z)]));
+    const fittedExtent = farthestCoordinate / t.metersPerUnit;
+    expect(t.metersPerUnit).toBeGreaterThan(0);
+    expect(fittedExtent).toBeLessThanOrEqual(FIT_EXTENT_UNITS);
+    expect(fittedExtent).toBeGreaterThan(FIT_EXTENT_UNITS / 2.5);
+  });
+
   it("falls back to the default scale when there is nothing to fit", () => {
     expect(fitTransform([]).metersPerUnit).toBe(DEFAULT_METERS_PER_UNIT);
     expect(fitTransform([{ x: 0, y: 0, z: 0 }]).metersPerUnit).toBe(DEFAULT_METERS_PER_UNIT);

@@ -15,6 +15,8 @@ import type { Vec3 } from '../../api/types';
 import { BodyFields } from './BodyFields';
 import { btnStyle, errorTextStyle, panelStyle } from './styles';
 import { theme } from './theme';
+import { ViewToolbar } from './ViewToolbar';
+import type { ViewControlContract } from '../../sim/viewControlContract';
 
 interface ControlPanelProps {
   bodies?: readonly BodyView[];
@@ -31,6 +33,7 @@ interface ControlPanelProps {
   onStep: () => void;
   onReset: () => void;
   onFit: () => void;
+  viewControls?: ViewControlContract;
   onCreate: (body: BodyCreateDto) => Promise<ActionResult>;
   placementMode?: boolean;
   onPlacementModeChange?: (active: boolean) => void;
@@ -41,6 +44,10 @@ interface ControlPanelProps {
   openCreateRequest?: number;
 }
 
+const EMPTY_VIEW_CONTROLS: ViewControlContract = {
+  state: { axesVisible: false, gridEnabled: false, gridShownForPlacement: false, canFitView: false, canFocusSelected: false },
+  actions: { setAxesVisible: () => {}, setGridVisible: () => {}, fitView: () => {}, focusSelected: () => {} },
+};
 export const ControlPanel: React.FC<ControlPanelProps> = ({
   bodies = [],
   playing,
@@ -56,6 +63,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   onStep,
   onReset,
   onFit,
+  viewControls,
   onCreate,
   placementMode = false,
   onPlacementModeChange = () => {},
@@ -64,6 +72,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   onPlacementCreateResult,
   openCreateRequest = 0,
 }) => {
+  const toolbarControls = viewControls ?? { ...EMPTY_VIEW_CONTROLS, actions: { ...EMPTY_VIEW_CONTROLS.actions, fitView: onFit } };
   const [creating, setCreating] = useState(false);
   const [values, setValues] = useState<FormValues>(NEW_BODY_DEFAULTS);
   const [positionManuallyEdited, setPositionManuallyEdited] = useState(false);
@@ -174,13 +183,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       <div style={{ fontSize: '11px', color: theme.textMuted }}>
         Sim time: {simulationTimeS === null ? '—' : `${formatDuration(simulationTimeS)} (${simulationTimeS.toExponential(3)} s)`}
       </div>
-      <div style={{ display: 'flex', gap: '5px' }}>
-        <button style={btnStyle} onClick={onPlay} disabled={disabled || playing || !canRun}>Play</button>
-        <button style={btnStyle} onClick={onPause} disabled={!playing}>Pause</button>
-      </div>
+      <ViewToolbar controls={toolbarControls} playing={playing} canRun={canRun} disabled={disabled} onPlay={onPlay} onPause={onPause} />
       <button style={btnStyle} onClick={onStep} disabled={disabled || stepping || !canRun}>Step Forward</button>
       <button style={btnStyle} onClick={onReset} disabled={disabled}>Reset Universe</button>
-      <button style={btnStyle} onClick={onFit}>Fit view</button>
       <div style={{ marginTop: '4px' }}>
         <label htmlFor="sim-speed" style={{ fontSize: '12px', display: 'block', marginBottom: '5px' }}>
           Sim Speed: {formatDuration(stepSeconds)} per step

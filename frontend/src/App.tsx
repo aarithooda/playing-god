@@ -5,7 +5,6 @@ import { ControlPanel } from "./components/ui/ControlPanel";
 import { FirstUse } from "./components/ui/FirstUse";
 import { Sidebar } from "./components/ui/Sidebar";
 import { ViewLegend } from "./components/ui/ViewLegend";
-import { ViewPanel } from "./components/ui/ViewPanel";
 import { Wordmark } from "./components/ui/Wordmark";
 import { enforceNarrow, insets, toggleSidebar, type SidebarState } from "./components/ui/layout";
 import { btnStyle, panelStyle } from "./components/ui/styles";
@@ -27,6 +26,7 @@ import { toSceneBody } from "./sim/viewModel";
 import { axisHalfLengthMeters } from "./sim/axes";
 import { gridCell } from "./sim/gridScale";
 import { UNDO_WINDOW_MS, useUndoableCreate } from "./sim/useUndoableCreate";
+import type { ViewControlContract } from "./sim/viewControlContract";
 
 // Same-origin: in dev the Vite proxy forwards /api and /healthz to the backend unchanged.
 const client = createApiClient();
@@ -103,7 +103,7 @@ export default function App() {
 
   const sceneBodies = useMemo(() => bodies.map((b) => toSceneBody(b, transform)), [bodies, transform]);
 
-  const focusBody = (id: string) => {
+  const focusBody = useCallback((id: string) => {
     const body = bodies.find((b) => b.id === id);
     if (body) {
       const sceneBody = toSceneBody(body, transform);
@@ -115,7 +115,7 @@ export default function App() {
       }));
       setFocusedBodyId(id);
     }
-  };
+  }, [bodies, transform]);
 
   const confirmPlacement = useCallback((scenePosition: [number, number, number]) => {
     preserveSceneScaleRef.current = { expectedBodyCount: bodies.length + 1, layoutEpoch };
@@ -207,6 +207,25 @@ export default function App() {
   const edge = insets(sidebars);
   // Placing a body shows the grid to help position it; the stored choice is never overwritten.
   const gridVisible = showGrid || placementMode;
+  const fitView = useCallback(() => {
+    setTransform(fitTransform(bodies.map((b) => b.positionM)));
+    setFrameEpoch((n) => n + 1);
+  }, [bodies]);
+  const viewControls: ViewControlContract = {
+    state: {
+      axesVisible: showAxes,
+      gridEnabled: showGrid,
+      gridShownForPlacement: placementMode,
+      canFitView: bodies.length > 0,
+      canFocusSelected: selectedBody !== null,
+    },
+    actions: {
+      setAxesVisible: setShowAxes,
+      setGridVisible: setShowGrid,
+      fitView,
+      focusSelected: () => { if (selectedBody) focusBody(selectedBody.id); },
+    },
+  };
 
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative", overflow: "hidden", backgroundColor: theme.bg }}>
@@ -228,8 +247,7 @@ export default function App() {
         leftInset={edge.left}
         rightInset={edge.right}
         transform={transform}
-        showAxes={showAxes}
-        showGrid={gridVisible}
+        viewControls={viewControls}
       />
 
       {/* Free area: everything that floats over the scene is laid out between the sidebars. */}
@@ -301,10 +319,8 @@ export default function App() {
           onPause={simulation.pause}
           onStep={() => void simulation.stepOnce()}
           onReset={() => void simulation.reset()}
-          onFit={() => {
-            setTransform(fitTransform(bodies.map((b) => b.positionM)));
-            setFrameEpoch((n) => n + 1);
-          }}
+          onFit={fitView}
+          viewControls={viewControls}
           onCreate={createWithFeedback}
           placementMode={placementMode}
           onPlacementModeChange={setPlacementMode}
@@ -312,13 +328,6 @@ export default function App() {
           onPlacementRadiusChange={setPlacementRadiusM}
           onPlacementCreateResult={placementCreateResult}
           openCreateRequest={openCreateRequest}
-        />
-        <ViewPanel
-          axes={showAxes}
-          grid={showGrid}
-          gridShownForPlacement={placementMode}
-          onAxesChange={setShowAxes}
-          onGridChange={setShowGrid}
         />
         <BodyInspector
           body={selectedBody}
