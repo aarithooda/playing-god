@@ -4,6 +4,8 @@ import { UniverseCanvas, type FocusRequest } from "./components/canvas/UniverseC
 import { ControlPanel } from "./components/ui/ControlPanel";
 import { FirstUse } from "./components/ui/FirstUse";
 import { Sidebar } from "./components/ui/Sidebar";
+import { ViewLegend } from "./components/ui/ViewLegend";
+import { ViewPanel } from "./components/ui/ViewPanel";
 import { Wordmark } from "./components/ui/Wordmark";
 import { enforceNarrow, insets, toggleSidebar, type SidebarState } from "./components/ui/layout";
 import { btnStyle, panelStyle } from "./components/ui/styles";
@@ -22,6 +24,8 @@ import {
 } from "./sim/renderTransform";
 import { useSimulation } from "./sim/useSimulation";
 import { toSceneBody } from "./sim/viewModel";
+import { axisHalfLengthMeters } from "./sim/axes";
+import { gridCell } from "./sim/gridScale";
 import { useUndoableCreate } from "./sim/useUndoableCreate";
 
 // Same-origin: in dev the Vite proxy forwards /api and /healthz to the backend unchanged.
@@ -53,6 +57,9 @@ export default function App() {
   // Shrinking the window with both sidebars open would leave almost no free area.
   useEffect(() => setSidebars((s) => enforceNarrow(s, windowWidth)), [windowWidth]);
   const [openCreateRequest, setOpenCreateRequest] = useState(0);
+  // The user's own view choices; both start off. Placement may show the grid without changing them.
+  const [showAxes, setShowAxes] = useState(false);
+  const [showGrid, setShowGrid] = useState(false);
   const [placementMode, setPlacementMode] = useState(false);
   const [placementRadiusM, setPlacementRadiusM] = useState(6.371e6);
   const [pickedPosition, setPickedPosition] = useState<{ position: { x: number; y: number; z: number }; nonce: number } | undefined>();
@@ -142,6 +149,8 @@ export default function App() {
     setOpenCreateRequest((n) => n + 1);
   };
   const edge = insets(sidebars);
+  // Placing a body shows the grid to help position it; the stored choice is never overwritten.
+  const gridVisible = showGrid || placementMode;
 
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative", overflow: "hidden", backgroundColor: theme.bg }}>
@@ -162,6 +171,9 @@ export default function App() {
         onPlacementPreview={setPlacementPreview}
         leftInset={edge.left}
         rightInset={edge.right}
+        transform={transform}
+        showAxes={showAxes}
+        showGrid={gridVisible}
       />
 
       {/* Free area: everything that floats over the scene is laid out between the sidebars. */}
@@ -174,6 +186,12 @@ export default function App() {
       >
         <div style={{ position: "absolute", top: 16, left: 16, right: 16, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8 }}>
           <Wordmark health={simulation.health} />
+          <ViewLegend
+            showAxes={showAxes}
+            showGrid={gridVisible}
+            cellMeters={gridCell(transform.metersPerUnit).cellMeters}
+            axisHalfLengthM={axisHalfLengthMeters(transform)}
+          />
           {simulation.actionError && (
             <p role="alert" style={{ ...panelStyle, margin: 0, padding: "6px 10px", fontSize: 12, borderColor: theme.danger }}>
               {simulation.actionError}{" "}
@@ -241,6 +259,13 @@ export default function App() {
           onPlacementRadiusChange={setPlacementRadiusM}
           onPlacementCreateResult={placementCreateResult}
           openCreateRequest={openCreateRequest}
+        />
+        <ViewPanel
+          axes={showAxes}
+          grid={showGrid}
+          gridShownForPlacement={placementMode}
+          onAxesChange={setShowAxes}
+          onGridChange={setShowGrid}
         />
         <BodyInspector
           body={selectedBody}

@@ -196,3 +196,72 @@ describe("App: connection health and simulation loading are different states", (
     expect(screen.queryByRole("alert")).toBeNull();
   });
 });
+
+describe("App view aids: axes and grid", () => {
+  const pressed = (name: string) => screen.getByRole("button", { name }).getAttribute("aria-pressed");
+  const startPlacement = () => {
+    fireEvent.click(screen.getByRole("button", { name: "Add body…" }));
+    fireEvent.click(screen.getByRole("button", { name: "Choose position in 3D" }));
+  };
+  const stopPlacement = () => fireEvent.click(screen.getByRole("button", { name: "Cancel 3D placement" }));
+
+  it("starts with both off and passes the display scale to the canvas", async () => {
+    render(<App />);
+    await screen.findByText("Simulation");
+    expect([canvas().showAxes, canvas().showGrid]).toEqual([false, false]);
+    expect(pressed("Axes")).toBe("false");
+    expect(pressed("Grid")).toBe("false");
+    expect(canvas().transform.metersPerUnit).toBeGreaterThan(0);
+    expect(screen.queryByTestId("view-legend")).toBeNull();
+  });
+
+  it("toggles axes and grid independently and labels the visible one with its units", async () => {
+    render(<App />);
+    await screen.findByText("Simulation");
+    fireEvent.click(screen.getByRole("button", { name: "Axes" }));
+    expect([canvas().showAxes, canvas().showGrid]).toEqual([true, false]);
+    expect(screen.getByTestId("view-legend").textContent).toMatch(/Axes through/);
+    expect(screen.getByTestId("view-legend").textContent).not.toMatch(/per cell/);
+
+    fireEvent.click(screen.getByRole("button", { name: "Grid" }));
+    expect([canvas().showAxes, canvas().showGrid]).toEqual([true, true]);
+    expect(screen.getByTestId("view-legend").textContent).toMatch(/m per cell/);
+
+    fireEvent.click(screen.getByRole("button", { name: "Axes" }));
+    expect([canvas().showAxes, canvas().showGrid]).toEqual([false, true]);
+  });
+
+  it("shows the grid while placing a body without changing the user's Grid setting, then restores it", async () => {
+    render(<App />);
+    await screen.findByText("Simulation");
+    startPlacement();
+    expect(canvas().showGrid).toBe(true); // temporary aid
+    expect(pressed("Grid")).toBe("false"); // the user's own choice is untouched
+    expect(screen.getByTestId("grid-placement-note")).toBeTruthy();
+    stopPlacement();
+    expect(canvas().showGrid).toBe(false); // back to what the user chose
+    expect(screen.queryByTestId("grid-placement-note")).toBeNull();
+  });
+
+  it("keeps a grid the user turned on across placement, and never touches the axes", async () => {
+    render(<App />);
+    await screen.findByText("Simulation");
+    fireEvent.click(screen.getByRole("button", { name: "Grid" }));
+    startPlacement();
+    expect([canvas().showAxes, canvas().showGrid]).toEqual([false, true]);
+    stopPlacement();
+    expect([canvas().showAxes, canvas().showGrid]).toEqual([false, true]);
+    expect(pressed("Grid")).toBe("true");
+  });
+
+  it("turning the grid off during placement does not lose the placement aid, and it ends with the user's choice", async () => {
+    render(<App />);
+    await screen.findByText("Simulation");
+    fireEvent.click(screen.getByRole("button", { name: "Grid" })); // on
+    startPlacement();
+    fireEvent.click(screen.getByRole("button", { name: "Grid" })); // user turns it off while placing
+    expect(canvas().showGrid).toBe(true); // still shown for placement
+    stopPlacement();
+    expect(canvas().showGrid).toBe(false);
+  });
+});
