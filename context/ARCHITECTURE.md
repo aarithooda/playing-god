@@ -17,13 +17,13 @@ tests/      pytest: API, service, stress, step guard, stall resilience, diagnost
 - The server never advances time by itself; Play is a client loop of bounded `POST /step` requests. State is in memory, single process, lost on restart. Endpoints and error shapes: `API_CONTRACT.md`.
 
 ## Frontend [Implemented]
-**State ownership.** `App.tsx` is the single owner of UI state: selection, focus request and the focused body id, placement mode and preview, sidebar open/closed (`SidebarState`), the user's Axes/Grid choices, the display transform and the frame epoch. Server state lives only in `useSimulation` (latest authoritative snapshot, events, load/health/error state); there is no frontend physics.
+**State ownership.** `App.tsx` is the single owner of UI state: selection, focus request and the focused body id, placement mode and preview, sidebar open/closed (`SidebarState`), the user's Axes/Grid choices, the display transform and the frame epoch. Server state lives only in `useSimulation` (latest authoritative snapshot, bounded client-local history of backend-returned states, events, load/health/error state); there is no frontend physics.
 
 **Data path.** `api/client.ts` (typed client; every request has a timeout: reads 8 s, writes and steps 35 s, so nothing waits forever) -> `api/parse.ts` (strict DTO parsing) -> `sim/useSimulation.ts` (one FIFO request queue so responses apply in order; Play steps strictly sequentially and stops on the first failure; a step with an unknown outcome is followed by a re-read of the committed state) -> `sim/viewModel.ts` (view/scene bodies). Connection health (`/healthz`) and simulation loading are separate states.
 
 **Render transform** (`sim/renderTransform.ts`, display only): scene = (x, z, -y) / metersPerUnit, so the physics x-y plane is the horizontal ground plane and +z is up. Positions are scaled uniformly; radii use a log display size; the scale is refitted only when the set of bodies changes through a user action (load, create, delete, reset, Fit view) and then held fixed while the simulation runs. `sim/framing.ts` pulls the default camera back just enough that the fitted scene is not hidden under a sidebar on narrow windows.
 
-**Layout** (`components/ui/layout.ts`, `Sidebar.tsx`, `theme.ts`): a full-bleed canvas under two solid sidebars (left: Event History + System diagnostics; right: Controls, View, Body Inspector; 320 px open, 40 px rail). The scene is centred in the free area between them by shifting the camera projection with `setViewOffset` (the canvas is never resized), so picking, placement and focus use the same projection. Below 1100 px window width only one sidebar is open. Everything that floats over the scene (wordmark with connection status, errors, first-use prompt, placement hint, undo notice, view legend) lives in the free-area container.
+**Layout** (`components/ui/layout.ts`, `Sidebar.tsx`, `theme.ts`): a full-bleed canvas under two solid sidebars (left: Recorded Simulation History, Event History + System diagnostics; right: Controls, View, Body Inspector; 320 px open, 40 px rail). The scene is centred in the free area between them by shifting the camera projection with `setViewOffset` (the canvas is never resized), so picking, placement and focus use the same projection. Below 1100 px window width only one sidebar is open. Everything that floats over the scene (wordmark with connection status, errors, first-use prompt, placement hint, undo notice, view legend) lives in the free-area container.
 
 **Interaction contract.**
 - Single click selects (thin constant-width outline, `CelestialBody`); double click focuses (eased move, fixed 25% screen height, same view direction), after which the camera follows the body (`sim/focusTracking.ts`) until the user pans, the scene refits or the body disappears; the inspector shows a Focused badge meanwhile.
@@ -31,6 +31,8 @@ tests/      pytest: API, service, stress, step guard, stall resilience, diagnost
 - "Choose position in 3D" previews a size-matched sphere on a camera-facing plane (scroll = depth); one click creates exactly one body at that point, with a live SI x/y/z readout, and Esc cancels. Any create offers a 10 s Undo that deletes that body and is withdrawn as soon as simulated time moves.
 - Axes and Grid are independent, off by default; the grid is also shown while placing (`gridVisible = userGrid || placementMode`) without changing the user's choice.
 - Starfield (`StarfieldShell`) keeps a stable apparent size when zoomed out; bodies keep at least 3 px on screen (`bodyDisplayScale`). Both are display-only.
+- The client history stores up to 600 copied backend snapshots, starts a new local run after load/reset, and breaks its trajectory segments after body edits or uncertain-outcome resyncs. The snapshot browser is informational only: it does not seek the backend or change the live scene. Visual trail integration awaits the renderer's agreed UI-0 interface.
+- Event History remains merger-only (the only event type in API v1) and displays the API's estimated contact time as an estimate and booked spin as bookkeeping, not rotation dynamics.
 
 ## Dependencies [Implemented]
 | Dependency | Status |
@@ -41,11 +43,12 @@ tests/      pytest: API, service, stress, step guard, stall resilience, diagnost
 | three 0.186, @react-three/fiber 8, @react-three/drei 9.122 (Stars, OrbitControls, Outlines, Grid, Html) | used |
 
 ## Testing and CI [Implemented]
-CI (`.github/workflows/ci.yml`) runs backend `pytest` and frontend `tsc`, `vitest` and `vite build` on every push to `main` and every PR. There is **no automated browser end-to-end test** (T-010); browser behaviour is verified manually and recorded in `STATUS.md`. The 3D components (`CelestialBody`, `CameraRig`, overlays) have no unit tests because jsdom has no WebGL; their pure logic is extracted into `sim/*` and tested.
+CI (`.github/workflows/ci.yml`) runs backend `pytest`, frontend `tsc`, `vitest`, `vite build`, and a Playwright browser journey using a stubbed API on every push to `main` and every PR. The Playwright journey verifies UI interaction/recovery and responsive sidebars, not backend integration or WebGL pixels. The 3D components (`CelestialBody`, `CameraRig`, overlays) have no unit tests because jsdom has no WebGL; their pure logic is extracted into `sim/*` and tested.
 
 ## Known limitations
 - A single native `integrate` call that never reaches REBOUND's heartbeat cannot be interrupted in-process (would need a worker process).
 - The history panel lists backend merger events only; creation, edits and deletes are not logged (separate decision pending).
+- Historical snapshots are browsable in the sidebar, but trails and historical scene scrubbing are pending the UI-0 renderer integration point; backend time cannot be sought through API v1.
 - Sidebar-aware framing happens when the scene is (re)fitted; opening a sidebar afterwards does not re-frame (use Fit view).
 - Brief features not implemented: checkpoint save/restore (only studied in M0.6) and approximate tidal deformation; the diagnostics panel has no baseline/drift indicators.
 - Physics limitations and approximations: `API_CONTRACT.md` ("Physics limitations") and `PHYSICS_SPIKE.md`.
