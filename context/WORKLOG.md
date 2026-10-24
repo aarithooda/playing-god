@@ -475,3 +475,8 @@
 - Bugs caught by tests while building: variable shadowing in the geometry (`b`), a git-grep based boundary test that ignored untracked files (now `--untracked`).
 - Note: the stage-1 latency test failed once under CPU load and passed on rerun (it compares two timings; run it on an idle machine).
 - Not shipped on purpose: earth-like, icy-rock, gas-giant-core and molten profiles (planning marks their numbers [VERIFY]); no equation-of-state or thermal field (no v1 model needs one; rows M-PROP-4/5 stay MISS).
+
+## 2026-10-24 — Resume: verification and provisional decisions (Claude Sonnet 5.5)
+- Verified the reported commits: bb61e8d, 9299ec2, c6d2643, b4a7134, e4a9b3c, e2f5430 are a linear chain on 263a15e; the implementation worktree was clean at e2f5430; the other three worktrees (feature/moons-system f2c2da3, body-render-metadata 2aa6686, planning 263a15e) were clean and untouched; tests/impact 302 passed on this HEAD.
+- Owner instructions recorded as D-038 (provisional UD-1/UD-2, NOT a sign-off), D-039 (DQ-7), D-040 (DQ-8), D-041 (DQ-9), D-042 (diagnostics deviation). Gate handling: no signature fabricated; Stage 4b/default activation stays separately gated.
+- A fetch sub-agent (model-assisted) read part of the LS12 text; its findings are summarised in COLLISION_SCIENTIFIC_MODELS.md 6b with their limits.
