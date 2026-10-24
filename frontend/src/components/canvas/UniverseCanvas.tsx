@@ -109,6 +109,13 @@ interface FocusSession {
   tracking?: TrackingState;
 }
 
+interface OverviewTransition {
+  elapsed: number;
+  startPosition: Vector3;
+  startTarget: Vector3;
+  endPosition: Vector3;
+}
+
 const CameraRig: React.FC<{
   frameEpoch: number;
   focus?: FocusRequest;
@@ -124,6 +131,7 @@ const CameraRig: React.FC<{
   layoutRef.current = { width: size.width, height: size.height, leftInset, rightInset };
   const controls = useThree((s) => s.controls) as unknown as OrbitTarget | null;
   const session = useRef<FocusSession | null>(null);
+  const overview = useRef<OverviewTransition | null>(null);
   // Latest props for the frame loop without re-running the effects below.
   const bodiesRef = useRef(bodies);
   bodiesRef.current = bodies;
@@ -139,12 +147,14 @@ const CameraRig: React.FC<{
   useEffect(() => {
     // Pull back just enough that the fitted scene is not hidden under a sidebar (1 on normal windows).
     const s = framingDistanceScale({ fovDeg: (camera as PerspectiveCamera).fov, ...layoutRef.current });
-    camera.position.set(DEFAULT_CAMERA_POSITION[0] * s, DEFAULT_CAMERA_POSITION[1] * s, DEFAULT_CAMERA_POSITION[2] * s);
+    const endPosition = new Vector3(DEFAULT_CAMERA_POSITION[0] * s, DEFAULT_CAMERA_POSITION[1] * s, DEFAULT_CAMERA_POSITION[2] * s);
     release();
-    if (controls) {
-      controls.target.set(0, 0, 0);
-      controls.update();
-    }
+    overview.current = controls ? {
+      elapsed: 0,
+      startPosition: camera.position.clone(),
+      startTarget: new Vector3(controls.target.x, controls.target.y, controls.target.z),
+      endPosition,
+    } : null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [frameEpoch, camera, controls]);
 
@@ -186,6 +196,20 @@ const CameraRig: React.FC<{
   });
 
   useFrame((_, delta) => {
+    const transition = overview.current;
+    if (transition && controls) {
+      transition.elapsed = Math.min(transition.elapsed + delta, 0.8);
+      const t = smoothstep(transition.elapsed / 0.8);
+      camera.position.lerpVectors(transition.startPosition, transition.endPosition, t);
+      controls.target.set(
+        transition.startTarget.x * (1 - t),
+        transition.startTarget.y * (1 - t),
+        transition.startTarget.z * (1 - t),
+      );
+      controls.update();
+      if (transition.elapsed >= 0.8) overview.current = null;
+      return;
+    }
     const s = session.current;
     if (!s || !controls) return;
     const body = bodiesRef.current.find((b) => b.id === s.bodyId);
@@ -380,6 +404,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
   const axesVisible = viewControls?.state.axesVisible ?? showAxes;
   const gridEnabled = viewControls?.state.gridEnabled ?? showGrid;
   const hasStar = bodies.some((b) => b.kind === 'star');
+  const labelsForAll = bodies.length <= 24;
   return (
     <Canvas
       camera={{ position: DEFAULT_CAMERA_POSITION, fov: 50, far: 2000 }}
@@ -395,7 +420,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
       <StarfieldShell />
       {(gridEnabled || placementMode) && <GridOverlay transform={transform} />}
       {axesVisible && <AxesOverlay transform={transform} />}
-      {trajectories.length > 0 && <TrajectoryLayer trajectories={trajectories} transform={transform} />}
+      {trajectories.length > 0 && <TrajectoryLayer trajectories={trajectories} transform={transform} selectedBodyId={selectedBodyId} />}
 
       <ambientLight intensity={hasStar ? 0.3 : 0.6} />
       {hasStar ? (
@@ -421,6 +446,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
           bodyType={body.bodyType}
           assetKey={body.assetKey}
           isSelected={selectedBodyId === body.id}
+          showLabel={labelsForAll || selectedBodyId === body.id}
           onClick={placementMode ? undefined : () => onSelectBody(body.id)}
           onDoubleClick={placementMode ? undefined : () => onFocusBody(body.id)}
         />
@@ -433,7 +459,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
         onCancel={onPlacementCancel}
         onPreview={onPlacementPreview}
       />
-      <OrbitControls makeDefault enabled={!placementMode} />
+      <OrbitControls makeDefault enabled={!placementMode} enableDamping dampingFactor={0.08} zoomSpeed={0.85} />
       <CameraRig
         frameEpoch={frameEpoch}
         focus={focus}

@@ -1,3 +1,7 @@
+## Orbit graphics branch (2026-10-24, Codex) — newest
+- Implemented on `animations` from `7148556`; orbit-only frontend changes, not yet pushed at the time this entry was written.
+- Added smooth recorded orbit curves with spatial endpoint fade, selection emphasis, display labels, restrained stellar halo, procedural galactic backdrop, damped controls and eased Overview return. Tests: focused 14/14, typecheck and build passed; E2E smoke timed out at page navigation and remains unverified.
+
 ## UI-4 / UI-6 independent frontend branch (2026-10-24) — latest
 - **Branch:** all UI-4/UI-6 work is consolidated on `frontend/ui-4-6`, based on agreed `main` `d5220f9`; latest commit is recorded in Git. No PR or merge into `main` has been performed.
 - **Completed additions:** UI-4 merger events can select/highlight the surviving body only while its result ID remains in the authoritative backend state; selection uses existing app/canvas highlight and opens the inspector. UI-6 adds keyboard activation/narrow viewport and disconnected-backend recovery E2E cases plus a browser frame-pacing profile at 1/16/64 bodies. `UniverseCanvas.tsx`, `CelestialBody.tsx`, UI-0 registry/material code, view model, renderer, and backend were not changed.

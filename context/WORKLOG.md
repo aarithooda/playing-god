@@ -428,3 +428,8 @@
 - Corrected `EXPERIMENT_01_SPEC.md` section 4.2 (barycentre drift about 580 km, not 0.6 km; the 9 mm/s figure unchanged) and aligned `EXPERIMENT_01_PROTOCOL.md` and D-028; the existing validation test already pinned the measured value.
 - Added `frontend/e2e/experiment01.e2e.mjs` and `npm run e2e` (dev-only `playwright-core` 1.64.1; the cached Playwright Chromium could not be launched from its virtualised folder, so the script falls back to an installed Chrome or Edge): 11 steps, three consecutive passes. T-010 closed for the Experiment 01 critical path; not wired into CI.
 - Fresh runs: pytest 492, vitest 372, tsc clean, build OK, e2e 11/11. PR #14 CI was green before this sprint; no reviews or comments.
+
+## 2026-10-24 — Isolate orbit graphics for animations branch
+- Copied only the orbit visualization implementation and its focused tests to a clean worktree from agreed base 7148556; removed collision-VFX wiring from the copied canvas so the branch remains orbit-only.
+- Focused trajectory, label and galaxy texture tests passed 14/14; typecheck and production build passed (689 modules; existing >500 kB chunk warning). The graphics-smoke E2E timed out waiting for page navigation in this worktree and is not treated as passing.
+- Branch is prepared for the requested push; no backend/API/physics change.

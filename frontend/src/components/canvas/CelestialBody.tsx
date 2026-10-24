@@ -1,8 +1,10 @@
 import React, { useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { Outlines, Sphere } from '@react-three/drei';
-import { Group, PerspectiveCamera, DoubleSide, BackSide } from 'three';
+import { Html, Outlines, Sphere } from '@react-three/drei';
+import { AdditiveBlending, BackSide, Color, DoubleSide, Group, PerspectiveCamera, ShaderMaterial } from 'three';
+import { useEffect, useMemo } from 'react';
 import { bodyDisplayScale } from '../../sim/bodyVisibility';
+import { displayBodyLabel } from '../../sim/bodyLabel';
 import { useCelestialMaterial } from './CelestialMaterial';
 import type { BodyKind, BodyType } from '../../api/types';
 
@@ -20,6 +22,7 @@ interface CelestialBodyProps {
   bodyType?: BodyType;
   assetKey?: string;
   isSelected?: boolean;
+  showLabel?: boolean;
   onClick?: () => void;
   onDoubleClick?: () => void;
 }
@@ -33,6 +36,7 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
   bodyType = 'default',
   assetKey,
   isSelected = false,
+  showLabel = false,
   onClick,
   onDoubleClick,
 }) => {
@@ -40,6 +44,35 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
   const { assets, textures, material } = useCelestialMaterial(bodyType, assetKey, color);
   // drei's Outlines measures thickness in drawing-buffer pixels, so convert from CSS pixels.
   const dpr = useThree((s) => s.viewport.dpr);
+  const haloMaterial = useMemo(() => new ShaderMaterial({
+    uniforms: { glowColor: { value: new Color(color) } },
+    vertexShader: `
+      varying vec3 vNormalView;
+      varying vec3 vViewDirection;
+      void main() {
+        vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
+        vNormalView = normalize(normalMatrix * normal);
+        vViewDirection = normalize(-viewPosition.xyz);
+        gl_Position = projectionMatrix * viewPosition;
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 glowColor;
+      varying vec3 vNormalView;
+      varying vec3 vViewDirection;
+      void main() {
+        float rim = pow(1.0 - abs(dot(normalize(vNormalView), normalize(vViewDirection))), 2.2);
+        float alpha = rim * 0.20;
+        gl_FragColor = vec4(glowColor * (0.55 + rim * 0.8), alpha);
+      }
+    `,
+    side: BackSide,
+    transparent: true,
+    depthWrite: false,
+    blending: AdditiveBlending,
+    toneMapped: false,
+  }), [color]);
+  useEffect(() => () => haloMaterial.dispose(), [haloMaterial]);
 
   // Display-only: lift the body to a minimum on-screen size when zoomed far out (sim/bodyVisibility.ts).
   // The scaled mesh is also what pointer picking ray-casts, so clicks match what is drawn.
@@ -63,6 +96,12 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
       }}
     >
       <group ref={body}>
+        {bodyType === 'star' && (
+          <mesh scale={1.38} raycast={() => undefined} renderOrder={1}>
+            <sphereGeometry args={[radius, 24, 20]} />
+            <primitive object={haloMaterial} attach="material" />
+          </mesh>
+        )}
         <Sphere args={[radius, 32, 32]}>
           <primitive object={material} attach="material" />
           {/* Mounted only while selected, so deselecting (or selecting another body) leaves nothing behind.
@@ -98,6 +137,24 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
           </mesh>
         )}
       </group>
+      {showLabel && (
+        <Html
+          position={[0, radius * 1.55, 0]}
+          center
+          zIndexRange={[20, 0]}
+          style={{
+            color: isSelected ? '#f0d4a5' : 'rgba(207, 218, 232, 0.78)',
+            font: '500 11px/1.2 system-ui, sans-serif',
+            letterSpacing: '0.015em',
+            whiteSpace: 'nowrap',
+            textShadow: '0 1px 4px #000, 0 0 7px rgba(0,0,0,0.9)',
+            pointerEvents: 'none',
+            userSelect: 'none',
+          }}
+        >
+          {displayBodyLabel(name)}
+        </Html>
+      )}
     </group>
   );
 };

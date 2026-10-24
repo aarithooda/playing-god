@@ -2,6 +2,8 @@
 Status: todo / in progress / blocked / done. Keep tasks small and independently testable.
 
 ## NEXT ACTION
+**Orbit graphics** are isolated on local branch `animations` from `7148556`. Trails use backend history with spatial fade, smooth display interpolation and no fabricated prediction. Labels, restrained star glow, procedural space background, damped camera and eased Overview are included. Focused tests 14/14, typecheck and build passed; graphics-smoke E2E timed out on navigation and needs a manual/browser follow-up. No backend changes.
+
 **Simulation Lab + Experiment 01 implemented** on `feature/simulation-lab-experiment-01` (T-015; one PR to `main`, not merged). Next: the owner's product review of the PR, then the independent technical review (OD-6); then merge by the owner. Open owner decisions: whether to approve an alternative gate for TRAPPIST-1 (D-027) and whether to correct the barycentre-drift sentence in `EXPERIMENT_01_SPEC.md` section 4.2 (D-028). Older text follows.
 
 UI integration series M0-M5 **complete and merged** (PRs #4, #7, #8, #9, #11, #12; stall fix #10); repository handed over, see the FINAL HANDOVER section at the top of `STATUS.md`. Next: the owner defines and starts Experiment 01 (not defined in the repo, not started). Open items: T-010 browser E2E, the history-system decision, checkpoints/tidal (brief features not implemented).

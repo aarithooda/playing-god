@@ -4,6 +4,7 @@ import { Stars } from '@react-three/drei';
 import type { Group, Points, ShaderMaterial } from 'three';
 import { STARFIELD_OUTER_RADIUS, syncStarfieldToCamera } from '../../sim/starfieldScale';
 import { applyStarSizeScale } from './starfieldShader';
+import { GalaxyBand } from './GalaxyBand';
 
 const STAR_RADIUS = 300;
 const STAR_DEPTH = STARFIELD_OUTER_RADIUS - STAR_RADIUS;
@@ -42,7 +43,8 @@ export const StarfieldShell: React.FC = () => {
 
   return (
     <group ref={group}>
-      <Stars ref={points} radius={STAR_RADIUS} depth={STAR_DEPTH} count={20000} factor={7} saturation={0} fade speed={1} />
+      <GalaxyBand />
+      <Stars ref={points} radius={STAR_RADIUS} depth={STAR_DEPTH} count={20000} factor={7} saturation={0.22} fade speed={1} />
     </group>
   );
 };
