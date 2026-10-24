@@ -1,6 +1,12 @@
 # Handoff (latest — rewrite at end of each session)
 
-## Final handover (2026-10-24, Claude Sonnet 5.5) — latest
+## Simulation Lab + Experiment 01 (2026-10-24, Claude Sonnet 5.5) — latest
+- Implemented M1-M12 on `feature/simulation-lab-experiment-01` (see `STATUS.md` for commits, verification, scientific values, the browser journey and the checklist). One PR to `main`; not merged; no review has happened.
+- Where things are: backend `universes.py` (registry, epoch guards), `simulation.py` (per-universe engine: revision, guards, snapshots, history recording, audit), `history.py`, `presets/`, `catalogue.py`, `orbit_lab.py`; frontend `UniverseWorkspace.tsx`, `sim/useUniverses.ts`, `sim/history/`, `sim/useOrbitLab.ts`, `render/contract.ts`; design `EXPERIMENT_01_IMPLEMENTATION_PLAN.md`, results `PRESETS.md` and `EXPERIMENT_01_PROTOCOL.md`, decisions D-025 to D-028.
+- Gotchas: universes are in memory only (a restart loses them; the UI says so). Run your own backend/Vite (8011/5183) for checks, never the owner's :8000. `tests/conftest.py` gives every test a fresh registry. Archived Horizons files are marked `-text` in `.gitattributes` because their SHA-256 is verified at load. Reset now means "the initial state" of that universe. The TRAPPIST-1 gate investigation lives in the implementation session's notes folder, not in the repository.
+- Open for the owner: TRAPPIST-1 gate (D-027), the spec section 4.2 numeric slip (D-028), product review, then the independent technical review.
+
+## Final handover (2026-10-24, Claude Sonnet 5.5)
 1. Read the FINAL HANDOVER section at the top of `STATUS.md`: it has the merged-PR table with SHAs, the teammate-work dispositions, the deleted-branch SHAs, the verification evidence and the Experiment 01 readiness assessment. `ARCHITECTURE.md` is current.
 2. Repository state: only `main` remains (local = `origin/main`), plus the tag `archive/frontend-close-body-inspector` (the one unmerged, superseded commit). Verify with `git fetch --all --prune && git branch -a && git tag`.
 3. **Running backend caveat:** the owner's backend on :8000 (pid 18780) was started from `25abca3`: it has D-011/D-012 but not D-021, and it holds a real universe (one merged body, t = 2.574e9 s, one merger) that cannot be restored through the API after a restart. It was not restarted. To use D-021 behaviour, restart it from current `main` (`.venv/Scripts/python.exe -m uvicorn backend.main:app --port 8000`) and accept or re-create the universe (body parameters are in `STATUS.md`).
