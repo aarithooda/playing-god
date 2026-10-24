@@ -64,7 +64,7 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test("records backend states, browses history with the keyboard, and shows merger metadata", async ({ page }) => {
+test("shows backend merger metadata and keeps the layout responsive", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 700 });
   await page.goto("/");
   await expect(page.getByTestId("backend-status")).toContainText("connected");
@@ -74,18 +74,8 @@ test("records backend states, browses history with the keyboard, and shows merge
   await expect(page.getByText(/Sim time: 1.16 d/)).toBeVisible();
   await page.getByRole("button", { name: "Expand History & diagnostics" }).click();
 
-  const history = page.getByTestId("simulation-history");
-  await expect(history.getByText("Live backend state: 1.16 d")).toBeVisible();
   await expect(page.getByTestId("event-item")).toContainText("estimated contact t = 1.94 h");
   await expect(page.getByTestId("event-item")).toContainText("spin booked");
-
-  const slider = page.getByRole("slider", { name: "Recorded simulation time" });
-  await slider.focus();
-  await slider.press("Home");
-  await expect(history.getByText("Recorded snapshot: 0 s")).toBeVisible();
-  await expect(history.getByText("Earth", { exact: true })).toBeVisible();
-  await slider.press("End");
-  await expect(history.getByText("Live backend state: 1.16 d")).toBeVisible();
 
   await expect(page.getByTestId("sidebar-left")).toHaveAttribute("data-open", "true");
   await expect(page.getByTestId("sidebar-right")).toHaveAttribute("data-open", "false");

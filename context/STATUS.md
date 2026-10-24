@@ -1,8 +1,7 @@
-## UI-2 / UI-4 / UI-6 independent frontend branch (2026-10-24) — latest
-- **Branch:** `frontend/ui-2-4-6`, based on agreed `main` `d5220f9`; work is local and not pushed. No merge/rebase or changes to `main`.
-- **Scope completed locally:** bounded history (600 copied backend-returned position snapshots, client-local run IDs, no rewind/seek and no predicted motion), history controls and recorded-state view; merger event timeline metadata using existing API fields; accessibility affordances; Playwright browser tests and CI job; README/architecture updates. `UniverseCanvas.tsx` untouched. Renderer hookup and rendering metrics intentionally await UI-0 integration points. `App.tsx` only imports and mounts the UI-2 panel.
-- **Checks:** `npm run typecheck` passed; `npm test` passed (212 tests / 25 files); `npm run build` passed (existing >500 kB bundle warning); `npm run test:e2e` passed (2 browser tests); `git diff --check` passed. Browser tests stub backend HTTP; they verify UI behavior, not physics or live API compatibility.
-- **Limitations:** history is browser-memory only and resets on successful load/reset; historical browsing does not rewind the authoritative scene; no rendering performance measurements yet. T-010 is implemented on this branch only; CI result awaits a pushed PR/CI run.
+## UI-4 / UI-6 independent frontend branch (2026-10-24) — latest
+- **Branch:** `frontend/ui-4-6`, based on agreed `main` `d5220f9`; work is local and not pushed.
+- **Retained scope:** API-provided merger contact-time estimate and booked-spin metadata with explicit caveats; accessibility affordances; Playwright browser tests/CI; related documentation. UI-2 history model, hook changes, controls, and history-specific tests were removed after reassignment to teammate 1. `UniverseCanvas.tsx` remains untouched; renderer metrics await UI-0 integration points.
+- **Checks after removal:** `npm run typecheck` passed; `npm test` passed (204 tests / 23 files); `npm run build` passed (existing >500 kB warning); `npm run test:e2e` passed (2 tests); `git diff --check` passed. Browser tests stub backend HTTP; remote CI has not run.
 # Status
 _Concise authoritative snapshot. Update after every meaningful session._
 

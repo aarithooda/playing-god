@@ -21,12 +21,6 @@ import {
   type EventView,
   type SimulationView,
 } from "./viewModel";
-import {
-  appendTrajectorySnapshot,
-  createTrajectoryHistory,
-  nextTrajectoryRunId,
-  type TrajectoryHistory,
-} from "./trajectoryHistory";
 
 export type LoadStatus = "loading" | "ready" | "error";
 export type Health = "unknown" | "ok" | "down";
@@ -59,7 +53,6 @@ export function useSimulation(client: ApiClient, options: SimulationOptions = {}
   const healthPollMs = options.healthPollMs ?? 10_000;
 
   const [sim, setSim] = useState<SimulationView | null>(null);
-  const [trajectoryHistory, setTrajectoryHistory] = useState<TrajectoryHistory | null>(null);
   const [events, setEvents] = useState<EventView[]>([]);
   const [loadStatus, setLoadStatus] = useState<LoadStatus>("loading");
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -74,24 +67,10 @@ export function useSimulation(client: ApiClient, options: SimulationOptions = {}
   const mounted = useRef(false);
   const tail = useRef<Promise<unknown>>(Promise.resolve());
   const stepPending = useRef(false);
-  const trajectoryBreakPending = useRef(false);
   const speedRef = useRef(speedExp);
   speedRef.current = speedExp;
   /** Every body name ever seen, so events can name bodies that no longer exist. */
   const names = useRef(new Map<string, string>());
-
-  const startTrajectoryRun = useCallback((view: SimulationView) => {
-    trajectoryBreakPending.current = false;
-    setTrajectoryHistory(createTrajectoryHistory(nextTrajectoryRunId(), view));
-  }, []);
-
-  const recordTrajectoryState = useCallback((view: SimulationView, discontinuity = false) => {
-    const breakBefore = discontinuity || trajectoryBreakPending.current;
-    trajectoryBreakPending.current = false;
-    setTrajectoryHistory((previous) => previous
-      ? appendTrajectorySnapshot(previous, view, breakBefore)
-      : createTrajectoryHistory(nextTrajectoryRunId(), view));
-  }, []);
 
   const enqueue = useCallback(<T,>(task: () => Promise<T>): Promise<T> => {
     const run = tail.current.then(task, task);
@@ -137,12 +116,9 @@ export function useSimulation(client: ApiClient, options: SimulationOptions = {}
     [enqueue, noteFailure, noteSuccess],
   );
 
-  const refreshState = useCallback(async (discontinuity = false) => {
-    if (discontinuity) trajectoryBreakPending.current = true;
-    const view = toSimulationView(await client.getState());
-    applySim(view);
-    recordTrajectoryState(view);
-  }, [client, applySim, recordTrajectoryState]);
+  const refreshState = useCallback(async () => {
+    applySim(toSimulationView(await client.getState()));
+  }, [client, applySim]);
 
   const load = useCallback(async () => {
     if (mounted.current) {
@@ -153,9 +129,7 @@ export function useSimulation(client: ApiClient, options: SimulationOptions = {}
       await enqueue(async () => {
         const state = await client.getState();
         const evs = await client.getEvents();
-        const view = toSimulationView(state);
-        applySim(view);
-        startTrajectoryRun(view);
+        applySim(toSimulationView(state));
         if (mounted.current) setEvents(mergeEvents([], evs.map(toEventView)));
       });
       if (mounted.current) {
@@ -170,7 +144,7 @@ export function useSimulation(client: ApiClient, options: SimulationOptions = {}
         if (e instanceof ApiError && e.kind === "network") setHealth("down");
       }
     }
-  }, [client, enqueue, applySim, startTrajectoryRun]);
+  }, [client, enqueue, applySim]);
 
   // Initial load + lifecycle flag. The flag is re-armed on every effect run so StrictMode's
   // mount/unmount/mount cycle leaves it true.
@@ -208,9 +182,7 @@ export function useSimulation(client: ApiClient, options: SimulationOptions = {}
     if (mounted.current) setStepping(true);
     try {
       const res = await enqueue(() => client.step(stepSecondsForExp(speedRef.current)));
-      const view = toSimulationView(res);
-      applySim(view);
-      recordTrajectoryState(view);
+      applySim(toSimulationView(res));
       if (mounted.current && res.events.length) {
         setEvents((prev) => mergeEvents(prev, res.events.map(toEventView)));
       }
@@ -225,7 +197,7 @@ export function useSimulation(client: ApiClient, options: SimulationOptions = {}
           setActionError(`${e.message}. The step may not have completed; showing the last state the backend reported.`);
         }
         try {
-          await enqueue(() => refreshState(true));
+          await enqueue(() => refreshState());
         } catch {
           /* the last known state stays on screen and the error above stays visible */
         }
@@ -235,7 +207,7 @@ export function useSimulation(client: ApiClient, options: SimulationOptions = {}
       stepPending.current = false;
       if (mounted.current) setStepping(false);
     }
-  }, [client, enqueue, applySim, noteFailure, noteSuccess, refreshState, recordTrajectoryState]);
+  }, [client, enqueue, applySim, noteFailure, noteSuccess, refreshState]);
 
   // Play loop: strictly sequential steps separated by tickMs. Cleanup on pause/unmount.
   useEffect(() => {
@@ -269,23 +241,21 @@ export function useSimulation(client: ApiClient, options: SimulationOptions = {}
   const reset = useCallback(async (): Promise<ActionResult> => {
     setPlaying(false);
     return act(async () => {
-      const view = toSimulationView(await client.reset());
-      applySim(view);
-      startTrajectoryRun(view);
+      applySim(toSimulationView(await client.reset()));
       const evs = await client.getEvents();
       if (mounted.current) {
         setEvents(mergeEvents([], evs.map(toEventView)));
         setLayoutEpoch((n) => n + 1);
       }
     });
-  }, [act, client, applySim, startTrajectoryRun]);
+  }, [act, client, applySim]);
 
   const createBody = useCallback(
     async (body: BodyCreateDto): Promise<CreateResult> => {
       let id = "";
       const result = await act(async () => {
         id = (await client.createBody(body)).id;
-        await refreshState(true);
+        await refreshState();
         if (mounted.current) setLayoutEpoch((n) => n + 1);
       });
       return result.ok ? { ok: true, id } : result;
@@ -297,7 +267,7 @@ export function useSimulation(client: ApiClient, options: SimulationOptions = {}
     (id: string, patch: BodyUpdateDto): Promise<ActionResult> =>
       act(async () => {
         await client.updateBody(id, patch);
-        await refreshState(true);
+        await refreshState();
       }),
     [act, client, refreshState],
   );
@@ -306,7 +276,7 @@ export function useSimulation(client: ApiClient, options: SimulationOptions = {}
     (id: string): Promise<ActionResult> =>
       act(async () => {
         await client.deleteBody(id);
-        await refreshState(true);
+        await refreshState();
         if (mounted.current) setLayoutEpoch((n) => n + 1);
       }),
     [act, client, refreshState],
@@ -317,7 +287,6 @@ export function useSimulation(client: ApiClient, options: SimulationOptions = {}
 
   return {
     sim,
-    trajectoryHistory,
     events,
     loadStatus,
     loadError,

@@ -346,3 +346,9 @@
 - Added bounded client-local history of backend-returned positions, a non-seeking timeline/controls, merger event estimate/spin details that exist in the API DTO, focus-visible/reduced-motion/accessibility refinements, and a Playwright CI/browser setup. Updated README and architecture; status/handoff/tasks updated.
 - Verification: TypeScript check passed; Vitest 212/212 across 25 files; production build succeeded with the existing >500 kB chunk warning; Playwright 2/2 passed; `git diff --check` passed. E2E uses stubbed API responses and does not replace integration against the eventual Simulation Lab contract. No backend files changed.
 - No push, merge, or rebase performed. Remote CI remains pending until the owner authorizes publishing.
+
+## 2026-10-24 — Remove reassigned UI-2 work (Codex)
+- Per the owner's request, removed UI-2 snapshot history implementation, hook state/recording, App wiring, component/tests and E2E history assertions. UI-4 merger metadata and UI-6 accessibility, Playwright infrastructure/recovery coverage, CI, and docs remain.
+- No changes to `UniverseCanvas.tsx`; no push, merge, or rebase. Verification after removal is pending.
+- Post-removal verification: typecheck passed; Vitest 204/204 across 23 files; production build succeeded with the existing >500 kB warning; Playwright 2/2 passed; diff check passed. E2E now covers merger metadata/responsive layout and recoverable load errors, with no history behavior.
+- Renamed the local branch to `frontend/ui-4-6` to reflect the remaining scope; it still tracks the same `origin/main` base and has not been published.

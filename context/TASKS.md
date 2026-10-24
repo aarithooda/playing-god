@@ -2,7 +2,7 @@
 Status: todo / in progress / blocked / done. Keep tasks small and independently testable.
 
 ## NEXT ACTION
-UI integration M0-M5 is merged. UI-2/UI-4/UI-6 independent implementation is complete locally on `frontend/ui-2-4-6` (based on `d5220f9`, unpushed); details and verification are at the top of `STATUS.md`. Snapshot history is a read-only browser and is not a backend seek feature. Renderer hookup and metrics await UI-0 integration points. Next: UI-0 coordination/integration review; Experiment 01 remains undefined.
+UI integration M0-M5 is merged. UI-2 history work was reassigned to teammate 1 and removed from this branch. Remaining local branch scope is UI-4 event metadata and UI-6 accessibility/E2E/docs; see top of `STATUS.md`. Renderer metrics await UI-0 integration points. Experiment 01 remains undefined.
 
 B1 diagnostics merged (2026-10-24, T-011; top of `STATUS.md`). Next product step: T-012, the diagnostics panel (frontend owner). Older text follows.
 
