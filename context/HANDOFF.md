@@ -1,5 +1,10 @@
 # Handoff (latest — rewrite at end of each session)
 
+## Simulation stall investigation (2026-10-24, Claude Sonnet 5.5) — latest
+1. The reported stall was a known IAS15 wedge (D-011) hitting a backend process that predates the fix, plus a lock/timeout design that let one stuck step make the whole app unusable. Details: `STATUS.md` (top), `WORKLOG.md`, proposed D-021, `API_CONTRACT.md` ("Concurrency").
+2. **Action for the owner:** the old backend (pid 5328, port 8000) is still running and frozen at t = 155344829.88 s. Restart it from the current checkout (`.venv/Scripts/python.exe -m uvicorn backend.main:app --port 8000`; this clears the in-memory universe). The three-Earth state is encoded in `tests/test_stall_resilience.py` (`INCIDENT_BODIES`) if you want to re-create it.
+3. PR from branch `fix/simulation-stall-resilience`; not merged; no review or exception recorded. Commands: `python -m pytest`, `cd frontend && npm run typecheck && npm test && npm run build`.
+
 ## Remove selected-body ring (2026-10-24, Codex) — latest
 1. Removed only the separate white ring mesh from `CelestialBody`; body click selection, inspector opening, double-click focus, and the subtle selected-body emissive highlight remain intact.
 2. `npm run build` passed (641 modules); the existing >500 kB chunk warning remains. Tests and browser E2E were not run.

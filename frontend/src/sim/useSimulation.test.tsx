@@ -352,3 +352,111 @@ describe("useSimulation: diagnostics follow the authoritative responses", () => 
     expect(result.current.sim?.diagnosticsIssue).toMatch(/unsupported diagnostics version/);
   });
 });
+
+describe("useSimulation: a stuck or failed backend never leaves the UI loading forever", () => {
+  const timeout = (what = "GET /api/v1/simulation/state") => new ApiError("timeout", `The backend did not answer ${what} within 8 s`);
+
+  it("keeps connection health and simulation loading apart: healthy backend, simulation load fails -> recoverable error", async () => {
+    let attempt = 0;
+    const client = fakeClient({
+      health: async () => true,
+      getState: async () => {
+        attempt += 1;
+        if (attempt === 1) throw timeout();
+        return state([sun, earth]);
+      },
+    });
+    const { result } = renderHook(() => useSimulation(client, opts));
+    await flush();
+    expect(result.current.health).toBe("ok"); // /healthz answers...
+    expect(result.current.loadStatus).toBe("error"); // ...while the simulation did not load
+    expect(result.current.loadError).toMatch(/did not answer/);
+    expect(result.current.sim).toBeNull();
+
+    await act(async () => {
+      await result.current.reload(); // Retry
+    });
+    expect(result.current.loadStatus).toBe("ready");
+    expect(result.current.sim?.bodies).toHaveLength(2);
+    expect(result.current.loadError).toBeNull();
+  });
+
+  it("a failed step is reported, does not advance the displayed time, pauses Play, and a later step succeeds", async () => {
+    let calls = 0;
+    const client = fakeClient({
+      step: async () => {
+        calls += 1;
+        if (calls === 1) throw new ApiError("http", "step exceeded its 10 s wall-clock budget; state was not advanced", 503);
+        return stepResponse([sun, earth], 100);
+      },
+    });
+    const { result } = renderHook(() => useSimulation(client, opts));
+    await flush();
+    const before = result.current.sim?.simulationTimeS;
+
+    act(() => result.current.play());
+    await flush();
+    expect(result.current.playing).toBe(false); // Play stops on the first failure, no retry loop
+    expect(result.current.actionError).toMatch(/not advanced/);
+    expect(result.current.sim?.simulationTimeS).toBe(before);
+    expect(calls).toBe(1);
+
+    await act(async () => {
+      expect(await result.current.stepOnce()).toBe("ok");
+    });
+    expect(result.current.sim?.simulationTimeS).toBe(100);
+    expect(result.current.actionError).toBeNull();
+  });
+
+  it("a step that times out has an unknown outcome: the committed state is re-read instead of guessed", async () => {
+    let backendTime = 0;
+    const client = fakeClient({
+      getState: async () => state([sun, earth], backendTime),
+      step: async () => {
+        backendTime = 5_000; // the backend did finish the step; only the response was lost
+        throw new ApiError("timeout", "The backend did not answer POST /api/v1/simulation/step within 35 s");
+      },
+    });
+    const { result } = renderHook(() => useSimulation(client, opts));
+    await flush();
+    await act(async () => {
+      expect(await result.current.stepOnce()).toBe("failed");
+    });
+    expect(result.current.sim?.simulationTimeS).toBe(5_000); // what the backend reports, not the old value or a guess
+    expect(result.current.actionError).toMatch(/may not have completed/);
+    expect(result.current.stepping).toBe(false);
+  });
+
+  it("a hung request ends by timeout, and Retry then runs: the request queue is never blocked forever", async () => {
+    let stepSettles: () => void = () => {};
+    const client = fakeClient({
+      step: () =>
+        new Promise((_resolve, reject) => {
+          stepSettles = () => reject(timeout("POST /api/v1/simulation/step"));
+        }),
+    });
+    const { result } = renderHook(() => useSimulation(client, opts));
+    await flush();
+
+    let stepOutcome: unknown;
+    act(() => {
+      void result.current.stepOnce().then((r) => (stepOutcome = r));
+    });
+    await flush();
+    expect(result.current.stepping).toBe(true);
+
+    let reloaded = false;
+    act(() => {
+      void result.current.reload().then(() => (reloaded = true));
+    });
+    await flush();
+    expect(reloaded).toBe(false); // queued behind the in-flight step...
+
+    await act(async () => stepSettles()); // ...which the client's timeout now settles
+    await flush();
+    expect(stepOutcome).toBe("failed");
+    expect(reloaded).toBe(true);
+    expect(result.current.loadStatus).toBe("ready");
+    expect(result.current.stepping).toBe(false);
+  });
+});
