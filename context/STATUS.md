@@ -1,5 +1,5 @@
 ## UI-4 / UI-6 independent frontend branch (2026-10-24) — latest
-- **Branch:** `frontend/ui-4-6`, based on agreed `main` `d5220f9`; work is local and not pushed.
+- **Branch:** `frontend/ui-4-6`, based on agreed `main` `d5220f9`; published to `origin/frontend/ui-4-6` at `df13b6e`. No PR opened and no merge performed.
 - **Retained scope:** API-provided merger contact-time estimate and booked-spin metadata with explicit caveats; accessibility affordances; Playwright browser tests/CI; related documentation. UI-2 history model, hook changes, controls, and history-specific tests were removed after reassignment to teammate 1. `UniverseCanvas.tsx` remains untouched; renderer metrics await UI-0 integration points.
 - **Checks after removal:** `npm run typecheck` passed; `npm test` passed (204 tests / 23 files); `npm run build` passed (existing >500 kB warning); `npm run test:e2e` passed (2 tests); `git diff --check` passed. Browser tests stub backend HTTP; remote CI has not run.
 # Status

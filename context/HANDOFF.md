@@ -1,7 +1,7 @@
 ## UI-4 / UI-6 handoff (2026-10-24, Codex) — latest
-1. Branch `frontend/ui-4-6` is based on `main` `d5220f9`; work remains local and unpushed. UI-2 history work was removed after reassignment to teammate 1.
-2. Remaining work: API-backed merger metadata, accessibility refinements, Playwright coverage/CI, and documentation. `UniverseCanvas.tsx` is untouched; renderer metrics await UI-0 integration points.
-3. Post-revert verification passed: frontend typecheck, Vitest 204/204 (23 files), production build (existing >500 kB warning), Playwright 2/2, and `git diff --check`. Remote CI has not run.
+1. Branch `frontend/ui-4-6` is based on `main` `d5220f9`, published at `origin/frontend/ui-4-6` (`df13b6e`). No PR was opened and nothing was merged. UI-2 history work was removed after reassignment to teammate 1.
+2. Retained scope: API-provided merger contact-time estimate and booked-spin metadata with caveats; accessibility refinements; Playwright browser coverage/CI setup; and documentation. `UniverseCanvas.tsx`, `CelestialBody.tsx`, UI-0 registry/material code, and backend files were not changed. Renderer performance metrics await UI-0 integration points.
+3. Checks after the UI-2 revert passed: frontend typecheck, Vitest 204/204 (23 files), production build (existing >500 kB warning), Playwright 2/2, and `git diff --check`. Browser E2E stubs backend HTTP; remote CI has not run. Open the branch for review or cherry-pick after coordinating with UI-0; do not merge before review.
 # Handoff (latest — rewrite at end of each session)
 
 ## Final handover (2026-10-24, Claude Sonnet 5.5) — latest

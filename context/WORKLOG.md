@@ -352,3 +352,7 @@
 - No changes to `UniverseCanvas.tsx`; no push, merge, or rebase. Verification after removal is pending.
 - Post-removal verification: typecheck passed; Vitest 204/204 across 23 files; production build succeeded with the existing >500 kB warning; Playwright 2/2 passed; diff check passed. E2E now covers merger metadata/responsive layout and recoverable load errors, with no history behavior.
 - Renamed the local branch to `frontend/ui-4-6` to reflect the remaining scope; it still tracks the same `origin/main` base and has not been published.
+
+## 2026-10-24 — Publish UI-4/UI-6 handoff branch (Codex)
+- After the owner's approval, published `frontend/ui-4-6` to `origin/frontend/ui-4-6` at `df13b6e`. The branch contains the retained UI-4/UI-6 work and the UI-2 removal; no merge or PR creation was performed.
+- Updated STATUS, HANDOFF, and TASKS to reflect the published branch and its review state. Existing verification evidence is recorded above; no new tests were run for this documentation-only update.
