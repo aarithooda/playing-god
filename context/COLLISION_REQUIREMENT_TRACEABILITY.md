@@ -358,3 +358,6 @@ These are not spec requirements but binding constraints on how the rows above ar
 
 ## Coverage summary
 Every numbered item of §1–§18 has at least one row; grouped rows (e.g. `F1-INFO-1..12` expanded, `R-A-1..6`, `NF-1..8`, `ST-1..11`, `HX-IF-1..9`) list each sub-item in the spec's order and are verified item by item by the named tests. Rows with status DEC: M-CAT-ICE/M-PROP-3 strength (DQ-9), M-INT-5 (DQ-8), R-B-1 threshold (DQ-6), R-B-2/G-2 (DQ-4), PER-1..5 disk (DQ-11). M-PROP-FALLBACK and V-TIME-LIFE were decided by the owner (D-033) and are now MISS (to implement). The only BLK row is the owner constraint OD33-GATE, which blocks the disputed LS12 constants until CP-SCI-1; no spec requirement is blocked and none was removed.
+
+## Governance note (D-059, 2026-10-25)
+CP-SCI-1 and CP-5 are **waived by the owner for continued development** (D-059), not signed. Any row marked PROVISIONAL stays provisional: "owner-accepted, not independently validated". A row is VERIFIED here only in the software sense (a test run was observed); no row claims scientific validation.

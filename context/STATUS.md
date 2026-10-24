@@ -5,7 +5,10 @@
 # Status
 _Concise authoritative snapshot. Update after every meaningful session._
 
-## Collision engine — DQ-3 (a) recorded, Stage 11 BLOCKED on a named reviewer (2026-10-25, Claude Sonnet 5.5) — newest
+## Collision engine - governance change D-059, Stages 11-12 proceeding (2026-10-25, Claude Sonnet 5.5) - newest
+- The owner waived the CP-SCI-1 / CP-5 wait for continued development (D-059). This is **owner-accepted, not independently validated**: no reviewer, no signature. Provisional labels, UD-1/UD-2, unsourced parameters and unsupported models remain visible. Stage 11 uses only fetched, citable material values; Stage 12 runs the scenarios, performance checks and the DoD audit and reports unmet criteria.
+
+## Collision engine — DQ-3 (a) recorded, Stage 11 BLOCKED on a named reviewer (2026-10-25, Claude Sonnet 5.5)
 - DQ-3 (a) with safeguards (D-058). No reviewer is named, so no Stage 11 code was written; a source inventory exists (`context/STAGE11_SOURCE_INVENTORY.md`). CP-SCI-1 and CP-5 pending. No code changed this session.
 
 ## Collision engine — browser verification of Stage 9 (2026-10-25, Claude Sonnet 5.5)

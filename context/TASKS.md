@@ -79,6 +79,8 @@ Fetched and created local tracking refs for `feature/m0-rebound-physics-api` (Aa
 On isolated branch `validation/production-physics-review`, 11 new analytical/reference checks passed against `feature/production-rebound-simulation`; the complete branch suite passed 160 tests with 3 warnings. This does not close P-003: the review recommends additional strongly curved non-radial and three-body cases, connected clusters of >3 simultaneous mergers, seed/order variation, and testing the 2000-chunk cap. See `context/PRODUCTION_PHYSICS_INDEPENDENT_VALIDATION.md`.
 
 <!-- COLLISION-BOARD:START -->
+**GOVERNANCE CHANGE (D-059, 2026-10-25):** CP-SCI-1 and CP-5 are WAIVED by the owner for continued development only (owner-accepted, NOT independently validated; no signature exists). Stages 11 and 12 proceed without a named reviewer.
+
 ### Collision & particle engine — implementation board (live; updated at every stage boundary)
 Branch chain (stacked, nothing pushed or merged): see `WORKLOG.md`. Status: `[ ]` not started · `[-]` in progress · `[x]` completed and verified · `[!]` blocked / awaiting human approval. Per-requirement detail: `COLLISION_REQUIREMENT_TRACEABILITY.md`.
 
