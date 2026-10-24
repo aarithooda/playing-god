@@ -6,7 +6,7 @@ Provenance and validation of every preset the app offers. Spec: `context/specs/S
 | Preset | Status |
 |---|---|
 | `solar-system-j2000` Solar System (J2000.0) | **Offered.** Required by OD-1. |
-| TRAPPIST-1 | Gated (M11); not offered unless it passes its validation gate. See "TRAPPIST-1" below. |
+| TRAPPIST-1 | **Excluded**: the plan's transit-time gate is not met (the published model itself fails it). See "TRAPPIST-1" below. |
 | Kepler-90 | **Removed** (OD-1): only planets g and h have measured masses (Shaw et al. 2025, arXiv:2507.13588); the other six would need a mass-radius estimate, which does not meet the sourcing standard. |
 
 ## Solar System, J2000.0 (`backend/presets/data/solar-system-j2000.json`)
@@ -42,5 +42,13 @@ Model A: Sun + Earth-Moon barycentre (what the app uses). Model B: Sun + Earth +
 - **Versus the ephemeris (recorded, not asserted):** at 730.5 d the Sun + EMB model is **11,717 km** from Horizons and the Sun + Earth + Moon model **11,946 km**. Including the Moon does not bring the model closer, because the omitted planets dominate.
 - **UI note:** positions are barycentres; Moon dynamics, tides, eclipses and lunar perturbations are absent; a real velocity change would act on two bodies.
 
-## TRAPPIST-1
-Not yet evaluated (milestone M11, optional gated). This section is replaced by the outcome.
+## TRAPPIST-1: excluded (M11 gate not met)
+**Not offered.** The plan's gate (section 15.2) requires the element round trip to 1e-9 and "the first 3 transits of each planet match the observed times to <= 0.0035 d". The conversion and the dynamics were built and checked; the transit-time gate fails for a reason that is not an implementation error, so the preset is excluded as the owner's rule requires (OD-1, spec 5.4).
+
+What was done (sources: Agol et al. 2021, PSJ 2:1, doi:10.3847/PSJ/abd022; the maximum-likelihood elements `data/elements_noprior_students.txt`, the 447 observed transit times `data/T1_timings_20191203.txt` and the authors' model times `data/times_obs_and_posterior.txt` from github.com/ericagol/TRAPPIST1_Spitzer, MIT licence, 2026-10-24; stellar values 0.0898 +/- 0.0023 M-sun and 0.1192 +/- 0.0013 R-sun from the NASA Exoplanet Archive row for Agol et al. 2021):
+- The elements are osculating *Jacobi* elements at BJD_TDB - 2,450,000 = 7257.93115525 d (stated in the paper, section 4.1 and the Table 2 caption), coplanar and edge-on; (P, t0) are the period and time of transit on a Kepler orbit around the star plus the interior planets. They were converted to barycentric Cartesian state with plain Kepler geometry and run in the application's engine (IAS15) with 1-hour steps; transit times were found by cubic-Hermite root finding.
+- Check of the conversion: with negligible planet masses the engine reproduces the linear ephemeris t0 + n P to 0.1 min.
+- Convention: the paper's transit condition must be applied with omega shifted by pi relative to the most direct reading (pericentre direction at omega + pi/2 from the observer direction in the preset frame). With it, every one of the 21 simulated transits (first 3 of each planet) agrees with the authors' published best-fit model times within **0.0009 d (1.3 min)**.
+- Gate result against the **observed** times: worst **0.0134 d** (planet g, first transit: simulated 19.2 min before the observed time), then 0.0047 d (planet d); thresholds 0.0035 d. **The published model itself misses the same observations by up to 0.0138 d** (planet g first transit, a 3.5-sigma outlier; planet d 0.0046 d), so no correct implementation can meet this gate: it is observational scatter (sigma_obs of 0.001-0.004 d per transit), not a modelling or conversion error.
+- Not done: the tolerance was not loosened and no alternative gate was substituted. A gate against the published model times (for example 0.002 d, which the conversion meets with a margin of more than two) with the observed residuals shown as information would admit the preset; that is the owner's decision.
+- The investigation scripts and the archived inputs are kept outside the repository (the implementation session's notes folder), because nothing in the product uses them.
