@@ -365,13 +365,20 @@ def test_fidelity_labels_match_the_plan():
 # ---------------------------------------------------------------------------------------------------------------
 # Stage 0 scope guard: nothing existing imports the new package, no behaviour change
 # ---------------------------------------------------------------------------------------------------------------
-def test_no_existing_module_imports_backend_impact():
+# Existing modules that may import backend.impact. Stage 0: none. Stage 1: the legacy resolver shares the merge
+# arithmetic (collisions.py) and the service hosts the deferred engine (simulation.py). Add a module here only together
+# with the stage that wires it, and say so in DECISIONS.md.
+ALLOWED_IMPACT_IMPORTERS = {"collisions.py", "simulation.py"}
+
+
+def test_only_the_wired_modules_import_backend_impact():
     offenders = []
     for path in (ROOT / "backend").rglob("*.py"):
         rel = path.relative_to(ROOT / "backend")
         if rel.parts[0] == "impact":
             continue
-        if "backend.impact" in path.read_text(encoding="utf-8") or "from backend import impact" in path.read_text(encoding="utf-8"):
+        text = path.read_text(encoding="utf-8")
+        if ("backend.impact" in text or "from backend import impact" in text) and str(rel).replace("\\", "/") not in ALLOWED_IMPACT_IMPORTERS:
             offenders.append(str(rel))
     assert offenders == []
 
@@ -383,7 +390,7 @@ def test_impact_package_does_not_depend_on_the_simulation_service():
             assert forbidden not in text, f"{path.name} imports {forbidden}"
 
 
-def test_git_grep_style_check_matches_the_stage_acceptance_command():
-    out = subprocess.run(["git", "grep", "-n", "backend.impact", "--", "backend/"], cwd=ROOT, capture_output=True, text=True)
-    lines = [ln for ln in out.stdout.splitlines() if not ln.startswith("backend/impact/")]
-    assert lines == []
+def test_git_grep_check_matches_the_stage_acceptance_command():
+    out = subprocess.run(["git", "grep", "-l", "backend.impact", "--", "backend/"], cwd=ROOT, capture_output=True, text=True)
+    files = sorted(ln for ln in out.stdout.splitlines() if not ln.startswith("backend/impact/"))
+    assert files == sorted("backend/" + name for name in ALLOWED_IMPACT_IMPORTERS)

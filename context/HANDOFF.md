@@ -4,6 +4,11 @@
 3. Verified locally: frontend typecheck; Vitest 206/206 across 23 files; build (existing >500 kB warning); Playwright 5/5; diff check. The profile measured 1/16/64 bodies at median 33.4/50.0/99.9 ms per animation frame in Windows headless Chrome with GPU disabled by test config; treat as software frame pacing, not hardware GPU timing. E2E stubs backend responses. Do not merge into `main` without owner approval; real-hardware profiling and UI-0 integration remain follow-ups.
 # Handoff (latest — rewrite at end of each session)
 
+## Collision engine, Stage 1 done — STOPPED AT CP-1 (2026-10-24, Claude Sonnet 5.5) — latest
+1. Branch `collision/stage-1-deferred-resolution` in worktree `C:/Aarit/Projects/Playing God collision-implementation`. Review package: the Stage 1 entry of `WORKLOG.md` and D-035. Nothing is pushed or merged.
+2. To use the new path in a test: `SimulationService(CollisionConfig(mode="outcome-v1"))`; records via `svc.collision_records()`. No universe uses it yet (Stage 4 step 4b).
+3. Do not start Stage 2 before CP-1 is accepted. Stage 3 additionally needs DQ-7/8/9 and a named CP-SCI-1 human reviewer.
+
 ## Collision engine implementation (2026-10-24, Claude Sonnet 5.5) — latest
 1. Worktree `C:/Aarit/Projects/Playing God collision-implementation`; stacked branches `collision/stage-<n>-<topic>`, each created from the previous stage's tip (nothing may be merged). Stage 0 is on `collision/stage-0-contracts`.
 2. Read `COLLISION_SONNET_EXECUTION_GUIDE.md` §1 and the live board at the end of `TASKS.md`. Python: use the main checkout's venv (`../Playing God/.venv/Scripts/python.exe`); frontend deps are installed in this worktree (`npm ci`).

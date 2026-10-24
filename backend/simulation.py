@@ -26,6 +26,9 @@ Model (decisions D-007, D-008, D-010; evidence in context/PHYSICS_SPIKE.md):
 - Reads never wait for that lock: `snapshot()` returns the last *committed* state, published at the end of every
   successful mutation or step, so a long or stuck step can neither block nor tear a read. Mutations wait for the
   lock only a bounded time (`lock_wait_s`) and then fail with SimulationBusyError (HTTP 503) instead of hanging.
+- Collision resolution has two modes (backend/impact/config.py). "legacy-merge" (default for every universe) merges inside the
+  REBOUND callback exactly as before. "outcome-v1" only RECORDS contacts in the callback, stops integration, and resolves
+  them between `integrate` calls (backend/impact/engine.py): the callback must never add or remove particles.
 Known limits: see context/API_CONTRACT.md ("Physics limitations").
 """
 import contextlib
@@ -44,6 +47,10 @@ from typing import Any, Callable, NamedTuple
 import rebound
 
 from backend.collisions import MergeResolver, select_ias15
+from backend.impact.config import CollisionConfig
+from backend.impact.detection import ContactRecorder
+from backend.impact.engine import CollisionEngine
+from backend.impact.records import trim as trim_collision_records
 from backend.diagnostics import compute_diagnostics
 from backend.errors import CodedError, StepCancelled
 from backend.history import HistoryBuffer
@@ -132,6 +139,7 @@ class EngineSnapshot:
     revision: int
     digest: str
     body_count: int = 0
+    records: list = field(default_factory=list)  # collision records (backend/impact/records.py)
 
 
 def _copy_sim(sim: rebound.Simulation) -> rebound.Simulation:
@@ -155,7 +163,10 @@ def _digest(sim: rebound.Simulation, meta: dict, history_mode: str, sample_inter
 
 
 class SimulationService:
-    def __init__(self) -> None:
+    def __init__(self, collision_config: CollisionConfig | None = None) -> None:
+        # The mode is fixed when the engine is created (D-033). The default is today's behaviour, bit for bit.
+        self.collision_config = collision_config or CollisionConfig()
+        self._deferred = self.collision_config.mode == "outcome-v1"
         self._lock = threading.RLock()
         self.revision = 0  # +1 per committed change (step, add, patch, delete, reset)
         self._cancel = threading.Event()  # set when this universe is deactivated: stops a running integrate
@@ -179,7 +190,12 @@ class SimulationService:
         self._pending: list[Event] = []  # events recorded since the last step started
         self._deadline = math.inf  # monotonic time at which the running step must stop
         self._timed_out = False
-        self._resolver = MergeResolver(self._record_merge)
+        self._resolver = MergeResolver(self._record_merge)  # holds the booked heat / spin ledgers in both modes
+        self._recorder = ContactRecorder()
+        self._collision_engine = CollisionEngine(self.collision_config, G_SI)
+        self._collision_records: list = []  # CollisionRecord, newest last, at most MAX_COLLISION_RECORDS
+        self._chunk_satisfied = True  # did the chunk that is being integrated respect the curvature criterion?
+        self.last_detection: dict = {"degradedChunks": 0, "worstCurvatureRatio": 1.0}  # of the latest step
         self._sim = self._new_sim([], 0.0)
         self._history = HistoryBuffer("step")
         self._record_history()  # sample 0: the empty start
@@ -252,10 +268,12 @@ class SimulationService:
         return {"sim": _copy_sim(self._sim), "meta": dict(self._meta), "events": list(self._events),
                 "heat": self._resolver.heat_J, "spin": {k: list(v) for k, v in self._resolver.spin.items()},
                 "history": self._history, "controlled": self.controlled,
-                "first_unc": self.first_uncontrolled_at_s, "audit_len": len(self.audit)}
+                "first_unc": self.first_uncontrolled_at_s, "audit_len": len(self.audit),
+                "collision_records": list(self._collision_records)}
 
     def _rollback(self, cp: dict) -> None:
         self._meta, self._events, self._pending = cp["meta"], cp["events"], []
+        self._collision_records = cp["collision_records"]
         self._resolver = MergeResolver(self._record_merge)
         self._resolver.heat_J, self._resolver.spin = cp["heat"], cp["spin"]
         self._adopt_sim(cp["sim"])
@@ -291,8 +309,9 @@ class SimulationService:
 
     def _adopt_sim(self, sim: rebound.Simulation) -> None:
         """Make `sim` the live simulation and (re-)register the Python callbacks, which are not part of a REBOUND copy."""
-        sim.collision_resolve = self._resolver.resolve
+        sim.collision_resolve = self._collision_callback()
         sim.heartbeat = self._heartbeat
+        self._recorder.reset()
         self._sim = sim
 
     def _adopt_history(self, history: HistoryBuffer) -> None:
@@ -330,7 +349,7 @@ class SimulationService:
             first_uncontrolled_at_s=self.first_uncontrolled_at_s, simulation_time_s=self._sim.t,
             revision=self.revision if revision is None else revision,
             digest=_digest(self._sim, self._meta, self._history.mode, self._history.sample_interval_s),
-            body_count=len(self._meta))
+            body_count=len(self._meta), records=list(self._collision_records))
 
     def capture_snapshot(self) -> EngineSnapshot:
         """A restorable copy of the current state; the live simulation is not touched or advanced."""
@@ -343,6 +362,7 @@ class SimulationService:
         self._resolver.heat_J = snap.heat_J
         self._resolver.spin = {k: list(v) for k, v in snap.spin.items()}
         self._meta, self._events, self._pending = dict(snap.meta), list(snap.events), []
+        self._collision_records = list(snap.records)
         self._adopt_sim(_copy_sim(snap.sim))  # never reselect IAS15 here: that would discard its predictor state
         self._adopt_history(snap.history)
         self.controlled, self.first_uncontrolled_at_s = snap.controlled, snap.first_uncontrolled_at_s
@@ -385,17 +405,19 @@ class SimulationService:
 
     @classmethod
     def from_snapshot(cls, snap: EngineSnapshot, *, transform: Callable | None = None, history_mode: str = "grid",
-                      sample_interval_s: float | None = None) -> "SimulationService":
+                      sample_interval_s: float | None = None,
+                      collision_config: CollisionConfig | None = None) -> "SimulationService":
         """A new, fully independent engine that starts from a copy of `snap` (optionally `transform`ed: a function
         that edits the private REBOUND copy), with its own initial snapshot and history sample 0."""
         if history_mode == "grid" and snap.simulation_time_s != 0.0:
             raise ConflictError("a grid-history run must start at t = 0")
-        engine = cls()
+        engine = cls(collision_config)
         with engine._guard():
             engine._resolver = MergeResolver(engine._record_merge)
             engine._resolver.heat_J = snap.heat_J
             engine._resolver.spin = {k: list(v) for k, v in snap.spin.items()}
             engine._meta, engine._events = dict(snap.meta), list(snap.events)
+            engine._collision_records = list(snap.records)
             sim = _copy_sim(snap.sim)
             if transform is not None:
                 transform(sim)
@@ -407,6 +429,10 @@ class SimulationService:
             engine._initial = engine._take_snapshot()
         return engine
 
+    def _collision_callback(self):
+        """The REBOUND collision callback of this engine's mode: resolve in place (legacy) or only record (deferred)."""
+        return self._recorder.resolve if self._deferred else self._resolver.resolve
+
     def _new_sim(self, records: list[dict], t: float) -> rebound.Simulation:
         sim = rebound.Simulation()
         sim.units = ("m", "s", "kg")
@@ -417,7 +443,8 @@ class SimulationService:
         for r in records:
             sim.add(**r)
         sim.collision = "line"
-        sim.collision_resolve = self._resolver.resolve
+        sim.collision_resolve = self._collision_callback()
+        self._recorder.reset()
         sim.heartbeat = self._heartbeat  # watchdog: runs once per internal step, may stop a stalled integrate
         return sim
 
@@ -573,6 +600,7 @@ class SimulationService:
                 guard()
             before = self._capture()
             self._pending = []
+            self.last_detection = {"degradedChunks": 0, "worstCurvatureRatio": 1.0}
             t0 = self._sim.t
             try:
                 self._timed_out = False
@@ -651,14 +679,57 @@ class SimulationService:
                     self._drift_lone_body(target)  # no force acts: exact, and IAS15 would warn spuriously
                     break
                 remaining = target - sim.t
-                chunk = max(self._chunk_limit(), floor)
+                limit = self._chunk_limit()
+                chunk = max(limit, floor)
+                self._note_chunk(limit, chunk)
                 nxt = target if chunk >= remaining * (1 - 1e-9) else sim.t + chunk
                 sim.integrate(nxt)
                 self._check_deadline()  # an integrate stopped by the watchdog returns early
+                if self._deferred:
+                    self._resolve_contacts(nxt)
                 if self._resolver.errors:
                     raise RuntimeError("collision resolver failed:\n" + self._resolver.errors[-1])
         for w in caught:
             logger.warning("REBOUND warning during step: %s", w.message)
+
+    def _note_chunk(self, limit: float, chunk: float) -> None:
+        """Record whether this chunk respects the curvature criterion `line` detection relies on. When the
+        MAX_CHUNKS_PER_STEP floor overrides it, detection is degraded for that chunk: counted in `last_detection` (never silent).
+        The curvature error of a chunk scales with its length squared, so the achieved ratio is (chunk / limit)^2."""
+        self._chunk_satisfied = chunk <= limit * (1.0 + 1e-12)
+        if not self._chunk_satisfied:
+            ratio = math.inf if limit <= 0.0 else (chunk / limit) ** 2
+            self.last_detection["degradedChunks"] += 1
+            self.last_detection["worstCurvatureRatio"] = max(self.last_detection["worstCurvatureRatio"], ratio)
+
+    def _resolve_contacts(self, nxt: float) -> None:
+        """Mode "outcome-v1": `integrate` was stopped by the contact recorder (or finished). Resolve every recorded pair,
+        then resume integrating to the same target until no new contact is recorded. Each pass removes at least one body or
+        drops only stale pairs, so the pass count is bounded; the bound is a safety net against an engine stall (probe P2)."""
+        sim = self._sim
+        passes = 0
+        while True:
+            if self._recorder.errors:
+                raise RuntimeError("contact detection failed:\n" + self._recorder.errors[-1])
+            pending = self._recorder.take()
+            if not pending:
+                return
+            passes += 1
+            if passes > MAX_BODIES + 8:
+                raise RuntimeError("collision resolution did not converge")
+            report = self._collision_engine.resolve_batch(
+                sim, pending, ledger=self._resolver, on_merge=self._record_merge, event_seq=lambda: self._event_seq,
+                chunk_criterion_satisfied=self._chunk_satisfied)
+            self._collision_records.extend(report.records)
+            trim_collision_records(self._collision_records)
+            if sim.N < 2 or sim.t >= nxt:
+                return
+            sim.integrate(nxt)
+            self._check_deadline()
+
+    def collision_records(self) -> list:
+        """Committed collision records, oldest first (mode "outcome-v1" only; empty in "legacy-merge")."""
+        return list(self._collision_records)
 
     def _drift_lone_body(self, target: float) -> None:
         """A single body feels no force, so uniform motion is exact. REBOUND's IAS15 convergence test divides by
@@ -738,11 +809,13 @@ class SimulationService:
             "events": list(self._events),
             "heat": self._resolver.heat_J,
             "spin": {k: list(v) for k, v in self._resolver.spin.items()},
+            "collision_records": list(self._collision_records),
         }
 
     def _restore(self, cap: dict) -> None:
         self._meta = cap["meta"]
         self._events = cap["events"]
+        self._collision_records = cap["collision_records"]
         self._event_seq = cap["event_seq"]
         self._resolver.errors.clear()
         self._resolver.heat_J = cap["heat"]

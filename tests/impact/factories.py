@@ -151,7 +151,7 @@ def collision_record() -> c.CollisionRecord:
         event_id="col-1", parent_event_id="col-0", root_event_id="col-0", generation=1, input=collision_input(),
         selection_reasons=("v_i > v_esc",), outcome_spec=outcome_spec(), result=collision_result(), warnings=("w",),
         fidelity={"mass": c.Fidelity.COMPUTED}, input_digest=DIGEST_A, result_digest=DIGEST_B, detail_dropped=False,
-        fields_extra={"k": 1.0})
+        legacy_event_id="evt-1", fields_extra={"k": 1.0})
 
 
 def visual_event() -> c.VisualEventDescription:

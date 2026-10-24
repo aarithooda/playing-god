@@ -714,6 +714,7 @@ class CollisionRecord(Contract):
     input_digest: str
     result_digest: str
     detail_dropped: bool = False
+    legacy_event_id: Optional[str] = None  # the `merger` event (evt-<n>) of the same physical event, if one was emitted
     fields_extra: dict[str, float] = field(default_factory=dict)
     schema_version: int = SCHEMA_VERSION
 

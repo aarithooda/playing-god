@@ -29,7 +29,7 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 ## §2 Scope and fidelity boundaries
 | ID | Requirement | Current | Gap | Stage | Verification | Status |
 |---|---|---|---|---|---|---|
-| S1-1 | Reliable detection + impact diagnostics | `line` detection, contact-time estimate [Exists] | full ImpactState | ST1 | T/det, T/geo | PART |
+| S1-1 | Reliable detection + impact diagnostics | `line` detection, contact-time estimate [Exists] | full ImpactState | ST1 | T/det, T/geo | PART: detection reliable in the tested envelope and geometry captured (Stage 1: test_geometry.py, test_detection.py); materials/spin pending ST2 |
 | S1-2 | Material-aware inputs & outcome selection | — | — | ST2–ST3 | T/mat, T/sel | MISS |
 | S1-3 | Outcomes beyond merging | — | — | ST3–ST4 | T/ls12, T/app | MISS |
 | S1-4 | Localized impact & surface damage | — | — | ST6 | T/dmg | MISS |
@@ -37,7 +37,7 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 | S1-6 | Physical fragmentation, coherent trajectories | — | — | ST5 | T/frag | MISS |
 | S1-7 | Bounded particle & debris system | — | — | ST5, ST9 | T/frag budgets, V/effectBudget | MISS |
 | S1-8 | Debris lifecycle incl. orbital evolution, reaccretion | — | — | ST7 | T/life | MISS |
-| S1-9 | Event records & diagnostics | merger events [Exists] | records | ST1, ST8 | T/rec | PART |
+| S1-9 | Event records & diagnostics | merger events [Exists] | records | ST1, ST8 | T/rec | PART: collision records per event, linked to the merger event (Stage 1: test_detection.py::test_each_contact_gives_exactly_one_event_and_one_linked_record); API and full diagnostics pending ST8 |
 | S1-10 | Conservation accounting & regression tests | diagnostics v1 [Exists D-013] | per-event report | ST4 | T/cons | PART |
 | S1-11 | Integration with simulation & renderer | — | — | ST4, ST9 | T/scn, E2E/col | MISS |
 | S1-12 | Performance controls not corrupting accounting | step budget [Exists D-012] | collision budgets | ST5, ST7, ST9 | T/perf, T/frag budgets | PART |
@@ -50,37 +50,37 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 ## §3 Feature 1 — Detection and impact geometry
 | ID | Requirement | Current | Gap | Stage | Verification | Status |
 |---|---|---|---|---|---|---|
-| F1-OBJ | Detection approach chosen compatible with integrator, not tied to one resolution strategy | `line` + chunking [Exists]; resolution inside callback | deferred resolution | ST1 | T/eqv; plan §3.4 justification | PART |
-| F1-INFO-1 | Identity of colliding bodies | `bodyIds` [Exists] | target/projectile roles | ST1 | T/geo | PART |
-| F1-INFO-2 | Pre-impact masses, radii | in merger computation, not recorded | record | ST1 | T/geo | PART |
-| F1-INFO-3 | Positions & velocities at impact state | not recorded | rewind + record | ST1 | T/geo analytic fixtures | MISS |
-| F1-INFO-4 | Relative impact velocity | `relativeSpeedMPerS` (scalar) [Exists] | vector | ST1 | T/geo | PART |
-| F1-INFO-5 | Contact point & surface normal | — | — | ST1 | T/geo (1e-9 straight, curvature bound curved) | MISS |
-| F1-INFO-6 | Impact angle & impact parameter | — | — | ST1 | T/geo b = 0, 0.5, 0.9 | MISS |
-| F1-INFO-7 | Target & projectile rotation | no spin state | rotation state | ST2 (data), ST1 field | T/rot, T/geo | MISS |
-| F1-INFO-8 | Relative orientation of spin axes | — | — | ST2 | T/geo spin-axis angle | MISS |
-| F1-INFO-9 | Material & internal-structure profiles | — | — | ST2 | T/mat, ImpactState snapshot | MISS |
-| F1-INFO-10 | Gravitational environment & nearby bodies | `has_satellites` logic [Exists] | environment block | ST1 | T/geo environment fixture (moons preset) | PART |
-| F1-INFO-11 | Collision time in sim time | detection time + estimate [Exists] | — | ST1 | T/det | SUP (extend) |
-| F1-INFO-12 | Energy, momentum, escape-velocity diagnostics | KE lost [Exists] | Q_R, v_esc, momentum, L | ST1 | T/geo | PART |
-| F1-PRE | Impact vs post-impact distinguished; pre-state recorded before overwrite | merger overwrites survivor in callback | frozen ImpactState | ST1 | T/geo "capture before mutate" (mutation spy) | MISS |
-| F1-DET-1 | No repeated resolution of same contact | removal by merger [Exists] | for non-merge outcomes | ST1, ST4 | T/det one-contact-one-record; T/app hit-and-run no re-trigger | PART |
-| F1-DET-2 | No missed fast bodies | `line` (D-008 evidence) | regression fixtures in new path | ST1 | T/det fast-impact | SUP (re-verify) |
-| F1-DET-3 | Very different masses and sizes | stress 2e30:1 [Exists `test_stress_p003`] | re-run in new path | ST1 | REG + T/eqv | SUP (re-verify) |
+| F1-OBJ | Detection approach chosen compatible with integrator, not tied to one resolution strategy | `line` + chunking [Exists]; resolution inside callback | deferred resolution | ST1 | T/eqv; plan §3.4 justification | VERIFIED (mode outcome-v1) test_deferred_equivalence.py; justification plan 3.4; default mode still legacy-merge; CP-1 review pending |
+| F1-INFO-1 | Identity of colliding bodies | `bodyIds` [Exists] | target/projectile roles | ST1 | T/geo | VERIFIED test_geometry.py::test_equal_masses_choose_the_smaller_id_as_target, test_straight_line_impact_matches_the_analytic_construction (Stage 1) |
+| F1-INFO-2 | Pre-impact masses, radii | in merger computation, not recorded | record | ST1 | T/geo | VERIFIED test_geometry.py::test_capture_happens_before_the_merge_mutates_anything (Stage 1) |
+| F1-INFO-3 | Positions & velocities at impact state | not recorded | rewind + record | ST1 | T/geo analytic fixtures | VERIFIED test_geometry.py::test_straight_line_impact_matches_the_analytic_construction, test_curved_path_contact_point_is_within_the_curvature_budget (Stage 1) |
+| F1-INFO-4 | Relative impact velocity | `relativeSpeedMPerS` (scalar) [Exists] | vector | ST1 | T/geo | VERIFIED test_geometry.py::test_straight_line_impact_matches_the_analytic_construction (vector and speed, Stage 1) |
+| F1-INFO-5 | Contact point & surface normal | — | — | ST1 | T/geo (1e-9 straight, curvature bound curved) | VERIFIED test_geometry.py (1e-9 straight line; 0.02 R on the e = 0.9 Kepler path, Stage 1) |
+| F1-INFO-6 | Impact angle & impact parameter | — | — | ST1 | T/geo b = 0, 0.5, 0.9 | VERIFIED test_geometry.py b = 0 / 0.5 / 0.9, near and far from the origin (Stage 1) |
+| F1-INFO-7 | Target & projectile rotation | no spin state | rotation state | ST2 (data), ST1 field | T/rot, T/geo | PART: spin fields exist and are null until rotation exists (Stage 1); state pending ST2 |
+| F1-INFO-8 | Relative orientation of spin axes | — | — | ST2 | T/geo spin-axis angle | PART: field `spinAxisAngleDeg` exists and is null (Stage 1); pending ST2 |
+| F1-INFO-9 | Material & internal-structure profiles | — | — | ST2 | T/mat, ImpactState snapshot | PART: `materialProfile` is null and the record says `material_unspecified` (Stage 1: test_record_of_a_merge_links_to_the_legacy_event...); profiles pending ST2 |
+| F1-INFO-10 | Gravitational environment & nearby bodies | `has_satellites` logic [Exists] | environment block | ST1 | T/geo environment fixture (moons preset) | VERIFIED on a star + planet fixture (test_geometry.py::test_environment_*, Stage 1); the moons preset fixture is not run yet |
+| F1-INFO-11 | Collision time in sim time | detection time + estimate [Exists] | — | ST1 | T/det | VERIFIED test_deferred_equivalence.py (detection time and contact estimate equal the legacy values, Stage 1) |
+| F1-INFO-12 | Energy, momentum, escape-velocity diagnostics | KE lost [Exists] | Q_R, v_esc, momentum, L | ST1 | T/geo | VERIFIED test_geometry.py (Q_R, both escape speeds, momentum, orbital L, KE in the COM frame, Stage 1) |
+| F1-PRE | Impact vs post-impact distinguished; pre-state recorded before overwrite | merger overwrites survivor in callback | frozen ImpactState | ST1 | T/geo "capture before mutate" (mutation spy) | VERIFIED test_geometry.py::test_capture_happens_before_the_merge_mutates_anything (mutation spy, Stage 1) |
+| F1-DET-1 | No repeated resolution of same contact | removal by merger [Exists] | for non-merge outcomes | ST1, ST4 | T/det one-contact-one-record; T/app hit-and-run no re-trigger | PART: one contact -> one record VERIFIED (test_detection.py, Stage 1); non-merge outcomes pending ST4 |
+| F1-DET-2 | No missed fast bodies | `line` (D-008 evidence) | regression fixtures in new path | ST1 | T/det fast-impact | VERIFIED test_deferred_equivalence.py::test_a_fast_impact_is_detected_exactly_once and the 6 spike-sweep scenarios (Stage 1) |
+| F1-DET-3 | Very different masses and sizes | stress 2e30:1 [Exists `test_stress_p003`] | re-run in new path | ST1 | REG + T/eqv | VERIFIED test_deferred_equivalence.py (1e12:1, 1e17:1 and equal masses reproduce the legacy values, Stage 1) |
 | F1-DET-4 | Planets, moons, asteroids, tracked fragments | bodies generic | fragments are bodies | ST5, ST7 | T/life fragment contacts | PART |
-| F1-DET-5 | Simultaneous contacts deterministic | `rand_seed` order [Exists] | sort key | ST1 | T/det 4 pairs × 20 orders | PART |
-| F1-DET-6 | No corrupted integration state mid-step | rollback [Exists] | overlap check after apply | ST1, ST4 | T/det injected failure; post-apply overlap test | PART |
+| F1-DET-5 | Simultaneous contacts deterministic | `rand_seed` order [Exists] | sort key | ST1 | T/det 4 pairs × 20 orders | VERIFIED test_deferred_equivalence.py::test_four_simultaneous_pairs_resolve_identically_over_20_insertion_orders (identity and order exact; time quantised by the internal step, Stage 1) |
+| F1-DET-6 | No corrupted integration state mid-step | rollback [Exists] | overlap check after apply | ST1, ST4 | T/det injected failure; post-apply overlap test | PART: injected failure rolls back byte-identically (test_detection.py, Stage 1); post-apply overlap check pending ST4 |
 | F1-DET-EVAL | Evaluate swept/continuous/adaptive options; justify | spike evidence [Exists PHYSICS_SPIKE] | — | ST0 (doc) | plan §3.4; DECISIONS D-034 (architecture, Stage 0) | SUP (doc in plan) |
-| F1-ID-1 | Stable event id and lifecycle | `evt-N` never reset [Exists] | lifecycle states | ST1 | T/rec | PART |
+| F1-ID-1 | Stable event id and lifecycle | `evt-N` never reset [Exists] | lifecycle states | ST1 | T/rec | PART: stable `col-<n>` ids tied to `evt-<n>`, never reused after rollback (test_detection.py, Stage 1); lifecycle states pending ST8 |
 | F1-ID-2 | Distinguish initial vs secondary impacts | — | generation/parent | ST7 | T/life parent link | MISS |
 | F1-ID-3 | Distinguish repeated contacts of same objects | — | separate records | ST1, ST7 | T/det repeated contact after separation → 2 records | MISS |
 | F1-ID-4 | One event producing several remnants | — | createdBodyIds | ST4 | T/app hit-and-run record | MISS |
 | F1-ID-USE | Id usable by physics, renderer, diagnostics, persistence, replay | — | — | ST8–ST10 | T/rec, V/effectTimeline, T/pers | MISS |
-| F1-AC-1 | Fast impacts not missed within envelope | as F1-DET-2 | envelope doc | ST1 | T/det | PART |
+| F1-AC-1 | Fast impacts not missed within envelope | as F1-DET-2 | envelope doc | ST1 | T/det | VERIFIED within the documented envelope (fast impact, 6 sweep cases, degraded-chunk flag: test_detection.py, Stage 1) |
 | F1-AC-2 | No duplicate merges / fragment populations | — | — | ST1, ST5 | T/det, T/frag single population per event | PART |
-| F1-AC-3 | Contact point within tolerance | — | tolerance plan §9.2 | ST1 | T/geo | MISS |
-| F1-AC-4 | Works when paused, resumed, time-scaled | step-driven [Exists] | tests | ST1 | T/det pause/scale equivalence | PART |
-| F1-AC-5 | Non-collision orbital integration unchanged | — | equivalence | ST1 | REG validation suites unchanged; T/eqv | PART |
+| F1-AC-3 | Contact point within tolerance | — | tolerance plan §9.2 | ST1 | T/geo | VERIFIED test_geometry.py (Stage 1) |
+| F1-AC-4 | Works when paused, resumed, time-scaled | step-driven [Exists] | tests | ST1 | T/det pause/scale equivalence | VERIFIED test_detection.py::test_pause_and_resume_do_not_change_the_event, test_time_scale_does_not_change_the_event (Stage 1) |
+| F1-AC-5 | Non-collision orbital integration unchanged | — | equivalence | ST1 | REG validation suites unchanged; T/eqv | VERIFIED full backend suite unchanged in legacy mode: 800 passed (567 baseline + 233 new), 1 baseline warning (Stage 1) |
 
 ## §4 Feature 2 — Material-aware physics
 | ID | Requirement | Current | Gap | Stage | Verification | Status |
@@ -167,7 +167,7 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 | F4-AC-1 | All categories within validity | — | — | ST3–ST5 | T/scn, T/ls12 | MISS |
 | F4-AC-2 | Deterministic repeatability | — | seeds | ST5, ST10 | T/rec replay digest | MISS |
 | F4-AC-3 | Selection inspectable | — | reasons | ST8 | T/rec | MISS |
-| F4-AC-4 | Existing merger path remains | [Exists] | keep as legacy + regime | ST1 | REG, T/eqv | SUP (preserve) |
+| F4-AC-4 | Existing merger path remains | [Exists] | keep as legacy + regime | ST1 | REG, T/eqv | VERIFIED test_deferred_equivalence.py::test_legacy_mode_reproduces_the_golden_values_bit_for_bit (Stage 1) |
 | F4-AC-5 | Unsupported regime explicit | — | — | ST3 | T/sel | MISS |
 
 ## §7 Feature 5 — Fragmentation and debris

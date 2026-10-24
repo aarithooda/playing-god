@@ -198,3 +198,11 @@ Source: `COLLISION_ENGINE_PLAN.md` sections 4 and 6. Everything is additive; exi
 - Planned event: `type: "collision"` next to the unchanged `merger` (Stage 4); planned routes: `GET /api/v1/materials`, `GET /api/v1/universes/{uid}/collisions`, `.../collisions/{id}`, `POST .../collisions/{id}/replay` (dry run), `GET .../bodies/{id}/surface` (Stages 2, 6, 8).
 - Planned diagnostics v2 (additive), error codes `collision_unresolvable`, `collision_budget_reached`, `material_invalid` (Stages 2, 4).
 - Planned universe `collisionMode`: `legacy-merge` for every universe until Stage 4 step 4b; then `outcome-v1` for new sandboxes only.
+- **Detection operating envelope (Stage 1, internal; no API field yet):** `line` detection is reliable while each integration chunk keeps the path
+  curvature within 1 % of the contact distance. When the `MAX_CHUNKS_PER_STEP` floor overrides that, the step counts the chunk in
+  `SimulationService.last_detection` (`degradedChunks`, `worstCurvatureRatio`) and any collision found in it is recorded with
+  `chunkCriterionSatisfied: false`. Positions are doubles: the direction of a contact normal is limited to ~|x| * 2^-52 / R.
+- **Mode `outcome-v1` resolves simultaneous contacts in a deterministic order** (estimated contact time, then sorted body ids) and
+  re-checks that a remnant still touches the next body of the same detection pass. Mode `legacy-merge` keeps REBOUND's order and, in a
+  detection pass with three or more simultaneous contacts, can merge bodies that do not touch (stale indices after the first removal;
+  evidence: D-035, `tests/impact/test_deferred_equivalence.py`). Unchanged by decision D-033.

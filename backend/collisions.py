@@ -12,12 +12,18 @@ Spec: context/PHYSICS_SPIKE.md ("Decision: GO WITH CUSTOM COLLISION LAYER"). REB
 - IAS15 is re-selected after every merge because its predictor state is stale once a particle changed
   (observed momentum error 5e-9 relative without it, ~1e-13 with it). `select_ias15` is the only place that selects it.
 
+The merger arithmetic itself lives in `backend.impact.models.perfect_merge.merge_pair`, shared with the deferred-resolution
+engine (mode "outcome-v1", backend/impact/engine.py) so both paths are bit-identical for the same input. This class is the
+`legacy-merge` mode: it resolves inside the REBOUND callback exactly as before.
+
 Exceptions inside a ctypes callback are swallowed by REBOUND, so `resolve` catches them, records the traceback in
 `errors` and returns 0 (keep both bodies). The caller must treat a non-empty `errors` list as a failed step.
 """
 import math
 import traceback
 from typing import Callable
+
+from backend.impact.models.perfect_merge import PairBody, merge_pair
 
 Vec = list[float]
 
@@ -140,40 +146,19 @@ class MergeResolver:
             self.stale += 1
             return 0
         pa, pb = sim.particles[col.p1], sim.particles[col.p2]
-        if pa.m >= pb.m:
-            surv, gone, remove = pa, pb, 2
-        else:
-            surv, gone, remove = pb, pa, 1
-        ms, mg = surv.m, gone.m
-        total_m = ms + mg
-        xs, xg, vs, vg = _pos(surv), _pos(gone), _vel(surv), _vel(gone)
-        r_rel, v_rel = _sub(xs, xg), _sub(vs, vg)
-        mu = ms * mg / total_m
-        p_tot = _add(_scale(vs, ms), _scale(vg, mg))
-        v_com = _scale(p_tot, 1.0 / total_m)
-        x_com = _scale(_add(_scale(xs, ms), _scale(xg, mg)), 1.0 / total_m)
-        ke_lost = 0.5 * mu * _dot(v_rel, v_rel)
-        l_orb = _scale(_cross(r_rel, v_rel), mu)
-        surv_id, gone_id = surv.name, gone.name
-        event = {
-            "simulationTimeS": sim.t,
-            "estimatedContactTimeS": contact_time_estimate(
-                sim.t, sim.dt_last_done, r_rel, v_rel, surv.r + gone.r),
-            "bodyIds": [surv_id, gone_id],
-            "resultBodyId": surv_id,
-            "resultMassKg": total_m,
-            "relativeSpeedMPerS": _norm(v_rel),
-            "kineticEnergyLostJ": ke_lost,
-            "spinAddedKgM2PerS": l_orb,
-        }
-        for axis, value in zip(("x", "y", "z"), x_com):
+        merged = merge_pair(PairBody(pa.name, pa.m, pa.r, tuple(_pos(pa)), tuple(_vel(pa))),
+                            PairBody(pb.name, pb.m, pb.r, tuple(_pos(pb)), tuple(_vel(pb))),
+                            sim.t, sim.dt_last_done, contact_time_estimate)
+        surv = pa if merged.remove_code == 2 else pb
+        gone_id = merged.absorbed_id
+        for axis, value in zip(("x", "y", "z"), merged.position):
             setattr(surv, axis, value)
-        for axis, value in zip(("vx", "vy", "vz"), v_com):
+        for axis, value in zip(("vx", "vy", "vz"), merged.velocity):
             setattr(surv, axis, value)
-        surv.m = total_m
-        surv.r = (surv.r ** 3 + gone.r ** 3) ** (1.0 / 3.0)
-        self.heat_J += ke_lost
-        spin = _add(self.spin.pop(surv_id, [0.0] * 3), self.spin.pop(gone_id, [0.0] * 3))
-        self.spin[surv_id] = _add(spin, l_orb)
-        self._on_merge(event)
-        return remove
+        surv.m = merged.mass
+        surv.r = merged.radius
+        self.heat_J += merged.kinetic_energy_lost_j
+        spin = _add(self.spin.pop(merged.survivor_id, [0.0] * 3), self.spin.pop(gone_id, [0.0] * 3))
+        self.spin[merged.survivor_id] = _add(spin, merged.orbital_angular_momentum)
+        self._on_merge(merged.event)
+        return merged.remove_code
