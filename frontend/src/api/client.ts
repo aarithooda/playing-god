@@ -13,6 +13,7 @@ import {
   parseOrbitLabSystems,
   parseProvenance,
   parseReplayReport,
+  parseVisualEvent,
   parseHistoryPage,
   parsePresetList,
   parseSnapshotList,
@@ -31,6 +32,7 @@ import type {
   CollisionDetailDto,
   CollisionListDto,
   ReplayReportDto,
+  VisualEventDto,
   ComparisonDto,
   CreateUniverseDto,
   ExperimentDto,
@@ -83,6 +85,8 @@ export interface ScopedClient extends SimulationClient {
   getCollision(eventId: string): Promise<CollisionDetailDto>;
   /** Dry-run replay: recomputes the event from its record and compares digests; changes nothing. */
   replayCollision(eventId: string): Promise<ReplayReportDto>;
+  /** The visual description of an event (404 for a legacy merge): the renderer's only input about the event beyond body states. */
+  getCollisionVisual(eventId: string): Promise<VisualEventDto>;
 }
 
 export interface ModifiedRunRequest {
@@ -256,6 +260,9 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
       },
       async getCollision(eventId) {
         return parseCollisionDetail(await call("GET", `${root}/collisions/${encodeURIComponent(eventId)}`, readTimeoutMs));
+      },
+      async getCollisionVisual(eventId) {
+        return parseVisualEvent(await call("GET", `${root}/collisions/${encodeURIComponent(eventId)}/visual`, readTimeoutMs));
       },
       async replayCollision(eventId) {
         return parseReplayReport(await call("POST", `${root}/collisions/${encodeURIComponent(eventId)}/replay`, readTimeoutMs));

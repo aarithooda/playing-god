@@ -14,6 +14,8 @@ import type {
   DebrisDto,
   EscapedLedgerDto,
   ReplayReportDto,
+  VisualEventDto,
+  VisualPhaseDto,
   MaterialDto,
   OrientationDto,
   CataloguePropertyDto,
@@ -427,6 +429,51 @@ export function parseCollisionDetail(v: unknown): CollisionDetailDto {
     }),
     escapedLedger: o.escapedLedger === null || o.escapedLedger === undefined ? null : parseEscaped(o.escapedLedger),
     note: str(o.note, "detail.note"),
+  };
+}
+
+const PHASE_NAMES = ["contact", "flash", "cratering", "ejecta", "separation", "cloud-expansion", "aftermath"] as const;
+
+export function parseVisualEvent(v: unknown): VisualEventDto {
+  const o = obj(v, "visual");
+  const site = obj(o.impactSite, "visual.impactSite");
+  if (!Array.isArray(o.phases)) bad("visual.phases");
+  if (!Array.isArray(o.visualOnly)) bad("visual.visualOnly");
+  if (!Array.isArray(o.ejectaSources)) bad("visual.ejectaSources");
+  const phases = (o.phases as unknown[]).map((p, i) => {
+    const po = obj(p, `visual.phases[${i}]`);
+    const name = po.name;
+    if (!PHASE_NAMES.includes(name as (typeof PHASE_NAMES)[number])) bad(`visual.phases[${i}].name`);
+    if (po.basis !== "simulation-time" && po.basis !== "visual-wall-clock") bad(`visual.phases[${i}].basis`);
+    const out: VisualPhaseDto = {
+      name: name as VisualPhaseDto["name"], startS: num(po.startS, "phase.startS"),
+      endS: po.endS === null || po.endS === undefined ? null : num(po.endS, "phase.endS"), basis: po.basis,
+    };
+    if (po.durationWallS !== undefined && po.durationWallS !== null) out.durationWallS = num(po.durationWallS, "phase.durationWallS");
+    return out;
+  });
+  const appearance = obj(o.materialAppearance, "visual.materialAppearance");
+  const materialAppearance: Record<string, string> = {};
+  for (const [k, a] of Object.entries(appearance)) materialAppearance[k] = str(a, `visual.materialAppearance.${k}`);
+  let cloud: VisualEventDto["cloud"] = null;
+  if (o.cloud !== null && o.cloud !== undefined) {
+    const c = obj(o.cloud, "visual.cloud");
+    cloud = { initialRadiusM: num(c.initialRadiusM, "cloud.initialRadiusM"), expansionSpeedMPerS: num(c.expansionSpeedMPerS, "cloud.expansionSpeedMPerS"),
+      materialAppearance: str(c.materialAppearance, "cloud.materialAppearance") };
+  }
+  return {
+    eventId: str(o.eventId, "visual.eventId"), outcome: str(o.outcome, "visual.outcome"), timeS: num(o.timeS, "visual.timeS"),
+    impactSite: { bodyId: str(site.bodyId, "site.bodyId"), centerLocal: vec3(site.centerLocal, "site.centerLocal"),
+      centerWorldAtContactM: vec3(site.centerWorldAtContactM, "site.centerWorldAtContactM"), normalWorld: vec3(site.normalWorld, "site.normalWorld") },
+    phases, ejectaSourceCount: (o.ejectaSources as unknown[]).length, fragmentBodyIds: strArray(o.fragmentBodyIds, "visual.fragmentBodyIds"),
+    debrisParcelIds: strArray(o.debrisParcelIds, "visual.debrisParcelIds"), cloud,
+    visualOnly: (o.visualOnly as unknown[]).map((e, i) => {
+      const eo = obj(e, `visual.visualOnly[${i}]`);
+      if (eo.kind !== "flash" && eo.kind !== "glow" && eo.kind !== "shock-indicator") bad(`visual.visualOnly[${i}].kind`);
+      if ("massKg" in eo || "mass" in eo) bad(`visual.visualOnly[${i}] (a visual-only effect has no mass)`);
+      return { kind: eo.kind, intensity: num(eo.intensity, "effect.intensity"), lifetimeWallS: num(eo.lifetimeWallS, "effect.lifetimeWallS") };
+    }),
+    materialAppearance, fidelityNotes: strArray(o.fidelityNotes, "visual.fidelityNotes"),
   };
 }
 

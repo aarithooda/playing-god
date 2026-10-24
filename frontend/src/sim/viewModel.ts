@@ -28,6 +28,8 @@ export interface BodyView {
   primaryId?: string;
   /** |velocityMPerS| in m/s (derived). */
   speedMPerS: number;
+  /** Unit quaternion (w, x, y, z) of the body's orientation, only when the backend supplied one (a body with a rotation state). */
+  orientation?: readonly [number, number, number, number];
 }
 
 export interface SimulationView {
@@ -62,6 +64,8 @@ export interface SceneBody {
   clearance?: number;
   /** Largest minimum (px) in the body's moon system, so planet and moons share one growth factor. */
   systemPx?: number;
+  /** Orientation (w, x, y, z) in the simulation frame; absent = the body is drawn exactly as before (D-053). */
+  orientation?: readonly [number, number, number, number];
 }
 
 /**
@@ -88,6 +92,9 @@ export function toBodyView(dto: BodyDto): BodyView {
     bodyType: bodyTypeFor(dto.kind, dto.bodyType),
     ...(dto.assetKey === undefined ? {} : { assetKey: dto.assetKey }),
     ...(dto.primaryId === undefined ? {} : { primaryId: dto.primaryId }),
+    ...(dto.orientation === undefined || dto.orientation.quaternion.length !== 4
+      ? {}
+      : { orientation: [dto.orientation.quaternion[0]!, dto.orientation.quaternion[1]!, dto.orientation.quaternion[2]!, dto.orientation.quaternion[3]!] as const }),
     speedMPerS: Math.hypot(v.x, v.y, v.z),
   };
 }
@@ -105,7 +112,7 @@ export function toSimulationView(dto: SimulationStateDto): SimulationView {
 
 /** What the scene needs of a body: a live BodyView and a recorded history frame both provide it. */
 export type DisplayBody = Pick<BodyView, "id" | "name" | "colorHex" | "kind" | "positionM" | "radiusM"> &
-  Partial<Pick<BodyView, "bodyType" | "assetKey" | "primaryId">>;
+  Partial<Pick<BodyView, "bodyType" | "assetKey" | "primaryId" | "orientation">>;
 
 export function toSceneBody(body: DisplayBody, t: RenderTransform, sizeMode: SizeMode = DEFAULT_SIZE_MODE): SceneBody {
   return {
@@ -116,6 +123,7 @@ export function toSceneBody(body: DisplayBody, t: RenderTransform, sizeMode: Siz
     bodyType: bodyTypeFor(body.kind, body.bodyType),
     ...(body.assetKey === undefined ? {} : { assetKey: body.assetKey }),
     ...(body.primaryId === undefined ? {} : { primaryId: body.primaryId }),
+    ...(body.orientation === undefined ? {} : { orientation: body.orientation }),
     position: toScenePosition(body.positionM, t),
     radius: physicalRadiusUnits(body.radiusM, t),
     visiblePx: minimumRadiusPx(body.radiusM, sizeMode),

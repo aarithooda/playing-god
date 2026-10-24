@@ -229,6 +229,32 @@ export interface ReplayReportDto {
   mutatesState: boolean;
 }
 
+/** What the renderer reads of an event (GET .../collisions/{id}/visual). Built by the backend from the validated result only. */
+export interface VisualPhaseDto {
+  name: "contact" | "flash" | "cratering" | "ejecta" | "separation" | "cloud-expansion" | "aftermath";
+  startS: number;
+  endS: number | null;
+  /** "simulation-time" phases follow the displayed simulation time (they represent material); "visual-wall-clock" ones are visual only. */
+  basis: "simulation-time" | "visual-wall-clock";
+  durationWallS?: number;
+}
+
+export interface VisualEventDto {
+  eventId: string;
+  outcome: string;
+  timeS: number;
+  impactSite: { bodyId: string; centerLocal: Vec3; centerWorldAtContactM: Vec3; normalWorld: Vec3 };
+  phases: VisualPhaseDto[];
+  ejectaSourceCount: number;
+  fragmentBodyIds: string[];
+  debrisParcelIds: string[];
+  cloud: { initialRadiusM: number; expansionSpeedMPerS: number; materialAppearance: string } | null;
+  /** Visual only: there is deliberately NO mass field. */
+  visualOnly: { kind: "flash" | "glow" | "shock-indicator"; intensity: number; lifetimeWallS: number }[];
+  materialAppearance: Record<string, string>;
+  fidelityNotes: string[];
+}
+
 export interface EscapedLedgerDto {
   massKg: number;
   momentumKgMPerS: Vec3;
