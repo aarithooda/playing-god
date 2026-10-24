@@ -30,6 +30,7 @@ tests/      pytest: API, service, stress, step guard, stall resilience, diagnost
 - A click on empty canvas dismisses the inspector (R3F `onPointerMissed`, left click only, drags excluded). Clicks on panels never reach the canvas.
 - "Choose position in 3D" previews a size-matched sphere on a camera-facing plane (scroll = depth); one click creates exactly one body at that point, with a live SI x/y/z readout, and Esc cancels. Any create offers a 10 s Undo that deletes that body and is withdrawn as soon as simulated time moves.
 - Axes and Grid are independent, off by default; the grid is also shown while placing (`gridVisible = userGrid || placementMode`) without changing the user's choice.
+- The Simulation panel carries the responsive View toolbar beside playback controls: independent Axes/Grid toggles, Overview (fit all bodies), and Focus selected. The view-control contract feeds the same overlay state to the toolbar and scene; compact widths shorten visible labels while retaining accessible names.
 - Starfield (`StarfieldShell`) keeps a stable apparent size when zoomed out; bodies keep at least 3 px on screen (`bodyDisplayScale`). Both are display-only.
 
 ## Dependencies [Implemented]

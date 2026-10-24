@@ -22,8 +22,8 @@ export interface AxisSegment {
 
 const UNIT: Record<AxisName, Vec3> = { x: { x: 1, y: 0, z: 0 }, y: { x: 0, y: 1, z: 0 }, z: { x: 0, y: 0, z: 1 } };
 
-/** Half-length of each axis in scene units: the fitted scene extent, so the axes span the usual view. */
-export const AXIS_HALF_LENGTH_UNITS = FIT_EXTENT_UNITS;
+/** Half-length in scene units; well beyond the camera far plane so the axes read as infinite. */
+export const AXIS_HALF_LENGTH_UNITS = 10_000;
 
 export function axisHalfLengthMeters(t: RenderTransform): number {
   return AXIS_HALF_LENGTH_UNITS * t.metersPerUnit;
@@ -39,7 +39,7 @@ export function axisSegments(t: RenderTransform): AxisSegment[] {
       color: AXIS_COLORS[axis],
       from: toScenePosition(at(-1), t),
       to: toScenePosition(at(1), t),
-      labelAt: toScenePosition(at(1.04), t),
+      labelAt: toScenePosition({ x: u.x * FIT_EXTENT_UNITS * 1.04, y: u.y * FIT_EXTENT_UNITS * 1.04, z: u.z * FIT_EXTENT_UNITS * 1.04 }, t),
     };
   });
 }

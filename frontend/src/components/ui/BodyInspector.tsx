@@ -39,6 +39,7 @@ export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDe
   const [errors, setErrors] = useState<FieldErrors>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const bodyId = body?.id;
   // Bring the inspector into view when a different body is selected (the sidebar scrolls).
@@ -49,6 +50,7 @@ export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDe
   useEffect(() => {
     setDraft({});
     setErrors({});
+    setConfirmDelete(false);
     setServerError(null);
   }, [bodyId]);
 
@@ -79,9 +81,11 @@ export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDe
 
   const remove = async () => {
     setBusy(true);
+    setServerError(null);
     const result = await onDelete(body.id);
     setBusy(false);
-    if (!result.ok) setServerError(result.error);
+    if (result.ok) setConfirmDelete(false);
+    else setServerError(result.error);
   };
 
   return (
@@ -125,16 +129,43 @@ export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDe
         {body.id} · speed {formatNumber(body.speedMPerS)} m/s · SI units
       </p>
 
-      <BodyFields values={shown} errors={errors} onChange={change} idPrefix="inspect" />
+      <form
+        aria-label="Edit body"
+        noValidate
+        onSubmit={(event) => { event.preventDefault(); void save(); }}
+      >
+        <BodyFields values={shown} errors={errors} onChange={change} idPrefix="inspect" />
+        {serverError && <p role="alert" style={errorTextStyle}>{serverError}</p>}
 
-      {serverError && <p role="alert" style={errorTextStyle}>{serverError}</p>}
+        {confirmDelete && (
+          <div role="group" aria-labelledby="delete-body-heading" aria-describedby="delete-body-description" style={{
+            border: '1px solid ' + theme.danger,
+            borderRadius: '5px',
+            padding: '8px',
+            marginBottom: '8px',
+          }}>
+            <strong id="delete-body-heading" style={{ fontSize: '12px' }}>Delete {body.name}?</strong>
+            <p id="delete-body-description" style={{ fontSize: '11px', color: theme.textMuted, margin: '5px 0 8px' }}>
+              This removes the body from the simulation. This action cannot be undone here.
+            </p>
+            <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+              <button type="button" style={btnStyle} onClick={() => setConfirmDelete(false)} disabled={busy}>Keep body</button>
+              <button type="button" style={{ ...btnStyle, borderColor: theme.danger }} onClick={() => void remove()} disabled={busy}>
+                {busy ? 'Deleting…' : 'Delete body'}
+              </button>
+            </div>
+          </div>
+        )}
 
-      <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
-        <button style={btnStyle} onClick={save} disabled={!dirty || busy}>Apply</button>
-        <button style={btnStyle} onClick={() => { setDraft({}); setErrors({}); setServerError(null); }} disabled={!dirty || busy}>Revert</button>
-        <button style={btnStyle} onClick={() => onFocus(body.id)}>Focus</button>
-        <button style={{ ...btnStyle, borderColor: theme.danger }} onClick={remove} disabled={busy}>Delete</button>
-      </div>
+        <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+          <button type="submit" style={btnStyle} disabled={!dirty || busy}>Apply</button>
+          <button type="button" style={btnStyle} onClick={() => { setDraft({}); setErrors({}); setServerError(null); }} disabled={!dirty || busy}>Revert</button>
+          <button type="button" style={btnStyle} onClick={() => onFocus(body.id)}>Focus</button>
+          {!confirmDelete && (
+            <button type="button" style={{ ...btnStyle, borderColor: theme.danger }} onClick={() => { setConfirmDelete(true); setServerError(null); }} disabled={busy}>Delete</button>
+          )}
+        </div>
+      </form>
     </div>
   );
 };

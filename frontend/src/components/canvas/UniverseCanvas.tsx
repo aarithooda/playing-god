@@ -17,6 +17,7 @@ import {
   type TrackingState,
 } from '../../sim/focusTracking';
 import type { SceneBody } from '../../sim/viewModel';
+import type { ViewControlContract } from '../../sim/viewControlContract';
 
 export interface FocusRequest {
   nonce: number;
@@ -51,6 +52,8 @@ interface UniverseCanvasProps {
   rightInset?: number;
   /** Display scale, needed by the optional axes/grid overlays. */
   transform: RenderTransform;
+  viewControls?: Pick<ViewControlContract, "state">;
+  /** Compatibility inputs retained for existing canvas callers. */
   showAxes?: boolean;
   showGrid?: boolean;
 }
@@ -354,9 +357,12 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
   leftInset = 0,
   rightInset = 0,
   transform,
+  viewControls,
   showAxes = false,
   showGrid = false,
 }) => {
+  const axesVisible = viewControls?.state.axesVisible ?? showAxes;
+  const gridEnabled = viewControls?.state.gridEnabled ?? showGrid;
   return (
     <Canvas
       camera={{ position: DEFAULT_CAMERA_POSITION, fov: 50, far: 2000 }}
@@ -370,8 +376,8 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
     >
       <color attach="background" args={['#050505']} />
       <StarfieldShell />
-      {showGrid && <GridOverlay transform={transform} />}
-      {showAxes && <AxesOverlay transform={transform} />}
+      {(gridEnabled || placementMode) && <GridOverlay transform={transform} />}
+      {axesVisible && <AxesOverlay transform={transform} />}
 
       <ambientLight intensity={0.6} />
       <pointLight position={[10, 10, 10]} intensity={1.2} />
