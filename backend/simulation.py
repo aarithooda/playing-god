@@ -48,7 +48,7 @@ from backend.diagnostics import compute_diagnostics
 from backend.errors import CodedError, StepCancelled
 from backend.history import HistoryBuffer
 from backend.models import (MAX_BODIES, Body, BodyCreate, BodyUpdate, Event, Position3, SimulationState,
-                            StepResponse, Vec3)
+                            StepResponse, Vec3, check_kind_body_type, default_body_type)
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +88,8 @@ class BodyMeta(NamedTuple):
     color: str
     kind: str = "planet"
     catalogue_id: str | None = None
+    body_type: str = "default"
+    asset_key: str | None = None
 
 
 # A commit guard raises (a CodedError) to refuse a mutation; see the module docstring.
@@ -105,6 +107,8 @@ class InitialBody:
     positionM: tuple[float, float, float]
     velocityMPerS: tuple[float, float, float]
     colorHex: str
+    bodyType: str | None = None  # None: derived from `kind`
+    assetKey: str | None = None
     basis: dict | None = None
     sources: tuple = ()
 
@@ -301,7 +305,8 @@ class SimulationService:
         for body_id, m in self._meta.items():
             p = by_id[body_id]
             positions.append((body_id, p.x, p.y, p.z))
-            meta[body_id] = {"name": m.name, "colorHex": m.color, "radiusM": p.r, "kind": m.kind}
+            meta[body_id] = {"name": m.name, "colorHex": m.color, "radiusM": p.r, "kind": m.kind,
+                             "bodyType": m.body_type, "assetKey": m.asset_key}
         return self._history.record(self._sim.t, positions, meta)
 
     def _audit(self, op: str, body_id: str, changes: dict, physical: bool) -> None:
@@ -367,7 +372,8 @@ class SimulationService:
                     raise ConflictError(f"duplicate body id {b.id}")
                 self._sim.add(m=b.massKg, r=b.radiusM, x=b.positionM[0], y=b.positionM[1], z=b.positionM[2],
                               vx=b.velocityMPerS[0], vy=b.velocityMPerS[1], vz=b.velocityMPerS[2], name=b.id)
-                self._meta[b.id] = BodyMeta(b.name, b.colorHex, b.kind, None)
+                self._meta[b.id] = BodyMeta(b.name, b.colorHex, b.kind, None, b.bodyType or default_body_type(b.kind),
+                                            b.assetKey)
             select_ias15(self._sim)
             kwargs = {} if max_history_points is None else {"max_points": max_history_points}
             self._history = HistoryBuffer(history_mode, sample_interval_s, **kwargs)
@@ -447,7 +453,8 @@ class SimulationService:
         meta = self._meta[body_id]
         return Body(id=body_id, name=meta.name, massKg=p.m, radiusM=p.r,
                     positionM=Vec3(x=p.x, y=p.y, z=p.z), velocityMPerS=Vec3(x=p.vx, y=p.vy, z=p.vz),
-                    colorHex=meta.color, kind=meta.kind, catalogueEntryId=meta.catalogue_id)
+                    colorHex=meta.color, kind=meta.kind, catalogueEntryId=meta.catalogue_id,
+                    bodyType=meta.body_type, assetKey=meta.asset_key)
 
     def _snapshot(self) -> SimulationState:
         by_id = self._particles_by_id()
@@ -472,7 +479,8 @@ class SimulationService:
             self._sim.add(m=data.massKg, r=data.radiusM, x=data.positionM.x, y=data.positionM.y,
                           z=data.positionM.z, vx=data.velocityMPerS.x, vy=data.velocityMPerS.y,
                           vz=data.velocityMPerS.z, name=body_id)
-            self._meta[body_id] = BodyMeta(data.name, data.colorHex, data.kind, data.catalogueEntryId)
+            self._meta[body_id] = BodyMeta(data.name, data.colorHex, data.kind, data.catalogueEntryId,
+                                            data.bodyType or default_body_type(data.kind), data.assetKey)
             select_ias15(self._sim)  # reset integrator state after a structural change
             self._history.bump_segment()
             self._audit("add", body_id, {"name": data.name, "massKg": data.massKg, "radiusM": data.radiusM,
@@ -492,6 +500,11 @@ class SimulationService:
                 self._require_free(new_pos, new_radius, ignore_id=body_id)  # validate before mutating anything
             changes: dict = {}
             old_meta = self._meta[body_id]
+            try:  # the merged kind/bodyType must stay consistent; omitted fields keep their current value
+                check_kind_body_type(patch.kind if "kind" in fields else old_meta.kind,
+                                     patch.bodyType if "bodyType" in fields else old_meta.body_type)
+            except ValueError as exc:
+                raise ConflictError(str(exc)) from exc
             if "massKg" in fields:
                 changes["massKg"] = [p.m, patch.massKg]
             if "radiusM" in fields:
@@ -502,7 +515,8 @@ class SimulationService:
                 changes["velocityMPerS"] = [[p.vx, p.vy, p.vz], [patch.velocityMPerS.x, patch.velocityMPerS.y,
                                                                  patch.velocityMPerS.z]]
             physical = bool(changes)
-            for key, old in (("name", old_meta.name), ("colorHex", old_meta.color), ("kind", old_meta.kind)):
+            for key, old in (("name", old_meta.name), ("colorHex", old_meta.color), ("kind", old_meta.kind),
+                             ("bodyType", old_meta.body_type), ("assetKey", old_meta.asset_key)):
                 if key in fields:
                     changes[key] = [old, getattr(patch, key)]
             if "massKg" in fields:
@@ -517,7 +531,9 @@ class SimulationService:
             self._meta[body_id] = meta._replace(
                 name=patch.name if "name" in fields else meta.name,
                 color=patch.colorHex if "colorHex" in fields else meta.color,
-                kind=patch.kind if "kind" in fields else meta.kind)
+                kind=patch.kind if "kind" in fields else meta.kind,
+                body_type=patch.bodyType if "bodyType" in fields else meta.body_type,
+                asset_key=patch.assetKey if "assetKey" in fields else meta.asset_key)
             if physical:
                 select_ias15(self._sim)
                 self._history.bump_segment()
@@ -690,6 +706,10 @@ class SimulationService:
             **{k: v for k, v in ev.items() if k != "spinAddedKgM2PerS"})
         self._pending.append(event)
         self._meta.pop(event.bodyIds[1], None)  # absorbed body no longer exists
+        survivor = self._meta.get(event.resultBodyId)
+        if survivor is not None:  # a merger product is a new body: no inherited asset, generic type (kind is kept)
+            self._meta[event.resultBodyId] = survivor._replace(body_type=default_body_type(survivor.kind),
+                                                               asset_key=None)
         self._history.bump_segment()  # the path is discontinuous here
 
     # ---------- transactional capture / restore ----------
