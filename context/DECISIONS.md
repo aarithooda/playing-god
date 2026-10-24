@@ -124,3 +124,13 @@ Entry format: Date · Decision · Context/reason · Alternatives · Consequences
 - Conditions: documentation only, no code; CI must pass on the exact PR head being merged, checked immediately before merging (head `0347d0a` plus the docs-only commit that records this decision); normal GitHub merge commit; no direct push to `main`, no force-push.
 - Scope of the exception: **PR #6 only.** It does not extend D-014 (PR #3) or D-015 (PR #5), and it does not change, waive or weaken the review requirement for any other or future PR. `TEAM_WORKFLOW.md` is unchanged.
 - Status: accepted 2026-10-24 by the project owner (Aarit), as a one-time exception.
+
+## D-017 — One-time owner exception: docs PR #4 merged without the normal independent review
+- Date: 2026-10-24
+- Decision: **a documented, one-PR-only exception to `TEAM_WORKFLOW.md`** ("Pull requests need one reviewer from another area and passing tests"). PR #4 (docs only: `context/STATUS.md`, `TASKS.md` and `WORKLOG.md` entries recording the T-012 merge, branch `docs/t012-merged`) is merged by project-owner decision **without** a recorded independent review. **No independent review was recorded**: GitHub shows no review or approval on the PR, and none occurred.
+- Authorization: the project owner (Aarit) stated in chat that, as the only person currently implementing and integrating, they authorize proceeding with the UI integration series without waiting for teammate reviews, with each exception recorded here one PR at a time. This entry covers PR #4 only.
+- Reason: PR #4 conflicted with `main` in `STATUS.md` and `WORKLOG.md`; reconciling it first (milestone M0) keeps later integration PRs from re-resolving the same documentation conflicts.
+- What was done: `origin/main` (`7f9aea0`) was merged into `docs/t012-merged` with a normal merge commit (no force-push, no rewrite); in the two conflicts every entry from both sides was kept (the starfield zoom-stability entries stay on top, the T-012 "MERGED" rewrite replaces the stale "PR open" heading, and the D-014 worklog entry precedes the starfield worklog entry). The PR's own diff against `main` stays documentation only.
+- Conditions: CI must pass on the exact PR head being merged, checked immediately before merging; normal GitHub merge commit; no direct push to `main`, no force-push.
+- Scope of the exception: **PR #4 only.** It does not extend D-014, D-015 or D-016, and it does not change, waive or weaken the review requirement for any other or future PR. `TEAM_WORKFLOW.md` is unchanged. Later integration PRs get their own entries.
+- Status: accepted 2026-10-24 by the project owner (Aarit), as a one-time exception.
