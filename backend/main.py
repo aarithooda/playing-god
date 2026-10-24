@@ -5,9 +5,12 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 
+from backend.api_universes import router as universes_router
+from backend.errors import CodedError
 from backend.models import (Body, BodyCreate, BodyUpdate, EventList, SimulationState, StepRequest, StepResponse)
-from backend.simulation import (ConflictError, NotFoundError, SimulationBusyError, SimulationFailure,
+from backend.simulation import (CommitGuard, ConflictError, NotFoundError, SimulationBusyError, SimulationFailure,
                                 SimulationService, StepTimeoutError, get_service)
+from backend.universes import get_legacy_guard
 
 app = FastAPI(title="Playing God backend")
 
@@ -26,6 +29,11 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
         {"loc": list(e["loc"]), "msg": e["msg"], "type": e["type"]} for e in exc.errors()
     ]
     return JSONResponse(status_code=422, content={"detail": details})
+
+
+@app.exception_handler(CodedError)
+async def coded_error_handler(request: Request, exc: CodedError):
+    return JSONResponse(status_code=exc.status, content={"detail": exc.detail, "code": exc.code})
 
 
 @app.exception_handler(NotFoundError)
@@ -53,6 +61,9 @@ async def simulation_failure_handler(request: Request, exc: SimulationFailure):
     return JSONResponse(status_code=500, content={"detail": str(exc)})
 
 
+app.include_router(universes_router)
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -69,29 +80,34 @@ def get_state(service: SimulationService = Depends(get_service)) -> SimulationSt
 
 
 @app.post("/api/v1/bodies", response_model=Body, status_code=201)
-def create_body(data: BodyCreate, service: SimulationService = Depends(get_service)) -> Body:
-    return service.add_body(data)
+def create_body(data: BodyCreate, service: SimulationService = Depends(get_service),
+                guard: CommitGuard = Depends(get_legacy_guard)) -> Body:
+    return service.add_body(data, guard=guard)
 
 
 @app.patch("/api/v1/bodies/{body_id}", response_model=Body)
-def update_body(body_id: str, patch: BodyUpdate, service: SimulationService = Depends(get_service)) -> Body:
-    return service.update_body(body_id, patch)
+def update_body(body_id: str, patch: BodyUpdate, service: SimulationService = Depends(get_service),
+                guard: CommitGuard = Depends(get_legacy_guard)) -> Body:
+    return service.update_body(body_id, patch, guard=guard)
 
 
 @app.delete("/api/v1/bodies/{body_id}", status_code=204)
-def delete_body(body_id: str, service: SimulationService = Depends(get_service)) -> Response:
-    service.delete_body(body_id)
+def delete_body(body_id: str, service: SimulationService = Depends(get_service),
+                guard: CommitGuard = Depends(get_legacy_guard)) -> Response:
+    service.delete_body(body_id, guard=guard)
     return Response(status_code=204)
 
 
 @app.post("/api/v1/simulation/step", response_model=StepResponse)
-def step(req: StepRequest, service: SimulationService = Depends(get_service)) -> StepResponse:
-    return service.step(req.dtS)
+def step(req: StepRequest, service: SimulationService = Depends(get_service),
+         guard: CommitGuard = Depends(get_legacy_guard)) -> StepResponse:
+    return service.step(req.dtS, guard=guard)
 
 
 @app.post("/api/v1/simulation/reset", response_model=SimulationState)
-def reset(service: SimulationService = Depends(get_service)) -> SimulationState:
-    return service.reset()
+def reset(service: SimulationService = Depends(get_service),
+          guard: CommitGuard = Depends(get_legacy_guard)) -> SimulationState:
+    return service.reset(guard=guard)
 
 
 @app.get("/api/v1/events", response_model=EventList)

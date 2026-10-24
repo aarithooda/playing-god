@@ -12,6 +12,8 @@ MIN_STEP_S = 1.0e-6
 MAX_STEP_S = 1.0e8  # ~3.2 years per request; Play = many bounded requests
 MAX_BODIES = 200
 
+BodyKind = Literal["star", "planet"]
+
 
 class Vec3(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -54,6 +56,8 @@ class BodyCreate(BaseModel):
     positionM: Position3
     velocityMPerS: Velocity3
     colorHex: str = Field(pattern=r"^#[0-9a-fA-F]{6}$")
+    kind: BodyKind = "planet"
+    catalogueEntryId: str | None = Field(default=None, min_length=1, max_length=64)  # provenance only
 
 
 class Body(BaseModel):
@@ -66,6 +70,8 @@ class Body(BaseModel):
     positionM: Vec3
     velocityMPerS: Vec3
     colorHex: str
+    kind: BodyKind = "planet"
+    catalogueEntryId: str | None = None
 
 
 class BodyUpdate(BaseModel):
@@ -79,6 +85,7 @@ class BodyUpdate(BaseModel):
     positionM: Position3 | None = None
     velocityMPerS: Velocity3 | None = None
     colorHex: str | None = Field(default=None, pattern=r"^#[0-9a-fA-F]{6}$")
+    kind: BodyKind | None = None
 
     @model_validator(mode="after")
     def _non_empty_and_no_nulls(self) -> "BodyUpdate":

@@ -100,6 +100,31 @@ Remove all bodies and events, time back to 0. Deterministic: the same inputs aft
 ### ✅ `GET /api/v1/events`
 Response 200 `{"events":[Event, ...]}`, oldest first (latest 1000 since the last reset). Verified by `tests/test_events_endpoint.py`: empty shape, field set and values of head-on and grazing mergers, null `estimatedContactTimeS` at exact tangency, agreement with the step response, persistence across quiet steps and body edits/deletes, reset (log cleared, ids keep counting), rolled-back and timed-out steps (no event, id not consumed), the 1000-event cap, cascades. Only GET is allowed (405 otherwise).
 
+## Universes (Simulation Lab, added in M1)
+Spec: `context/specs/SIMULATION_LAB_SPEC.md`; design: `context/EXPERIMENT_01_IMPLEMENTATION_PLAN.md` sections 6-7. Each universe is an
+independent backend-owned engine. One universe is **active** at a time (initially `uni-default`, epoch 1); every activation increments
+the **activation epoch**. Only the active universe can be mutated or advanced, and a mutation must echo the epoch it was issued under.
+The legacy routes above are unchanged and act on `uni-default`; their mutations answer 409 `universe_not_active` while another universe is active.
+`Body` additionally carries `kind` (`"star"|"planet"`, default `"planet"`, patchable) and `catalogueEntryId` (provenance only, nullable).
+
+Coded errors keep the `{"detail": ...}` shape and add `"code"`: 404 `universe_not_found` (detail says "deleted" for a deleted id),
+409 `universe_not_active`, `stale_activation`, `stale_revision`, `deactivated_during_step`, `active_universe_delete`, `universe_limit` (8 universes), `baseline_protected`.
+Mutations: `?activationEpoch=<int>` is required (422 if missing); `&expectedRevision=<int>` is optional and rejects a duplicate/stale request.
+
+| Route | Notes |
+|---|---|
+| `GET /api/v1/universes` | `{universes: [UniverseSummary], activeUniverseId, activationEpoch}` |
+| `POST /api/v1/universes` | `{name?, source: {kind:"empty"}, activate?}` -> 201 `UniverseSummary` (presets: see `/presets`, M3) |
+| `GET /api/v1/universes/{uid}` | `UniverseSummary` = `{id, name, role, presetId, experimentId, active, simulationTimeS, bodyCount, revision, status: "idle"|"mutating", lastFailure, createdAtIso, epochLabel, historyMode}` |
+| `DELETE /api/v1/universes/{uid}` | 204; the active universe cannot be deleted |
+| `POST /api/v1/universes/{uid}/activate` | `{activeUniverseId, activationEpoch, previous: {universeId, simulationTimeS, revision} | null}`; never integrates; the outgoing universe's running step is cancelled and rolled back. Activating the already-active universe changes nothing. |
+| `GET /api/v1/universes/{uid}/state`, `/events` | any universe; state = SimulationState + `universeId`, `revision` |
+| `POST /api/v1/universes/{uid}/bodies`, `PATCH|DELETE .../bodies/{id}` | as the legacy routes, plus the epoch query |
+| `POST /api/v1/universes/{uid}/step`, `/reset` | step response and reset state carry `universeId`, `revision`. Reset empties the sandbox (restoring a preset/run's initial state arrives with M2). |
+
+`revision` is +1 per committed change and is present in every universe response. A step that is cancelled (switch), refused at commit
+(stale epoch) or fails is rolled back completely: `lastFailure = {kind, message, atSimulationTimeS, atIso}` is set until the next success.
+
 ### Withdrawn / planned
 - `POST /simulation/start` and `/simulation/pause`: **not implemented and no longer planned**; Play/Pause is client-side scheduling of `step` requests.
 - 🕓 Checkpoint save/restore: not specified (REBOUND restore works, but the resolver, ledgers and event log would have to be rebuilt; M0.6).
