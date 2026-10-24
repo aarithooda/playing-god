@@ -2,10 +2,11 @@
 the query; reads take no epoch and work on any universe."""
 from fastapi import APIRouter, Depends, Query, Response
 
-from backend.lab_models import (ActivationResult, CreateUniverseRequest, UniverseList, UniverseState,
-                                UniverseStepResponse, UniverseSummary)
+from backend.history import MAX_PAGE_SAMPLES
+from backend.lab_models import (ActivationResult, CreateUniverseRequest, HistoryPage, SnapshotCreate, SnapshotList,
+                                SnapshotSummary, UniverseList, UniverseState, UniverseStepResponse, UniverseSummary)
 from backend.models import Body, BodyCreate, BodyUpdate, EventList, StepRequest
-from backend.universes import Universe, UniverseRegistry, get_registry
+from backend.universes import StoredSnapshot, Universe, UniverseRegistry, get_registry
 from backend.errors import CodedError
 
 router = APIRouter(prefix="/api/v1/universes")
@@ -109,3 +110,56 @@ def reset(universe_id: str, epoch: int = Epoch, expected: int | None = ExpectedR
         state = u.engine.reset(guard=guard)
         revision = u.engine.revision
     return UniverseState(**state.model_dump(), universeId=universe_id, revision=revision)
+
+
+# ---------- history (recorded by the engine, read without its lock) ----------
+@router.get("/{universe_id}/history", response_model=HistoryPage)
+def get_history(universe_id: str, generation: int | None = Query(None, ge=0), from_index: int = Query(0, alias="fromIndex", ge=0),
+                body_ids: str | None = Query(None, alias="bodyIds"),
+                limit: int = Query(1000, ge=1, le=MAX_PAGE_SAMPLES),
+                reg: UniverseRegistry = Depends(get_registry)) -> HistoryPage:
+    ids = {b for b in body_ids.split(",") if b} if body_ids else None
+    page = reg.get(universe_id).engine.history.page(generation, from_index, ids, limit)
+    return HistoryPage(universeId=universe_id, **page)
+
+
+# ---------- snapshots ----------
+def snapshot_summary(s: StoredSnapshot) -> SnapshotSummary:
+    return SnapshotSummary(id=s.id, name=s.name, createdAtIso=s.created_at, simulationTimeS=s.snap.simulation_time_s,
+                           bodyCount=s.snap.body_count, revision=s.snap.revision, controlled=s.snap.controlled)
+
+
+@router.get("/{universe_id}/snapshots", response_model=SnapshotList)
+def list_snapshots(universe_id: str, reg: UniverseRegistry = Depends(get_registry)) -> SnapshotList:
+    u = reg.get(universe_id)
+    with reg._lock:
+        return SnapshotList(snapshots=[snapshot_summary(s) for s in u.snapshots.values()])
+
+
+@router.post("/{universe_id}/snapshots", response_model=SnapshotSummary, status_code=201)
+def create_snapshot(universe_id: str, req: SnapshotCreate = SnapshotCreate(), epoch: int = Epoch,
+                    reg: UniverseRegistry = Depends(get_registry)) -> SnapshotSummary:
+    u, guard = reg.prepare(universe_id, epoch, "snapshot")
+    reg.check_snapshot_room(u)
+    snap = u.engine.capture_snapshot()
+    guard()  # the universe may have been deactivated while the copy was made
+    return snapshot_summary(reg.add_snapshot(u, req.name, snap))
+
+
+@router.post("/{universe_id}/snapshots/{snapshot_id}/restore", response_model=UniverseState)
+def restore_snapshot(universe_id: str, snapshot_id: str, epoch: int = Epoch, expected: int | None = ExpectedRevision,
+                     reg: UniverseRegistry = Depends(get_registry)) -> UniverseState:
+    u, guard = reg.prepare(universe_id, epoch, "snapshot", expected)
+    stored = reg.get_snapshot(u, snapshot_id)
+    with u.engine.locked():
+        state = u.engine.restore_snapshot(stored.snap, guard=guard)
+        revision = u.engine.revision
+    return UniverseState(**state.model_dump(), universeId=universe_id, revision=revision)
+
+
+@router.delete("/{universe_id}/snapshots/{snapshot_id}", status_code=204)
+def delete_snapshot(universe_id: str, snapshot_id: str, epoch: int = Epoch,
+                    reg: UniverseRegistry = Depends(get_registry)) -> Response:
+    u, _ = reg.prepare(universe_id, epoch, "snapshot")
+    reg.delete_snapshot(u, snapshot_id)
+    return Response(status_code=204)

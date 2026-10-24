@@ -13,11 +13,12 @@ waiting for an engine lock (activation only sets a cancel flag on the outgoing e
 """
 import threading
 import time
+import uuid
 from dataclasses import dataclass, field
 from typing import Callable
 
 from backend.errors import CodedError, universe_not_found
-from backend.simulation import CommitGuard, ConflictError, SimulationService
+from backend.simulation import CommitGuard, ConflictError, EngineSnapshot, SimulationService
 
 DEFAULT_UNIVERSE_ID = "uni-default"
 MAX_UNIVERSES = 8
@@ -26,6 +27,14 @@ ROLES = ("sandbox", "preset", "baseline", "modified")
 
 # Operations a role may not perform (plan section 11.3). The baseline is an immutable experimental reference.
 _PROTECTED_OPS = {"baseline": {"body", "snapshot"}}
+
+
+@dataclass
+class StoredSnapshot:
+    id: str
+    name: str
+    created_at: str
+    snap: EngineSnapshot
 
 
 @dataclass
@@ -97,7 +106,6 @@ class UniverseRegistry:
             return u
 
     def _new_hex(self) -> str:
-        import uuid
         while True:
             h = uuid.uuid4().hex[:12]
             if f"uni-{h}" not in self._universes and f"uni-{h}" not in self._deleted_ids:
@@ -131,6 +139,33 @@ class UniverseRegistry:
 
     def _activation_result(self, previous: dict | None) -> dict:
         return {"activeUniverseId": self._active_id, "activationEpoch": self._epoch, "previous": previous}
+
+    # ---------- snapshots (kept with their universe; deleted with it) ----------
+    def add_snapshot(self, u: Universe, name: str | None, snap: EngineSnapshot) -> StoredSnapshot:
+        with self._lock:
+            self.check_snapshot_room(u)
+            sid = f"snap-{uuid.uuid4().hex[:8]}"
+            stored = StoredSnapshot(sid, name or f"Snapshot at t = {snap.simulation_time_s:g} s",
+                                    time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), snap)
+            u.snapshots[sid] = stored
+            return stored
+
+    def check_snapshot_room(self, u: Universe) -> None:
+        if len(u.snapshots) >= MAX_SNAPSHOTS_PER_UNIVERSE:
+            raise CodedError(f"snapshot limit reached ({MAX_SNAPSHOTS_PER_UNIVERSE}); delete one first",
+                             code="snapshot_limit")
+
+    def get_snapshot(self, u: Universe, snapshot_id: str) -> StoredSnapshot:
+        with self._lock:
+            stored = u.snapshots.get(snapshot_id)
+        if stored is None:
+            raise CodedError(f"unknown snapshot: {snapshot_id}", code="snapshot_not_found", status=404)
+        return stored
+
+    def delete_snapshot(self, u: Universe, snapshot_id: str) -> None:
+        with self._lock:
+            self.get_snapshot(u, snapshot_id)
+            del u.snapshots[snapshot_id]
 
     # ---------- guards ----------
     def _validate(self, universe_id: str, activation_epoch: int, expected_revision: int | None) -> None:

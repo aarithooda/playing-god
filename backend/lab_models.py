@@ -77,3 +77,49 @@ class UniverseState(SimulationState):
 class UniverseStepResponse(StepResponse):
     universeId: str
     revision: int
+
+
+class SnapshotCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str | None = Field(default=None, min_length=1, max_length=64)
+
+
+class SnapshotSummary(BaseModel):
+    id: str
+    name: str
+    createdAtIso: str
+    simulationTimeS: float
+    bodyCount: int
+    revision: int
+    controlled: bool
+
+
+class SnapshotList(BaseModel):
+    snapshots: list[SnapshotSummary]
+
+
+class HistoryBodyMeta(BaseModel):
+    name: str
+    colorHex: str
+    radiusM: float
+    kind: str
+
+
+class HistorySample(BaseModel):
+    index: int
+    simulationTimeS: float
+    segment: int
+    positionsM: dict[str, list[float]]
+
+
+class HistoryPage(BaseModel):
+    universeId: str
+    mode: Literal["grid", "step"]
+    sampleIntervalS: float | None
+    generation: int
+    firstIndex: int
+    nextIndex: int
+    droppedBefore: int
+    truncated: bool
+    samples: list[HistorySample]
+    bodies: dict[str, HistoryBodyMeta]

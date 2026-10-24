@@ -54,3 +54,24 @@ class BlockedStep:
         self.release.set()
         self.thread.join(timeout=30)
         assert not self.thread.is_alive()
+
+
+def sun_earth(earth_mass: float = 5.972e24):
+    """A Sun + Earth-like pair on a near-circular orbit, for engine-level history/snapshot tests."""
+    from backend.simulation import InitialBody
+    return [
+        InitialBody(id="body-sun", name="Sun", kind="star", massKg=1.989e30, radiusM=6.957e8,
+                    positionM=(0.0, 0.0, 0.0), velocityMPerS=(0.0, 0.0, 0.0), colorHex="#ffcc00"),
+        InitialBody(id="body-earth", name="Earth", kind="planet", massKg=earth_mass, radiusM=6.371e6,
+                    positionM=(1.496e11, 0.0, 0.0), velocityMPerS=(0.0, 29780.0, 0.0), colorHex="#3b82f6"),
+    ]
+
+
+DAY = 86400.0
+
+
+def loaded_engine(mode: str = "grid", interval: float = DAY, bodies=None) -> SimulationService:
+    s = SimulationService()
+    s.load_bodies(bodies if bodies is not None else sun_earth(), history_mode=mode,
+                  sample_interval_s=interval if mode == "grid" else None)
+    return s

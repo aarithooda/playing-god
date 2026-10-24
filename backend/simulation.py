@@ -29,6 +29,8 @@ Model (decisions D-007, D-008, D-010; evidence in context/PHYSICS_SPIKE.md):
 Known limits: see context/API_CONTRACT.md ("Physics limitations").
 """
 import contextlib
+import hashlib
+import json
 import logging
 import math
 import os
@@ -36,13 +38,15 @@ import threading
 import time
 import uuid
 import warnings
-from typing import Callable, NamedTuple
+from dataclasses import dataclass, field
+from typing import Any, Callable, NamedTuple
 
 import rebound
 
 from backend.collisions import MergeResolver, select_ias15
 from backend.diagnostics import compute_diagnostics
 from backend.errors import CodedError, StepCancelled
+from backend.history import HistoryBuffer
 from backend.models import (MAX_BODIES, Body, BodyCreate, BodyUpdate, Event, Position3, SimulationState,
                             StepResponse, Vec3)
 
@@ -90,13 +94,71 @@ class BodyMeta(NamedTuple):
 CommitGuard = Callable[[], None]
 
 
+@dataclass
+class InitialBody:
+    """One body of a preset / experiment initial state (SI units). `basis` and `sources` are provenance only."""
+    id: str
+    name: str
+    kind: str
+    massKg: float
+    radiusM: float
+    positionM: tuple[float, float, float]
+    velocityMPerS: tuple[float, float, float]
+    colorHex: str
+    basis: dict | None = None
+    sources: tuple = ()
+
+
+@dataclass
+class EngineSnapshot:
+    """Everything needed to continue a universe exactly (plan section 8.1). `sim` is a private REBOUND copy that is
+    never integrated itself; restore and derive always copy it again. `owner` ties it to the engine that made it."""
+    owner: object
+    sim: Any
+    meta: dict
+    events: list
+    heat_J: float
+    spin: dict
+    history: HistoryBuffer
+    controlled: bool
+    first_uncontrolled_at_s: float | None
+    simulation_time_s: float
+    revision: int
+    digest: str
+    body_count: int = 0
+
+
+def _copy_sim(sim: rebound.Simulation) -> rebound.Simulation:
+    """`Simulation.copy()` plus silencing REBOUND's notice that function pointers must be re-registered (we do)."""
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="You have to reset function pointers", category=RuntimeWarning)
+        return sim.copy()
+
+
+def _digest(sim: rebound.Simulation, meta: dict, history_mode: str, sample_interval_s: float | None) -> str:
+    """SHA-256 over canonical JSON of the physical initial state and configuration (colour excluded; plan 8.3)."""
+    by_id = {p.name: p for p in sim.particles}
+    bodies = []
+    for body_id, m in meta.items():
+        p = by_id[body_id]
+        bodies.append([body_id, m.name, m.kind] + [float(v).hex() for v in (p.m, p.r, p.x, p.y, p.z, p.vx, p.vy, p.vz)])
+    doc = {"bodies": bodies, "t": float(sim.t).hex(), "G": float(sim.G).hex(), "integrator": "ias15",
+           "adaptive": "global", "collision": "line", "randSeed": RAND_SEED, "historyMode": history_mode,
+           "sampleIntervalS": None if sample_interval_s is None else float(sample_interval_s).hex()}
+    return hashlib.sha256(json.dumps(doc, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
 class SimulationService:
     def __init__(self) -> None:
         self._lock = threading.RLock()
         self.revision = 0  # +1 per committed change (step, add, patch, delete, reset)
         self._cancel = threading.Event()  # set when this universe is deactivated: stops a running integrate
         self.last_failure: dict | None = None  # the most recent failed mutation; cleared by the next success
-        self.history_mode = "step"
+        self._owner = object()  # snapshots remember it, so one universe's snapshot cannot restore another
+        self.audit_edits = False  # Orbit Lab's modified run: physical edits are logged and flag the run uncontrolled
+        self.controlled = True
+        self.first_uncontrolled_at_s: float | None = None
+        self.audit: list[dict] = []  # append-only; never part of a snapshot
         self._event_seq = 0  # never reset, so event ids are never reused
         self.step_time_limit_s = float(os.getenv("PG_STEP_TIME_LIMIT_S", DEFAULT_STEP_TIME_LIMIT_S))
         # How long a mutation waits for a running step before answering 503; None = step budget + LOCK_WAIT_MARGIN_S.
@@ -105,7 +167,7 @@ class SimulationService:
         self._init_state()
 
     # ---------- construction / reset ----------
-    def _init_state(self, publish: bool = True) -> None:
+    def _init_state(self) -> None:
         self._meta: dict[str, BodyMeta] = {}  # id -> display metadata, creation order
         self._events: list[Event] = []
         self._pending: list[Event] = []  # events recorded since the last step started
@@ -113,8 +175,29 @@ class SimulationService:
         self._timed_out = False
         self._resolver = MergeResolver(self._record_merge)
         self._sim = self._new_sim([], 0.0)
-        if publish:
-            self._pub = (self._snapshot(), self.revision)  # last committed state, served to readers without the lock
+        self._history = HistoryBuffer("step")
+        self._record_history()  # sample 0: the empty start
+        self._pub = (self._snapshot(), self.revision)  # last committed state, served to readers without the lock
+        self._pub_hist = self._history
+        self._history.commit()
+        self._initial = self._take_snapshot()  # what reset returns to
+
+    @property
+    def history(self) -> HistoryBuffer:
+        """The last committed history (what readers see); never a half-finished step."""
+        return self._pub_hist
+
+    @property
+    def history_mode(self) -> str:
+        return self._pub_hist.mode
+
+    @property
+    def initial_snapshot(self) -> EngineSnapshot:
+        return self._initial
+
+    @property
+    def initial_state_digest(self) -> str:
+        return self._initial.digest
 
     @contextlib.contextmanager
     def _guard(self):
@@ -154,29 +237,166 @@ class SimulationService:
         """Call under the lock after a committed change: bumps the revision and publishes state + revision together."""
         self.revision += 1
         self.last_failure = None
+        self._history.commit()
+        self._pub_hist = self._history
         self._pub = (self._snapshot(), self.revision)
 
+    def _checkpoint(self) -> dict:
+        """Cheap exact rollback point for CRUD, reset and restore (a REBOUND copy, so rollback is bitwise)."""
+        return {"sim": _copy_sim(self._sim), "meta": dict(self._meta), "events": list(self._events),
+                "heat": self._resolver.heat_J, "spin": {k: list(v) for k, v in self._resolver.spin.items()},
+                "history": self._history, "controlled": self.controlled,
+                "first_unc": self.first_uncontrolled_at_s, "audit_len": len(self.audit)}
+
+    def _rollback(self, cp: dict) -> None:
+        self._meta, self._events, self._pending = cp["meta"], cp["events"], []
+        self._resolver = MergeResolver(self._record_merge)
+        self._resolver.heat_J, self._resolver.spin = cp["heat"], cp["spin"]
+        self._adopt_sim(cp["sim"])
+        self._history = cp["history"]
+        self._history.rollback()
+        self.controlled, self.first_uncontrolled_at_s = cp["controlled"], cp["first_unc"]
+        del self.audit[cp["audit_len"]:]
+
     @contextlib.contextmanager
-    def _mutation(self, guard: "CommitGuard | None"):
+    def _mutation(self, guard: "CommitGuard | None", record: bool = True):
         """One committed mutation: lock, guard, (caller mutates), guard again, publish. Anything that goes wrong after
         the engine was touched restores the pre-mutation state; refusals raised before any change (ConflictError,
-        NotFoundError) change nothing and need no restore."""
+        NotFoundError) change nothing and need no restore. In step mode a committed change also records one history
+        sample (`record=False` for reset/restore, which bring their own history)."""
         with self._guard():
             if guard is not None:
                 guard()
-            before = self._capture()
+            before = self._checkpoint()
             try:
                 yield
                 if guard is not None:
                     guard()  # last chance to refuse: the universe may have been deactivated while we worked
+                if record and self._history.mode == "step":
+                    self._record_history()
             except (ConflictError, NotFoundError):
                 raise
             except BaseException as exc:
-                self._restore(before)
+                self._rollback(before)
                 if isinstance(exc, CodedError):
                     self._fail(exc.code, exc.detail)
                 raise
             self._publish()
+
+    def _adopt_sim(self, sim: rebound.Simulation) -> None:
+        """Make `sim` the live simulation and (re-)register the Python callbacks, which are not part of a REBOUND copy."""
+        sim.collision_resolve = self._resolver.resolve
+        sim.heartbeat = self._heartbeat
+        self._sim = sim
+
+    def _adopt_history(self, history: HistoryBuffer) -> None:
+        """Replace live history with a private copy of `history` under a new generation (invalidates client caches)."""
+        fresh = history.copy()
+        fresh.new_generation()
+        self._history = fresh
+
+    def _record_history(self) -> bool:
+        by_id = self._particles_by_id()
+        positions, meta = [], {}
+        for body_id, m in self._meta.items():
+            p = by_id[body_id]
+            positions.append((body_id, p.x, p.y, p.z))
+            meta[body_id] = {"name": m.name, "colorHex": m.color, "radiusM": p.r, "kind": m.kind}
+        return self._history.record(self._sim.t, positions, meta)
+
+    def _audit(self, op: str, body_id: str, changes: dict, physical: bool) -> None:
+        if not self.audit_edits:
+            return
+        t = self._sim.t
+        self.audit.append({"atSimulationTimeS": t, "atIso": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                           "op": op, "bodyId": body_id, "changes": changes, "physical": physical})
+        if physical and self.controlled:
+            self.controlled, self.first_uncontrolled_at_s = False, t
+
+    # ---------- snapshots ----------
+    def _take_snapshot(self, revision: int | None = None) -> EngineSnapshot:
+        return EngineSnapshot(
+            owner=self._owner, sim=_copy_sim(self._sim), meta=dict(self._meta), events=list(self._events),
+            heat_J=self._resolver.heat_J, spin={k: list(v) for k, v in self._resolver.spin.items()},
+            history=self._history.copy(), controlled=self.controlled,
+            first_uncontrolled_at_s=self.first_uncontrolled_at_s, simulation_time_s=self._sim.t,
+            revision=self.revision if revision is None else revision,
+            digest=_digest(self._sim, self._meta, self._history.mode, self._history.sample_interval_s),
+            body_count=len(self._meta))
+
+    def capture_snapshot(self) -> EngineSnapshot:
+        """A restorable copy of the current state; the live simulation is not touched or advanced."""
+        with self._guard():
+            return self._take_snapshot()
+
+    def _apply_snapshot(self, snap: EngineSnapshot) -> None:
+        """Make the live state a copy of `snap` (callers hold the lock and a rollback point)."""
+        self._resolver = MergeResolver(self._record_merge)
+        self._resolver.heat_J = snap.heat_J
+        self._resolver.spin = {k: list(v) for k, v in snap.spin.items()}
+        self._meta, self._events, self._pending = dict(snap.meta), list(snap.events), []
+        self._adopt_sim(_copy_sim(snap.sim))  # never reselect IAS15 here: that would discard its predictor state
+        self._adopt_history(snap.history)
+        self.controlled, self.first_uncontrolled_at_s = snap.controlled, snap.first_uncontrolled_at_s
+
+    def restore_snapshot(self, snap: EngineSnapshot, guard: "CommitGuard | None" = None) -> SimulationState:
+        if snap.owner is not self._owner:
+            raise ConflictError("this snapshot was taken in another universe and cannot be restored here")
+        with self._mutation(guard, record=False):
+            try:
+                self._apply_snapshot(snap)
+            except Exception as exc:  # noqa: BLE001 - reported as one coded failure; the checkpoint restores state
+                raise CodedError(f"restore failed, nothing was changed: {exc}", code="restore_failed",
+                                 status=500) from exc
+        return self.snapshot()
+
+    def load_bodies(self, bodies: list[InitialBody], *, history_mode: str = "grid",
+                    sample_interval_s: float | None = None, max_history_points: int | None = None) -> None:
+        """Install a preset/experiment initial state into an empty, unstarted engine, record history sample 0 and
+        capture the initial snapshot that `reset` returns to."""
+        with self._mutation(None, record=False):
+            if self._sim.N != 0 or self._sim.t != 0.0 or self.revision != 0:
+                raise ConflictError("bodies can only be loaded into an empty universe that has not been started")
+            if len(bodies) > MAX_BODIES:
+                raise ConflictError(f"body limit exceeded ({MAX_BODIES})")
+            for b in bodies:
+                values = (b.massKg, b.radiusM, *b.positionM, *b.velocityMPerS)
+                if not all(math.isfinite(v) for v in values) or b.massKg <= 0 or b.radiusM <= 0:
+                    raise ConflictError(f"invalid initial state for {b.id}")
+                if b.id in self._meta:
+                    raise ConflictError(f"duplicate body id {b.id}")
+                self._sim.add(m=b.massKg, r=b.radiusM, x=b.positionM[0], y=b.positionM[1], z=b.positionM[2],
+                              vx=b.velocityMPerS[0], vy=b.velocityMPerS[1], vz=b.velocityMPerS[2], name=b.id)
+                self._meta[b.id] = BodyMeta(b.name, b.colorHex, b.kind, None)
+            select_ias15(self._sim)
+            kwargs = {} if max_history_points is None else {"max_points": max_history_points}
+            self._history = HistoryBuffer(history_mode, sample_interval_s, **kwargs)
+            self._record_history()
+        self._initial = self._take_snapshot()
+
+    @classmethod
+    def from_snapshot(cls, snap: EngineSnapshot, *, transform: Callable | None = None, history_mode: str = "grid",
+                      sample_interval_s: float | None = None) -> "SimulationService":
+        """A new, fully independent engine that starts from a copy of `snap` (optionally `transform`ed: a function
+        that edits the private REBOUND copy), with its own initial snapshot and history sample 0."""
+        if history_mode == "grid" and snap.simulation_time_s != 0.0:
+            raise ConflictError("a grid-history run must start at t = 0")
+        engine = cls()
+        with engine._guard():
+            engine._resolver = MergeResolver(engine._record_merge)
+            engine._resolver.heat_J = snap.heat_J
+            engine._resolver.spin = {k: list(v) for k, v in snap.spin.items()}
+            engine._meta, engine._events = dict(snap.meta), list(snap.events)
+            sim = _copy_sim(snap.sim)
+            if transform is not None:
+                transform(sim)
+            select_ias15(sim)
+            engine._adopt_sim(sim)
+            engine._history = HistoryBuffer(history_mode, sample_interval_s)
+            engine._record_history()
+            engine._publish()
+            engine._initial = engine._take_snapshot()
+        return engine
 
     def _new_sim(self, records: list[dict], t: float) -> rebound.Simulation:
         sim = rebound.Simulation()
@@ -193,9 +413,10 @@ class SimulationService:
         return sim
 
     def reset(self, guard: "CommitGuard | None" = None) -> SimulationState:
-        """Remove all bodies and events, time to 0. Event ids keep counting (never reused)."""
-        with self._mutation(guard):
-            self._init_state(publish=False)
+        """Return to the initial state: empty for a sandbox, the loaded preset/experiment state otherwise. History
+        goes back to sample 0 under a new generation. Event ids keep counting (never reused)."""
+        with self._mutation(guard, record=False):
+            self._apply_snapshot(self._initial)
         return self.snapshot()
 
     # ---------- reads ----------
@@ -253,6 +474,11 @@ class SimulationService:
                           vz=data.velocityMPerS.z, name=body_id)
             self._meta[body_id] = BodyMeta(data.name, data.colorHex, data.kind, data.catalogueEntryId)
             select_ias15(self._sim)  # reset integrator state after a structural change
+            self._history.bump_segment()
+            self._audit("add", body_id, {"name": data.name, "massKg": data.massKg, "radiusM": data.radiusM,
+                                          "positionM": [data.positionM.x, data.positionM.y, data.positionM.z],
+                                          "velocityMPerS": [data.velocityMPerS.x, data.velocityMPerS.y,
+                                                            data.velocityMPerS.z]}, True)
         return self._body(body_id, self._particle(body_id))
 
     def update_body(self, body_id: str, patch: BodyUpdate, guard: "CommitGuard | None" = None) -> Body:
@@ -264,6 +490,21 @@ class SimulationService:
             new_radius = patch.radiusM if "radiusM" in fields else p.r
             if "positionM" in fields or "radiusM" in fields:
                 self._require_free(new_pos, new_radius, ignore_id=body_id)  # validate before mutating anything
+            changes: dict = {}
+            old_meta = self._meta[body_id]
+            if "massKg" in fields:
+                changes["massKg"] = [p.m, patch.massKg]
+            if "radiusM" in fields:
+                changes["radiusM"] = [p.r, patch.radiusM]
+            if "positionM" in fields:
+                changes["positionM"] = [[p.x, p.y, p.z], [patch.positionM.x, patch.positionM.y, patch.positionM.z]]
+            if "velocityMPerS" in fields:
+                changes["velocityMPerS"] = [[p.vx, p.vy, p.vz], [patch.velocityMPerS.x, patch.velocityMPerS.y,
+                                                                 patch.velocityMPerS.z]]
+            physical = bool(changes)
+            for key, old in (("name", old_meta.name), ("colorHex", old_meta.color), ("kind", old_meta.kind)):
+                if key in fields:
+                    changes[key] = [old, getattr(patch, key)]
             if "massKg" in fields:
                 p.m = patch.massKg
             if "radiusM" in fields:
@@ -277,8 +518,10 @@ class SimulationService:
                 name=patch.name if "name" in fields else meta.name,
                 color=patch.colorHex if "colorHex" in fields else meta.color,
                 kind=patch.kind if "kind" in fields else meta.kind)
-            if fields & {"massKg", "radiusM", "positionM", "velocityMPerS"}:
+            if physical:
                 select_ias15(self._sim)
+                self._history.bump_segment()
+            self._audit("update", body_id, changes, physical)
         return self._body(body_id, self._particle(body_id))
 
     def delete_body(self, body_id: str, guard: "CommitGuard | None" = None) -> None:
@@ -288,6 +531,8 @@ class SimulationService:
             del self._meta[body_id]
             self._resolver.spin.pop(body_id, None)
             select_ias15(self._sim)
+            self._history.bump_segment()
+            self._audit("delete", body_id, {}, True)
 
     def _require_known(self, body_id: str) -> None:
         if body_id not in self._meta:
@@ -320,8 +565,11 @@ class SimulationService:
                         guard()  # commit point: refuse (and roll back) if the universe was deactivated meanwhile
                     except CodedError as refused:
                         raise StepCancelled() from refused
+                if self._history.mode == "step":
+                    self._record_history()  # one sample per committed step
             except Exception as exc:  # noqa: BLE001 - restore, then report as one failure type
                 self._restore(before)
+                self._history.rollback()
                 if isinstance(exc, StepTimeoutError):
                     logger.warning("%s", exc)
                     self._fail("step_timeout", str(exc))
@@ -358,6 +606,19 @@ class SimulationService:
                 "state was not advanced (retry with a smaller dtS)")
 
     def _advance(self, target: float) -> None:
+        """Advance to `target`. In grid-history mode every k * interval inside the step is an integration target, so
+        the engine lands exactly on it and the state there is recorded."""
+        history = self._history
+        while True:
+            grid = history.next_grid_time()
+            sub = grid if (grid is not None and grid <= target) else target
+            self._advance_to(sub)
+            if grid is not None and sub == grid:
+                self._record_history()
+            if sub >= target:
+                break
+
+    def _advance_to(self, target: float) -> None:
         sim = self._sim
         if sim.N == 0:
             sim.t = target  # nothing to integrate; time still advances
@@ -429,6 +690,7 @@ class SimulationService:
             **{k: v for k, v in ev.items() if k != "spinAddedKgM2PerS"})
         self._pending.append(event)
         self._meta.pop(event.bodyIds[1], None)  # absorbed body no longer exists
+        self._history.bump_segment()  # the path is discontinuous here
 
     # ---------- transactional capture / restore ----------
     def _capture(self) -> dict:

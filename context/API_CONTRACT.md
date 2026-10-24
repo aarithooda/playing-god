@@ -120,7 +120,17 @@ Mutations: `?activationEpoch=<int>` is required (422 if missing); `&expectedRevi
 | `POST /api/v1/universes/{uid}/activate` | `{activeUniverseId, activationEpoch, previous: {universeId, simulationTimeS, revision} | null}`; never integrates; the outgoing universe's running step is cancelled and rolled back. Activating the already-active universe changes nothing. |
 | `GET /api/v1/universes/{uid}/state`, `/events` | any universe; state = SimulationState + `universeId`, `revision` |
 | `POST /api/v1/universes/{uid}/bodies`, `PATCH|DELETE .../bodies/{id}` | as the legacy routes, plus the epoch query |
-| `POST /api/v1/universes/{uid}/step`, `/reset` | step response and reset state carry `universeId`, `revision`. Reset empties the sandbox (restoring a preset/run's initial state arrives with M2). |
+| `POST /api/v1/universes/{uid}/step`, `/reset` | step response and reset state carry `universeId`, `revision`. **Reset returns the universe to its initial state**: empty for a sandbox, the loaded preset/experiment state otherwise; history returns to sample 0 under a new generation. |
+| `GET /api/v1/universes/{uid}/snapshots`; `POST .../snapshots?activationEpoch` `{name?}` -> 201; `POST .../snapshots/{sid}/restore?activationEpoch`; `DELETE .../snapshots/{sid}?activationEpoch` | `SnapshotSummary = {id, name, createdAtIso, simulationTimeS, bodyCount, revision, controlled}`. At most 10 per universe (409 `snapshot_limit`); 404 `snapshot_not_found`; 500 `restore_failed` leaves the state unchanged; baseline runs answer 409 `baseline_protected`. Restore returns `UniverseState`. |
+| `GET /api/v1/universes/{uid}/history?generation&fromIndex=0&bodyIds=a,b&limit<=5000` | See "History" below. Any universe, no epoch, never waits for a running step. |
+
+### Snapshot guarantee (in-memory, this process only)
+A snapshot is a REBOUND `Simulation.copy()` plus the service state (bodies, ids, names, colours, kinds, merger ledgers, events, history, controlled flag). Restore brings back the exact physical state and time. Continuation after a restore with the same sequence of `dtS` is **bit-identical** within one process (`tests/test_snapshots.py::test_snapshot_restore_bitwise_continuation`); this is not promised across restarts, machines, OS or REBOUND versions. Event ids are never reused. Failed-step rollback is unchanged (records rebuild, D-012: not bitwise).
+
+### History
+`{universeId, mode: "grid"|"step", sampleIntervalS, generation, firstIndex, nextIndex, droppedBefore, truncated, samples: [{index, simulationTimeS, segment, positionsM: {bodyId: [x,y,z]}}], bodies: {bodyId: {name, colorHex, radiusM, kind}}}`.
+Recorded by the engine only. `grid` mode (presets, Orbit Lab): a sample at exactly k x interval (the engine lands on each); recording stops at 200,000 positions (`truncated`). `step` mode (sandbox): one sample per committed change (step, add, edit, delete), a ring that drops the oldest (`droppedBefore`). `segment` increases at physical edits, adds, deletes and mergers: never join points across it. Only committed samples are visible. `generation` changes on reset and restore; a request with another generation starts at `firstIndex`. Metadata is kept for bodies that later merged away.
+
 
 `revision` is +1 per committed change and is present in every universe response. A step that is cancelled (switch), refused at commit
 (stale epoch) or fails is rolled back completely: `lastFailure = {kind, message, atSimulationTimeS, atIso}` is set until the next success.
