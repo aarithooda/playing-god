@@ -181,6 +181,35 @@ describe("EventTimeline", () => {
     expect(item.textContent).toContain("no rotation dynamics");
   });
 
+  it("lets an event highlight its still-active surviving body", () => {
+    const onSelectBody = vi.fn();
+    render(
+      <EventTimeline
+        events={[toEventView(mergerEvent)]}
+        bodyName={(id) => id === sun.id ? "Sun" : id}
+        activeBodyIds={new Set([mergerEvent.resultBodyId])}
+        onSelectBody={onSelectBody}
+      />,
+    );
+
+    const highlight = screen.getByRole("button", { name: "Highlight surviving body Sun" });
+    expect(highlight.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(highlight);
+    expect(onSelectBody).toHaveBeenCalledWith(mergerEvent.resultBodyId);
+  });
+
+  it("does not offer selection for a merger result absent from the current backend state", () => {
+    render(
+      <EventTimeline
+        events={[toEventView(mergerEvent)]}
+        bodyName={(id) => id}
+        activeBodyIds={new Set()}
+        onSelectBody={() => {}}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /Highlight surviving body/ })).toBeNull();
+  });
+
   it("labels an unavailable contact estimate without inventing a timestamp", () => {
     render(<EventTimeline events={[toEventView({ ...mergerEvent, estimatedContactTimeS: null })]} bodyName={(id) => id} />);
     expect(screen.getByTestId("event-item").textContent).toContain("estimated contact unavailable");

@@ -1,7 +1,7 @@
 ## UI-4 / UI-6 handoff (2026-10-24, Codex) — latest
-1. Branch `frontend/ui-4-6` is based on `main` `d5220f9`, published at `origin/frontend/ui-4-6` (`df13b6e`). No PR was opened and nothing was merged. UI-2 history work was removed after reassignment to teammate 1.
-2. Retained scope: API-provided merger contact-time estimate and booked-spin metadata with caveats; accessibility refinements; Playwright browser coverage/CI setup; and documentation. `UniverseCanvas.tsx`, `CelestialBody.tsx`, UI-0 registry/material code, and backend files were not changed. Renderer performance metrics await UI-0 integration points.
-3. Checks after the UI-2 revert passed: frontend typecheck, Vitest 204/204 (23 files), production build (existing >500 kB warning), Playwright 2/2, and `git diff --check`. Browser E2E stubs backend HTTP; remote CI has not run. Open the branch for review or cherry-pick after coordinating with UI-0; do not merge before review.
+1. New completion work is on local `frontend/ui-4-6-completion`, based on published `origin/frontend/ui-4-6` at `14fb679`. It is not pushed. UI-2 history work remains removed after reassignment to teammate 1.
+2. UI-4 now offers a merger-event action to highlight/select the surviving result body when that body is still present in current backend state. It uses existing selection behavior and opens Body Inspector. UI-6 now has keyboard/narrow viewport and disconnection-recovery browser tests, plus an attached rendering frame-pacing profile. No renderer, UI-0 registry/material, view-model, API, or backend files changed.
+3. Verified locally: frontend typecheck; Vitest 206/206 across 23 files; build (existing >500 kB warning); Playwright 5/5; diff check. The profile measured 1/16/64 bodies at median 33.4/50.0/99.9 ms per animation frame in Windows headless Chrome with GPU disabled by test config; treat as software frame pacing, not hardware GPU timing. E2E stubs backend responses. Do not push or merge without owner approval; real-hardware profiling and UI-0 integration remain follow-ups.
 # Handoff (latest — rewrite at end of each session)
 
 ## Final handover (2026-10-24, Claude Sonnet 5.5) — latest

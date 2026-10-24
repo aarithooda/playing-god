@@ -73,12 +73,18 @@ test("shows backend merger metadata and keeps the layout responsive", async ({ p
   await page.getByRole("button", { name: "Step Forward" }).click();
   await expect(page.getByText(/Sim time: 1.16 d/)).toBeVisible();
   await page.getByRole("button", { name: "Expand History & diagnostics" }).click();
+  await expect(page.getByTestId("sidebar-left")).toHaveAttribute("data-open", "true");
+  await expect(page.getByTestId("sidebar-right")).toHaveAttribute("data-open", "false");
 
   await expect(page.getByTestId("event-item")).toContainText("estimated contact t = 1.94 h");
   await expect(page.getByTestId("event-item")).toContainText("spin booked");
-
-  await expect(page.getByTestId("sidebar-left")).toHaveAttribute("data-open", "true");
-  await expect(page.getByTestId("sidebar-right")).toHaveAttribute("data-open", "false");
+  const highlightResult = page.getByRole("button", { name: "Highlight surviving body Sun" });
+  await highlightResult.click();
+  // At this viewport selecting a body opens Controls and collapses History, so the event button
+  // unmounts after selection. The inspector confirms that the active backend body was selected.
+  await expect(page.getByRole("heading", { name: "Body Inspector" })).toBeVisible();
+  await expect(page.getByTestId("sidebar-left")).toHaveAttribute("data-open", "false");
+  await expect(page.getByTestId("sidebar-right")).toHaveAttribute("data-open", "true");
 });
 
 test("keeps a failed initial state load recoverable while health remains available", async ({ page }) => {
@@ -102,4 +108,43 @@ test("keeps a failed initial state load recoverable while health remains availab
   await page.getByRole("button", { name: "Retry" }).click();
   await expect(page.getByText("Simulation", { exact: true })).toBeVisible();
   await expect(page.getByRole("alert")).toHaveCount(0);
+});
+
+test("keeps core controls keyboard-operable without horizontal overflow on a narrow viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await expect(page.getByTestId("backend-status")).toContainText("connected");
+
+  const step = page.getByRole("button", { name: "Step Forward" });
+  await expect(step).toBeVisible();
+  await step.focus();
+  await step.press("Enter");
+  await expect(page.getByText(/Sim time: 1.16 d/)).toBeVisible();
+
+  const viewportFits = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
+  expect(viewportFits).toBe(true);
+});
+
+test("shows disconnection separately and recovers after the backend returns", async ({ page }) => {
+  let online = false;
+  await page.unrouteAll();
+  await page.route("**/*", (route) => {
+    const url = new URL(route.request().url());
+    if (!online && (url.pathname === "/healthz" || url.pathname === "/api/v1/simulation/state")) {
+      return route.abort("failed");
+    }
+    if (url.pathname === "/healthz") return route.fulfill({ json: { status: "ok" } });
+    if (url.pathname === "/api/v1/simulation/state") return route.fulfill({ json: state([sun], 0) });
+    if (url.pathname === "/api/v1/events") return route.fulfill({ json: { events: [] } });
+    return route.continue();
+  });
+
+  await page.goto("/");
+  await expect(page.getByTestId("backend-status")).toContainText("unreachable");
+  await expect(page.getByRole("alert")).toContainText("Cannot load the simulation");
+
+  online = true;
+  await page.getByRole("button", { name: "Retry" }).click();
+  await expect(page.getByTestId("backend-status")).toContainText("connected");
+  await expect(page.getByText("Simulation", { exact: true })).toBeVisible();
 });

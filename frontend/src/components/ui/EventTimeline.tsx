@@ -8,6 +8,9 @@ import { theme } from './theme';
 interface EventTimelineProps {
   events: EventView[];
   bodyName: (id: string) => string;
+  activeBodyIds?: ReadonlySet<string>;
+  selectedBodyId?: string;
+  onSelectBody?: (id: string) => void;
 }
 
 /** Describes a backend event using only fields the API supplied. */
@@ -17,7 +20,13 @@ export function describeEvent(event: EventView, bodyName: (id: string) => string
     `at ${event.relativeSpeedMPerS.toPrecision(3)} m/s`;
 }
 
-export const EventTimeline: React.FC<EventTimelineProps> = ({ events, bodyName }) => {
+export const EventTimeline: React.FC<EventTimelineProps> = ({
+  events,
+  bodyName,
+  activeBodyIds,
+  selectedBodyId,
+  onSelectBody,
+}) => {
   const newestFirst = [...events].reverse();
   return (
     <section aria-labelledby="event-history-heading" style={{
@@ -47,6 +56,17 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({ events, bodyName }
                 </span>
               </div>
               <div>{describeEvent(event, bodyName)}</div>
+              {onSelectBody && activeBodyIds?.has(event.resultBodyId) && (
+                <button
+                  type="button"
+                  aria-label={`Highlight surviving body ${bodyName(event.resultBodyId)}`}
+                  aria-pressed={selectedBodyId === event.resultBodyId}
+                  onClick={() => onSelectBody(event.resultBodyId)}
+                  style={{ marginTop: '6px', fontSize: '11px' }}
+                >
+                  Highlight surviving body: {bodyName(event.resultBodyId)}
+                </button>
+              )}
               <div style={{ color: theme.textMuted, marginTop: '3px' }}>
                 result mass {event.resultMassKg.toExponential(3)} kg · KE lost {event.kineticEnergyLostJ.toExponential(2)} J
               </div>

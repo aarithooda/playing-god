@@ -68,6 +68,7 @@ export default function App() {
   const preserveSceneScaleRef = useRef<{ expectedBodyCount: number; layoutEpoch: number } | null>(null);
 
   const bodies = sim?.bodies ?? [];
+  const activeBodyIds = useMemo(() => new Set(bodies.map((body) => body.id)), [bodies]);
 
   // Refit the display scale when the set of bodies changes through a user action (load, create,
   // delete, reset). The scale is then held fixed while the simulation runs.
@@ -229,7 +230,13 @@ export default function App() {
       </div>
 
       <Sidebar side="left" title="History & diagnostics" open={sidebars.left} onToggle={setSidebar("left")}>
-        <EventTimeline events={simulation.events} bodyName={simulation.bodyName} />
+        <EventTimeline
+          events={simulation.events}
+          bodyName={simulation.bodyName}
+          activeBodyIds={activeBodyIds}
+          selectedBodyId={selectedBodyId}
+          onSelectBody={selectBody}
+        />
         <DiagnosticsPanel loadStatus={loadStatus} diagnostics={sim?.diagnostics ?? null} issue={sim?.diagnosticsIssue ?? null} />
       </Sidebar>
 

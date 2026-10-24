@@ -31,7 +31,7 @@ tests/      pytest: API, service, stress, step guard, stall resilience, diagnost
 - "Choose position in 3D" previews a size-matched sphere on a camera-facing plane (scroll = depth); one click creates exactly one body at that point, with a live SI x/y/z readout, and Esc cancels. Any create offers a 10 s Undo that deletes that body and is withdrawn as soon as simulated time moves.
 - Axes and Grid are independent, off by default; the grid is also shown while placing (`gridVisible = userGrid || placementMode`) without changing the user's choice.
 - Starfield (`StarfieldShell`) keeps a stable apparent size when zoomed out; bodies keep at least 3 px on screen (`bodyDisplayScale`). Both are display-only.
-- Event History remains merger-only (the only event type in API v1) and displays the API's estimated contact time as an estimate and booked spin as bookkeeping, not rotation dynamics.
+- Event History remains merger-only (the only event type in API v1), displays estimated contact time as an estimate and booked spin as bookkeeping, and can select the surviving result body while it remains in current backend state. The existing canvas selection highlight and inspector are reused.
 
 ## Dependencies [Implemented]
 | Dependency | Status |
@@ -42,7 +42,7 @@ tests/      pytest: API, service, stress, step guard, stall resilience, diagnost
 | three 0.186, @react-three/fiber 8, @react-three/drei 9.122 (Stars, OrbitControls, Outlines, Grid, Html) | used |
 
 ## Testing and CI [Implemented]
-CI (`.github/workflows/ci.yml`) runs backend `pytest`, frontend `tsc`, `vitest`, `vite build`, and a Playwright browser journey using a stubbed API on every push to `main` and every PR. The Playwright journey verifies UI interaction/recovery and responsive sidebars, not backend integration or WebGL pixels. The 3D components (`CelestialBody`, `CameraRig`, overlays) have no unit tests because jsdom has no WebGL; their pure logic is extracted into `sim/*` and tested.
+CI (`.github/workflows/ci.yml`) runs backend `pytest`, frontend `tsc`, `vitest`, `vite build`, and Playwright browser journeys using a stubbed API on every push to `main` and every PR. Browser coverage includes merger result selection, keyboard operation, narrow layout, error recovery, and a frame-pacing profile at 1/16/64 bodies. The profile uses the configured headless browser with GPU disabled and is not hardware GPU timing. Browser journeys do not replace backend integration or WebGL pixel tests. The 3D components (`CelestialBody`, `CameraRig`, overlays) have no unit tests because jsdom has no WebGL; their pure logic is extracted into `sim/*` and tested.
 
 ## Known limitations
 - A single native `integrate` call that never reaches REBOUND's heartbeat cannot be interrupted in-process (would need a worker process).
