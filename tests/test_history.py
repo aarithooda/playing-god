@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from backend.history import HistoryBuffer
 from backend.main import app
 from backend.simulation import SimulationService
-from tests.helpers import DAY, loaded_engine, make, sun_earth, two_bodies
+from tests.helpers import DAY, loaded_engine, make, two_bodies
 
 
 def times(engine):

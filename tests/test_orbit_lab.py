@@ -8,7 +8,7 @@ import pytest
 
 from backend import orbit_lab
 from backend.errors import CodedError
-from backend.models import BodyCreate, BodyUpdate
+from backend.models import BodyUpdate
 from backend.presets import loader
 from backend.simulation import SimulationService
 from tests.helpers import DAY, dump, make
