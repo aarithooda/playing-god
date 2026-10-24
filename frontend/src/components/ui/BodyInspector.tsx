@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import type { BodyUpdateDto } from '../../api/types';
+import type { BodyKind, BodyUpdateDto } from '../../api/types';
 import type { ActionResult } from '../../sim/useSimulation';
 import { formatNumber } from '../../sim/format';
 import {
@@ -23,6 +23,8 @@ interface BodyInspectorProps {
   onClose?: () => void;
   /** The camera is currently following this body. */
   focused?: boolean;
+  /** When set, editing is blocked and this is why (for example "Pause to edit."). */
+  editBlockedReason?: string;
 }
 
 /**
@@ -33,9 +35,10 @@ interface BodyInspectorProps {
  * confirmed (live) backend value. Saving sends a PATCH and clears the draft; the shown values then come
  * from the refreshed authoritative state, never from the draft.
  */
-export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDelete, onFocus, onClose, focused = false }) => {
+export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDelete, onFocus, onClose, focused = false, editBlockedReason }) => {
   const panelRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState<Partial<FormValues>>({});
+  const [kindDraft, setKindDraft] = useState<BodyKind | undefined>(undefined);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -48,6 +51,7 @@ export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDe
 
   useEffect(() => {
     setDraft({});
+    setKindDraft(undefined);
     setErrors({});
     setServerError(null);
   }, [bodyId]);
@@ -56,7 +60,8 @@ export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDe
 
   const confirmed = valuesFromBody(body, formatNumber);
   const shown: FormValues = { ...confirmed, ...draft };
-  const dirty = Object.keys(draft).length > 0;
+  const kindChanged = kindDraft !== undefined && kindDraft !== body.kind;
+  const dirty = Object.keys(draft).length > 0 || kindChanged;
 
   const change = (key: FieldKey, value: string) => {
     setDraft((d) => ({ ...d, [key]: value }));
@@ -64,17 +69,20 @@ export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDe
   };
 
   const save = async () => {
-    const parsed = parseBodyEdits(draft, body);
+    const parsed = Object.keys(draft).length > 0 ? parseBodyEdits(draft, body) : ({ ok: true, value: {} } as const);
     if (!parsed.ok) {
       setErrors(parsed.errors);
       return;
     }
+    const patch: BodyUpdateDto = { ...parsed.value, ...(kindChanged ? { kind: kindDraft } : {}) };
     setBusy(true);
     setServerError(null);
-    const result = await onSave(body.id, parsed.value);
+    const result = await onSave(body.id, patch);
     setBusy(false);
-    if (result.ok) setDraft({});
-    else setServerError(result.error);
+    if (result.ok) {
+      setDraft({});
+      setKindDraft(undefined);
+    } else setServerError(result.error);
   };
 
   const remove = async () => {
@@ -125,15 +133,25 @@ export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDe
         {body.id} · speed {formatNumber(body.speedMPerS)} m/s · SI units
       </p>
 
-      <BodyFields values={shown} errors={errors} onChange={change} idPrefix="inspect" />
+      <BodyFields
+        values={shown}
+        errors={errors}
+        onChange={change}
+        idPrefix="inspect"
+        kind={kindDraft ?? body.kind}
+        onKindChange={setKindDraft}
+      />
+      {editBlockedReason && (
+        <p role="status" style={{ fontSize: '11px', color: theme.textMuted, margin: '0 0 8px 0' }}>{editBlockedReason}</p>
+      )}
 
       {serverError && <p role="alert" style={errorTextStyle}>{serverError}</p>}
 
       <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
-        <button style={btnStyle} onClick={save} disabled={!dirty || busy}>Apply</button>
-        <button style={btnStyle} onClick={() => { setDraft({}); setErrors({}); setServerError(null); }} disabled={!dirty || busy}>Revert</button>
+        <button style={btnStyle} onClick={save} disabled={!dirty || busy || !!editBlockedReason}>Apply</button>
+        <button style={btnStyle} onClick={() => { setDraft({}); setKindDraft(undefined); setErrors({}); setServerError(null); }} disabled={!dirty || busy}>Revert</button>
         <button style={btnStyle} onClick={() => onFocus(body.id)}>Focus</button>
-        <button style={{ ...btnStyle, borderColor: theme.danger }} onClick={remove} disabled={busy}>Delete</button>
+        <button style={{ ...btnStyle, borderColor: theme.danger }} onClick={remove} disabled={busy || !!editBlockedReason}>Delete</button>
       </div>
     </div>
   );

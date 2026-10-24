@@ -5,6 +5,8 @@ import { DIAGNOSTICS_VERSION } from "./types";
 import type {
   ActivationDto,
   BodyDto,
+  CatalogueDto,
+  CataloguePropertyDto,
   DiagnosticsDto,
   EventListDto,
   HistoryPageDto,
@@ -298,5 +300,57 @@ export function parseHistoryPage(v: unknown): HistoryPageDto {
       };
     }),
     bodies,
+  };
+}
+
+// ---------- Catalogue ----------
+function parseCatalogueProperty(v: unknown, what: string): CataloguePropertyDto {
+  const o = obj(v, what);
+  const basis = o.basis;
+  if (basis !== "measured" && basis !== "nominal" && basis !== "estimated" && basis !== "illustrative") bad(`${what}.basis`);
+  const u = o.uncertainty;
+  let uncertainty: CataloguePropertyDto["uncertainty"] = null;
+  if (u !== null && u !== undefined) {
+    const q = obj(u, `${what}.uncertainty`);
+    if (Array.isArray(q.range)) uncertainty = { range: [num(q.range[0], `${what}.range[0]`), num(q.range[1], `${what}.range[1]`)] };
+    else uncertainty = { minus: num(q.minus, `${what}.minus`), plus: num(q.plus, `${what}.plus`) };
+  }
+  if (!Array.isArray(o.sources)) bad(`${what}.sources`);
+  return {
+    value: num(o.value, `${what}.value`),
+    uncertainty,
+    basis,
+    sourceValue: str(o.sourceValue, `${what}.sourceValue`),
+    conversion: str(o.conversion, `${what}.conversion`),
+    sources: (o.sources as unknown[]).map((s) => {
+      const q = obj(s, `${what}.source`);
+      return { citation: str(q.citation, "source.citation"), url: str(q.url, "source.url"), retrieved: str(q.retrieved, "source.retrieved") };
+    }),
+    ...(typeof o.note === "string" ? { note: o.note } : {}),
+  };
+}
+
+export function parseCatalogue(v: unknown): CatalogueDto {
+  const o = obj(v, "catalogue");
+  if (!Array.isArray(o.entries)) bad("catalogue.entries");
+  return {
+    notes: Array.isArray(o.notes) ? (o.notes as unknown[]).map((n) => str(n, "catalogue.notes[]")) : [],
+    entries: (o.entries as unknown[]).map((e) => {
+      const q = obj(e, "catalogue.entry");
+      const props = obj(q.properties, "catalogue.entry.properties");
+      const visual = obj(q.visual, "catalogue.entry.visual");
+      if (q.kind !== "star" && q.kind !== "planet") bad("catalogue.entry.kind");
+      return {
+        id: str(q.id, "entry.id"),
+        name: str(q.name, "entry.name"),
+        kind: q.kind,
+        properties: {
+          massKg: parseCatalogueProperty(props.massKg, "entry.massKg"),
+          radiusM: parseCatalogueProperty(props.radiusM, "entry.radiusM"),
+        },
+        visual: { colorHex: str(visual.colorHex, "entry.colorHex"), note: str(visual.note, "entry.visual.note") },
+        notes: typeof q.notes === "string" ? q.notes : "",
+      };
+    }),
   };
 }

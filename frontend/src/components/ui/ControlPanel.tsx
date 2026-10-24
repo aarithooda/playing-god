@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import type { BodyCreateDto } from '../../api/types';
+import type { BodyCreateDto, BodyKind, CatalogueEntryDto } from '../../api/types';
 import { formatDuration } from '../../sim/format';
 import { MAX_SPEED_EXP, MIN_SPEED_EXP, type ActionResult } from '../../sim/useSimulation';
 import {
@@ -42,6 +42,8 @@ interface ControlPanelProps {
   onPlacementCreateResult?: (success: boolean) => void;
   /** Increment to open the create form (used by the empty-universe call to action). */
   openCreateRequest?: number;
+  /** Open the create form prefilled from a catalogue entry (a copy: the entry is never changed). */
+  catalogueRequest?: { entry: CatalogueEntryDto; nonce: number };
 }
 
 export const ControlPanel: React.FC<ControlPanelProps> = ({
@@ -67,12 +69,16 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   onPlacementRadiusChange,
   onPlacementCreateResult,
   openCreateRequest = 0,
+  catalogueRequest,
 }) => {
   const [creating, setCreating] = useState(false);
   const [values, setValues] = useState<FormValues>(NEW_BODY_DEFAULTS);
   const [positionManuallyEdited, setPositionManuallyEdited] = useState(false);
   const positionManuallyEditedRef = useRef(false);
   const [errors, setErrors] = useState<FieldErrors>({});
+  // The type is not a text field; it is sent only when it is not the backend default (planet) or came from the catalogue.
+  const [kind, setKind] = useState<BodyKind>('planet');
+  const [catalogueEntry, setCatalogueEntry] = useState<{ id: string; name: string } | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // A second create request (for example a double press) must not start while one is in flight.
@@ -89,7 +95,12 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     creatingRef.current = true;
     setBusy(true);
     setServerError(null);
-    const result = await onCreate(parsed.value).finally(() => {
+    const payload: BodyCreateDto = {
+      ...parsed.value,
+      ...(kind !== 'planet' || catalogueEntry ? { kind } : {}),
+      ...(catalogueEntry ? { catalogueEntryId: catalogueEntry.id } : {}),
+    };
+    const result = await onCreate(payload).finally(() => {
       creatingRef.current = false;
     });
     setBusy(false);
@@ -97,6 +108,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     if (result.ok) {
       onPlacementModeChange(false);
       setCreating(false);
+      setKind('planet');
+      setCatalogueEntry(null);
       setValues(NEW_BODY_DEFAULTS);
       onPlacementRadiusChange?.(Number(NEW_BODY_DEFAULTS.radius));
       setPositionManuallyEdited(false);
@@ -142,6 +155,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
   const openCreate = () => {
     const defaults = defaultsForNewBody(bodies);
+    setKind('planet');
+    setCatalogueEntry(null);
     setValues(defaults);
     onPlacementRadiusChange?.(Number(defaults.radius));
     setPositionManuallyEdited(false);
@@ -150,6 +165,32 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     setServerError(null);
     setCreating(true);
   };
+
+  // A catalogue entry opens the form prefilled with its name, mass, radius, colour and type. Position comes from the
+  // usual clear default (or 3D placement) and the body starts at rest: the catalogue holds no positions or velocities.
+  useEffect(() => {
+    if (!catalogueRequest) return;
+    const { entry } = catalogueRequest;
+    const radiusText = String(entry.properties.radiusM.value);
+    const defaults = defaultsForNewBody(bodies, radiusText);
+    setValues({
+      ...defaults,
+      name: entry.name,
+      mass: String(entry.properties.massKg.value),
+      radius: radiusText,
+      vx: '0', vy: '0', vz: '0',
+      color: entry.visual.colorHex,
+    });
+    setKind(entry.kind);
+    setCatalogueEntry({ id: entry.id, name: entry.name });
+    onPlacementRadiusChange?.(entry.properties.radiusM.value);
+    setPositionManuallyEdited(false);
+    positionManuallyEditedRef.current = false;
+    setErrors({});
+    setServerError(null);
+    setCreating(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [catalogueRequest?.nonce]);
 
   const toggleCreate = () => {
     if (creating) {
@@ -224,7 +265,14 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               idPrefix="create"
               isPickingPosition={placementMode}
               onPickPosition={() => onPlacementModeChange(!placementMode)}
+              kind={kind}
+              onKindChange={setKind}
             />
+            {catalogueEntry && (
+              <p style={{ fontSize: '11px', color: theme.textMuted, margin: '0 0 8px 0' }}>
+                Started from the catalogue entry {catalogueEntry.name}. This is a copy: editing it never changes the catalogue.
+              </p>
+            )}
             {serverError && <p role="alert" style={errorTextStyle}>{serverError}</p>}
             <button style={btnStyle} onClick={submit} disabled={busy}>Create</button>
           </div>

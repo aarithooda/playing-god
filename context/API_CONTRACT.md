@@ -143,6 +143,13 @@ Recorded by the engine only. `grid` mode (presets, Orbit Lab): a sample at exact
 | `POST /api/v1/universes` with `source: {kind: "preset", presetId}` | **always creates a new universe** (role `preset`, history mode `grid`, revision 1, t = 0); existing universes are never replaced. Unknown id: 404 `preset_not_found`; invalid or tampered data: 500 `preset_invalid` and nothing is created. Reset of such a universe returns to the loaded state. |
 | `GET /api/v1/universes/{uid}/provenance` | `{sourceKind, presetId, presetDataVersion, epoch, frame, origin, units, initialStateDigest, derivedFrom, modification, controlled, firstUncontrolledAtS, audit}` |
 
+## Catalogue (M5)
+`GET /api/v1/catalogue` (read-only; POST/PUT/PATCH/DELETE answer 405) returns `{notes: [string], entries: [Entry]}` with nine sourced single-body definitions: stars Sun, Proxima Centauri, TRAPPIST-1, Sirius A, Betelgeuse; planets Earth, Mars, Jupiter, Neptune.
+`Entry = {id, name, kind: "star"|"planet", properties: {massKg: Property, radiusM: Property}, visual: {colorHex, note: "display only, not a physical property"}, notes}` and
+`Property = {value (SI), uncertainty: {minus, plus} | {range: [lo, hi]} | null, basis: "measured"|"nominal"|"estimated"|"illustrative", sourceValue (as published, with unit), sourceNumber, sourceUnit, conversion, sources: [{citation, url, retrieved}], note?}`.
+`estimated` (currently only Betelgeuse, whose mass is the midpoint of a published range, disclosed) and `illustrative` values must be disclosed wherever shown. Entries carry no positions or velocities, are not validated systems, and are copies: creating or editing a body never changes them. Values and sources are listed in `backend/catalogue_data.json` (built by `scripts/catalogue/build_catalogue.py`; `tests/test_catalogue.py` re-derives each value from its recorded source number). M☉ is converted with the IAU 2015 nominal GM☉ᴺ = 1.3271244e20 m³/s² divided by G; R☉ with the nominal 6.957e8 m.
+Creating a body (`POST .../bodies`) may carry `kind` and `catalogueEntryId`; `kind` must be `star` or `planet` (422 otherwise), `catalogueEntryId` must name a catalogue entry (422 otherwise) and is provenance only. `PATCH` accepts `kind`. A body's `radiusM` is its physical (collision) radius; the 3D view draws bodies at an exaggerated display size that is never sent to or returned by the API.
+
 ### Withdrawn / planned
 - `POST /simulation/start` and `/simulation/pause`: **not implemented and no longer planned**; Play/Pause is client-side scheduling of `step` requests.
 - 🕓 Checkpoint save/restore: not specified (REBOUND restore works, but the resolver, ledgers and event log would have to be rebuilt; M0.6).

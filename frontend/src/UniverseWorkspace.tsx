@@ -6,9 +6,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import type { ApiError } from "./api/errors";
 import type { ScopedClient } from "./api/client";
-import type { UniverseSummaryDto } from "./api/types";
+import type { CatalogueDto, CatalogueEntryDto, UniverseSummaryDto } from "./api/types";
 import { UniverseCanvas, type FocusRequest } from "./components/canvas/UniverseCanvas";
 import { BodyInspector } from "./components/ui/BodyInspector";
+import { CataloguePanel } from "./components/ui/CataloguePanel";
 import { ControlPanel } from "./components/ui/ControlPanel";
 import { DiagnosticsPanel } from "./components/ui/DiagnosticsPanel";
 import { EventTimeline } from "./components/ui/EventTimeline";
@@ -37,6 +38,8 @@ export interface UniverseWorkspaceProps {
   universePanel: ReactNode;
   /** Notices about the universes themselves (for example "universes were lost"). */
   notices: ReactNode;
+  /** The sourced body catalogue (empty until loaded; the app works without it). */
+  catalogue: CatalogueDto;
   sidebars: SidebarState;
   setSidebars: Dispatch<SetStateAction<SidebarState>>;
   windowWidth: number;
@@ -65,6 +68,7 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
   const [pickedPosition, setPickedPosition] = useState<{ position: { x: number; y: number; z: number }; nonce: number } | undefined>();
   const [placementPreview, setPlacementPreview] = useState<[number, number, number] | null>(null);
   const [snapshotBusy, setSnapshotBusy] = useState(false);
+  const [catalogueRequest, setCatalogueRequest] = useState<{ entry: CatalogueEntryDto; nonce: number } | undefined>();
   // When set, the next layout change keeps the display scale (and camera) if it leaves this many bodies.
   const preserveSceneScaleRef = useRef<{ expectedBodyCount: number; layoutEpoch: number } | null>(null);
 
@@ -156,6 +160,10 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
   const addFirstBody = () => {
     setSidebars((s) => (s.right ? s : toggleSidebar(s, "right", true, windowWidth)));
     setOpenCreateRequest((n) => n + 1);
+  };
+  const addFromCatalogue = (entry: CatalogueEntryDto) => {
+    setSidebars((s) => (s.right ? s : toggleSidebar(s, "right", true, windowWidth)));
+    setCatalogueRequest((r) => ({ entry, nonce: (r?.nonce ?? 0) + 1 }));
   };
   const edge = insets(sidebars);
   // Placing a body shows the grid to help position it; the stored choice is never overwritten.
@@ -281,7 +289,9 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
           onPlacementRadiusChange={setPlacementRadiusM}
           onPlacementCreateResult={placementCreateResult}
           openCreateRequest={openCreateRequest}
+          catalogueRequest={catalogueRequest}
         />
+        <CataloguePanel entries={props.catalogue.entries} notes={props.catalogue.notes} onAdd={addFromCatalogue} disabled={!ready} />
         <ViewPanel
           axes={showAxes}
           grid={showGrid}
@@ -301,6 +311,7 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
         <BodyInspector
           body={selectedBody}
           focused={selectedBody !== null && selectedBody.id === focusedBodyId}
+          editBlockedReason={simulation.playing ? "Pause to edit: changes are applied between steps." : undefined}
           onSave={simulation.updateBody}
           onDelete={simulation.deleteBody}
           onFocus={focusBody}

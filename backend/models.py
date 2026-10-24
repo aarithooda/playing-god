@@ -1,7 +1,9 @@
 """Pydantic models for the API contract (see context/API_CONTRACT.md). SI units throughout."""
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from backend.catalogue import catalogue_ids
 
 # Request bounds (documented in the contract). Finite floats only: NaN and +/-Infinity are rejected.
 MAX_MASS_KG = 1.0e45  # ~5e14 solar masses
@@ -58,6 +60,13 @@ class BodyCreate(BaseModel):
     colorHex: str = Field(pattern=r"^#[0-9a-fA-F]{6}$")
     kind: BodyKind = "planet"
     catalogueEntryId: str | None = Field(default=None, min_length=1, max_length=64)  # provenance only
+
+    @field_validator("catalogueEntryId")
+    @classmethod
+    def _known_catalogue_entry(cls, v: str | None) -> str | None:
+        if v is not None and v not in catalogue_ids():
+            raise ValueError(f"unknown catalogue entry: {v}")
+        return v
 
 
 class Body(BaseModel):

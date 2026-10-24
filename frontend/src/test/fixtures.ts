@@ -4,6 +4,8 @@ import type {
   BodyCreateDto,
   BodyDto,
   BodyUpdateDto,
+  CatalogueDto,
+  CatalogueEntryDto,
   DiagnosticsDto,
   HistoryPageDto,
   PresetSummaryDto,
@@ -116,6 +118,7 @@ export function fakeClient(overrides: Partial<ApiClient & ScopedClient> = {}): A
     activateUniverse: async (id: string) => ({ activeUniverseId: id, activationEpoch: 2 }),
     deleteUniverse: async () => undefined,
     listPresets: async () => [solarPreset],
+    getCatalogue: async () => catalogueFixture,
     listSnapshots: async () => [],
     createSnapshot: async (name?: string): Promise<SnapshotSummaryDto> => ({
       id: "snap-1", name: name ?? "Snapshot", createdAtIso: "2026-01-01T00:00:00Z", simulationTimeS: 0, bodyCount: 2,
@@ -132,3 +135,28 @@ export function fakeClient(overrides: Partial<ApiClient & ScopedClient> = {}): A
   self.scoped = overrides.scoped ?? ((scope: UniverseScope) => ({ ...self, scope }) as ScopedClient);
   return self;
 }
+
+const src = [{ citation: "JPL SSD Planetary Physical Parameters", url: "https://ssd.jpl.nasa.gov/planets/phys_par.html", retrieved: "2026-10-24" }];
+
+export const earthEntry: CatalogueEntryDto = {
+  id: "earth", name: "Earth", kind: "planet",
+  properties: {
+    massKg: { value: 5.97217e24, uncertainty: { minus: 2.8e20, plus: 2.8e20 }, basis: "measured", sourceValue: "5.97217 \u00b1 0.00028 \u00d7 10^24 kg", conversion: "x 1e24 kg", sources: src },
+    radiusM: { value: 6371008.4, uncertainty: { minus: 0.1, plus: 0.1 }, basis: "measured", sourceValue: "6371.0084 \u00b1 0.0001 km (mean radius)", conversion: "x 1000 m", sources: src },
+  },
+  visual: { colorHex: "#3b82f6", note: "display only, not a physical property" }, notes: "Earth alone, without the Moon.",
+};
+
+export const betelgeuseEntry: CatalogueEntryDto = {
+  id: "betelgeuse", name: "Betelgeuse", kind: "star",
+  properties: {
+    massKg: { value: 3.53e31, uncertainty: { range: [3.28e31, 3.78e31] }, basis: "estimated", sourceValue: "16.5\u201319 M\u2609 (range; value is the midpoint 17.75)", conversion: "x nominal M\u2609", sources: src, note: "model-dependent estimate; the value shown is the midpoint of the published range" },
+    radiusM: { value: 5.31e11, uncertainty: { minus: 4.3e10, plus: 8.1e10 }, basis: "estimated", sourceValue: "764 (+116/\u221262) R\u2609", conversion: "x 6.957e8 m", sources: src, note: "model-dependent estimate" },
+  },
+  visual: { colorHex: "#ff6a3d", note: "display only, not a physical property" }, notes: "A red supergiant.",
+};
+
+export const catalogueFixture: CatalogueDto = {
+  notes: ["Catalogue entries are single bodies, not validated systems: nothing here has positions or velocities.", "Colour is a display choice, not a physical property."],
+  entries: [betelgeuseEntry, earthEntry],
+};

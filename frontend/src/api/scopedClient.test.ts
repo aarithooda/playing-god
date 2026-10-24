@@ -114,4 +114,16 @@ describe("scoped client", () => {
     const state = await client.getState();
     expect(state.bodies[0]).toMatchObject({ kind: "planet", catalogueEntryId: null });
   });
+
+  it("parses the catalogue with ranges, asymmetric uncertainty and notes, and rejects a missing basis", async () => {
+    const prop = (extra = {}) => ({ value: 1, uncertainty: null, basis: "measured", sourceValue: "1 kg", conversion: "x", sources: [{ citation: "c", url: "u", retrieved: "r" }], ...extra });
+    const entry = (p: unknown) => ({ id: "e", name: "E", kind: "star", properties: { massKg: p, radiusM: prop({ uncertainty: { minus: 1, plus: 2 } }) }, visual: { colorHex: "#ffffff", note: "display only" }, notes: "" });
+    const { client } = setup(() => json({ notes: ["n"], entries: [entry(prop({ uncertainty: { range: [1, 3] }, basis: "estimated", note: "mid" }))] }));
+    const c = await client.getCatalogue();
+    expect(c.notes).toEqual(["n"]);
+    expect(c.entries[0]!.properties.massKg).toMatchObject({ basis: "estimated", uncertainty: { range: [1, 3] }, note: "mid" });
+    expect(c.entries[0]!.properties.radiusM.uncertainty).toEqual({ minus: 1, plus: 2 });
+    const bad = setup(() => json({ entries: [entry(prop({ basis: "guessed" }))] }));
+    await expect(bad.client.getCatalogue()).rejects.toMatchObject({ kind: "invalid-response" });
+  });
 });

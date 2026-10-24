@@ -197,3 +197,32 @@ export interface UniverseScope {
   universeId: string;
   activationEpoch: number;
 }
+
+// ---------- Body catalogue ----------
+export type CatalogueBasis = "measured" | "nominal" | "estimated" | "illustrative";
+
+export interface CataloguePropertyDto {
+  /** SI value (kg or m). For a range the value is the midpoint, disclosed in `note`. */
+  value: number;
+  uncertainty: { minus: number; plus: number } | { range: [number, number] } | null;
+  basis: CatalogueBasis;
+  /** The number exactly as published, with its unit. */
+  sourceValue: string;
+  conversion: string;
+  sources: { citation: string; url: string; retrieved: string }[];
+  note?: string;
+}
+
+export interface CatalogueEntryDto {
+  id: string;
+  name: string;
+  kind: BodyKind;
+  properties: { massKg: CataloguePropertyDto; radiusM: CataloguePropertyDto };
+  visual: { colorHex: string; note: string };
+  notes: string;
+}
+
+export interface CatalogueDto {
+  notes: string[];
+  entries: CatalogueEntryDto[];
+}

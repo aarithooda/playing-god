@@ -6,6 +6,7 @@ import { Wordmark } from "./components/ui/Wordmark";
 import { enforceNarrow, type SidebarState } from "./components/ui/layout";
 import { btnStyle, panelStyle } from "./components/ui/styles";
 import { theme } from "./components/ui/theme";
+import { useCatalogue } from "./sim/useCatalogue";
 import { useUniverses } from "./sim/useUniverses";
 import { UniverseWorkspace } from "./UniverseWorkspace";
 
@@ -29,6 +30,7 @@ function useWindowWidth(): number {
  */
 export default function App() {
   const universes = useUniverses(client);
+  const catalogue = useCatalogue(client);
   // Controls (right) are open on first use; History and diagnostics (left) are tucked away.
   const [sidebars, setSidebars] = useState<SidebarState>({ left: false, right: true });
   const windowWidth = useWindowWidth();
@@ -106,6 +108,7 @@ export default function App() {
       universe={active}
       universePanel={universePanel}
       notices={notices}
+      catalogue={catalogue}
       sidebars={sidebars}
       setSidebars={setSidebars}
       windowWidth={windowWidth}

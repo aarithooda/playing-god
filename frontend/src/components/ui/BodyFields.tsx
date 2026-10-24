@@ -1,4 +1,5 @@
 import React from 'react';
+import type { BodyKind } from '../../api/types';
 import type { FieldErrors, FieldKey, FormValues } from '../../sim/validation';
 import { btnStyle, errorTextStyle, fieldGroup, inputStyle, labelStyle } from './styles';
 
@@ -10,6 +11,9 @@ interface BodyFieldsProps {
   idPrefix: string;
   onPickPosition?: () => void;
   isPickingPosition?: boolean;
+  /** When given, a "Type" (star / planet) selector is shown. */
+  kind?: BodyKind;
+  onKindChange?: (kind: BodyKind) => void;
 }
 
 const SCALARS: Array<{ key: FieldKey; label: string }> = [
@@ -23,7 +27,7 @@ const VECTORS: Array<{ label: string; keys: [FieldKey, FieldKey, FieldKey] }> = 
 ];
 
 /** Shared SI-unit fields for the create form and the inspector. Numbers are entered as plain text so 1.5e11 works. */
-export const BodyFields: React.FC<BodyFieldsProps> = ({ values, errors, onChange, idPrefix, onPickPosition, isPickingPosition = false }) => (
+export const BodyFields: React.FC<BodyFieldsProps> = ({ values, errors, onChange, idPrefix, onPickPosition, isPickingPosition = false, kind, onKindChange }) => (
   <>
     <div style={fieldGroup}>
       <label style={labelStyle} htmlFor={`${idPrefix}-name`}>Name</label>
@@ -36,6 +40,21 @@ export const BodyFields: React.FC<BodyFieldsProps> = ({ values, errors, onChange
       {errors.name && <span style={errorTextStyle}>{errors.name}</span>}
     </div>
 
+    {kind !== undefined && onKindChange && (
+      <div style={fieldGroup}>
+        <label style={labelStyle} htmlFor={`${idPrefix}-kind`}>Type</label>
+        <select
+          id={`${idPrefix}-kind`}
+          style={inputStyle}
+          value={kind}
+          onChange={(e) => onKindChange(e.target.value === 'star' ? 'star' : 'planet')}
+        >
+          <option value="planet">Planet</option>
+          <option value="star">Star</option>
+        </select>
+      </div>
+    )}
+
     {SCALARS.map(({ key, label }) => (
       <div style={fieldGroup} key={key}>
         <label style={labelStyle} htmlFor={`${idPrefix}-${key}`}>{label}</label>
@@ -46,6 +65,11 @@ export const BodyFields: React.FC<BodyFieldsProps> = ({ values, errors, onChange
           value={values[key]}
           onChange={(e) => onChange(key, e.target.value)}
         />
+        {key === 'radius' && (
+          <span style={{ ...labelStyle, fontSize: '11px' }}>
+            Physical radius (used for collisions). The 3D view draws it exaggerated for visibility.
+          </span>
+        )}
         {errors[key] && <span style={errorTextStyle}>{errors[key]}</span>}
       </div>
     ))}

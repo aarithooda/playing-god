@@ -2,6 +2,7 @@ import { ApiError, describeDetail } from "./errors";
 import {
   parseActivation,
   parseBodyDto,
+  parseCatalogue,
   parseEventList,
   parseHistoryPage,
   parsePresetList,
@@ -17,6 +18,7 @@ import type {
   BodyCreateDto,
   BodyDto,
   BodyUpdateDto,
+  CatalogueDto,
   CreateUniverseDto,
   HistoryPageDto,
   PresetSummaryDto,
@@ -66,6 +68,8 @@ export interface ApiClient extends SimulationClient {
   activateUniverse(universeId: string): Promise<ActivationDto>;
   deleteUniverse(universeId: string): Promise<void>;
   listPresets(): Promise<PresetSummaryDto[]>;
+  /** The sourced body catalogue (read-only, independent of any universe). */
+  getCatalogue(): Promise<CatalogueDto>;
   /** A client for one universe; mutations echo `scope.activationEpoch`. */
   scoped(scope: UniverseScope): ScopedClient;
 }
@@ -244,6 +248,9 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
     },
     async listPresets() {
       return parsePresetList(await call("GET", `${V1}/presets`, readTimeoutMs));
+    },
+    async getCatalogue() {
+      return parseCatalogue(await call("GET", `${V1}/catalogue`, readTimeoutMs));
     },
     scoped,
   };
