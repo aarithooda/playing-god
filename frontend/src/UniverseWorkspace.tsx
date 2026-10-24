@@ -5,11 +5,14 @@
 // Layout choices that are not about a universe (sidebars, axes, grid) live in App and survive a switch.
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import type { ApiError } from "./api/errors";
-import type { ScopedClient } from "./api/client";
+import type { ApiClient, ScopedClient } from "./api/client";
 import type { CatalogueDto, CatalogueEntryDto, UniverseSummaryDto } from "./api/types";
 import { UniverseCanvas, type FocusRequest } from "./components/canvas/UniverseCanvas";
 import { BodyInspector } from "./components/ui/BodyInspector";
 import { CataloguePanel } from "./components/ui/CataloguePanel";
+import { ComparisonPanel } from "./components/ui/ComparisonPanel";
+import { OrbitLabPanel } from "./components/ui/OrbitLabPanel";
+import { RunBadge } from "./components/ui/RunBadge";
 import { ControlPanel } from "./components/ui/ControlPanel";
 import { DiagnosticsPanel } from "./components/ui/DiagnosticsPanel";
 import { EventTimeline } from "./components/ui/EventTimeline";
@@ -30,6 +33,8 @@ import { gridCell } from "./sim/gridScale";
 import { DEFAULT_METERS_PER_UNIT, displayRadiusUnits, fitTransform, toPhysicsPosition, type RenderTransform } from "./sim/renderTransform";
 import { isScopeInvalid, useSimulation } from "./sim/useSimulation";
 import { useUndoableCreate } from "./sim/useUndoableCreate";
+import { useComparison, type OrbitLabApi } from "./sim/useOrbitLab";
+import { useProvenance } from "./sim/useProvenance";
 import { pathsNote, pathTargets } from "./sim/history/pathSelection";
 import { frameAt, trajectoryOf } from "./sim/history/historyModel";
 import { useHistory } from "./sim/history/useHistory";
@@ -45,6 +50,13 @@ export interface UniverseWorkspaceProps {
   notices: ReactNode;
   /** The sourced body catalogue (empty until loaded; the app works without it). */
   catalogue: CatalogueDto;
+  /** Orbit Lab: the experiments and their actions (they span two universes, so App owns them). */
+  orbitLab: OrbitLabApi;
+  /** For the read-only Orbit Lab queries and for reading the other run's history. */
+  apiClient: ApiClient;
+  /** Switching universes is blocked (a write is pending). */
+  switchDisabled: boolean;
+  onActivateUniverse: (universeId: string) => void;
   sidebars: SidebarState;
   setSidebars: Dispatch<SetStateAction<SidebarState>>;
   windowWidth: number;
@@ -55,6 +67,8 @@ export interface UniverseWorkspaceProps {
   onScopeInvalid: (error: ApiError) => void;
   onBusyWriteChange: (pending: boolean) => void;
 }
+
+const BASELINE_LOCK = "The Orbit Lab baseline is an immutable reference: its bodies cannot be added, edited or deleted.";
 
 export function UniverseWorkspace(props: UniverseWorkspaceProps) {
   const { client, universe, sidebars, setSidebars, windowWidth, showAxes, showGrid } = props;
@@ -74,6 +88,23 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
   const [placementPreview, setPlacementPreview] = useState<[number, number, number] | null>(null);
   const [snapshotBusy, setSnapshotBusy] = useState(false);
   const [showPaths, setShowPaths] = useState(false);
+
+  // Orbit Lab: the experiment this universe belongs to, its other run, and the provenance of the active run.
+  const { orbitLab, apiClient } = props;
+  const experiment = orbitLab.experimentById(universe?.experimentId);
+  const isRun = universe?.role === "baseline" || universe?.role === "modified";
+  useEffect(() => {
+    if (universe?.experimentId && !experiment) void orbitLab.refresh(); // an experiment the list does not know yet
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [universe?.experimentId, experiment === undefined]);
+  const provenance = useProvenance(client, simulation.revision, isRun);
+  const hasRun = !!experiment && experiment.modifiedUniverseId !== null;
+  const otherRunId = !experiment || !hasRun ? null : client.scope.universeId === experiment.baselineUniverseId ? experiment.modifiedUniverseId : experiment.baselineUniverseId;
+  const comparisonBody = experiment?.system.selectableBodyIds[0] ?? null;
+  const comparison = useComparison(
+    apiClient, hasRun && isRun ? experiment!.id : null, comparisonBody,
+    `${simulation.revision ?? "-"}:${experiment?.modifiedUniverseId ?? "-"}:${experiment?.modification?.createdAtIso ?? "-"}`,
+  );
   const [catalogueRequest, setCatalogueRequest] = useState<{ entry: CatalogueEntryDto; nonce: number } | undefined>();
   // When set, the next layout change keeps the display scale (and camera) if it leaves this many bodies.
   const preserveSceneScaleRef = useRef<{ expectedBodyCount: number; layoutEpoch: number } | null>(null);
@@ -105,6 +136,13 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
   // Recorded history (UI-2). The backend recorded it; this only displays it. While a recorded sample is viewed, the
   // simulation is paused and the scene shows that sample through the very same display path as live bodies.
   const history = useHistory(client, simulation.revision);
+  // The other run's history is its own cache (never merged with this one): it is drawn as the dashed reference path.
+  const referenceClient = useMemo(
+    () => apiClient.scoped({ universeId: otherRunId ?? "uni-none", activationEpoch: client.scope.activationEpoch }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [apiClient, otherRunId, client.scope.activationEpoch],
+  );
+  const referenceHistory = useHistory(referenceClient, otherRunId ? 0 : null);
   const nav = useHistoryNavigation(history.cache, { onEnter: simulation.pause });
   const viewingHistory = nav.mode === "history";
   const frame = viewingHistory && history.cache && nav.position !== null ? frameAt(history.cache, nav.position) : null;
@@ -123,9 +161,17 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
   // "Show paths": the selected body's recorded path, or every body's when there are at most 20 (UI-0 trajectories).
   const pathIds = pathTargets(displayBodies.map((b) => b.id), selectedBodyId);
   const trajectories = useMemo(
-    () => (showPaths && history.cache ? pathIds.map((id) => trajectoryOf(history.cache!, id, "active")).filter((t) => t.samples.length > 0) : []),
+    () => {
+      const out = showPaths && history.cache ? pathIds.map((id) => trajectoryOf(history.cache!, id, "active")) : [];
+      if (hasRun && comparisonBody) {
+        // Experiment 01 always overlays both runs' paths of the selected planet: the active run solid, the other dashed.
+        if (history.cache && !out.some((t) => t.bodyId === comparisonBody)) out.push(trajectoryOf(history.cache, comparisonBody, "active"));
+        if (referenceHistory.cache && referenceHistory.cache.universeId === otherRunId) out.push(trajectoryOf(referenceHistory.cache, comparisonBody, "reference"));
+      }
+      return out.filter((t) => t.samples.length > 0);
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [showPaths, history.cache, pathIds.join("|")],
+    [showPaths, history.cache, referenceHistory.cache, hasRun, comparisonBody, otherRunId, pathIds.join("|")],
   );
   useEffect(() => {
     if (viewingHistory) setPlacementMode(false);
@@ -247,6 +293,14 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
               {universe.name}
             </div>
           )}
+          {(universe?.role === "baseline" || universe?.role === "modified") && (
+            <RunBadge
+              role={universe.role}
+              modification={experiment?.modification ?? null}
+              controlled={provenance ? provenance.controlled : true}
+              firstUncontrolledAtS={provenance ? provenance.firstUncontrolledAtS : null}
+            />
+          )}
           {props.notices}
           <ViewLegend
             showAxes={showAxes}
@@ -306,6 +360,22 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
 
       <Sidebar side="right" title="Controls" open={sidebars.right} onToggle={setSidebar("right")}>
         {props.universePanel}
+        <OrbitLabPanel
+          systems={orbitLab.systems}
+          experiment={experiment}
+          experiments={orbitLab.experiments}
+          activeUniverseId={client.scope.universeId}
+          busy={orbitLab.busy}
+          error={orbitLab.error}
+          switchDisabled={props.switchDisabled}
+          onStart={(systemId) => void orbitLab.startExperiment(systemId)}
+          onCreateRun={(experimentId, factor, replace) => void orbitLab.createModifiedRun(experimentId, factor, replace)}
+          onActivate={props.onActivateUniverse}
+          onDelete={(experimentId) => void orbitLab.deleteExperiment(experimentId)}
+          onDismissError={orbitLab.dismissError}
+          getInitialDifferences={apiClient.getInitialDifferences}
+        />
+        {hasRun && isRun && <ComparisonPanel comparison={comparison.comparison} error={comparison.error} onRefresh={() => void comparison.refresh()} />}
         <ControlPanel
           bodies={bodies}
           playing={simulation.playing}
@@ -321,6 +391,7 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
             simulation.play();
           }}
           historyView={viewingHistory}
+          addBlockedReason={universe?.role === "baseline" ? BASELINE_LOCK : undefined}
           onPause={simulation.pause}
           onStep={() => void simulation.stepOnce()}
           onReset={() => void simulation.reset()}
@@ -361,7 +432,7 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
         <BodyInspector
           body={viewingHistory ? null : selectedBody}
           focused={selectedBody !== null && selectedBody.id === focusedBodyId}
-          editBlockedReason={simulation.playing ? "Pause to edit: changes are applied between steps." : undefined}
+          editBlockedReason={universe?.role === "baseline" ? BASELINE_LOCK : simulation.playing ? "Pause to edit: changes are applied between steps." : undefined}
           onSave={simulation.updateBody}
           onDelete={simulation.deleteBody}
           onFocus={focusBody}

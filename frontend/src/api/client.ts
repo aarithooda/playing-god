@@ -3,7 +3,13 @@ import {
   parseActivation,
   parseBodyDto,
   parseCatalogue,
+  parseComparison,
   parseEventList,
+  parseExperiment,
+  parseExperimentList,
+  parseInitialDifferences,
+  parseOrbitLabSystems,
+  parseProvenance,
   parseHistoryPage,
   parsePresetList,
   parseSnapshotList,
@@ -19,7 +25,12 @@ import type {
   BodyDto,
   BodyUpdateDto,
   CatalogueDto,
+  ComparisonDto,
   CreateUniverseDto,
+  ExperimentDto,
+  InitialDifferencesDto,
+  OrbitLabSystemDto,
+  UniverseProvenanceDto,
   HistoryPageDto,
   PresetSummaryDto,
   SimulationEventDto,
@@ -60,6 +71,13 @@ export interface ScopedClient extends SimulationClient {
   restoreSnapshot(snapshotId: string): Promise<SimulationStateDto>;
   deleteSnapshot(snapshotId: string): Promise<void>;
   getHistory(query?: HistoryQuery): Promise<HistoryPageDto>;
+  getProvenance(): Promise<UniverseProvenanceDto>;
+}
+
+export interface ModifiedRunRequest {
+  bodyId: string;
+  speedFactor: number;
+  replaceExisting?: boolean;
 }
 
 export interface ApiClient extends SimulationClient {
@@ -70,6 +88,13 @@ export interface ApiClient extends SimulationClient {
   listPresets(): Promise<PresetSummaryDto[]>;
   /** The sourced body catalogue (read-only, independent of any universe). */
   getCatalogue(): Promise<CatalogueDto>;
+  listOrbitLabSystems(): Promise<OrbitLabSystemDto[]>;
+  listExperiments(): Promise<ExperimentDto[]>;
+  createExperiment(systemId: string): Promise<ExperimentDto>;
+  createModifiedRun(experimentId: string, request: ModifiedRunRequest): Promise<ExperimentDto>;
+  getInitialDifferences(experimentId: string): Promise<InitialDifferencesDto>;
+  getComparison(experimentId: string, bodyId: string): Promise<ComparisonDto>;
+  deleteExperiment(experimentId: string): Promise<void>;
   /** A client for one universe; mutations echo `scope.activationEpoch`. */
   scoped(scope: UniverseScope): ScopedClient;
 }
@@ -208,6 +233,9 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
         const qs = p.toString();
         return parseHistoryPage(await call("GET", `${root}/history${qs ? `?${qs}` : ""}`, readTimeoutMs));
       },
+      async getProvenance() {
+        return parseProvenance(await call("GET", `${root}/provenance`, readTimeoutMs));
+      },
     };
   }
 
@@ -251,6 +279,35 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
     },
     async getCatalogue() {
       return parseCatalogue(await call("GET", `${V1}/catalogue`, readTimeoutMs));
+    },
+    async listOrbitLabSystems() {
+      return parseOrbitLabSystems(await call("GET", `${V1}/orbit-lab/systems`, readTimeoutMs));
+    },
+    async listExperiments() {
+      return parseExperimentList(await call("GET", `${V1}/orbit-lab/experiments`, readTimeoutMs));
+    },
+    async createExperiment(systemId) {
+      return parseExperiment(await call("POST", `${V1}/orbit-lab/experiments`, writeTimeoutMs, { systemId }));
+    },
+    async createModifiedRun(experimentId, request) {
+      return parseExperiment(
+        await call("POST", `${V1}/orbit-lab/experiments/${encodeURIComponent(experimentId)}/modified-run`, writeTimeoutMs, {
+          bodyId: request.bodyId,
+          speedFactor: request.speedFactor,
+          replaceExisting: request.replaceExisting ?? false,
+        }),
+      );
+    },
+    async getInitialDifferences(experimentId) {
+      return parseInitialDifferences(await call("GET", `${V1}/orbit-lab/experiments/${encodeURIComponent(experimentId)}/initial-differences`, readTimeoutMs));
+    },
+    async getComparison(experimentId, bodyId) {
+      return parseComparison(
+        await call("GET", `${V1}/orbit-lab/experiments/${encodeURIComponent(experimentId)}/comparison?bodyId=${encodeURIComponent(bodyId)}`, readTimeoutMs),
+      );
+    },
+    async deleteExperiment(experimentId) {
+      await call("DELETE", `${V1}/orbit-lab/experiments/${encodeURIComponent(experimentId)}`, writeTimeoutMs, undefined, false);
     },
     scoped,
   };

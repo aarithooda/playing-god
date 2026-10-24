@@ -42,6 +42,8 @@ interface ControlPanelProps {
   onPlacementCreateResult?: (success: boolean) => void;
   /** Increment to open the create form (used by the empty-universe call to action). */
   openCreateRequest?: number;
+  /** When set, adding bodies is not possible and this is why (for example the immutable Orbit Lab baseline). */
+  addBlockedReason?: string;
   /** A recorded state is on screen: stepping, resetting and adding are off. Play stays (it returns to live first). */
   historyView?: boolean;
   /** Open the create form prefilled from a catalogue entry (a copy: the entry is never changed). */
@@ -73,6 +75,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   openCreateRequest = 0,
   catalogueRequest,
   historyView = false,
+  addBlockedReason,
 }) => {
   const [creating, setCreating] = useState(false);
   const [values, setValues] = useState<FormValues>(NEW_BODY_DEFAULTS);
@@ -256,7 +259,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       </div>
 
       <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: '10px' }}>
-        <button style={btnStyle} onClick={toggleCreate} disabled={disabled || historyView} title={historyView ? 'Return to live to add a body' : undefined}>
+        <button style={btnStyle} onClick={toggleCreate} disabled={disabled || historyView || !!addBlockedReason} title={addBlockedReason ?? (historyView ? 'Return to live to add a body' : undefined)}>
           {creating ? 'Cancel' : 'Add body…'}
         </button>
         {creating && (

@@ -6,7 +6,11 @@ import type {
   BodyUpdateDto,
   CatalogueDto,
   CatalogueEntryDto,
+  ComparisonDto,
   DiagnosticsDto,
+  ExperimentDto,
+  InitialDifferencesDto,
+  OrbitLabSystemDto,
   HistoryPageDto,
   PresetSummaryDto,
   SimulationEventDto,
@@ -119,6 +123,17 @@ export function fakeClient(overrides: Partial<ApiClient & ScopedClient> = {}): A
     deleteUniverse: async () => undefined,
     listPresets: async () => [solarPreset],
     getCatalogue: async () => catalogueFixture,
+    listOrbitLabSystems: async () => [orbitSystem],
+    listExperiments: async () => [],
+    createExperiment: async () => experiment(),
+    createModifiedRun: async (_id: string, req: { speedFactor: number }) => experiment({ modifiedUniverseId: "uni-mod", modification: modificationOf(req.speedFactor) }),
+    getInitialDifferences: async (): Promise<InitialDifferencesDto> => ({
+      experimentId: "exp-1", baselineUniverseId: "uni-base", modifiedUniverseId: "uni-mod",
+      differences: [{ bodyId: "body-earth", field: "velocityMPerS", baseline: [0, 29786.6, 0], modified: [0, 32765.3, 0] }], configEqual: true,
+    }),
+    getComparison: async (): Promise<ComparisonDto> => comparison(),
+    deleteExperiment: async () => undefined,
+    getProvenance: async () => ({ sourceKind: "sandbox", controlled: true, firstUncontrolledAtS: null, audit: [] }),
     listSnapshots: async () => [],
     createSnapshot: async (name?: string): Promise<SnapshotSummaryDto> => ({
       id: "snap-1", name: name ?? "Snapshot", createdAtIso: "2026-01-01T00:00:00Z", simulationTimeS: 0, bodyCount: 2,
@@ -160,3 +175,49 @@ export const catalogueFixture: CatalogueDto = {
   notes: ["Catalogue entries are single bodies, not validated systems: nothing here has positions or velocities.", "Colour is a display choice, not a physical property."],
   entries: [betelgeuseEntry, earthEntry],
 };
+
+export const orbitSystem: OrbitLabSystemDto = {
+  id: "exp01-sun-emb-j2000", name: "Sun + Earth–Moon barycentre (J2000)", presetId: "solar-system-j2000",
+  bodyIds: ["body-sun", "body-earth"], selectableBodyIds: ["body-earth"], speedFactors: [0.9, 0.95, 1.05, 1.1],
+  observationWindowS: 63072000, sampleIntervalS: 86400,
+  modelNote: "Two-body model: Sun + Earth–Moon barycentre; positions are barycentres; not a forecast of Earth's real position.",
+  description: "How does changing a planet's initial velocity affect its subsequent orbit?",
+};
+
+export const modificationOf = (f: number) => ({
+  baselineUniverseId: "uni-base", baselineInitialDigest: "d".repeat(64), bodyId: "body-earth",
+  originalVelocityMPerS: [-1000, 29786.6, 12] as [number, number, number],
+  modifiedVelocityMPerS: [-1000 * f, 29786.6 * f, 12 * f] as [number, number, number],
+  speedFactor: f, units: "m/s", createdAtIso: "2026-01-01T00:00:00Z",
+});
+
+export function experiment(o: Partial<ExperimentDto> = {}): ExperimentDto {
+  return {
+    id: "exp-1", systemId: orbitSystem.id, name: orbitSystem.name, createdAtIso: "2026-01-01T00:00:00Z",
+    baselineUniverseId: "uni-base", modifiedUniverseId: null, system: orbitSystem,
+    initialState: {
+      epoch: "J2000.0", jdTdb: 2451545, frame: "Ecliptic and mean equinox of J2000.0", origin: "Barycentre of the two included bodies",
+      units: "SI: m, kg, s, m/s", digest: "d".repeat(64), modelNote: orbitSystem.modelNote,
+      bodies: [
+        { id: "body-sun", name: "Sun", massKg: 1.98841e30, radiusM: 6.957e8, positionM: [0, 0, 0], velocityMPerS: [0, 0, 0], speedMPerS: 0 },
+        { id: "body-earth", name: "Earth (Earth–Moon barycentre)", massKg: 6.0459e24, radiusM: 6.371e6, positionM: [-2.7e10, 1.4e11, 3e7],
+          velocityMPerS: [-29800, -5400, 0.3], speedMPerS: 30286.011 },
+      ],
+    },
+    modification: null, ...o,
+  };
+}
+
+export function comparison(o: Partial<ComparisonDto> = {}): ComparisonDto {
+  const n = 4;
+  return {
+    bodyId: "body-earth", sampleIntervalS: 86400, observationWindowS: 63072000,
+    baseline: { universeId: "uni-base", simulationTimeS: 3 * 86400, sampleCount: n },
+    modified: { universeId: "uni-mod", simulationTimeS: 3 * 86400, sampleCount: n },
+    commonSampleCount: n, timesS: [0, 1, 2, 3].map((k) => k * 86400),
+    baselinePositionM: [0, 1, 2, 3].map((k) => [1.5e11 + k * 2.5e9, 0, 0] as [number, number, number]),
+    modifiedPositionM: [0, 1, 2, 3].map((k) => [1.5e11 + k * 2.75e9, 0, 0] as [number, number, number]),
+    separationM: [0, 2.5e8, 5e8, 7.5e8], windowCompleteBoth: false, complete: false, issues: [], timesDiffer: false,
+    comparedUpToS: 3 * 86400, controlled: true, firstUncontrolledAtS: null, modification: modificationOf(1.1), ...o,
+  };
+}

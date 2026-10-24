@@ -7,6 +7,13 @@ import type {
   BodyDto,
   CatalogueDto,
   CataloguePropertyDto,
+  ComparisonDto,
+  ExperimentDto,
+  InitialDifferencesDto,
+  ModificationDto,
+  OrbitLabSystemDto,
+  UniverseProvenanceDto,
+  Vec3Tuple,
   DiagnosticsDto,
   EventListDto,
   HistoryPageDto,
@@ -352,5 +359,172 @@ export function parseCatalogue(v: unknown): CatalogueDto {
         notes: typeof q.notes === "string" ? q.notes : "",
       };
     }),
+  };
+}
+
+// ---------- Orbit Lab ----------
+function tuple3(v: unknown, what: string): Vec3Tuple {
+  if (!Array.isArray(v) || v.length !== 3) bad(what);
+  return [num(v[0], `${what}[0]`), num(v[1], `${what}[1]`), num(v[2], `${what}[2]`)];
+}
+
+function numArray(v: unknown, what: string): number[] {
+  if (!Array.isArray(v)) bad(what);
+  return (v as unknown[]).map((x, i) => num(x, `${what}[${i}]`));
+}
+
+export function parseOrbitLabSystem(v: unknown): OrbitLabSystemDto {
+  const o = obj(v, "system");
+  return {
+    id: str(o.id, "system.id"),
+    name: str(o.name, "system.name"),
+    presetId: str(o.presetId, "system.presetId"),
+    bodyIds: (Array.isArray(o.bodyIds) ? o.bodyIds : bad("system.bodyIds")).map((b: unknown) => str(b, "system.bodyIds[]")),
+    selectableBodyIds: (Array.isArray(o.selectableBodyIds) ? o.selectableBodyIds : bad("system.selectableBodyIds")).map((b: unknown) => str(b, "system.selectableBodyIds[]")),
+    speedFactors: numArray(o.speedFactors, "system.speedFactors"),
+    observationWindowS: num(o.observationWindowS, "system.observationWindowS"),
+    sampleIntervalS: num(o.sampleIntervalS, "system.sampleIntervalS"),
+    modelNote: str(o.modelNote, "system.modelNote"),
+    description: typeof o.description === "string" ? o.description : "",
+  };
+}
+
+export function parseOrbitLabSystems(v: unknown): OrbitLabSystemDto[] {
+  const o = obj(v, "systems");
+  if (!Array.isArray(o.systems)) bad("systems.systems");
+  return (o.systems as unknown[]).map(parseOrbitLabSystem);
+}
+
+function parseModification(v: unknown): ModificationDto | null {
+  if (v === null || v === undefined) return null;
+  const o = obj(v, "modification");
+  return {
+    baselineUniverseId: str(o.baselineUniverseId, "modification.baselineUniverseId"),
+    baselineInitialDigest: str(o.baselineInitialDigest, "modification.baselineInitialDigest"),
+    bodyId: str(o.bodyId, "modification.bodyId"),
+    originalVelocityMPerS: tuple3(o.originalVelocityMPerS, "modification.originalVelocityMPerS"),
+    modifiedVelocityMPerS: tuple3(o.modifiedVelocityMPerS, "modification.modifiedVelocityMPerS"),
+    speedFactor: num(o.speedFactor, "modification.speedFactor"),
+    units: str(o.units, "modification.units"),
+    createdAtIso: str(o.createdAtIso, "modification.createdAtIso"),
+  };
+}
+
+export function parseExperiment(v: unknown): ExperimentDto {
+  const o = obj(v, "experiment");
+  const ini = obj(o.initialState, "experiment.initialState");
+  if (!Array.isArray(ini.bodies)) bad("experiment.initialState.bodies");
+  return {
+    id: str(o.id, "experiment.id"),
+    systemId: str(o.systemId, "experiment.systemId"),
+    name: str(o.name, "experiment.name"),
+    createdAtIso: str(o.createdAtIso, "experiment.createdAtIso"),
+    baselineUniverseId: str(o.baselineUniverseId, "experiment.baselineUniverseId"),
+    modifiedUniverseId: strOrNull(o.modifiedUniverseId, "experiment.modifiedUniverseId"),
+    system: parseOrbitLabSystem(o.system),
+    initialState: {
+      epoch: strOrNull(ini.epoch, "initialState.epoch"),
+      jdTdb: ini.jdTdb === null || ini.jdTdb === undefined ? null : num(ini.jdTdb, "initialState.jdTdb"),
+      frame: strOrNull(ini.frame, "initialState.frame"),
+      origin: strOrNull(ini.origin, "initialState.origin"),
+      units: strOrNull(ini.units, "initialState.units"),
+      digest: str(ini.digest, "initialState.digest"),
+      bodies: (ini.bodies as unknown[]).map((b) => {
+        const q = obj(b, "initialState.body");
+        return {
+          id: str(q.id, "body.id"),
+          name: str(q.name, "body.name"),
+          massKg: num(q.massKg, "body.massKg"),
+          radiusM: num(q.radiusM, "body.radiusM"),
+          positionM: tuple3(q.positionM, "body.positionM"),
+          velocityMPerS: tuple3(q.velocityMPerS, "body.velocityMPerS"),
+          speedMPerS: num(q.speedMPerS, "body.speedMPerS"),
+        };
+      }),
+      modelNote: str(ini.modelNote, "initialState.modelNote"),
+    },
+    modification: parseModification(o.modification),
+  };
+}
+
+export function parseExperimentList(v: unknown): ExperimentDto[] {
+  const o = obj(v, "experiments");
+  if (!Array.isArray(o.experiments)) bad("experiments.experiments");
+  return (o.experiments as unknown[]).map(parseExperiment);
+}
+
+export function parseInitialDifferences(v: unknown): InitialDifferencesDto {
+  const o = obj(v, "initial-differences");
+  if (!Array.isArray(o.differences)) bad("differences");
+  return {
+    experimentId: str(o.experimentId, "experimentId"),
+    baselineUniverseId: str(o.baselineUniverseId, "baselineUniverseId"),
+    modifiedUniverseId: str(o.modifiedUniverseId, "modifiedUniverseId"),
+    differences: (o.differences as unknown[]).map((d) => {
+      const q = obj(d, "difference");
+      return { bodyId: str(q.bodyId, "difference.bodyId"), field: str(q.field, "difference.field"), baseline: q.baseline, modified: q.modified };
+    }),
+    configEqual: bool(o.configEqual, "configEqual"),
+  };
+}
+
+export function parseComparison(v: unknown): ComparisonDto {
+  const o = obj(v, "comparison");
+  const run = (r: unknown, what: string) => {
+    const q = obj(r, what);
+    return { universeId: str(q.universeId, `${what}.universeId`), simulationTimeS: num(q.simulationTimeS, `${what}.simulationTimeS`), sampleCount: num(q.sampleCount, `${what}.sampleCount`) };
+  };
+  const points = (p: unknown, what: string): Vec3Tuple[] => {
+    if (!Array.isArray(p)) bad(what);
+    return (p as unknown[]).map((x, i) => tuple3(x, `${what}[${i}]`));
+  };
+  const times = numArray(o.timesS, "comparison.timesS");
+  const baselinePositionM = points(o.baselinePositionM, "comparison.baselinePositionM");
+  const modifiedPositionM = points(o.modifiedPositionM, "comparison.modifiedPositionM");
+  const separationM = numArray(o.separationM, "comparison.separationM");
+  if (![baselinePositionM.length, modifiedPositionM.length, separationM.length].every((n) => n === times.length)) {
+    bad("comparison arrays have different lengths");
+  }
+  if (!Array.isArray(o.issues)) bad("comparison.issues");
+  return {
+    bodyId: str(o.bodyId, "comparison.bodyId"),
+    sampleIntervalS: num(o.sampleIntervalS, "comparison.sampleIntervalS"),
+    observationWindowS: num(o.observationWindowS, "comparison.observationWindowS"),
+    baseline: run(o.baseline, "comparison.baseline"),
+    modified: o.modified === null || o.modified === undefined ? null : run(o.modified, "comparison.modified"),
+    commonSampleCount: num(o.commonSampleCount, "comparison.commonSampleCount"),
+    timesS: times,
+    baselinePositionM,
+    modifiedPositionM,
+    separationM,
+    windowCompleteBoth: bool(o.windowCompleteBoth, "comparison.windowCompleteBoth"),
+    complete: bool(o.complete, "comparison.complete"),
+    issues: (o.issues as unknown[]).map((i) => str(i, "comparison.issues[]")),
+    timesDiffer: bool(o.timesDiffer, "comparison.timesDiffer"),
+    comparedUpToS: o.comparedUpToS === null || o.comparedUpToS === undefined ? null : num(o.comparedUpToS, "comparison.comparedUpToS"),
+    controlled: bool(o.controlled, "comparison.controlled"),
+    firstUncontrolledAtS: o.firstUncontrolledAtS === null || o.firstUncontrolledAtS === undefined ? null : num(o.firstUncontrolledAtS, "comparison.firstUncontrolledAtS"),
+    modification: parseModification(o.modification),
+  };
+}
+
+export function parseProvenance(v: unknown): UniverseProvenanceDto {
+  const o = obj(v, "provenance");
+  return {
+    sourceKind: str(o.sourceKind, "provenance.sourceKind"),
+    controlled: bool(o.controlled, "provenance.controlled"),
+    firstUncontrolledAtS: o.firstUncontrolledAtS === null || o.firstUncontrolledAtS === undefined ? null : num(o.firstUncontrolledAtS, "provenance.firstUncontrolledAtS"),
+    audit: Array.isArray(o.audit)
+      ? (o.audit as unknown[]).map((a) => {
+          const q = obj(a, "audit");
+          return {
+            atSimulationTimeS: num(q.atSimulationTimeS, "audit.atSimulationTimeS"),
+            op: str(q.op, "audit.op"),
+            bodyId: str(q.bodyId, "audit.bodyId"),
+            physical: bool(q.physical, "audit.physical"),
+            changes: typeof q.changes === "object" && q.changes !== null ? (q.changes as Record<string, unknown>) : {},
+          };
+        })
+      : [],
   };
 }

@@ -226,3 +226,105 @@ export interface CatalogueDto {
   notes: string[];
   entries: CatalogueEntryDto[];
 }
+
+// ---------- Orbit Lab (Experiment 01) ----------
+export type Vec3Tuple = [number, number, number];
+
+export interface OrbitLabSystemDto {
+  id: string;
+  name: string;
+  presetId: string;
+  bodyIds: string[];
+  selectableBodyIds: string[];
+  speedFactors: number[];
+  observationWindowS: number;
+  sampleIntervalS: number;
+  modelNote: string;
+  description: string;
+}
+
+export interface ModificationDto {
+  baselineUniverseId: string;
+  baselineInitialDigest: string;
+  bodyId: string;
+  originalVelocityMPerS: Vec3Tuple;
+  modifiedVelocityMPerS: Vec3Tuple;
+  speedFactor: number;
+  units: string;
+  createdAtIso: string;
+}
+
+export interface ExperimentBodyDto {
+  id: string;
+  name: string;
+  massKg: number;
+  radiusM: number;
+  positionM: Vec3Tuple;
+  velocityMPerS: Vec3Tuple;
+  speedMPerS: number;
+}
+
+export interface ExperimentDto {
+  id: string;
+  systemId: string;
+  name: string;
+  createdAtIso: string;
+  baselineUniverseId: string;
+  modifiedUniverseId: string | null;
+  system: OrbitLabSystemDto;
+  initialState: {
+    epoch: string | null;
+    jdTdb: number | null;
+    frame: string | null;
+    origin: string | null;
+    units: string | null;
+    digest: string;
+    bodies: ExperimentBodyDto[];
+    modelNote: string;
+  };
+  modification: ModificationDto | null;
+}
+
+export interface InitialDifferencesDto {
+  experimentId: string;
+  baselineUniverseId: string;
+  modifiedUniverseId: string;
+  differences: { bodyId: string; field: string; baseline: unknown; modified: unknown }[];
+  configEqual: boolean;
+}
+
+export interface ComparisonDto {
+  bodyId: string;
+  sampleIntervalS: number;
+  observationWindowS: number;
+  baseline: { universeId: string; simulationTimeS: number; sampleCount: number };
+  modified: { universeId: string; simulationTimeS: number; sampleCount: number } | null;
+  commonSampleCount: number;
+  timesS: number[];
+  baselinePositionM: Vec3Tuple[];
+  modifiedPositionM: Vec3Tuple[];
+  separationM: number[];
+  windowCompleteBoth: boolean;
+  complete: boolean;
+  issues: string[];
+  timesDiffer: boolean;
+  comparedUpToS: number | null;
+  controlled: boolean;
+  firstUncontrolledAtS: number | null;
+  modification: ModificationDto | null;
+}
+
+export interface AuditEntryDto {
+  atSimulationTimeS: number;
+  op: string;
+  bodyId: string;
+  physical: boolean;
+  changes: Record<string, unknown>;
+}
+
+export interface UniverseProvenanceDto {
+  sourceKind: string;
+  controlled: boolean;
+  firstUncontrolledAtS: number | null;
+  audit: AuditEntryDto[];
+}
