@@ -4,7 +4,10 @@
 3. Verified locally: frontend typecheck; Vitest 206/206 across 23 files; build (existing >500 kB warning); Playwright 5/5; diff check. The profile measured 1/16/64 bodies at median 33.4/50.0/99.9 ms per animation frame in Windows headless Chrome with GPU disabled by test config; treat as software frame pacing, not hardware GPU timing. E2E stubs backend responses. Do not merge into `main` without owner approval; real-hardware profiling and UI-0 integration remain follow-ups.
 # Handoff (latest — rewrite at end of each session)
 
-## Collision engine, Stage 7 done (2026-10-25, Claude Sonnet 5.5) — latest
+## Collision engine, Stage 8 done (2026-10-25, Claude Sonnet 5.5) — latest
+00000. Branch `collision/stage-8-records` (stacked on stage-7). Read-only records API (list, detail, replay), `backend/impact/replay.py`, the frontend inspector (`CollisionInspector`, `sim/collision/describe.ts`, `useCollisionInspector`, an "Inspect record" button on collision events). Replay is same-platform bitwise by digest; it never mutates. **Next:** Stage 9 (particle engine and event visualization: `VisualEventDescription`, effects layers) needs CP-3 (human visual review) and DQ-12 timing; Stage 10 (persistence, isolation, determinism hardening, cross-platform tolerances) needs DQ-11. Open scientific dependencies unchanged (CP-SCI-1 unsigned; ejection factor/tracked share provisional; no sourced wave speeds; cratering Unsupported).
+
+## Collision engine, Stage 7 done (2026-10-25, Claude Sonnet 5.5)
 0000. Branch `collision/stage-7-lifecycle` (stacked on stage-6). DQ-10 (a) implemented (shortened step + `warnings`), lineage/cascade, classification (`fragmentClass`), escape ledger (`escaped`), PRS23 whenever debris exists (D-051). Frontend parses the new optional fields but shows nothing yet. **Next:** Stage 8 (records API, inspector, replay) needs nothing from the owner; the open scientific dependencies are unchanged (CP-SCI-1 unsigned; ejection factor/tracked share provisional; no sourced wave speeds; cratering Unsupported). Known limits: a removal emits no event; hit-and-run debris is still one parcel; legacy-merge presets cannot show any of this until Stage 11.
 
 ## Collision engine, Stage 6 done (2026-10-24, Claude Sonnet 5.5)

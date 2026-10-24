@@ -75,7 +75,7 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 | F1-ID-2 | Distinguish initial vs secondary impacts | — | generation/parent | ST7 | T/life parent link | MISS |
 | F1-ID-3 | Distinguish repeated contacts of same objects | — | separate records | ST1, ST7 | T/det repeated contact after separation → 2 records | MISS |
 | F1-ID-4 | One event producing several remnants | — | createdBodyIds | ST4 | T/app hit-and-run record | VERIFIED tests/impact/test_engine_outcomes.py::test_hit_and_run_continues_for_many_steps_with_no_spurious_contact_and_no_loss and tests/impact/test_applier.py::test_scenario_c_hit_and_run_gives_two_remnants_with_exact_conservation (Stage 4a) |
-| F1-ID-USE | Id usable by physics, renderer, diagnostics, persistence, replay | — | — | ST8–ST10 | T/rec, V/effectTimeline, T/pers | MISS |
+| F1-ID-USE | Id usable by physics, renderer, diagnostics, persistence, replay | — | — | ST8–ST10 | T/rec, V/effectTimeline, T/pers | VERIFIED: the event id is used by physics (lineage), diagnostics, the API (records, replay) and the inspector; persistence is Stage 10 |
 | F1-AC-1 | Fast impacts not missed within envelope | as F1-DET-2 | envelope doc | ST1 | T/det | VERIFIED within the documented envelope (fast impact, 6 sweep cases, degraded-chunk flag: test_detection.py, Stage 1) |
 | F1-AC-2 | No duplicate merges / fragment populations | — | — | ST1, ST5 | T/det, T/frag single population per event | PART |
 | F1-AC-3 | Contact point within tolerance | — | tolerance plan §9.2 | ST1 | T/geo | VERIFIED test_geometry.py (Stage 1) |
@@ -229,8 +229,8 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 ## §10 Feature 8 — Conservation, diagnostics, validation
 | ID | Requirement | Current | Gap | Stage | Verification | Status |
 |---|---|---|---|---|---|---|
-| DG-1..11 | Event id & parent; pre-impact states; geometry & rel. velocity; materials & params; outcome & model version; post states; fragment & debris accounting; mass & momentum residuals; L diagnostics; energy diagnostics; warnings/fallbacks/approximations | merger event subset [Exists] | full record | ST1, ST4, ST8 | T/rec schema test per field | PART |
-| DG-ACCESS | Accessible to tests and developer tools | — | API + inspector | ST8 | T/rec, V/CollisionInspector | MISS |
+| DG-1..11 | Event id & parent; pre-impact states; geometry & rel. velocity; materials & params; outcome & model version; post states; fragment & debris accounting; mass & momentum residuals; L diagnostics; energy diagnostics; warnings/fallbacks/approximations | merger event subset [Exists] | full record | ST1, ST4, ST8 | T/rec schema test per field | VERIFIED for the fields recorded (science PROVISIONAL, CP-SCI-1 unsigned): every item of spec 10.2 is present in the detail route (tests/impact/test_records_api.py::test_the_detail_route_returns_every_item_of_spec_10_2); angular-momentum and energy diagnostics are as modelled (unmodelled parts stated) |
+| DG-ACCESS | Accessible to tests and developer tools | — | API + inspector | ST8 | T/rec, V/CollisionInspector | VERIFIED: API (tests/impact/test_records_api.py) and the developer inspector (frontend/src/components/ui/collisionInspector.test.tsx) |
 | CN-MASS | Mass agreement within tolerance unless modeled source/sink | merge exact [Exists] | all outcomes | ST4–ST7 | T/cons | VERIFIED <= 1e-14 relative over the grid (tests/impact/test_invariants_grid.py) and system-wide (tests/impact/test_engine_outcomes.py engine grid) |
 | CN-MOM | Linear momentum within tolerance | merge [Exists] | — | ST4–ST5 | T/cons | VERIFIED <= 1e-12 relative over the grid (tests/impact/test_invariants_grid.py) and system-wide (tests/impact/test_engine_outcomes.py engine grid) |
 | CN-ANG | Angular momentum incl. spin & ejecta; unmodelled parts documented | ledger [Exists] | — | ST4 | T/cons | VERIFIED <= 1e-10 when represented; otherwise reported `unmodelled` and booked in the ledger (tests/impact/test_invariants_grid.py, tests/impact/test_engine_outcomes.py); total system angular momentum conserved to 1e-8 (tests/impact/test_engine_outcomes.py) |
@@ -239,12 +239,12 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 | NF-1..8 | Detect: non-finite, invalid masses, invalid distributions, residuals out of tolerance, unsupported materials, fragment overflow, unresolved outcome, invalid integration state | non-finite [Exists] | rest | ST4–ST7 | T/app failure table row tests | PART |
 | NF-POLICY | Each case: reject / fallback / pause / other, defined | — | plan §9.3 | ST4 | T/app | MISS |
 | NF-NOSILENT | No silent corruption | rollback [Exists] | — | ST4 | T/app byte-identical after failure | VERIFIED: three explicit tiers (model, labelled perfect-merge fallback, merge without rotation states) and a rollback; every fallback is a warning in the event (tests/impact/test_engine_outcomes.py) |
-| RP-1 | Deterministic reproduction | fixed rand_seed [Exists] | outcome sampling | ST5, ST10 | T/rec replay | PART |
+| RP-1 | Deterministic reproduction | fixed rand_seed [Exists] | outcome sampling | ST5, ST10 | T/rec replay | VERIFIED same-platform (science PROVISIONAL, CP-SCI-1 unsigned): replay reproduces the result digest of 60 recorded events, fallbacks, cascade-limited and budget-limited events included (tests/impact/test_records_api.py::test_replay_reproduces_the_result_digest_of_50_recorded_events, test_replay_reproduces_a_cascade_limited_child_and_a_budget_limited_event) |
 | RP-2 | Controlled seed for stochastic sampling | — | config seed | ST0, ST5 | T/frag seed tests | MISS |
-| RP-3 | Cross-platform tolerances defined | — | plan §9.2 | ST10 | doc + T/pers tolerance helper | MISS |
+| RP-3 | Cross-platform tolerances defined | — | plan §9.2 | ST10 | doc + T/pers tolerance helper | PART: the plan's cross-platform tolerances are documented; the tolerance helper is Stage 10 (replay here is same-platform bitwise) |
 | ST-1..11 | Tests: head-on & oblique; low-energy cratering; merger & hit-and-run; partial accretion & erosion; catastrophic; material combos; polar; gas giant; reaccretion & secondary; mass & momentum; performance & deterministic replay | merger tests [Exists] | rest | ST3–ST12 | see plan §7 table | PART |
 | ST-NOARB | Expected values from models/reference scenarios, not invented | culture [Exists TEAM_WORKFLOW] | reference_values.py | ST3 | CP-SCI-1 review | PART |
-| F8-AC-1..5 | Inspectable; residuals measurable; physical vs rendering failures distinguished; regimes & limits covered; warnings actionable & reproducible | — | — | ST4, ST8, ST12 | T/rec, T/cons, separate test dirs | MISS |
+| F8-AC-1..5 | Inspectable; residuals measurable; physical vs rendering failures distinguished; regimes & limits covered; warnings actionable & reproducible | — | — | ST4, ST8, ST12 | T/rec, T/cons, separate test dirs | PART (science PROVISIONAL, CP-SCI-1 unsigned): inspectable (tests/impact/test_records_api.py, frontend/src/components/ui/collisionInspector.test.tsx), residuals measurable and shown, physical vs rendering failures distinguished (no rendering yet), regimes and limits via reasons and warnings, warnings reproducible via replay; scenario coverage in Stage 12 |
 
 ## §11 Feature 9 — Performance and integration
 | ID | Requirement | Current | Gap | Stage | Verification | Status |
@@ -270,7 +270,7 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 | HX-NOSPH | Not assume SPH | — | generic adapter | ST0 | review | MISS |
 | HX-JUSTIFY | Complexity justified by codebase | — | plan §3.15 | ST0 | review | SUP (doc) |
 | FID-1..6 | Distinguish computed, empirical/analytic, reduced-order spatial, statistical, visual, future unsupported | — | labels | ST0, ST8, ST9 | T/contracts enum; V/describe | PART: enum VERIFIED test_contracts.py::test_fidelity_labels_match_the_plan (Stage 0); UI labels pending ST8-ST9 |
-| FID-UI | UI does not imply resolved hydrodynamics | — | labels | ST8–ST9 | V/describe | MISS |
+| FID-UI | UI does not imply resolved hydrodynamics | — | labels | ST8–ST9 | V/describe | VERIFIED for the inspector: fidelity labels with meanings and a notice for anything not computed/model (frontend/src/components/ui/collisionInspector.test.tsx::shows the record, the soft-fidelity notice and the provisional caveat); the timeline labels exist since Stage 4; Stage 9 for effects |
 | F10-AC-1 | No hydrodynamics dependency | none [Exists] | keep | all | requirements diff review | SUP |
 | F10-AC-2 | Models expandable/replaceable | — | adapter | ST3 | dummy-model test | VERIFIED tests/impact/test_selector.py::test_a_registered_model_passes_through_the_selector_unchanged (Stage 3) |
 | F10-AC-3 | Event records accommodate new fields, versioned | — | schemaVersion + `fieldsExtra` | ST0 | T/contracts forward-compat | MISS |

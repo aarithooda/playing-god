@@ -518,3 +518,9 @@
 - Evidence: 1336 backend (1309 + 27 new) / 452 vitest (+3 new) / tsc clean / build OK. Playwright not run (browsers missing locally).
 
 - Commit note: the Stage 7 CODE is in commit 8fcd29c, whose message ("docs: board - Stage 7 commit hash") is wrong: a chained shell command ran the board commit after the documentation script had failed. The message is left as is (no history rewrite); the documentation follows in the next commit.
+
+## 2026-10-25 — Collision engine, Stage 8: records, inspection, replay (Claude Sonnet 5.5)
+- Branch `collision/stage-8-records` (from `collision/stage-7-lifecycle`). Recorded D-052.
+- Design point found while planning: the realisation depends on live-state inputs that are not in the frozen impact (the body budget, the spin tier, the engine's fallback and cascade warnings), so a replay could not reproduce a fallback or budget-limited event. They are now recorded in the result (`fieldsExtra.replay*`) and replay passes them back; 60 grid events (fallbacks included) reproduce their digests.
+- Built the three routes, `replay.py`, the frontend DTOs/parsers/client methods, `describe.ts`, `CollisionInspector`, the hook and the timeline button. Initial failures: the grid produced 48 records, fewer than the 50 required (a speed was added to the grid); the first 404 test had a vacuous assertion (rewritten to assert the code and the retention text). Frontend: no failures on the first run of the new tests.
+- Evidence: 1345 backend (1336 + 9 new) / 470 vitest (+18 new) / tsc clean / build OK. Playwright not run (browsers missing locally); the inspector was not exercised in a real browser.
