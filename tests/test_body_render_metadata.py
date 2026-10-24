@@ -3,6 +3,8 @@
 Covers the five response paths (state, step, reset, create, update), request validation, omission semantics of
 partial updates, snapshot restore, history metadata and the merger-result rule. See context/BODY_RENDER_METADATA.md.
 """
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -206,3 +208,40 @@ def test_merger_leaves_unrelated_bodies_metadata_alone(client):
     merge(client, dict(assetKey="earth"), dict(assetKey="ceres"))
     bodies = {b["id"]: b for b in client.get("/api/v1/simulation/state").json()["bodies"]}
     assert meta(bodies[far["id"]]) == ("gas-giant", "jupiter")
+
+
+# ---- presets ----------------------------------------------------------------------------------------------------
+EXPECTED_SOLAR = {"body-sun": ("star", "sun"), "body-mercury": ("rocky-planet", "mercury"), "body-venus": ("rocky-planet", "venus"),
+                  "body-earth": ("rocky-planet", "earth"), "body-mars": ("rocky-planet", "mars"),
+                  "body-jupiter": ("gas-giant", "jupiter"), "body-saturn": ("gas-giant", "saturn"),
+                  "body-uranus": ("ice-giant", "uranus"), "body-neptune": ("ice-giant", "neptune")}
+
+
+def test_solar_system_preset_populates_metadata_in_state_and_after_reset(client):
+    base = "/api/v1/universes"
+    made = client.post(base, json={"source": {"kind": "preset", "presetId": "solar-system-j2000"}, "activate": True})
+    uid = made.json()["id"]
+    state = client.get(f"{base}/{uid}/state").json()
+    assert {b["id"]: meta(b) for b in state["bodies"]} == EXPECTED_SOLAR
+    q = f"?activationEpoch={client.get(base).json()['activationEpoch']}"
+    client.post(f"{base}/{uid}/step{q}", json={"dtS": 86400.0})
+    reset = client.post(f"{base}/{uid}/reset{q}").json()
+    assert {b["id"]: meta(b) for b in reset["bodies"]} == EXPECTED_SOLAR
+
+
+def test_preset_loader_rejects_bad_metadata(tmp_path, monkeypatch):
+    import json
+    import shutil
+
+    from backend.presets import loader
+    shutil.copytree(loader.DATA_DIR, tmp_path / "data")
+    shutil.copytree(Path(loader.DATA_DIR).parent / "sources", tmp_path / "sources")
+    path = tmp_path / "data" / "solar-system-j2000.json"
+    for field, value in (("bodyType", "moon"), ("assetKey", "Not Kebab"), ("bodyType", "rocky-planet")):
+        data = json.loads(Path(loader.DATA_DIR, "solar-system-j2000.json").read_text(encoding="utf-8"))
+        data["bodies"][0][field] = value  # body 0 is the Sun, a star: "rocky-planet" contradicts its kind
+        path.write_text(json.dumps(data), encoding="utf-8")
+        monkeypatch.setattr(loader, "DATA_DIR", tmp_path / "data")
+        monkeypatch.setattr(loader, "SOURCES_DIR", tmp_path / "sources", raising=False)
+        with pytest.raises(loader.PresetDataError):
+            loader.load_preset("solar-system-j2000")
