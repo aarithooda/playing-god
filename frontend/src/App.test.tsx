@@ -125,6 +125,38 @@ describe("App layout", () => {
   });
 });
 
+describe("App focus", () => {
+  it("a focus request names the body and the inspector shows Focused only for that body until the camera lets go", async () => {
+    render(<App />);
+    await screen.findByText("Simulation");
+    act(() => canvas().onSelectBody(earth.id));
+    await screen.findByText("Body Inspector");
+    expect(screen.queryByTestId("focused-badge")).toBeNull();
+
+    act(() => canvas().onFocusBody(earth.id));
+    expect(canvas().focus.bodyId).toBe(earth.id);
+    expect(canvas().focus.radius).toBeGreaterThan(0);
+    expect(screen.getByTestId("focused-badge").textContent).toBe("Focused");
+
+    act(() => canvas().onSelectBody(sun.id)); // inspecting a different body: the camera is still on Earth
+    expect(screen.queryByTestId("focused-badge")).toBeNull();
+    act(() => canvas().onSelectBody(earth.id));
+    expect(screen.getByTestId("focused-badge")).toBeTruthy();
+
+    act(() => canvas().onFocusRelease()); // user panned away / scene refitted / body gone
+    expect(screen.queryByTestId("focused-badge")).toBeNull();
+  });
+
+  it("each new focus request gets a new nonce so repeated focusing restarts the move", async () => {
+    render(<App />);
+    await screen.findByText("Simulation");
+    act(() => canvas().onFocusBody(sun.id));
+    const first = canvas().focus.nonce;
+    act(() => canvas().onFocusBody(sun.id));
+    expect(canvas().focus.nonce).toBe(first + 1);
+  });
+});
+
 describe("App first use", () => {
   it("starts empty with one clear call to action that opens the create form", async () => {
     h.empty = true;

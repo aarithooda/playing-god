@@ -2,7 +2,7 @@
 Status: todo / in progress / blocked / done. Keep tasks small and independently testable.
 
 ## NEXT ACTION
-UI integration series (owner-approved plan): M0 done (PR #4); M1 inspector/focus/placement/undo merged (PR #7); M2 panels on `integration/m2-panels` (see `STATUS.md`); next M3 selection outline, M4 axes/grid, M5 docs. Older text follows.
+UI integration series (owner-approved plan): M0 done (PR #4); M1 inspector/focus/placement/undo merged (PR #7); M2 panels merged (PR #8); M3 selection outline and focus follow on `integration/m3-selection-focus` (see `STATUS.md`, awaiting review); next M4 axes/grid, M5 docs. Older text follows.
 
 B1 diagnostics merged (2026-10-24, T-011; top of `STATUS.md`). Next product step: T-012, the diagnostics panel (frontend owner). Older text follows.
 

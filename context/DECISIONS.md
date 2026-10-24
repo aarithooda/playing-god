@@ -154,6 +154,15 @@ Entry format: Date · Decision · Context/reason · Alternatives · Consequences
 - Scope of the exception: **the M2 PR only.** It does not extend D-014 to D-018 and does not change, waive or weaken the review requirement for any other or future PR. `TEAM_WORKFLOW.md` is unchanged.
 - Status: accepted 2026-10-24 by the project owner (Aarit), as a one-time exception.
 
+## D-020 — One-time owner exception: M3 selection/focus PR merged without the normal independent review
+- Date: 2026-10-24
+- Decision: **a documented, one-PR-only exception to `TEAM_WORKFLOW.md`** ("Pull requests need one reviewer from another area and passing tests"). The M3 PR (branch `integration/m3-selection-focus`: thin selection outline, camera follow of the focused body, Focused badge) may be merged by project-owner decision **without** a recorded independent review. **No independent review was recorded or occurred**, and the implementing AI session did not review its own PR.
+- Authorization: the project owner (Aarit), as the only person currently implementing and integrating, authorized proceeding without waiting for teammate reviews, with each exception recorded one PR at a time. This entry covers the M3 PR only and takes effect only if the owner merges it.
+- Evidence instead of review (author's own checks, not independent): `tsc` clean, `vitest` 165 passed, `npm run build` OK, backend `pytest` 259 passed, a manual real-browser pass (details and gaps in `STATUS.md`), and GitHub CI on the exact head.
+- Conditions: CI must pass on the exact PR head being merged, checked immediately before merging; normal GitHub merge commit; no direct push to `main`, no force-push.
+- Scope of the exception: **the M3 PR only.** It does not extend D-014 to D-019 and does not change, waive or weaken the review requirement for any other or future PR. `TEAM_WORKFLOW.md` is unchanged.
+- Status: accepted 2026-10-24 by the project owner (Aarit), as a one-time exception.
+
 ## D-021 — Reads never wait for a running step; mutations wait a bounded time (HTTP 503 "busy")
 - Date: 2026-10-24
 - Status: **accepted 2026-10-24 by the project owner (Aarit)**, who verified the change and directed the merge of PR #10. **No independent review occurred**: this is a one-PR-only owner exception for PR #10, it does not extend any earlier exception and does not weaken the review requirement for any other PR. (D-020 is reserved by the open M3 PR #9; this entry deliberately took the next number.)

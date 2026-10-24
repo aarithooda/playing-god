@@ -21,6 +21,8 @@ interface BodyInspectorProps {
   onDelete: (id: string) => Promise<ActionResult>;
   onFocus: (id: string) => void;
   onClose?: () => void;
+  /** The camera is currently following this body. */
+  focused?: boolean;
 }
 
 /**
@@ -31,7 +33,7 @@ interface BodyInspectorProps {
  * confirmed (live) backend value. Saving sends a PATCH and clears the draft; the shown values then come
  * from the refreshed authoritative state, never from the draft.
  */
-export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDelete, onFocus, onClose }) => {
+export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDelete, onFocus, onClose, focused = false }) => {
   const panelRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState<Partial<FormValues>>({});
   const [errors, setErrors] = useState<FieldErrors>({});
@@ -86,6 +88,18 @@ export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDe
     <div ref={panelRef} style={{ ...panelStyle, width: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '12px' }}>
         <h3 style={{ margin: 0, fontSize: '16px' }}>Body Inspector</h3>
+        {focused && (
+          <span
+            data-testid="focused-badge"
+            title="The camera is following this body"
+            style={{
+              marginRight: 'auto', fontSize: '10px', letterSpacing: 1, textTransform: 'uppercase',
+              color: theme.accent, border: `1px solid ${theme.accent}`, borderRadius: '3px', padding: '1px 5px',
+            }}
+          >
+            Focused
+          </span>
+        )}
         <button
           type="button"
           aria-label="Close body inspector"
