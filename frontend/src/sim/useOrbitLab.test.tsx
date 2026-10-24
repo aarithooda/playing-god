@@ -59,6 +59,37 @@ describe("useOrbitLab", () => {
     expect(onChanged).not.toHaveBeenCalled();
   });
 
+  it("no success before backend confirmation", async () => {
+    let finish!: () => void;
+    const gate = new Promise<void>((r) => (finish = r));
+    let state = experiment();
+    const onChanged = vi.fn();
+    const client = fakeClient({
+      listExperiments: async () => [state],
+      createModifiedRun: async (_e: string, req: any) => {
+        await gate; // the backend has not answered yet
+        state = experiment({ modifiedUniverseId: "uni-mod", modification: modificationOf(req.speedFactor) });
+        return state;
+      },
+    });
+    const { result } = renderHook(() => useOrbitLab(client, onChanged));
+    await flush();
+    let pending!: Promise<unknown>;
+    await act(async () => {
+      pending = result.current.createModifiedRun("exp-1", 1.1, false);
+    });
+    expect(result.current.busy).toBe(true);
+    expect(result.current.experimentById("exp-1")?.modifiedUniverseId).toBeNull(); // nothing is shown as created
+    expect(onChanged).not.toHaveBeenCalled();
+    await act(async () => {
+      finish();
+      await pending;
+    });
+    expect(result.current.experimentById("exp-1")?.modifiedUniverseId).toBe("uni-mod");
+    expect(result.current.busy).toBe(false);
+    expect(onChanged).toHaveBeenCalledTimes(1);
+  });
+
   it("creates the modified run with the chosen factor and body, and replaces only when asked to", async () => {
     let state = experiment();
     const createModifiedRun = vi.fn(async (_e: string, req: any) => ((state = experiment({ modifiedUniverseId: "uni-mod", modification: modificationOf(req.speedFactor) })), state));

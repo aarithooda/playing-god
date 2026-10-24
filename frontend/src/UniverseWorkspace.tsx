@@ -57,6 +57,9 @@ export interface UniverseWorkspaceProps {
   /** Switching universes is blocked (a write is pending). */
   switchDisabled: boolean;
   onActivateUniverse: (universeId: string) => void;
+  /** The simulation speed is a user preference that survives a universe switch, so App owns it. */
+  speedExp: number;
+  onSpeedExpChange: (exp: number) => void;
   sidebars: SidebarState;
   setSidebars: Dispatch<SetStateAction<SidebarState>>;
   windowWidth: number;
@@ -72,7 +75,11 @@ const BASELINE_LOCK = "The Orbit Lab baseline is an immutable reference: its bod
 
 export function UniverseWorkspace(props: UniverseWorkspaceProps) {
   const { client, universe, sidebars, setSidebars, windowWidth, showAxes, showGrid } = props;
-  const simulation = useSimulation(client, { onScopeInvalid: props.onScopeInvalid });
+  const simulation = useSimulation(client, {
+    onScopeInvalid: props.onScopeInvalid,
+    initialSpeedExp: props.speedExp,
+    onSpeedExpChange: props.onSpeedExpChange,
+  });
   const { sim, loadStatus } = simulation;
 
   const [selectedBodyId, setSelectedBodyId] = useState<string | undefined>(undefined);
@@ -362,6 +369,7 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
         {props.universePanel}
         <OrbitLabPanel
           systems={orbitLab.systems}
+          systemsLoaded={orbitLab.systemsLoaded}
           experiment={experiment}
           experiments={orbitLab.experiments}
           activeUniverseId={client.scope.universeId}

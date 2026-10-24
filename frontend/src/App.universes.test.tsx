@@ -280,3 +280,18 @@ describe("destructive actions are confirmed", () => {
     expect(within(activeRow).queryByRole("button", { name: "Delete" })).toBeNull();
   });
 });
+
+describe("user preferences survive a switch", () => {
+  it("the simulation speed is kept when the universe changes", async () => {
+    render(<App />);
+    await screen.findByText("Simulation");
+    const slider = () => screen.getByLabelText(/Sim Speed/) as HTMLInputElement;
+    fireEvent.change(slider(), { target: { value: "6.5" } });
+    expect(slider().value).toBe("6.5");
+    fireEvent.click(screen.getByRole("button", { name: "Switch to Solar" }));
+    await waitFor(() => expect(screen.getByTestId("universe-badge").textContent).toBe("Solar"));
+    await screen.findByText(/Sim time/);
+    expect(slider().value).toBe("6.5");
+  });
+});
+

@@ -42,6 +42,7 @@ export default function App() {
   const [showAxes, setShowAxes] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
   const [writePending, setWritePending] = useState(false);
+  const [speedExp, setSpeedExp] = useState(5); // log10 simulated seconds per step; kept across universe switches
 
   const { scope, refresh } = universes;
   const scopedClient = useMemo(
@@ -115,6 +116,8 @@ export default function App() {
       apiClient={client}
       switchDisabled={switchDisabled}
       onActivateUniverse={(id) => void universes.activate(id)}
+      speedExp={speedExp}
+      onSpeedExpChange={setSpeedExp}
       sidebars={sidebars}
       setSidebars={setSidebars}
       windowWidth={windowWidth}

@@ -13,6 +13,7 @@ function messageOf(e: unknown): string {
 
 export function useOrbitLab(client: ApiClient, onChanged: () => void | Promise<void>) {
   const [systems, setSystems] = useState<OrbitLabSystemDto[]>([]);
+  const [systemsLoaded, setSystemsLoaded] = useState(false);
   const [experiments, setExperiments] = useState<ExperimentDto[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -36,8 +37,8 @@ export function useOrbitLab(client: ApiClient, onChanged: () => void | Promise<v
     mounted.current = true;
     client
       .listOrbitLabSystems()
-      .then((s) => mounted.current && setSystems(s))
-      .catch((e) => mounted.current && setError(messageOf(e)));
+      .then((s) => mounted.current && (setSystems(s), setSystemsLoaded(true)))
+      .catch((e) => mounted.current && (setError(messageOf(e)), setSystemsLoaded(true)));
     void refresh();
     return () => {
       mounted.current = false;
@@ -77,6 +78,7 @@ export function useOrbitLab(client: ApiClient, onChanged: () => void | Promise<v
 
   return {
     systems,
+    systemsLoaded,
     experiments,
     error,
     busy,

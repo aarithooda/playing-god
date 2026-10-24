@@ -56,6 +56,14 @@ describe("OrbitLabPanel before an experiment", () => {
     expect(h.onActivate).toHaveBeenCalledWith("uni-base");
   });
 
+  it("says it is loading, not that there is no system, until the backend answered", () => {
+    const { rerender } = render(<OrbitLabPanel {...base} {...handlers()} systems={[]} systemsLoaded={false} experiment={undefined} experiments={[]} />);
+    expect(screen.getByText("Loading Orbit Lab…")).toBeTruthy();
+    expect(screen.queryByText(/offers no Orbit Lab system/)).toBeNull();
+    rerender(<OrbitLabPanel {...base} {...handlers()} systems={[]} systemsLoaded experiment={undefined} experiments={[]} />);
+    expect(screen.getByText(/offers no Orbit Lab system/)).toBeTruthy();
+  });
+
   it("shows nothing but a hint when the backend offers no system", () => {
     render(<OrbitLabPanel {...base} {...handlers()} systems={[]} experiment={undefined} experiments={[]} />);
     expect(screen.queryByRole("button", { name: "Start Experiment 01" })).toBeNull();

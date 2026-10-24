@@ -38,6 +38,8 @@ export interface SimulationOptions {
   onScopeInvalid?: (error: ApiError) => void;
   /** True while a non-step write (edit, create, delete, reset) is in flight: the universe must not be switched. */
   onBusyWriteChange?: (pending: boolean) => void;
+  /** The simulation-speed slider moved (so the owner can keep it across a universe switch). */
+  onSpeedExpChange?: (exp: number) => void;
 }
 
 const SCOPE_INVALID_CODES = ["stale_activation", "universe_not_active", "deactivated_during_step"];
@@ -75,7 +77,11 @@ export function useSimulation(client: SimulationClient, options: SimulationOptio
   const [health, setHealth] = useState<Health>("unknown");
   const [playing, setPlaying] = useState(false);
   const [stepping, setStepping] = useState(false);
-  const [speedExp, setSpeedExp] = useState(options.initialSpeedExp ?? 5);
+  const [speedExp, setSpeedExpState] = useState(options.initialSpeedExp ?? 5);
+  const setSpeedExp = useCallback((exp: number) => {
+    setSpeedExpState(exp);
+    onSpeedRef.current?.(exp);
+  }, []);
   /** Bumped when the set of bodies changes through a user action (load/create/delete/reset). */
   const [layoutEpoch, setLayoutEpoch] = useState(0);
 
@@ -85,6 +91,8 @@ export function useSimulation(client: SimulationClient, options: SimulationOptio
   onScopeInvalidRef.current = options.onScopeInvalid;
   const onBusyRef = useRef(options.onBusyWriteChange);
   onBusyRef.current = options.onBusyWriteChange;
+  const onSpeedRef = useRef(options.onSpeedExpChange);
+  onSpeedRef.current = options.onSpeedExpChange;
 
   const mounted = useRef(false);
   const tail = useRef<Promise<unknown>>(Promise.resolve());

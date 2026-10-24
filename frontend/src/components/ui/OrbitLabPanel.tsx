@@ -6,6 +6,8 @@ import { theme } from './theme';
 
 interface OrbitLabPanelProps {
   systems: readonly OrbitLabSystemDto[];
+  /** False until the backend answered the systems request (so "no system" is never claimed while loading). */
+  systemsLoaded?: boolean;
   /** The experiment the active universe belongs to, if any. */
   experiment: ExperimentDto | undefined;
   /** Every experiment the backend holds (so a reload does not lose them). */
@@ -38,7 +40,7 @@ const mono: React.CSSProperties = { fontFamily: theme.mono, fontSize: 11 };
  * reported; a run is shown as created only after the backend confirmed it.
  */
 export const OrbitLabPanel: React.FC<OrbitLabPanelProps> = ({
-  systems, experiment, experiments, activeUniverseId, busy, error, switchDisabled,
+  systems, systemsLoaded = true, experiment, experiments, activeUniverseId, busy, error, switchDisabled,
   onStart, onCreateRun, onActivate, onDelete, onDismissError, getInitialDifferences,
 }) => {
   const [factor, setFactor] = useState<number | null>(null);
@@ -83,7 +85,9 @@ export const OrbitLabPanel: React.FC<OrbitLabPanelProps> = ({
             </button>
           </>
         ) : (
-          <p style={{ margin: 0, fontSize: 12, color: theme.textMuted }}>The backend offers no Orbit Lab system.</p>
+          <p style={{ margin: 0, fontSize: 12, color: theme.textMuted }}>
+            {systemsLoaded ? 'The backend offers no Orbit Lab system.' : 'Loading Orbit Lab…'}
+          </p>
         )}
         {experiments.length > 0 && (
           <div style={rowStyle}>
