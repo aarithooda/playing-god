@@ -1,0 +1,196 @@
+{
+  "retrievedUtc": "2026-10-24T05:53:13Z",
+  "api": "https://ssd.jpl.nasa.gov/api/horizons.api",
+  "parameters": {
+    "format": "json",
+    "MAKE_EPHEM": "YES",
+    "EPHEM_TYPE": "VECTORS",
+    "CENTER": "500@0",
+    "REF_PLANE": "ECLIPTIC",
+    "REF_SYSTEM": "ICRF",
+    "VEC_TABLE": "2",
+    "VEC_CORR": "NONE",
+    "OUT_UNITS": "KM-S",
+    "TIME_TYPE": "TDB",
+    "CSV_FORMAT": "YES",
+    "OBJ_DATA": "NO",
+    "COMMAND": "<target>",
+    "TLIST": "<jd>"
+  },
+  "files": {
+    "10_2451545.0.txt": {
+      "target": "10",
+      "jdTdb": 2451545.0,
+      "sourceLine": "Target body name: Sun (10)                        {source: DE441}",
+      "sha256": "01dd25da43620227a4ba54575662a44aa7c6c0db91391e791c9f0d1f645e1205"
+    },
+    "10_2451910.25.txt": {
+      "target": "10",
+      "jdTdb": 2451910.25,
+      "sourceLine": "Target body name: Sun (10)                        {source: DE441}",
+      "sha256": "69ea4d52e3db49171cf0c4590c5380963c2f77a5f9204cc2978841a957d8f7cd"
+    },
+    "10_2452275.5.txt": {
+      "target": "10",
+      "jdTdb": 2452275.5,
+      "sourceLine": "Target body name: Sun (10)                        {source: DE441}",
+      "sha256": "d7f10494d4a77f632d01df635b459e15d12754efcedb57e53e0e7a1298a1ea1d"
+    },
+    "199_2451545.0.txt": {
+      "target": "199",
+      "jdTdb": 2451545.0,
+      "sourceLine": "Target body name: Mercury (199)                   {source: DE441}",
+      "sha256": "a11386677fbc0f45d6508d7f5b4fc6ef9db68c9374ae5fe57ecaa36ee4f9bd09"
+    },
+    "199_2451910.25.txt": {
+      "target": "199",
+      "jdTdb": 2451910.25,
+      "sourceLine": "Target body name: Mercury (199)                   {source: DE441}",
+      "sha256": "8f6efc4bf144a62229a50336161d94815713dacb65fef5bba739592f7b82e4af"
+    },
+    "199_2452275.5.txt": {
+      "target": "199",
+      "jdTdb": 2452275.5,
+      "sourceLine": "Target body name: Mercury (199)                   {source: DE441}",
+      "sha256": "b2a96be0f03bdb4ec81ec7ea55af4fc6938cff7ea9953adee5898ae4540d6696"
+    },
+    "299_2451545.0.txt": {
+      "target": "299",
+      "jdTdb": 2451545.0,
+      "sourceLine": "Target body name: Venus (299)                     {source: DE441}",
+      "sha256": "5930ba1eb00d616af13a524feab470530dba67e2a692267a4812e53b1593b4f3"
+    },
+    "299_2451910.25.txt": {
+      "target": "299",
+      "jdTdb": 2451910.25,
+      "sourceLine": "Target body name: Venus (299)                     {source: DE441}",
+      "sha256": "ee461c24ba65ac7e48f93cf71706764c76a63b0b8f665e25633eadd13acb1c8c"
+    },
+    "299_2452275.5.txt": {
+      "target": "299",
+      "jdTdb": 2452275.5,
+      "sourceLine": "Target body name: Venus (299)                     {source: DE441}",
+      "sha256": "e71a23a8ffa5b8e530e5539994cbf60b1c7298f2353f0eb84daf0149b787095a"
+    },
+    "3_2451545.0.txt": {
+      "target": "3",
+      "jdTdb": 2451545.0,
+      "sourceLine": "Target body name: Earth-Moon Barycenter (3)       {source: DE441}",
+      "sha256": "b223325048fba07db7d023a55e8d200c87c503acd5d144a0b89b460f96e15cdb"
+    },
+    "3_2451910.25.txt": {
+      "target": "3",
+      "jdTdb": 2451910.25,
+      "sourceLine": "Target body name: Earth-Moon Barycenter (3)       {source: DE441}",
+      "sha256": "a63a9954a2d230f48a41db42521d9c2984356cb0d4100d674bd31941ef48b2a0"
+    },
+    "3_2452275.5.txt": {
+      "target": "3",
+      "jdTdb": 2452275.5,
+      "sourceLine": "Target body name: Earth-Moon Barycenter (3)       {source: DE441}",
+      "sha256": "634dc2cb768a54835448d64e11b295c8fe912b4c7044356c4275bdbbda067195"
+    },
+    "4_2451545.0.txt": {
+      "target": "4",
+      "jdTdb": 2451545.0,
+      "sourceLine": "Target body name: Mars Barycenter (4)             {source: DE441}",
+      "sha256": "4232b6b13cfd7a5c04ff655895ce3de7554f00b3244b9fd70aaf8d9810a7abac"
+    },
+    "4_2451910.25.txt": {
+      "target": "4",
+      "jdTdb": 2451910.25,
+      "sourceLine": "Target body name: Mars Barycenter (4)             {source: DE441}",
+      "sha256": "ba2e3f56195a9b402782b08f11f8b93e29f026be92430ac63431f294c7b858aa"
+    },
+    "4_2452275.5.txt": {
+      "target": "4",
+      "jdTdb": 2452275.5,
+      "sourceLine": "Target body name: Mars Barycenter (4)             {source: DE441}",
+      "sha256": "a173a052900f74e355f5c01cf0bc12f2a0ad3c510dfb9f1af8de56843254ffbe"
+    },
+    "5_2451545.0.txt": {
+      "target": "5",
+      "jdTdb": 2451545.0,
+      "sourceLine": "Target body name: Jupiter Barycenter (5)          {source: DE441}",
+      "sha256": "3e8411b2a7e8b5a3fe3203f78f11d18ee38c77a18446e27114f909b1d757b67e"
+    },
+    "5_2451910.25.txt": {
+      "target": "5",
+      "jdTdb": 2451910.25,
+      "sourceLine": "Target body name: Jupiter Barycenter (5)          {source: DE441}",
+      "sha256": "8886cc5539a9eb6b885b5eafdf3def70a9297aedf98d80f06c55f4fd4fb70f4e"
+    },
+    "5_2452275.5.txt": {
+      "target": "5",
+      "jdTdb": 2452275.5,
+      "sourceLine": "Target body name: Jupiter Barycenter (5)          {source: DE441}",
+      "sha256": "68882d91291b4a63b7822f611bfb5c81c400f1d026aa0d697d5de8396972211e"
+    },
+    "6_2451545.0.txt": {
+      "target": "6",
+      "jdTdb": 2451545.0,
+      "sourceLine": "Target body name: Saturn Barycenter (6)           {source: DE441}",
+      "sha256": "cfb0b6aac6e6d2d862cdf6e288fa55efb1ed2e6c87fddb253470c9b1e027a9e1"
+    },
+    "6_2451910.25.txt": {
+      "target": "6",
+      "jdTdb": 2451910.25,
+      "sourceLine": "Target body name: Saturn Barycenter (6)           {source: DE441}",
+      "sha256": "ec07fa40cce659430237aa398817639e37c314619ed4d0015c1ab9f85541bed6"
+    },
+    "6_2452275.5.txt": {
+      "target": "6",
+      "jdTdb": 2452275.5,
+      "sourceLine": "Target body name: Saturn Barycenter (6)           {source: DE441}",
+      "sha256": "b046267105bd59bfff92870a5a8cd7fe12ad2e132d22abdb288e5724e3b0aec1"
+    },
+    "7_2451545.0.txt": {
+      "target": "7",
+      "jdTdb": 2451545.0,
+      "sourceLine": "Target body name: Uranus Barycenter (7)           {source: DE441}",
+      "sha256": "cb615791aaa965d1721ff70c4bf386ece84f20dcce67cc67645d84d75588673f"
+    },
+    "7_2451910.25.txt": {
+      "target": "7",
+      "jdTdb": 2451910.25,
+      "sourceLine": "Target body name: Uranus Barycenter (7)           {source: DE441}",
+      "sha256": "0f524882cd079d9916d11bb3c5262f9b87a96c1c6199e76a3d58cfdebb871482"
+    },
+    "7_2452275.5.txt": {
+      "target": "7",
+      "jdTdb": 2452275.5,
+      "sourceLine": "Target body name: Uranus Barycenter (7)           {source: DE441}",
+      "sha256": "2b4ce872622d7a8ffff11b05efe36fbe3563efe3036daa6a638e1dd4cbecb5f7"
+    },
+    "8_2451545.0.txt": {
+      "target": "8",
+      "jdTdb": 2451545.0,
+      "sourceLine": "Target body name: Neptune Barycenter (8)          {source: DE441}",
+      "sha256": "0c093e9900d374deeef966039f63b55b7257d77f0301657f0207aa349c323a3a"
+    },
+    "8_2451910.25.txt": {
+      "target": "8",
+      "jdTdb": 2451910.25,
+      "sourceLine": "Target body name: Neptune Barycenter (8)          {source: DE441}",
+      "sha256": "a4af9ab040d2d10f61d4fe1f2e0e51df6d98e6567fadec468923445e2b3dfc69"
+    },
+    "8_2452275.5.txt": {
+      "target": "8",
+      "jdTdb": 2452275.5,
+      "sourceLine": "Target body name: Neptune Barycenter (8)          {source: DE441}",
+      "sha256": "e4710fb5ebf52f8b455517068783752e72af50193fd57f32403266cd89c4964f"
+    },
+    "399_2451545.0.txt": {
+      "target": "399",
+      "jdTdb": 2451545.0,
+      "sourceLine": "Target body name: Earth (399)                     {source: DE441}",
+      "sha256": "2f4fcb326daa61e06b5347a24d77a8d0cd9091829a571b277ebbcdedfa95d36a"
+    },
+    "301_2451545.0.txt": {
+      "target": "301",
+      "jdTdb": 2451545.0,
+      "sourceLine": "Target body name: Moon (301)                      {source: DE441}",
+      "sha256": "42e74b43180632a045784b3e57b6e066d5d10f0ddbf87eba108ed98d1cc9be9c"
+    }
+  }
+}

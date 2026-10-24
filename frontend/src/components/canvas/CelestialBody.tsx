@@ -4,7 +4,7 @@ import { Outlines, Sphere } from '@react-three/drei';
 import { Group, PerspectiveCamera, DoubleSide, BackSide } from 'three';
 import { bodyDisplayScale } from '../../sim/bodyVisibility';
 import { useCelestialMaterial } from './CelestialMaterial';
-import type { BodyType } from '../../api/types';
+import type { BodyKind, BodyType } from '../../api/types';
 
 /** Selected-body silhouette: constant on-screen width (CSS px), whatever the body's size or the zoom. */
 export const SELECTION_OUTLINE_PX = 1.5;
@@ -14,6 +14,8 @@ interface CelestialBodyProps {
   position: [number, number, number];
   radius: number;
   color: string;
+  /** Stars glow; planets are lit by the scene. */
+  kind?: BodyKind;
   name: string;
   bodyType?: BodyType;
   assetKey?: string;
@@ -26,6 +28,7 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
   position,
   radius,
   color,
+  kind,
   name,
   bodyType = 'default',
   assetKey,

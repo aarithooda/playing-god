@@ -3,13 +3,28 @@
 import { ApiError } from "./errors";
 import { DIAGNOSTICS_VERSION } from "./types";
 import type {
+  ActivationDto,
   BodyDto,
   BodyType,
+  CatalogueDto,
+  CataloguePropertyDto,
+  ComparisonDto,
+  ExperimentDto,
+  InitialDifferencesDto,
+  ModificationDto,
+  OrbitLabSystemDto,
+  UniverseProvenanceDto,
+  Vec3Tuple,
   DiagnosticsDto,
   EventListDto,
+  HistoryPageDto,
+  PresetSummaryDto,
   SimulationEventDto,
   SimulationStateDto,
+  SnapshotSummaryDto,
   StepResponseDto,
+  UniverseListDto,
+  UniverseSummaryDto,
   Vec3,
 } from "./types";
 
@@ -107,6 +122,9 @@ export function parseBodyDto(v: unknown): BodyDto {
     positionM: vec3(o.positionM, "body.positionM"),
     velocityMPerS: vec3(o.velocityMPerS, "body.velocityMPerS"),
     colorHex: str(o.colorHex, "body.colorHex"),
+    // Older backends send neither field: a body without a kind is a planet.
+    kind: o.kind === "star" ? "star" : "planet",
+    catalogueEntryId: typeof o.catalogueEntryId === "string" ? o.catalogueEntryId : null,
     ...(bodyType === undefined ? {} : { bodyType }),
     ...(assetKey === undefined ? {} : { assetKey }),
   };
@@ -122,6 +140,8 @@ export function parseStateDto(v: unknown): SimulationStateDto {
     simulationTimeS: num(o.simulationTimeS, "state.simulationTimeS"),
     bodies: (o.bodies as unknown[]).map(parseBodyDto),
     ...parseDiagnosticsLenient(o.diagnostics),
+    ...(typeof o.universeId === "string" ? { universeId: o.universeId } : {}),
+    ...(typeof o.revision === "number" && Number.isFinite(o.revision) ? { revision: o.revision } : {}),
   };
 }
 
@@ -160,5 +180,364 @@ export function parseStepResponse(v: unknown): StepResponseDto {
     ...state,
     advancedS: num(o.advancedS, "step.advancedS"),
     events: (o.events as unknown[]).map(parseEventDto),
+  };
+}
+
+// ---------- Simulation Lab ----------
+function bool(v: unknown, what: string): boolean {
+  if (typeof v !== "boolean") bad(what);
+  return v;
+}
+
+function strOrNull(v: unknown, what: string): string | null {
+  return v === null || v === undefined ? null : str(v, what);
+}
+
+export function parseUniverseSummary(v: unknown): UniverseSummaryDto {
+  const o = obj(v, "universe");
+  const role = o.role;
+  if (role !== "sandbox" && role !== "preset" && role !== "baseline" && role !== "modified") bad("universe.role");
+  const lf = o.lastFailure;
+  return {
+    id: str(o.id, "universe.id"),
+    name: str(o.name, "universe.name"),
+    role,
+    presetId: strOrNull(o.presetId, "universe.presetId"),
+    experimentId: strOrNull(o.experimentId, "universe.experimentId"),
+    active: bool(o.active, "universe.active"),
+    simulationTimeS: num(o.simulationTimeS, "universe.simulationTimeS"),
+    bodyCount: num(o.bodyCount, "universe.bodyCount"),
+    revision: num(o.revision, "universe.revision"),
+    status: o.status === "mutating" ? "mutating" : "idle",
+    lastFailure:
+      lf === null || lf === undefined
+        ? null
+        : (() => {
+            const f = obj(lf, "universe.lastFailure");
+            return {
+              kind: str(f.kind, "lastFailure.kind"),
+              message: str(f.message, "lastFailure.message"),
+              atSimulationTimeS: num(f.atSimulationTimeS, "lastFailure.atSimulationTimeS"),
+              atIso: str(f.atIso, "lastFailure.atIso"),
+            };
+          })(),
+    createdAtIso: str(o.createdAtIso, "universe.createdAtIso"),
+    epochLabel: strOrNull(o.epochLabel, "universe.epochLabel"),
+    historyMode: o.historyMode === "grid" ? "grid" : "step",
+  };
+}
+
+export function parseUniverseList(v: unknown): UniverseListDto {
+  const o = obj(v, "universes");
+  if (!Array.isArray(o.universes)) bad("universes.universes");
+  return {
+    universes: (o.universes as unknown[]).map(parseUniverseSummary),
+    activeUniverseId: str(o.activeUniverseId, "universes.activeUniverseId"),
+    activationEpoch: num(o.activationEpoch, "universes.activationEpoch"),
+  };
+}
+
+export function parseActivation(v: unknown): ActivationDto {
+  const o = obj(v, "activation");
+  return {
+    activeUniverseId: str(o.activeUniverseId, "activation.activeUniverseId"),
+    activationEpoch: num(o.activationEpoch, "activation.activationEpoch"),
+  };
+}
+
+export function parsePresetList(v: unknown): PresetSummaryDto[] {
+  const o = obj(v, "presets");
+  if (!Array.isArray(o.presets)) bad("presets.presets");
+  return (o.presets as unknown[]).map((p) => {
+    const q = obj(p, "preset");
+    return {
+      id: str(q.id, "preset.id"),
+      name: str(q.name, "preset.name"),
+      description: typeof q.description === "string" ? q.description : "",
+      available: bool(q.available, "preset.available"),
+      unavailableReason: strOrNull(q.unavailableReason, "preset.unavailableReason"),
+      bodyCount: typeof q.bodyCount === "number" ? q.bodyCount : 0,
+      epochLabel: strOrNull(q.epochLabel, "preset.epochLabel"),
+    };
+  });
+}
+
+export function parseSnapshotSummary(v: unknown): SnapshotSummaryDto {
+  const o = obj(v, "snapshot");
+  return {
+    id: str(o.id, "snapshot.id"),
+    name: str(o.name, "snapshot.name"),
+    createdAtIso: str(o.createdAtIso, "snapshot.createdAtIso"),
+    simulationTimeS: num(o.simulationTimeS, "snapshot.simulationTimeS"),
+    bodyCount: num(o.bodyCount, "snapshot.bodyCount"),
+    revision: num(o.revision, "snapshot.revision"),
+    controlled: bool(o.controlled, "snapshot.controlled"),
+  };
+}
+
+export function parseSnapshotList(v: unknown): SnapshotSummaryDto[] {
+  const o = obj(v, "snapshots");
+  if (!Array.isArray(o.snapshots)) bad("snapshots.snapshots");
+  return (o.snapshots as unknown[]).map(parseSnapshotSummary);
+}
+
+export function parseHistoryPage(v: unknown): HistoryPageDto {
+  const o = obj(v, "history");
+  if (o.mode !== "grid" && o.mode !== "step") bad("history.mode");
+  if (!Array.isArray(o.samples)) bad("history.samples");
+  const bodies: HistoryPageDto["bodies"] = {};
+  for (const [id, m] of Object.entries(obj(o.bodies, "history.bodies"))) {
+    const b = obj(m, "history.bodies[]");
+    bodies[id] = {
+      name: str(b.name, "history.body.name"),
+      colorHex: str(b.colorHex, "history.body.colorHex"),
+      radiusM: num(b.radiusM, "history.body.radiusM"),
+      kind: str(b.kind, "history.body.kind"),
+    };
+  }
+  return {
+    universeId: str(o.universeId, "history.universeId"),
+    mode: o.mode,
+    sampleIntervalS:
+      o.sampleIntervalS === null || o.sampleIntervalS === undefined ? null : num(o.sampleIntervalS, "history.sampleIntervalS"),
+    generation: num(o.generation, "history.generation"),
+    firstIndex: num(o.firstIndex, "history.firstIndex"),
+    nextIndex: num(o.nextIndex, "history.nextIndex"),
+    droppedBefore: num(o.droppedBefore, "history.droppedBefore"),
+    truncated: bool(o.truncated, "history.truncated"),
+    samples: (o.samples as unknown[]).map((s) => {
+      const q = obj(s, "history.sample");
+      const positions: Record<string, [number, number, number]> = {};
+      for (const [id, p] of Object.entries(obj(q.positionsM, "history.sample.positionsM"))) {
+        if (!Array.isArray(p) || p.length !== 3) bad("history.sample.positionsM[]");
+        positions[id] = [num(p[0], "x"), num(p[1], "y"), num(p[2], "z")];
+      }
+      return {
+        index: num(q.index, "sample.index"),
+        simulationTimeS: num(q.simulationTimeS, "sample.simulationTimeS"),
+        segment: num(q.segment, "sample.segment"),
+        positionsM: positions,
+      };
+    }),
+    bodies,
+  };
+}
+
+// ---------- Catalogue ----------
+function parseCatalogueProperty(v: unknown, what: string): CataloguePropertyDto {
+  const o = obj(v, what);
+  const basis = o.basis;
+  if (basis !== "measured" && basis !== "nominal" && basis !== "estimated" && basis !== "illustrative") bad(`${what}.basis`);
+  const u = o.uncertainty;
+  let uncertainty: CataloguePropertyDto["uncertainty"] = null;
+  if (u !== null && u !== undefined) {
+    const q = obj(u, `${what}.uncertainty`);
+    if (Array.isArray(q.range)) uncertainty = { range: [num(q.range[0], `${what}.range[0]`), num(q.range[1], `${what}.range[1]`)] };
+    else uncertainty = { minus: num(q.minus, `${what}.minus`), plus: num(q.plus, `${what}.plus`) };
+  }
+  if (!Array.isArray(o.sources)) bad(`${what}.sources`);
+  return {
+    value: num(o.value, `${what}.value`),
+    uncertainty,
+    basis,
+    sourceValue: str(o.sourceValue, `${what}.sourceValue`),
+    conversion: str(o.conversion, `${what}.conversion`),
+    sources: (o.sources as unknown[]).map((s) => {
+      const q = obj(s, `${what}.source`);
+      return { citation: str(q.citation, "source.citation"), url: str(q.url, "source.url"), retrieved: str(q.retrieved, "source.retrieved") };
+    }),
+    ...(typeof o.note === "string" ? { note: o.note } : {}),
+  };
+}
+
+export function parseCatalogue(v: unknown): CatalogueDto {
+  const o = obj(v, "catalogue");
+  if (!Array.isArray(o.entries)) bad("catalogue.entries");
+  return {
+    notes: Array.isArray(o.notes) ? (o.notes as unknown[]).map((n) => str(n, "catalogue.notes[]")) : [],
+    entries: (o.entries as unknown[]).map((e) => {
+      const q = obj(e, "catalogue.entry");
+      const props = obj(q.properties, "catalogue.entry.properties");
+      const visual = obj(q.visual, "catalogue.entry.visual");
+      if (q.kind !== "star" && q.kind !== "planet") bad("catalogue.entry.kind");
+      return {
+        id: str(q.id, "entry.id"),
+        name: str(q.name, "entry.name"),
+        kind: q.kind,
+        properties: {
+          massKg: parseCatalogueProperty(props.massKg, "entry.massKg"),
+          radiusM: parseCatalogueProperty(props.radiusM, "entry.radiusM"),
+        },
+        visual: { colorHex: str(visual.colorHex, "entry.colorHex"), note: str(visual.note, "entry.visual.note") },
+        notes: typeof q.notes === "string" ? q.notes : "",
+      };
+    }),
+  };
+}
+
+// ---------- Orbit Lab ----------
+function tuple3(v: unknown, what: string): Vec3Tuple {
+  if (!Array.isArray(v) || v.length !== 3) bad(what);
+  return [num(v[0], `${what}[0]`), num(v[1], `${what}[1]`), num(v[2], `${what}[2]`)];
+}
+
+function numArray(v: unknown, what: string): number[] {
+  if (!Array.isArray(v)) bad(what);
+  return (v as unknown[]).map((x, i) => num(x, `${what}[${i}]`));
+}
+
+export function parseOrbitLabSystem(v: unknown): OrbitLabSystemDto {
+  const o = obj(v, "system");
+  return {
+    id: str(o.id, "system.id"),
+    name: str(o.name, "system.name"),
+    presetId: str(o.presetId, "system.presetId"),
+    bodyIds: (Array.isArray(o.bodyIds) ? o.bodyIds : bad("system.bodyIds")).map((b: unknown) => str(b, "system.bodyIds[]")),
+    selectableBodyIds: (Array.isArray(o.selectableBodyIds) ? o.selectableBodyIds : bad("system.selectableBodyIds")).map((b: unknown) => str(b, "system.selectableBodyIds[]")),
+    speedFactors: numArray(o.speedFactors, "system.speedFactors"),
+    observationWindowS: num(o.observationWindowS, "system.observationWindowS"),
+    sampleIntervalS: num(o.sampleIntervalS, "system.sampleIntervalS"),
+    modelNote: str(o.modelNote, "system.modelNote"),
+    description: typeof o.description === "string" ? o.description : "",
+  };
+}
+
+export function parseOrbitLabSystems(v: unknown): OrbitLabSystemDto[] {
+  const o = obj(v, "systems");
+  if (!Array.isArray(o.systems)) bad("systems.systems");
+  return (o.systems as unknown[]).map(parseOrbitLabSystem);
+}
+
+function parseModification(v: unknown): ModificationDto | null {
+  if (v === null || v === undefined) return null;
+  const o = obj(v, "modification");
+  return {
+    baselineUniverseId: str(o.baselineUniverseId, "modification.baselineUniverseId"),
+    baselineInitialDigest: str(o.baselineInitialDigest, "modification.baselineInitialDigest"),
+    bodyId: str(o.bodyId, "modification.bodyId"),
+    originalVelocityMPerS: tuple3(o.originalVelocityMPerS, "modification.originalVelocityMPerS"),
+    modifiedVelocityMPerS: tuple3(o.modifiedVelocityMPerS, "modification.modifiedVelocityMPerS"),
+    speedFactor: num(o.speedFactor, "modification.speedFactor"),
+    units: str(o.units, "modification.units"),
+    createdAtIso: str(o.createdAtIso, "modification.createdAtIso"),
+  };
+}
+
+export function parseExperiment(v: unknown): ExperimentDto {
+  const o = obj(v, "experiment");
+  const ini = obj(o.initialState, "experiment.initialState");
+  if (!Array.isArray(ini.bodies)) bad("experiment.initialState.bodies");
+  return {
+    id: str(o.id, "experiment.id"),
+    systemId: str(o.systemId, "experiment.systemId"),
+    name: str(o.name, "experiment.name"),
+    createdAtIso: str(o.createdAtIso, "experiment.createdAtIso"),
+    baselineUniverseId: str(o.baselineUniverseId, "experiment.baselineUniverseId"),
+    modifiedUniverseId: strOrNull(o.modifiedUniverseId, "experiment.modifiedUniverseId"),
+    system: parseOrbitLabSystem(o.system),
+    initialState: {
+      epoch: strOrNull(ini.epoch, "initialState.epoch"),
+      jdTdb: ini.jdTdb === null || ini.jdTdb === undefined ? null : num(ini.jdTdb, "initialState.jdTdb"),
+      frame: strOrNull(ini.frame, "initialState.frame"),
+      origin: strOrNull(ini.origin, "initialState.origin"),
+      units: strOrNull(ini.units, "initialState.units"),
+      digest: str(ini.digest, "initialState.digest"),
+      bodies: (ini.bodies as unknown[]).map((b) => {
+        const q = obj(b, "initialState.body");
+        return {
+          id: str(q.id, "body.id"),
+          name: str(q.name, "body.name"),
+          massKg: num(q.massKg, "body.massKg"),
+          radiusM: num(q.radiusM, "body.radiusM"),
+          positionM: tuple3(q.positionM, "body.positionM"),
+          velocityMPerS: tuple3(q.velocityMPerS, "body.velocityMPerS"),
+          speedMPerS: num(q.speedMPerS, "body.speedMPerS"),
+        };
+      }),
+      modelNote: str(ini.modelNote, "initialState.modelNote"),
+    },
+    modification: parseModification(o.modification),
+  };
+}
+
+export function parseExperimentList(v: unknown): ExperimentDto[] {
+  const o = obj(v, "experiments");
+  if (!Array.isArray(o.experiments)) bad("experiments.experiments");
+  return (o.experiments as unknown[]).map(parseExperiment);
+}
+
+export function parseInitialDifferences(v: unknown): InitialDifferencesDto {
+  const o = obj(v, "initial-differences");
+  if (!Array.isArray(o.differences)) bad("differences");
+  return {
+    experimentId: str(o.experimentId, "experimentId"),
+    baselineUniverseId: str(o.baselineUniverseId, "baselineUniverseId"),
+    modifiedUniverseId: str(o.modifiedUniverseId, "modifiedUniverseId"),
+    differences: (o.differences as unknown[]).map((d) => {
+      const q = obj(d, "difference");
+      return { bodyId: str(q.bodyId, "difference.bodyId"), field: str(q.field, "difference.field"), baseline: q.baseline, modified: q.modified };
+    }),
+    configEqual: bool(o.configEqual, "configEqual"),
+  };
+}
+
+export function parseComparison(v: unknown): ComparisonDto {
+  const o = obj(v, "comparison");
+  const run = (r: unknown, what: string) => {
+    const q = obj(r, what);
+    return { universeId: str(q.universeId, `${what}.universeId`), simulationTimeS: num(q.simulationTimeS, `${what}.simulationTimeS`), sampleCount: num(q.sampleCount, `${what}.sampleCount`) };
+  };
+  const points = (p: unknown, what: string): Vec3Tuple[] => {
+    if (!Array.isArray(p)) bad(what);
+    return (p as unknown[]).map((x, i) => tuple3(x, `${what}[${i}]`));
+  };
+  const times = numArray(o.timesS, "comparison.timesS");
+  const baselinePositionM = points(o.baselinePositionM, "comparison.baselinePositionM");
+  const modifiedPositionM = points(o.modifiedPositionM, "comparison.modifiedPositionM");
+  const separationM = numArray(o.separationM, "comparison.separationM");
+  if (![baselinePositionM.length, modifiedPositionM.length, separationM.length].every((n) => n === times.length)) {
+    bad("comparison arrays have different lengths");
+  }
+  if (!Array.isArray(o.issues)) bad("comparison.issues");
+  return {
+    bodyId: str(o.bodyId, "comparison.bodyId"),
+    sampleIntervalS: num(o.sampleIntervalS, "comparison.sampleIntervalS"),
+    observationWindowS: num(o.observationWindowS, "comparison.observationWindowS"),
+    baseline: run(o.baseline, "comparison.baseline"),
+    modified: o.modified === null || o.modified === undefined ? null : run(o.modified, "comparison.modified"),
+    commonSampleCount: num(o.commonSampleCount, "comparison.commonSampleCount"),
+    timesS: times,
+    baselinePositionM,
+    modifiedPositionM,
+    separationM,
+    windowCompleteBoth: bool(o.windowCompleteBoth, "comparison.windowCompleteBoth"),
+    complete: bool(o.complete, "comparison.complete"),
+    issues: (o.issues as unknown[]).map((i) => str(i, "comparison.issues[]")),
+    timesDiffer: bool(o.timesDiffer, "comparison.timesDiffer"),
+    comparedUpToS: o.comparedUpToS === null || o.comparedUpToS === undefined ? null : num(o.comparedUpToS, "comparison.comparedUpToS"),
+    controlled: bool(o.controlled, "comparison.controlled"),
+    firstUncontrolledAtS: o.firstUncontrolledAtS === null || o.firstUncontrolledAtS === undefined ? null : num(o.firstUncontrolledAtS, "comparison.firstUncontrolledAtS"),
+    modification: parseModification(o.modification),
+  };
+}
+
+export function parseProvenance(v: unknown): UniverseProvenanceDto {
+  const o = obj(v, "provenance");
+  return {
+    sourceKind: str(o.sourceKind, "provenance.sourceKind"),
+    controlled: bool(o.controlled, "provenance.controlled"),
+    firstUncontrolledAtS: o.firstUncontrolledAtS === null || o.firstUncontrolledAtS === undefined ? null : num(o.firstUncontrolledAtS, "provenance.firstUncontrolledAtS"),
+    audit: Array.isArray(o.audit)
+      ? (o.audit as unknown[]).map((a) => {
+          const q = obj(a, "audit");
+          return {
+            atSimulationTimeS: num(q.atSimulationTimeS, "audit.atSimulationTimeS"),
+            op: str(q.op, "audit.op"),
+            bodyId: str(q.bodyId, "audit.bodyId"),
+            physical: bool(q.physical, "audit.physical"),
+            changes: typeof q.changes === "object" && q.changes !== null ? (q.changes as Record<string, unknown>) : {},
+          };
+        })
+      : [],
   };
 }

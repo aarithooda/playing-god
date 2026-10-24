@@ -1,4 +1,5 @@
 import React from 'react';
+import type { BodyKind } from '../../api/types';
 import type { FieldErrors, FieldKey, FormValues } from '../../sim/validation';
 import { displayRadiusUnits } from '../../sim/renderTransform';
 import { btnStyle, errorTextStyle, fieldGroup, inputStyle, labelStyle } from './styles';
@@ -10,6 +11,11 @@ interface BodyFieldsProps {
   idPrefix: string;
   onPickPosition?: () => void;
   isPickingPosition?: boolean;
+  /** When given, a "Type" (star / planet) selector is shown. `kind` is the physics role, not the renderer's bodyType. */
+  kind?: BodyKind;
+  onKindChange?: (kind: BodyKind) => void;
+  /** The radius actually drawn in the scene (after the crowding adjustment); when it is smaller than the nominal one the readout says so. */
+  drawnRadiusUnits?: number;
 }
 
 const SCALARS: Array<{ key: FieldKey; label: string }> = [
@@ -21,7 +27,7 @@ const VECTORS: Array<{ label: string; keys: [FieldKey, FieldKey, FieldKey] }> = 
   { label: 'Velocity (m/s): X, Y, Z', keys: ['vx', 'vy', 'vz'] },
 ];
 
-export const BodyFields: React.FC<BodyFieldsProps> = ({ values, errors, onChange, idPrefix, onPickPosition, isPickingPosition = false }) => (
+export const BodyFields: React.FC<BodyFieldsProps> = ({ values, errors, onChange, idPrefix, onPickPosition, isPickingPosition = false, kind, onKindChange, drawnRadiusUnits }) => (
   <>
     <fieldset style={sectionStyle}>
       <legend style={sectionTitleStyle}>Identity and appearance</legend>
@@ -32,6 +38,16 @@ export const BodyFields: React.FC<BodyFieldsProps> = ({ values, errors, onChange
           onChange={(e) => onChange('name', e.target.value)} />
         {errors.name && <span id={idPrefix + '-name-error'} role="alert" style={errorTextStyle}>{errors.name}</span>}
       </div>
+      {kind !== undefined && onKindChange && (
+        <div style={fieldGroup}>
+          <label style={labelStyle} htmlFor={idPrefix + '-kind'}>Type</label>
+          <select id={idPrefix + '-kind'} style={inputStyle} value={kind}
+            onChange={(e) => onKindChange(e.target.value === 'star' ? 'star' : 'planet')}>
+            <option value="planet">Planet</option>
+            <option value="star">Star</option>
+          </select>
+        </div>
+      )}
       <div style={fieldGroup}>
         <label style={labelStyle} htmlFor={idPrefix + '-color'}>Color</label>
         <div style={{ display: 'flex', gap: '5px' }}>
@@ -58,7 +74,7 @@ export const BodyFields: React.FC<BodyFieldsProps> = ({ values, errors, onChange
         </div>
       ))}
       <p style={helperStyle}>Physical radius is used by the simulation. The rendered visual radius is exaggerated independently for visibility.</p>
-      <p data-testid={idPrefix + '-visual-radius'} style={helperStyle}>{visualRadiusReadout(values.radius)}</p>
+      <p data-testid={idPrefix + '-visual-radius'} style={helperStyle}>{visualRadiusReadout(values.radius, drawnRadiusUnits)}</p>
     </fieldset>
 
     <fieldset style={sectionStyle}>
@@ -89,10 +105,14 @@ export const BodyFields: React.FC<BodyFieldsProps> = ({ values, errors, onChange
   </>
 );
 
-function visualRadiusReadout(radiusText: string): string {
+function visualRadiusReadout(radiusText: string, drawnRadiusUnits?: number): string {
   const radiusM = Number(radiusText);
   if (!Number.isFinite(radiusM) || radiusM <= 0) return 'Visual radius preview unavailable until physical radius is valid.';
-  return `Rendered visual radius: ${displayRadiusUnits(radiusM).toFixed(2)} scene units (display only).`;
+  const nominal = displayRadiusUnits(radiusM);
+  if (drawnRadiusUnits !== undefined && drawnRadiusUnits < nominal * 0.99) {
+    return `Rendered visual radius: ${drawnRadiusUnits.toPrecision(2)} scene units (display only; reduced from ${nominal.toFixed(2)} so nearby bodies do not overlap).`;
+  }
+  return `Rendered visual radius: ${nominal.toFixed(2)} scene units (display only).`;
 }
 
 const sectionStyle: React.CSSProperties = { border: '1px solid #2b3542', borderRadius: '5px', padding: '8px', margin: '0 0 8px', minWidth: 0 };

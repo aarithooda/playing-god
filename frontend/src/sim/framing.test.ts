@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FRAMING_MARGIN, framingDistanceScale } from "./framing";
+import { FRAMING_MARGIN, framingDistanceScale, nearPlaneFor } from "./framing";
 import { FIT_EXTENT_UNITS } from "./renderTransform";
 
 const base = { fovDeg: 50, leftInset: 40, rightInset: 320 };
@@ -41,5 +41,19 @@ describe("framingDistanceScale", () => {
     expect(framingDistanceScale({ ...base, width: 0, height: 0 })).toBe(1);
     expect(framingDistanceScale({ ...base, width: 500, height: 500, leftInset: 300, rightInset: 300 })).toBe(1);
     expect(framingDistanceScale({ ...base, fovDeg: 0, width: 800, height: 600 })).toBe(1);
+  });
+});
+
+describe("nearPlaneFor", () => {
+  it("keeps the default for normal-size bodies", () => {
+    expect(nearPlaneFor(2)).toBe(0.1);
+    expect(nearPlaneFor(0.3)).toBeCloseTo(0.075);
+  });
+  it("pulls the near plane inside a very small focused body, within bounds", () => {
+    expect(nearPlaneFor(0.004)).toBeCloseTo(0.001);
+    expect(nearPlaneFor(1e-9)).toBe(1e-5);
+  });
+  it("falls back to the default for empty or invalid input", () => {
+    for (const v of [0, -1, NaN, Infinity]) expect(nearPlaneFor(v)).toBe(0.1);
   });
 });

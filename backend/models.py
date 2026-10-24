@@ -1,7 +1,9 @@
 """Pydantic models for the API contract (see context/API_CONTRACT.md). SI units throughout."""
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from backend.catalogue import catalogue_ids
 
 # Request bounds (documented in the contract). Finite floats only: NaN and +/-Infinity are rejected.
 MAX_MASS_KG = 1.0e45  # ~5e14 solar masses
@@ -11,6 +13,24 @@ MAX_SPEED_M_PER_S = 2.99792458e8  # speed of light: this is a Newtonian simulato
 MIN_STEP_S = 1.0e-6
 MAX_STEP_S = 1.0e8  # ~3.2 years per request; Play = many bounded requests
 MAX_BODIES = 200
+
+BodyKind = Literal["star", "planet"]
+
+# Renderer metadata (display only; never read by the physics). `kind` is the coarse role, `bodyType` the visual class.
+BodyType = Literal["star", "rocky-planet", "gas-giant", "ice-giant", "asteroid", "default"]
+ASSET_KEY_PATTERN = r"^[a-z0-9]+(-[a-z0-9]+)*$"  # stable lowercase-kebab identifier, e.g. "earth", "proxima-centauri"
+ASSET_KEY_MAX_LENGTH = 64
+
+
+def default_body_type(kind: str) -> str:
+    """bodyType of a body created without one. Derived from `kind` only, never from the display name."""
+    return "star" if kind == "star" else "default"
+
+
+def check_kind_body_type(kind: str, body_type: str) -> None:
+    """A star is a "star" and only a star is: "default" is the neutral type and fits either kind."""
+    if (kind == "star") != (body_type == "star") and body_type != "default":
+        raise ValueError(f'bodyType "{body_type}" is inconsistent with kind "{kind}"')
 
 
 class Vec3(BaseModel):
@@ -54,6 +74,23 @@ class BodyCreate(BaseModel):
     positionM: Position3
     velocityMPerS: Velocity3
     colorHex: str = Field(pattern=r"^#[0-9a-fA-F]{6}$")
+    kind: BodyKind = "planet"
+    catalogueEntryId: str | None = Field(default=None, min_length=1, max_length=64)  # provenance only
+    bodyType: BodyType | None = None  # omitted or null: derived from `kind` ("star" for a star, else "default")
+    assetKey: str | None = Field(default=None, min_length=1, max_length=ASSET_KEY_MAX_LENGTH, pattern=ASSET_KEY_PATTERN)
+
+    @model_validator(mode="after")
+    def _body_type_matches_kind(self) -> "BodyCreate":
+        if self.bodyType is not None:
+            check_kind_body_type(self.kind, self.bodyType)
+        return self
+
+    @field_validator("catalogueEntryId")
+    @classmethod
+    def _known_catalogue_entry(cls, v: str | None) -> str | None:
+        if v is not None and v not in catalogue_ids():
+            raise ValueError(f"unknown catalogue entry: {v}")
+        return v
 
 
 class Body(BaseModel):
@@ -66,6 +103,10 @@ class Body(BaseModel):
     positionM: Vec3
     velocityMPerS: Vec3
     colorHex: str
+    kind: BodyKind = "planet"
+    catalogueEntryId: str | None = None
+    bodyType: BodyType = "default"  # always present
+    assetKey: str | None = None  # always present; null = no specific asset, use the bodyType fallback
 
 
 class BodyUpdate(BaseModel):
@@ -79,13 +120,16 @@ class BodyUpdate(BaseModel):
     positionM: Position3 | None = None
     velocityMPerS: Velocity3 | None = None
     colorHex: str | None = Field(default=None, pattern=r"^#[0-9a-fA-F]{6}$")
+    kind: BodyKind | None = None
+    bodyType: BodyType | None = None
+    assetKey: str | None = Field(default=None, min_length=1, max_length=ASSET_KEY_MAX_LENGTH, pattern=ASSET_KEY_PATTERN)
 
     @model_validator(mode="after")
     def _non_empty_and_no_nulls(self) -> "BodyUpdate":
         if not self.model_fields_set:
             raise ValueError("at least one field must be provided")
         for field in self.model_fields_set:
-            if getattr(self, field) is None:
+            if getattr(self, field) is None and field != "assetKey":  # an explicit null assetKey clears it
                 raise ValueError(f"{field} must not be null")
         return self
 

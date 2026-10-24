@@ -11,7 +11,7 @@
 // in-flight step finish and apply.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "../api/errors";
-import type { ApiClient } from "../api/client";
+import type { SimulationClient } from "../api/client";
 import { LIMITS } from "../api/types";
 import type { BodyCreateDto, BodyUpdateDto } from "../api/types";
 import {
@@ -34,6 +34,23 @@ export interface SimulationOptions {
   healthPollMs?: number;
   /** log10 of simulated seconds advanced per step request. */
   initialSpeedExp?: number;
+  /** The backend refused because this universe is gone, inactive or the activation epoch is stale: resync the scope. */
+  onScopeInvalid?: (error: ApiError) => void;
+  /** True while a non-step write (edit, create, delete, reset) is in flight: the universe must not be switched. */
+  onBusyWriteChange?: (pending: boolean) => void;
+  /** The simulation-speed slider moved (so the owner can keep it across a universe switch). */
+  onSpeedExpChange?: (exp: number) => void;
+}
+
+const SCOPE_INVALID_CODES = ["stale_activation", "universe_not_active", "deactivated_during_step"];
+
+/** A refusal that means "your idea of the active universe is out of date" rather than "this action failed". */
+export function isScopeInvalid(e: unknown): e is ApiError {
+  return (
+    e instanceof ApiError &&
+    e.kind === "http" &&
+    ((e.status === 404 && e.code === "universe_not_found") || (e.status === 409 && SCOPE_INVALID_CODES.includes(e.code ?? "")))
+  );
 }
 
 export const MIN_SPEED_EXP = 2;
@@ -48,7 +65,7 @@ function messageOf(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
-export function useSimulation(client: ApiClient, options: SimulationOptions = {}) {
+export function useSimulation(client: SimulationClient, options: SimulationOptions = {}) {
   const tickMs = options.tickMs ?? 150;
   const healthPollMs = options.healthPollMs ?? 10_000;
 
@@ -60,9 +77,22 @@ export function useSimulation(client: ApiClient, options: SimulationOptions = {}
   const [health, setHealth] = useState<Health>("unknown");
   const [playing, setPlaying] = useState(false);
   const [stepping, setStepping] = useState(false);
-  const [speedExp, setSpeedExp] = useState(options.initialSpeedExp ?? 5);
+  const [speedExp, setSpeedExpState] = useState(options.initialSpeedExp ?? 5);
+  const setSpeedExp = useCallback((exp: number) => {
+    setSpeedExpState(exp);
+    onSpeedRef.current?.(exp);
+  }, []);
   /** Bumped when the set of bodies changes through a user action (load/create/delete/reset). */
   const [layoutEpoch, setLayoutEpoch] = useState(0);
+
+  const [writePending, setWritePending] = useState(false);
+  const pendingWrites = useRef(0);
+  const onScopeInvalidRef = useRef(options.onScopeInvalid);
+  onScopeInvalidRef.current = options.onScopeInvalid;
+  const onBusyRef = useRef(options.onBusyWriteChange);
+  onBusyRef.current = options.onBusyWriteChange;
+  const onSpeedRef = useRef(options.onSpeedExpChange);
+  onSpeedRef.current = options.onSpeedExpChange;
 
   const mounted = useRef(false);
   const tail = useRef<Promise<unknown>>(Promise.resolve());
@@ -91,6 +121,7 @@ export function useSimulation(client: ApiClient, options: SimulationOptions = {}
     if (mounted.current) {
       setActionError(msg);
       if (e instanceof ApiError && e.kind === "network") setHealth("down");
+      if (isScopeInvalid(e)) onScopeInvalidRef.current?.(e);
     }
     return msg;
   }, []);
@@ -105,12 +136,21 @@ export function useSimulation(client: ApiClient, options: SimulationOptions = {}
   /** Runs a queued mutation and converts failures to an ActionResult. */
   const act = useCallback(
     async (task: () => Promise<void>): Promise<ActionResult> => {
+      pendingWrites.current += 1;
+      if (mounted.current) setWritePending(true);
+      onBusyRef.current?.(true);
       try {
         await enqueue(task);
         noteSuccess();
         return { ok: true };
       } catch (e) {
         return { ok: false, error: noteFailure(e) };
+      } finally {
+        pendingWrites.current -= 1;
+        if (pendingWrites.current === 0) {
+          if (mounted.current) setWritePending(false);
+          onBusyRef.current?.(false);
+        }
       }
     },
     [enqueue, noteFailure, noteSuccess],
@@ -142,6 +182,7 @@ export function useSimulation(client: ApiClient, options: SimulationOptions = {}
         setLoadStatus("error");
         setLoadError(messageOf(e));
         if (e instanceof ApiError && e.kind === "network") setHealth("down");
+        if (isScopeInvalid(e)) onScopeInvalidRef.current?.(e);
       }
     }
   }, [client, enqueue, applySim]);
@@ -297,6 +338,8 @@ export function useSimulation(client: ApiClient, options: SimulationOptions = {}
     speedExp,
     stepSeconds: stepSecondsForExp(speedExp),
     layoutEpoch,
+    writePending,
+    revision: sim?.revision ?? null,
     setSpeedExp,
     play,
     pause,

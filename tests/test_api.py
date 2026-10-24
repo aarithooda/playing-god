@@ -48,7 +48,8 @@ def test_create_and_retrieve_body(client):
     assert r.status_code == 201
     body = r.json()
     assert body["id"]
-    assert {k: v for k, v in body.items() if k != "id"} == VALID | {"colorHex": "#3b82f6"}
+    assert {k: v for k, v in body.items() if k != "id"} == VALID | {"colorHex": "#3b82f6", "kind": "planet", "catalogueEntryId": None,
+                                                          "bodyType": "default", "assetKey": None}
     assert client.get("/api/v1/simulation/state").json()["bodies"] == [body]
 
 
@@ -67,7 +68,8 @@ def test_state_isolated_between_tests(client):
 
 def test_si_field_names_in_response(client):
     body = post(client).json()
-    assert set(body) == {"id", "name", "massKg", "radiusM", "positionM", "velocityMPerS", "colorHex"}
+    assert set(body) == {"id", "name", "massKg", "radiusM", "positionM", "velocityMPerS", "colorHex", "kind", "catalogueEntryId",
+                       "bodyType", "assetKey"}
     assert set(body["positionM"]) == {"x", "y", "z"}
     assert set(body["velocityMPerS"]) == {"x", "y", "z"}
     state = client.get("/api/v1/simulation/state").json()

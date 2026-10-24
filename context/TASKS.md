@@ -2,6 +2,11 @@
 Status: todo / in progress / blocked / done. Keep tasks small and independently testable.
 
 ## NEXT ACTION
+**Simulation Lab + Experiment 01 implemented** on `feature/simulation-lab-experiment-01` (T-015; one PR to `main`, not merged). Next: the owner's product review of the PR, then the independent technical review (OD-6); then merge by the owner. Open owner decisions: whether to approve an alternative gate for TRAPPIST-1 (D-027) and whether to correct the barycentre-drift sentence in `EXPERIMENT_01_SPEC.md` section 4.2 (D-028). Older text follows.
+
+UI integration series M0-M5 **complete and merged** (PRs #4, #7, #8, #9, #11, #12; stall fix #10); repository handed over, see the FINAL HANDOVER section at the top of `STATUS.md`. Next: the owner defines and starts Experiment 01 (not defined in the repo, not started). Open items: T-010 browser E2E, the history-system decision, checkpoints/tidal (brief features not implemented).
+
+UI foundation (integration/ui-foundation):
 UI integration M0-M5 is merged. UI-2 history work was reassigned to teammate 1 and removed from `frontend/ui-4-6`. Completed UI-4/UI-6 work is consolidated on `frontend/ui-4-6`; see top of `STATUS.md`. The headless frame-pacing profile is not a hardware benchmark; coordinate any renderer optimization with UI-0. Experiment 01 remains undefined.
 
 B1 diagnostics merged (2026-10-24, T-011; top of `STATUS.md`). Next product step: T-012, the diagnostics panel (frontend owner). Older text follows.
@@ -47,7 +52,7 @@ Review/merge `feature/production-rebound-simulation` (production engine done: P-
 | T-003 | Decide units and coordinate conventions | high | done (SI D-007, right-handed Cartesian D-010; origin chosen per scenario) | lead, Vaibhav | M0.1 | recorded in DECISIONS.md |
 | T-004 | Add CI (pytest + frontend build) | medium | done 2026-10-24: `.github/workflows/ci.yml` (pytest, tsc, vitest, build), green on main | integration dev | T-000 | CI green on main |
 | T-009 | Per-step wall-clock budget and engine-stall protection | high | done 2026-10-24 (D-011, D-012 accepted; HTTP 503) | stabilization session | — | stalled or slow steps roll back |
-| T-010 | Automated browser E2E test | low | todo (only the API-only smoke test exists, `tests/smoke/`) | integration dev | T-004 | Playwright journey in CI |
+| T-010 | Automated browser E2E test | low | **closed for the Experiment 01 critical path 2026-10-24**: `frontend/e2e/experiment01.e2e.mjs` (`npm run e2e`, playwright-core, 11 steps, real Chrome 155). Not in CI (opt-in); the rest of the app remains covered by vitest and the manual journey | integration dev | T-004 | Playwright journey in CI (optional follow-up) |
 | T-005 | Collaborators and workflow | high | collaborators added 2026-10-23; workflow confirmation by all four pending | lead | T-000 | All four confirm `TEAM_WORKFLOW.md` |
 | T-006 | API contract v1 + minimal API (healthz, state, create body) | high | done (commit `feat: add API contract v1 ...` on the topic branch) | lead | — | `API_CONTRACT.md`; API/health tests pass |
 | T-007 | Implement planned endpoints (PATCH/DELETE bodies first), then start/pause/step/reset/events | high | done 2026-10-23: PATCH/DELETE/step/reset/events implemented; start/pause withdrawn (Play = client step loop) | backend dev | T-006; sim endpoints need D-008 | Contract rows flip to ✅ with tests |
@@ -58,6 +63,8 @@ Review/merge `feature/production-rebound-simulation` (production engine done: P-
 | T-013 | Simulation stall resilience: lock-free committed reads, bounded mutation waits (503 busy), API client timeouts, recoverable load error, resync after unknown-outcome step | high | implemented 2026-10-24 on `fix/simulation-stall-resilience`, PR #10, D-021 accepted by the owner (no independent review) | AI session; owner decides merge | T-007, D-011, D-012 | tests in `tests/test_stall_resilience.py`, `api/client.test.ts`, hook/App tests; limitation: a native integrate that never reaches the heartbeat is not interruptible in-process |
 
 | T-014 | UI integration series: inspector/focus/placement (M1), sidebars/layout (M2), outline and focus follow (M3), axes and grid (M4), final verification and docs (M5) | high | M1-M5 merged 2026-10-24 (PRs #7, #8, #9, #11, #12) | AI session; owner decided merges (D-018, D-019, D-020, D-022, D-023: no independent review) | T-012 | acceptance checklist in `STATUS.md` |
+| T-015 | Simulation Lab (independent universes, epoch-guarded active-only mutation, snapshots/reset, Solar System preset, sourced catalogue, custom stars/planets, UI-0 renderer boundary, UI-2 history timeline and replay) and Experiment 01 (Orbit Lab: immutable baseline, velocity-scaled modified run, comparison, independent Kepler validation) | high | implemented 2026-10-24 on `feature/simulation-lab-experiment-01` (M1-M12; M11 TRAPPIST-1 excluded, D-027); pytest 492, vitest 372, scientific values and browser journey in `STATUS.md` | AI session; owner reviews product behaviour, independent technical review follows (OD-6) | T-014 | PR merged by the owner after both reviews; D-025 to D-028 accepted |
+
 
 ### Remote branch inventory — 2026-10-23
 Fetched and created local tracking refs for `feature/m0-rebound-physics-api` (Aarit) and `codex/3drender` (Nikhil). Their work remains unmerged; branch-local test/status claims are not main verification. See HANDOFF/STATUS for changed files and current tips. M0 task statuses on main remain unchanged pending review/integration.
