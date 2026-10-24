@@ -3,8 +3,8 @@ import type { RenderTransform, SizeMode } from "./renderTransform";
 import { toSceneBody, type DisplayBody, type SceneBody } from "./viewModel";
 
 /**
- * Describes each planet + moons system for the zoom-in growth limit: `clearance` is the smallest planet-moon distance of
- * the system and `systemPx` the largest minimum radius among its members, shared by all of them so their ratio is kept.
+ * Describes a planet-moon system's zoom-in growth limit for its moons: `clearance` is the closest planet-moon distance and
+ * `systemPx` is the largest minimum radius in the system. Only moons receive this limit; the planet keeps its own size law.
  * A body outside any system is returned untouched. The relationship is the backend's `primaryId`; a primary that is not in
  * the scene is ignored. Nothing here changes a radius or a position.
  */
@@ -24,7 +24,7 @@ export function withSystems(bodies: SceneBody[]): SceneBody[] {
   const info = new Map<string, { clearance: number; systemPx: number }>();
   for (const { members, clearance } of systems.values()) {
     const systemPx = Math.max(...members.map((b) => b.visiblePx ?? 0));
-    for (const b of members) info.set(b.id, { clearance, systemPx });
+    for (const moon of members.slice(1)) info.set(moon.id, { clearance, systemPx });
   }
   return bodies.map((b) => (info.has(b.id) ? { ...b, ...info.get(b.id)! } : b));
 }
@@ -34,5 +34,5 @@ export function withSystems(bodies: SceneBody[]): SceneBody[] {
  * A body's entry depends on that body, the scale and the view - never on how many other bodies exist.
  */
 export function buildSceneBodies(bodies: readonly DisplayBody[], transform: RenderTransform, view: SizeMode): SceneBody[] {
-  return withSystems(bodies.map((b) => toSceneBody(b, transform, view)));
+  return withSystems(bodies.map((body) => toSceneBody(body, transform, view)));
 }

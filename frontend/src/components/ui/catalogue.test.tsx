@@ -47,7 +47,7 @@ describe("custom stars and planets", () => {
     const onCreate = vi.fn(ok);
     render(<ControlPanel {...base} onCreate={onCreate} />);
     fireEvent.click(screen.getByText("Add body…"));
-    fireEvent.change(screen.getByLabelText("Type"), { target: { value: "star" } });
+    fireEvent.change(screen.getByLabelText("Physics role"), { target: { value: "star" } });
     fireEvent.click(screen.getByText("Create"));
     await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
     expect(onCreate.mock.calls[0]![0]).toMatchObject({ kind: "star" });
@@ -72,7 +72,7 @@ describe("custom stars and planets", () => {
     expect((screen.getByLabelText("Name") as HTMLInputElement).value).toBe("Betelgeuse");
     expect(Number((screen.getByLabelText("Mass (kg)") as HTMLInputElement).value)).toBe(entry.properties.massKg.value);
     expect(Number((screen.getByLabelText("Physical radius (m)") as HTMLInputElement).value)).toBe(entry.properties.radiusM.value);
-    expect((screen.getByLabelText("Type") as HTMLSelectElement).value).toBe("star");
+    expect((screen.getByLabelText("Physics role") as HTMLSelectElement).value).toBe("star");
     expect(screen.getByText(/Started from the catalogue entry Betelgeuse/)).toBeTruthy();
     // the user edits the copy; the entry is untouched
     fireEvent.change(screen.getByLabelText("Mass (kg)"), { target: { value: "1e31" } });
@@ -113,8 +113,8 @@ describe("physical radius vs displayed size", () => {
   it("changing the type sends only the kind", async () => {
     const onSave = vi.fn(ok);
     render(<BodyInspector body={toBodyView(earth)} onSave={onSave} onDelete={ok} onFocus={() => {}} />);
-    expect((screen.getByLabelText("Type") as HTMLSelectElement).value).toBe("planet");
-    fireEvent.change(screen.getByLabelText("Type"), { target: { value: "star" } });
+    expect((screen.getByLabelText("Physics role") as HTMLSelectElement).value).toBe("planet");
+    fireEvent.change(screen.getByLabelText("Physics role"), { target: { value: "star" } });
     fireEvent.click(screen.getByText("Apply"));
     await waitFor(() => expect(onSave).toHaveBeenCalledWith(earth.id, { kind: "star" }));
   });
@@ -122,11 +122,11 @@ describe("physical radius vs displayed size", () => {
   it("type and a field edit are saved together, and Revert restores the confirmed type", async () => {
     const onSave = vi.fn(ok);
     render(<BodyInspector body={toBodyView(sun)} onSave={onSave} onDelete={ok} onFocus={() => {}} />);
-    expect((screen.getByLabelText("Type") as HTMLSelectElement).value).toBe("star");
-    fireEvent.change(screen.getByLabelText("Type"), { target: { value: "planet" } });
+    expect((screen.getByLabelText("Physics role") as HTMLSelectElement).value).toBe("star");
+    fireEvent.change(screen.getByLabelText("Physics role"), { target: { value: "planet" } });
     fireEvent.click(screen.getByText("Revert"));
-    expect((screen.getByLabelText("Type") as HTMLSelectElement).value).toBe("star");
-    fireEvent.change(screen.getByLabelText("Type"), { target: { value: "planet" } });
+    expect((screen.getByLabelText("Physics role") as HTMLSelectElement).value).toBe("star");
+    fireEvent.change(screen.getByLabelText("Physics role"), { target: { value: "planet" } });
     fireEvent.change(screen.getByLabelText("Mass (kg)"), { target: { value: "2e30" } });
     fireEvent.click(screen.getByText("Apply"));
     await waitFor(() => expect(onSave).toHaveBeenCalledWith(sun.id, { massKg: 2e30, kind: "planet" }));

@@ -3,7 +3,7 @@ import { Line } from '@react-three/drei';
 import { Color } from 'three';
 import type { TrajectoryInput } from '../../render/contract';
 import type { RenderTransform } from '../../sim/renderTransform';
-import { buildTimedPolylines, smoothTimedPolyline, spatialTrailProgress, trimToLatestOrbit } from '../../sim/trajectory';
+import { buildTimedPolylines, smoothTimedPolyline, spatialTrailOpacity, trimToLatestOrbit } from '../../sim/trajectory';
 
 interface TrajectoryLayerProps {
   trajectories: readonly TrajectoryInput[];
@@ -32,8 +32,8 @@ export const TrajectoryLayer: React.FC<TrajectoryLayerProps> = ({ trajectories, 
         t,
         selected,
         lines,
-        colors: lines.map((line) => spatialTrailProgress(line.points).map((progress) => (
-          [base.r, base.g, base.b, progress] as [number, number, number, number]
+        colors: lines.map((line) => spatialTrailOpacity(line.points).map((opacity) => (
+          [base.r, base.g, base.b, opacity] as [number, number, number, number]
         ))),
       };
     }),

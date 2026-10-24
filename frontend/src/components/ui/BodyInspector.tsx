@@ -153,6 +153,7 @@ export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDe
           onChange={change}
           idPrefix="inspect"
           kind={kindDraft ?? body.kind}
+          bodyType={body.bodyType}
           onKindChange={setKindDraft}
           drawnRadiusUnits={drawnRadiusUnits}
           sizeMode={sizeMode}

@@ -3,7 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { Outlines, Sphere } from '@react-three/drei';
 import * as THREE from 'three';
 import { Group, PerspectiveCamera, DoubleSide, BackSide } from 'three';
-import { bodyDisplayScale } from '../../sim/bodyVisibility';
+import { bodyDisplayScale, fixedDisplayScaleAtDistance, OVERVIEW_DISTANCE } from '../../sim/bodyVisibility';
 import { useCelestialMaterial } from './CelestialMaterial';
 import type { BodyKind, BodyType } from '../../api/types';
 
@@ -179,9 +179,22 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
     const y = root.current?.position.y ?? position[1];
     const z = root.current?.position.z ?? position[2];
     const distance = Math.hypot(camera.position.x - x, camera.position.y - y, camera.position.z - z);
-    body.current.scale.setScalar(
-      bodyDisplayScale(radius, distance, (camera as PerspectiveCamera).fov, size.height, { minPx: visiblePx, maxGrowth, clearance, systemPx }),
-    );
+    const fov = (camera as PerspectiveCamera).fov;
+    let displayScale: number;
+    if (kind === 'star') {
+      const overviewScale = fixedDisplayScaleAtDistance(radius, OVERVIEW_DISTANCE, fov, size.height, visiblePx ?? 3);
+      // Keep the visibility boost in world space only. The camera then changes the Sun's
+      // projected radius just like every other body when the user zooms in or out.
+      displayScale = overviewScale;
+    } else {
+      displayScale = bodyDisplayScale(radius, distance, fov, size.height, {
+        minPx: visiblePx,
+        maxGrowth,
+        clearance,
+        systemPx,
+      });
+    }
+    body.current.scale.setScalar(displayScale);
   });
 
   return (

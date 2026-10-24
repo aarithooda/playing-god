@@ -108,6 +108,7 @@ export type DisplayBody = Pick<BodyView, "id" | "name" | "colorHex" | "kind" | "
   Partial<Pick<BodyView, "bodyType" | "assetKey" | "primaryId">>;
 
 export function toSceneBody(body: DisplayBody, t: RenderTransform, sizeMode: SizeMode = DEFAULT_SIZE_MODE): SceneBody {
+  const law = SIZE_LAWS[sizeMode];
   return {
     id: body.id,
     name: body.name,
@@ -118,8 +119,13 @@ export function toSceneBody(body: DisplayBody, t: RenderTransform, sizeMode: Siz
     ...(body.primaryId === undefined ? {} : { primaryId: body.primaryId }),
     position: toScenePosition(body.positionM, t),
     radius: physicalRadiusUnits(body.radiusM, t),
-    visiblePx: minimumRadiusPx(body.radiusM, sizeMode),
-    maxGrowth: SIZE_LAWS[sizeMode].maxZoomGrowth,
+    // Keep star visibility separate from the planet radius curve: the solar disc must fit inside
+    // the compact inner-orbit spacing, while planet sizes still reflect their own radii.
+    visiblePx: body.kind === "star"
+      ? law.starPx
+      : Math.min(law.maxBodyPx, minimumRadiusPx(body.radiusM, sizeMode)),
+    // The star keeps a fixed world-space visibility boost, so its projected size follows camera zoom.
+    maxGrowth: body.kind === "star" ? 1 : law.maxZoomGrowth,
   };
 }
 

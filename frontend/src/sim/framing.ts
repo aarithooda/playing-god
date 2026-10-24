@@ -3,12 +3,12 @@
 // DEFAULT_CAMERA_POSITION frames a fitted scene (extent FIT_EXTENT_UNITS) as if the whole canvas were free.
 // With sidebars covering part of it, a narrow window leaves only a slice of the canvas visible, and bodies at the
 // fitted extent can end up underneath a panel. This scales the default camera distance up, never down, just
-// enough that the fitted extent fits the visible horizontal slice. On a normal laptop or desktop window the
-// scale is 1 and the default view is unchanged.
+// enough that the fitted extent fits the visible horizontal slice. The closer default camera leaves more room
+// around outer preset bodies on ordinary screens; narrow windows pull back only as much as their free area needs.
 import { DEFAULT_CAMERA_POSITION, FIT_EXTENT_UNITS } from "./renderTransform";
 
 /** Room kept beyond the fitted extent: perspective makes nearer bodies spread wider than their x suggests. */
-export const FRAMING_MARGIN = 1.2;
+export const FRAMING_MARGIN = 1.05;
 
 const DEFAULT_DISTANCE = Math.hypot(...DEFAULT_CAMERA_POSITION);
 

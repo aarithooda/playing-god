@@ -37,7 +37,7 @@ const pxPerUnitAt = (d: number) => H / 2 / Math.tan((FOV * Math.PI) / 360) / d;
 
 describe("the two views", () => {
   it("Universe View is the default and both views are explicit, distinct laws", () => {
-    expect(DEFAULT_SIZE_MODE).toBe("universe");
+    expect(DEFAULT_SIZE_MODE).toBe("exploration");
     expect(SIZE_LAWS.exploration.sunPx).toBeGreaterThan(SIZE_LAWS.universe.sunPx);
     expect(minimumRadiusPx(6.371e6, "exploration")).toBeGreaterThan(minimumRadiusPx(6.371e6, "universe"));
   });
@@ -179,14 +179,19 @@ describe("stable scale and deterministic mode switching", () => {
 });
 
 describe("parent-moon relationships", () => {
-  it("systems share one clearance and growth factor; unrelated bodies and missing primaries have none", () => {
+  it("only moons receive the system growth limit; planets keep their own size law", () => {
     const s = by(buildSceneBodies(moons, transform, "exploration"));
-    expect(s["body-earth"].clearance).toBe(s["body-moon"].clearance);
-    expect(s["body-earth"].systemPx).toBe(s["body-moon"].systemPx);
-    expect(s["body-io"].clearance).toBe(s["body-jupiter"].clearance);
+    expect(s["body-earth"].clearance).toBeUndefined();
+    expect(s["body-earth"].systemPx).toBeUndefined();
+    expect(s["body-moon"].clearance).toBeGreaterThan(0);
+    expect(s["body-moon"].systemPx).toBeGreaterThan(0);
+    expect(s["body-jupiter"].clearance).toBeUndefined();
+    expect(s["body-io"].clearance).toBeGreaterThan(0);
     expect(s["body-sun"].clearance).toBeUndefined();
-    expect(s["body-mars"].clearance).toBe(s["body-phobos"].clearance);
-    expect(s["body-mars"].systemPx).toBe(s["body-deimos"].systemPx);
+    expect(s["body-mars"].clearance).toBeUndefined();
+    expect(s["body-phobos"].clearance).toBeGreaterThan(0);
+    expect(s["body-phobos"].clearance).toBe(s["body-deimos"].clearance);
+    expect(s["body-phobos"].systemPx).toBe(s["body-deimos"].systemPx);
     const orphan = by(buildSceneBodies(moons.filter((b) => b.id !== "body-earth"), transform, "exploration"));
     expect(orphan["body-moon"].clearance).toBeUndefined(); // the primary is not in the scene
   });
@@ -209,25 +214,25 @@ describe("orbit paths", () => {
     expect(pathTargets(ids(plain), "body-earth")).toEqual(["body-earth"]);
   });
 
-  it("the moons preset: every planet's path stays visible, selected or not (the rule is independent of the view)", () => {
-    expect(pathTargets(ids(moons), undefined, moonIds)).toEqual(planets);
-    expect(pathTargets(ids(moons), "body-earth", moonIds)).toEqual(planets);
-    expect(pathTargets(ids(moons), "body-saturn", moonIds)).toEqual(planets);
+  it("the moons preset: every planet and moon path stays visible, selected or not", () => {
+    expect(pathTargets(ids(moons), undefined, moonIds)).toEqual(ids(moons));
+    expect(pathTargets(ids(moons), "body-earth", moonIds)).toEqual(ids(moons));
+    expect(pathTargets(ids(moons), "body-saturn", moonIds)).toEqual(ids(moons));
     expect(planets).toHaveLength(9);
     expect(planets).toContain("body-neptune");
   });
 
-  it("a selected moon adds its own path and removes no planet's", () => {
-    expect(pathTargets(ids(moons), "body-moon", moonIds)).toEqual([...planets, "body-moon"]);
-    expect(pathTargets(ids(moons), "body-gone", moonIds)).toEqual(planets);
+  it("all moon paths remain visible regardless of selection", () => {
+    expect(pathTargets(ids(moons), "body-moon", moonIds)).toEqual(ids(moons));
+    expect(pathTargets(ids(moons), "body-gone", moonIds)).toEqual(ids(moons));
   });
 
-  it("custom bodies added to the moons preset keep every planet path (moons never count towards the crowd limit)", () => {
+  it("custom bodies added to the moons preset keep every path visible", () => {
     const five = Array.from({ length: 5 }, (_, i) => `x${i}`);
     expect(pathTargets([...ids(moons), ...five], undefined, moonIds)).toEqual([...planets, ...five]);
     expect(pathTargets([...ids(moons), "a", "b", "c"], undefined)).toEqual([]); // the old rule hid everything at 22 bodies
     expect(pathTargets([...ids(moons), "a", "b", "c"], undefined, moonIds)).toHaveLength(12);
-    expect(pathTargets([...ids(moons), ...Array.from({ length: 30 }, (_, i) => `x${i}`)], undefined, moonIds)).toEqual([]); // genuinely crowded
+    expect(pathTargets([...ids(moons), ...Array.from({ length: 30 }, (_, i) => `x${i}`)], undefined, moonIds)).toHaveLength(ids(moons).length + 30);
   });
 
   it("the crowd note is not shown for a moons scene", () => {

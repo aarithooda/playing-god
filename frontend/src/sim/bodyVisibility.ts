@@ -11,7 +11,7 @@
 export const MIN_BODY_SCREEN_RADIUS_PX = 3;
 
 /** Camera distance (scene units) of the default overview: the minimum is exactly its base size there. */
-export const OVERVIEW_DISTANCE = 80;
+export const OVERVIEW_DISTANCE = 70;
 
 /** While zooming, a body's enlargement stops at this fraction of its moon/primary distance on screen. */
 export const SYSTEM_GROWTH_FRACTION_OF_CLEARANCE = 0.35;
@@ -42,11 +42,10 @@ export interface BodyScaleOptions {
 /**
  * Uniform display scale (>= 1) that lifts a body to its minimum on-screen radius.
  *
- * The minimum is `minPx` at the overview and grows with `zoomGrowth` as the camera approaches. In a moon system that
- * growth is limited so the largest member's disc stays within SYSTEM_GROWTH_FRACTION_OF_CLEARANCE of the planet-moon
- * distance on screen (planet and moons share the limit, keeping their ratio). The limit only restricts GROWTH: it can
- * never take a body below `minPx`, so the satellites' separation cannot shrink a planet - at the overview, where that
- * separation is sub-pixel, the growth is 1 anyway.
+ * The minimum is `minPx` at the overview and grows with `zoomGrowth` as the camera approaches. For a moon, the growth is
+ * limited so the largest member's disc stays within SYSTEM_GROWTH_FRACTION_OF_CLEARANCE of the planet-moon distance on
+ * screen. Parent planets keep their own zoom growth and are never shrunk to satisfy a moon's clearance. The limit only
+ * restricts GROWTH: it can never take a moon below `minPx`.
  */
 export function bodyDisplayScale(
   radius: number,
@@ -68,4 +67,17 @@ export function bodyDisplayScale(
   }
   const target = minPx * growth;
   return px >= target ? 1 : target / px;
+}
+
+/** Fixed world-space multiplier calibrated to a target screen radius at one reference distance. */
+export function fixedDisplayScaleAtDistance(
+  radius: number,
+  referenceDistance: number,
+  fovDeg: number,
+  viewportHeightPx: number,
+  targetRadiusPx: number,
+): number {
+  if (!(targetRadiusPx > 0) || !(radius > 0) || !(referenceDistance > 0)
+    || !(viewportHeightPx > 0) || !(fovDeg > 0 && fovDeg < 180)) return 1;
+  return targetRadiusPx / projectedRadiusPx(radius, referenceDistance, fovDeg, viewportHeightPx);
 }

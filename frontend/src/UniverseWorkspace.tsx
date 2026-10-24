@@ -29,7 +29,7 @@ import { insets, toggleSidebar, type SidebarState } from "./components/ui/layout
 import { btnStyle, panelStyle } from "./components/ui/styles";
 import { theme } from "./components/ui/theme";
 import { gridCell } from "./sim/gridScale";
-import { DEFAULT_METERS_PER_UNIT, DEFAULT_SIZE_MODE, displayRadiusUnits, fitTransform, toPhysicsPosition, type RenderTransform, type SizeMode } from "./sim/renderTransform";
+import { DEFAULT_METERS_PER_UNIT, DEFAULT_SIZE_MODE, fitTransform, minimumRadiusPx, physicalRadiusUnits, SIZE_LAWS, toPhysicsPosition, type RenderTransform, type SizeMode } from "./sim/renderTransform";
 import { isScopeInvalid, useSimulation } from "./sim/useSimulation";
 import { UNDO_WINDOW_MS, useUndoableCreate } from "./sim/useUndoableCreate";
 import type { ViewControlContract } from "./sim/viewControlContract";
@@ -42,7 +42,9 @@ import { useHistoryNavigation } from "./sim/history/useHistoryNavigation";
 import type { DisplayBody } from "./sim/viewModel";
 import { buildSceneBodies } from "./sim/sceneBodies";
 import { BodyList } from "./components/ui/BodyList";
+import { MoonOrbitInset } from "./components/ui/MoonOrbitInset";
 import { focusRadiusFor, systemIds } from "./sim/moonSystems";
+import { moonRelativeOrbits } from "./sim/moonOrbit";
 
 export interface UniverseWorkspaceProps {
   client: ScopedClient;
@@ -105,10 +107,12 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
   const [pickedPosition, setPickedPosition] = useState<{ position: { x: number; y: number; z: number }; nonce: number } | undefined>();
   const [placementPreview, setPlacementPreview] = useState<[number, number, number] | null>(null);
   const [snapshotBusy, setSnapshotBusy] = useState(false);
-  const [showPaths, setShowPaths] = useState(false);
+  const [showPaths, setShowPaths] = useState(true);
+  const [moonOrbitInsetOpen, setMoonOrbitInsetOpen] = useState(false);
   const [sizeMode, setSizeMode] = useState<SizeMode>(DEFAULT_SIZE_MODE);
   const [crudFeedback, setCrudFeedback] = useState<CrudFeedbackState | null>(null);
   const crudFeedbackId = useRef(0);
+  const autoPlayedUniverseId = useRef<string | null>(null);
 
   // Orbit Lab: the experiment this universe belongs to, its other run, and the provenance of the active run.
   const { orbitLab, apiClient } = props;
@@ -132,6 +136,21 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
 
   const bodies = sim?.bodies ?? [];
 
+  // The moon-system preset opens as a running simulation. Remember the universe id so a normal render or
+  // a user's later pause does not unexpectedly start it again.
+  useEffect(() => {
+    if (
+      loadStatus !== "ready" ||
+      !universe ||
+      universe.presetId !== "solar-system-moons-j2000" ||
+      !universe.id ||
+      bodies.length === 0 ||
+      autoPlayedUniverseId.current === universe.id
+    ) return;
+    autoPlayedUniverseId.current = universe.id;
+    simulation.play();
+  }, [loadStatus, universe?.id, universe?.presetId, bodies.length, simulation.play]);
+
   // Refit the display scale when the set of bodies changes through a user action (load, create,
   // delete, reset). The scale is then held fixed while the simulation runs.
   const { layoutEpoch } = simulation;
@@ -149,6 +168,10 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
 
   // Selection follows authoritative state: a deleted or merged-away body simply stops being selected.
   const selectedBody = bodies.find((b) => b.id === selectedBodyId) ?? null;
+  const selectedMoonOrbits = useMemo(
+    () => selectedBody ? moonRelativeOrbits(selectedBody, bodies) : [],
+    [selectedBody, bodies],
+  );
   useEffect(() => {
     if (selectedBodyId && !selectedBody && sim) setSelectedBodyId(undefined);
   }, [selectedBodyId, selectedBody, sim]);
@@ -186,7 +209,7 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
   // A selected moon or moon-bearing planet gets name tags for its whole system, so the moons can be told apart.
   const labeledBodyIds = useMemo(() => systemIds(sceneBodies, selectedBodyId), [sceneBodies, selectedBodyId]);
 
-  // "Show paths": the selected body's recorded path, or every body's when there are at most 20 (UI-0 trajectories).
+  // "Show paths" defaults on; moon systems keep every body's recorded path visible together.
   const moonIds = new Set(displayBodies.filter((b) => b.primaryId !== undefined && displayBodies.some((p) => p.id === b.primaryId)).map((b) => b.id));
   const pathIds = pathTargets(displayBodies.map((b) => b.id), selectedBodyId, moonIds);
   const trajectories = useMemo(
@@ -337,6 +360,7 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
     setSidebars((s) => toggleSidebar(s, side, open, windowWidth));
   const selectBody = (id: string) => {
     setSelectedBodyId(id);
+    setMoonOrbitInsetOpen(bodies.some((body) => body.primaryId === id));
     setSidebars((s) => (s.right ? s : toggleSidebar(s, "right", true, windowWidth)));
   };
   const addFirstBody = () => {
@@ -384,10 +408,15 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
         onFocusBody={focusBody}
         onClearSelection={closeInspector}
         frameEpoch={frameEpoch}
+        overviewZoom={universe?.presetId === "solar-system-moons-j2000" ? 1.2 : 1.8}
         focus={focus}
         onFocusRelease={() => setFocusedBodyId(undefined)}
         placementMode={placementMode}
-        placementRadius={displayRadiusUnits(Number.isFinite(placementRadiusM) && placementRadiusM > 0 ? placementRadiusM : 6.371e6)}
+        placementRadius={{
+          radius: physicalRadiusUnits(Number.isFinite(placementRadiusM) && placementRadiusM > 0 ? placementRadiusM : 6.371e6, transform),
+          visiblePx: minimumRadiusPx(Number.isFinite(placementRadiusM) && placementRadiusM > 0 ? placementRadiusM : 6.371e6, sizeMode),
+          maxGrowth: SIZE_LAWS[sizeMode].maxZoomGrowth,
+        }}
         onPlacementConfirm={confirmPlacement}
         onPlacementCancel={cancelPlacement}
         onPlacementPreview={setPlacementPreview}
@@ -459,6 +488,17 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
         </div>
 
         {placementMode && <PlacementHint position={placementPreview ? toPhysicsPosition(placementPreview, transform) : null} />}
+        {!viewingHistory && selectedMoonOrbits.length > 0 && (
+          <div style={{ position: "absolute", right: 16, bottom: 16, pointerEvents: "auto", zIndex: 30 }}>
+            {moonOrbitInsetOpen ? (
+              <MoonOrbitInset planetName={selectedBody!.name} orbits={selectedMoonOrbits} onClose={() => setMoonOrbitInsetOpen(false)} />
+            ) : (
+              <button type="button" onClick={() => setMoonOrbitInsetOpen(true)} style={{ ...btnStyle, boxShadow: "0 4px 18px #0009" }}>
+                Moon orbits ({selectedMoonOrbits.length})
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <Sidebar side="left" title="Body catalogue & history" open={sidebars.left} onToggle={setSidebar("left")}>

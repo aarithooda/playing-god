@@ -6,6 +6,7 @@ import { CelestialBody } from './CelestialBody';
 import { StarfieldShell } from './StarfieldShell';
 import { TrajectoryLayer } from './TrajectoryLayer';
 import { AxesOverlay, GridOverlay } from './ViewOverlays';
+import { bodyDisplayScale } from '../../sim/bodyVisibility';
 import { DEFAULT_CAMERA_POSITION, type RenderTransform, type ScenePosition } from '../../sim/renderTransform';
 import { clampPlacementDepth, rayPlaneIntersection } from '../../sim/placement';
 import { sceneShiftPx } from '../ui/layout';
@@ -39,12 +40,14 @@ interface UniverseCanvasProps {
   onClearSelection: () => void;
   /** Changing this resets the camera to the default framing (the scene was refitted). */
   frameEpoch: number;
+  /** Additional initial zoom applied after fitting the available viewport. */
+  overviewZoom?: number;
   /** Moves the orbit target to a body and uses a consistent body-relative view distance. */
   focus?: FocusRequest;
   /** The camera stopped following the focused body (user panned away, refit, or the body is gone). */
   onFocusRelease?: () => void;
   placementMode: boolean;
-  placementRadius: number;
+  placementRadius: { radius: number; visiblePx: number; maxGrowth: number };
   onPlacementConfirm: (position: ScenePosition) => void;
   onPlacementCancel: () => void;
   /** Cursor position (scene units) while placing; null when there is none. */
@@ -133,12 +136,13 @@ interface FocusSession {
 
 const CameraRig: React.FC<{
   frameEpoch: number;
+  overviewZoom: number;
   focus?: FocusRequest;
   bodies: SceneBody[];
   onFocusRelease?: () => void;
   leftInset: number;
   rightInset: number;
-}> = ({ frameEpoch, focus, bodies, onFocusRelease, leftInset, rightInset }) => {
+}> = ({ frameEpoch, overviewZoom, focus, bodies, onFocusRelease, leftInset, rightInset }) => {
   const camera = useThree((s) => s.camera);
   const size = useThree((s) => s.size);
   // Latest layout for the reset effect below, which must only run when the scene is refitted.
@@ -160,7 +164,7 @@ const CameraRig: React.FC<{
 
   useEffect(() => {
     // Pull back just enough that the fitted scene is not hidden under a sidebar (1 on normal windows).
-    const s = framingDistanceScale({ fovDeg: (camera as PerspectiveCamera).fov, ...layoutRef.current });
+    const s = framingDistanceScale({ fovDeg: (camera as PerspectiveCamera).fov, ...layoutRef.current }) / Math.max(1, overviewZoom);
     camera.position.set(DEFAULT_CAMERA_POSITION[0] * s, DEFAULT_CAMERA_POSITION[1] * s, DEFAULT_CAMERA_POSITION[2] * s);
     release();
     if (controls) {
@@ -168,7 +172,7 @@ const CameraRig: React.FC<{
       controls.update();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [frameEpoch, camera, controls]);
+  }, [frameEpoch, camera, controls, overviewZoom]);
 
   useEffect(() => {
     if (!focus || !controls) return;
@@ -269,11 +273,14 @@ const CameraRig: React.FC<{
 const PlacementCursor: React.FC<{
   active: boolean;
   radius: number;
+  visiblePx: number;
+  maxGrowth: number;
   onConfirm: (position: ScenePosition) => void;
   onCancel: () => void;
   onPreview?: (position: ScenePosition | null) => void;
-}> = ({ active, radius, onConfirm, onCancel, onPreview }) => {
+}> = ({ active, radius, visiblePx, maxGrowth, onConfirm, onCancel, onPreview }) => {
   const camera = useThree((s) => s.camera);
+  const size = useThree((s) => s.size);
   const gl = useThree((s) => s.gl);
   const controls = useThree((s) => s.controls) as unknown as OrbitTarget | null;
   const raycaster = useMemo(() => new Raycaster(), []);
@@ -283,6 +290,18 @@ const PlacementCursor: React.FC<{
   const placed = useRef(false);
   const meshGroup = useRef<Group>(null);
   const previewRef = useRef<ScenePosition | null>(null);
+
+  // Match the body's own view-dependent display sizing so the placement ghost is the size that will be rendered after creation.
+  useFrame(() => {
+    const group = meshGroup.current;
+    if (!active || !group || !(camera as PerspectiveCamera).isPerspectiveCamera) return;
+    const distance = Math.hypot(
+      camera.position.x - group.position.x,
+      camera.position.y - group.position.y,
+      camera.position.z - group.position.z,
+    );
+    group.scale.setScalar(bodyDisplayScale(radius, distance, (camera as PerspectiveCamera).fov, size.height, { minPx: visiblePx, maxGrowth }));
+  });
 
   // Callbacks change identity on every parent render; keep the listeners stable.
   const handlers = useRef({ onConfirm, onCancel, onPreview });
@@ -387,6 +406,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
   onFocusBody,
   onClearSelection,
   frameEpoch,
+  overviewZoom = 1,
   focus,
   onFocusRelease,
   placementMode,
@@ -460,7 +480,9 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
 
       <PlacementCursor
         active={placementMode}
-        radius={placementRadius}
+        radius={placementRadius.radius}
+        visiblePx={placementRadius.visiblePx}
+        maxGrowth={placementRadius.maxGrowth}
         onConfirm={onPlacementConfirm}
         onCancel={onPlacementCancel}
         onPreview={onPlacementPreview}
@@ -468,6 +490,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
       <OrbitControls makeDefault enabled={!placementMode} />
       <CameraRig
         frameEpoch={frameEpoch}
+        overviewZoom={overviewZoom}
         focus={focus}
         bodies={bodies}
         onFocusRelease={onFocusRelease}

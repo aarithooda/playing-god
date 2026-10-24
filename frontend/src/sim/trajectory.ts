@@ -28,6 +28,41 @@ export function spatialTrailProgress(points: readonly ScenePosition[]): number[]
 }
 
 /**
+ * Stable trail opacity: the newest point is bright and older points fade over an estimated orbit
+ * circumference. Unlike spatialTrailProgress, this does not normalize by the currently retained
+ * path length, so appending samples or trimming a completed lap cannot brighten the whole orbit.
+ */
+export function spatialTrailOpacity(points: readonly ScenePosition[]): number[] {
+  if (points.length === 0) return [];
+  if (points.length === 1) return [1];
+
+  const min = [Infinity, Infinity, Infinity];
+  const max = [-Infinity, -Infinity, -Infinity];
+  for (const point of points) {
+    for (let axis = 0; axis < 3; axis += 1) {
+      min[axis] = Math.min(min[axis]!, point[axis]!);
+      max[axis] = Math.max(max[axis]!, point[axis]!);
+    }
+  }
+  const center = min.map((value, axis) => (value + max[axis]!) / 2);
+  const radius = Math.max(...points.map((point) => Math.hypot(
+    point[0] - center[0]!, point[1] - center[1]!, point[2] - center[2]!,
+  )));
+  let fadeLength = 2 * Math.PI * radius;
+  if (!Number.isFinite(fadeLength) || fadeLength <= 0) return points.map(() => 1);
+
+  const distanceFromEnd = new Array<number>(points.length).fill(0);
+  for (let i = points.length - 2; i >= 0; i -= 1) {
+    const a = points[i]!;
+    const b = points[i + 1]!;
+    distanceFromEnd[i] = distanceFromEnd[i + 1]!
+      + Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+  }
+  const MIN_TRAIL_OPACITY = 0.12;
+  return distanceFromEnd.map((distance) => Math.max(MIN_TRAIL_OPACITY, 1 - distance / fadeLength));
+}
+
+/**
  * Retains at most the most recent completed orbit in a live trail. Keeping older laps makes a returning body paint the
  * same curve repeatedly, which darkens the orbit. A return is recognized only after roughly 80% of the estimated
  * circumference, so ordinary nearby samples and crossings do not reset the trail.

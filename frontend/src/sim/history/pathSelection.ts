@@ -4,15 +4,12 @@ export const MAX_PATH_BODIES = 20;
 /**
  * The selected body's path; otherwise every body's, but only while the scene is small enough to stay readable.
  *
- * A scene with moons (`moonIds`) is different: the planets' orbit paths are the picture and must not vanish because
- * something was selected or because the moons made the scene crowded, so every non-moon body keeps its path, and a
- * selected moon adds its own. (A moon's path from the 5-day history grid is a planet path plus a sub-pixel wiggle.)
+ * A scene with moons keeps every body's path visible together so each satellite can be compared with its planet and
+ * the Sun. The planet-relative orbital curves are shown separately in the selected planet's inset.
  */
 export function pathTargets(bodyIds: readonly string[], selectedBodyId: string | undefined, moonIds?: ReadonlySet<string>): string[] {
   if (moonIds && moonIds.size > 0) {
-    const planets = bodyIds.filter((id) => !moonIds.has(id));
-    const shown = planets.length <= MAX_PATH_BODIES ? planets : [];
-    return selectedBodyId && moonIds.has(selectedBodyId) && bodyIds.includes(selectedBodyId) ? [...shown, selectedBodyId] : shown;
+    return bodyIds.slice();
   }
   if (selectedBodyId && bodyIds.includes(selectedBodyId)) return [selectedBodyId];
   return bodyIds.length <= MAX_PATH_BODIES ? [...bodyIds] : [];

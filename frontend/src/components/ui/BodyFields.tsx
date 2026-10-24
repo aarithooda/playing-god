@@ -1,5 +1,5 @@
 import React from 'react';
-import type { BodyKind } from '../../api/types';
+import type { BodyKind, BodyType } from '../../api/types';
 import type { FieldErrors, FieldKey, FormValues } from '../../sim/validation';
 import { displayRadiusUnits, type SizeMode } from '../../sim/renderTransform';
 import { btnStyle, errorTextStyle, fieldGroup, inputStyle, labelStyle } from './styles';
@@ -11,8 +11,10 @@ interface BodyFieldsProps {
   idPrefix: string;
   onPickPosition?: () => void;
   isPickingPosition?: boolean;
-  /** When given, a "Type" (star / planet) selector is shown. `kind` is the physics role, not the renderer's bodyType. */
+  /** When given, a star / planet physics-role selector is shown. */
   kind?: BodyKind;
+  /** Renderer class from the catalogue, separate from the star/planet physics role. */
+  bodyType?: BodyType;
   onKindChange?: (kind: BodyKind) => void;
   /** The radius actually drawn in the scene (after the crowding adjustment); when it is smaller than the nominal one the readout says so. */
   drawnRadiusUnits?: number;
@@ -28,7 +30,7 @@ const VECTORS: Array<{ label: string; keys: [FieldKey, FieldKey, FieldKey] }> = 
   { label: 'Velocity (m/s): X, Y, Z', keys: ['vx', 'vy', 'vz'] },
 ];
 
-export const BodyFields: React.FC<BodyFieldsProps> = ({ values, errors, onChange, idPrefix, onPickPosition, isPickingPosition = false, kind, onKindChange, drawnRadiusUnits, sizeMode }) => (
+export const BodyFields: React.FC<BodyFieldsProps> = ({ values, errors, onChange, idPrefix, onPickPosition, isPickingPosition = false, kind, bodyType, onKindChange, drawnRadiusUnits, sizeMode }) => (
   <>
     <fieldset style={sectionStyle}>
       <legend style={sectionTitleStyle}>Identity and appearance</legend>
@@ -41,12 +43,18 @@ export const BodyFields: React.FC<BodyFieldsProps> = ({ values, errors, onChange
       </div>
       {kind !== undefined && onKindChange && (
         <div style={fieldGroup}>
-          <label style={labelStyle} htmlFor={idPrefix + '-kind'}>Type</label>
+          <label style={labelStyle} htmlFor={idPrefix + '-kind'}>Physics role</label>
           <select id={idPrefix + '-kind'} style={inputStyle} value={kind}
             onChange={(e) => onKindChange(e.target.value === 'star' ? 'star' : 'planet')}>
             <option value="planet">Planet</option>
             <option value="star">Star</option>
           </select>
+        </div>
+      )}
+      {bodyType && (
+        <div style={fieldGroup}>
+          <span style={labelStyle}>Object class</span>
+          <strong style={{ ...inputStyle, display: 'block', fontWeight: 500 }}>{bodyType.replace(/-/g, ' ')}</strong>
         </div>
       )}
       <div style={fieldGroup}>

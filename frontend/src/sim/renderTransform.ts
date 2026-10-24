@@ -61,33 +61,34 @@ export function fitTransform(positions: Vec3[]): RenderTransform {
   return { metersPerUnit: niceCeil(extent / FIT_EXTENT_UNITS) };
 }
 
-/** Camera placement matching a fitted scene (extent ~FIT_EXTENT_UNITS), kept in one place. */
-export const DEFAULT_CAMERA_POSITION: ScenePosition = [0, 0.9 * FIT_EXTENT_UNITS, 1.8 * FIT_EXTENT_UNITS];
+/** Closer default framing: the outer preset bodies fill more of the viewport while remaining inside the fitted extent. */
+export const DEFAULT_CAMERA_POSITION: ScenePosition = [0, 0.78 * FIT_EXTENT_UNITS, 1.56 * FIT_EXTENT_UNITS];
 
 // ---- Rendering views: Universe and Exploration ------------------------------------------------------------------
 // Two deliberate ways to DRAW the same simulation. Neither changes a radius, mass, position, force or time; both use the
 // TRUE radius for the geometry (radiusM / metersPerUnit) and differ only in how large a body is guaranteed to look on
-// screen. Each size depends on the body itself, the display scale and the camera - never on which other bodies exist
-// (Exploration only limits how far a body GROWS while the camera zooms in, so a planet cannot swallow its moons).
+// screen. Minimum sizes depend on the body's radius and view; exploration limits zoom growth for planet-moon systems so
+// a planet cannot swallow its moons.
 //
-//  "universe"    (Universe View, default): the scale of the real Solar System. Bodies are true-scale spheres; where that is
-//     below a pixel (everything but the Sun at the overview) a body is drawn with a small fixed minimum of
-//     `universeRadiusPx(radiusM)`: 8 px for the Sun, ~1.6 px for Earth, 1 px for the smallest. The minimum depends only
-//     on the body's own radius, so the Sun dominates and Earth stays a visible dot. This is a visibility treatment, not
-//     a physical size: below the minimum the picture is not to scale.
-//  "exploration" (Exploration View): planets are enlarged to be easy to see and select (`explorationRadiusPx`: 12 px for
-//     the Sun, ~3.7 px for Earth, ~2.7 px for the Moon), grow up to 8x more as the camera closes in on a system (so Earth
-//     and Moon separate and read as spheres), and that growth is limited to 35 % of the planet-moon distance on screen
-//     so moons stay distinguishable. The limit never reduces a body below its overview size.
+//  "universe"    (Universe View): stars render at 3.9 px radius; non-star bodies have a 3.6 px overview cap.
+//  "exploration" (Exploration View, default): the same compact star/body envelope keeps the Sun from covering the inner
+//     planets. The body-size curve still uses its own radius reference (22 px for the nominal Sun), so Earth remains
+//     larger than Mercury and Jupiter remains larger than Earth before the display cap. The Sun uses a fixed world-space
+//     visibility boost and follows camera zoom; moons grow up to 8x, limited by their moon-orbit clearance, while
+//     planets follow their own size law without a moon-dependent cap.
 export type SizeMode = "universe" | "exploration";
-export const DEFAULT_SIZE_MODE: SizeMode = "universe";
+export const DEFAULT_SIZE_MODE: SizeMode = "exploration";
 
 /** IAU 2015 B3 nominal solar radius, the reference of both minimum-size laws (same value as the Solar System preset). */
 export const SUN_RADIUS_M = 6.957e8;
 
 export interface SizeLaw {
-  /** On-screen radius (CSS px) of a Sun-sized body. */
+  /** Reference radius (CSS px) used to map physical radii to the non-star size curve. */
   sunPx: number;
+  /** On-screen radius (CSS px) for actual stars at the overview. */
+  starPx: number;
+  /** Maximum overview radius (CSS px) for non-star bodies in the rendered scene. */
+  maxBodyPx: number;
   exponent: number;
   minPx: number;
   maxPx: number;
@@ -96,8 +97,8 @@ export interface SizeLaw {
 }
 
 export const SIZE_LAWS: Record<SizeMode, SizeLaw> = {
-  universe: { sunPx: 8, exponent: 0.35, minPx: 1, maxPx: 24, maxZoomGrowth: 1 },
-  exploration: { sunPx: 12, exponent: 0.25, minPx: 2.5, maxPx: 30, maxZoomGrowth: 8 },
+  universe: { sunPx: 18, starPx: 3.9, maxBodyPx: 3.6, exponent: 0.35, minPx: 2.5, maxPx: 30, maxZoomGrowth: 1 },
+  exploration: { sunPx: 22, starPx: 3.9, maxBodyPx: 3.6, exponent: 0.4, minPx: 2.2, maxPx: 36, maxZoomGrowth: 8 },
 };
 
 /** Scene radius of a body at true scale: the only geometry either view uses. */

@@ -285,6 +285,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               isPickingPosition={placementMode}
               onPickPosition={() => onPlacementModeChange(!placementMode)}
               kind={kind}
+              bodyType={catalogueEntry?.bodyType}
               onKindChange={setKind}
             />
             {catalogueEntry && (

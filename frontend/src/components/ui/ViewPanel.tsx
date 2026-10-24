@@ -1,7 +1,7 @@
 import React from 'react';
 import { btnStyle, panelStyle } from './styles';
 import { theme } from './theme';
-import type { SizeMode } from '../../sim/renderTransform';
+import { DEFAULT_SIZE_MODE, type SizeMode } from '../../sim/renderTransform';
 
 interface ViewPanelProps {
   /** Axes and grid toggles. Omit all of them when the caller shows those controls elsewhere (the view toolbar). */
@@ -16,7 +16,7 @@ interface ViewPanelProps {
   onPathsChange?: (on: boolean) => void;
   /** Why fewer paths are drawn than expected (for example a crowded scene). */
   pathsNote?: string;
-  /** How the same simulation is drawn: Universe View (real scale, default) or Exploration View (enlarged planets). */
+  /** How the same simulation is drawn: Universe View or Exploration View (the default, with larger objects). */
   sizeMode?: SizeMode;
   onSizeModeChange?: (mode: SizeMode) => void;
 }
@@ -28,8 +28,8 @@ const toggleStyle = (on: boolean): React.CSSProperties => ({
   background: on ? '#1d3557' : theme.surfaceRaised,
 });
 
-/** Two independent view aids. Both start off. */
-export const ViewPanel: React.FC<ViewPanelProps> = ({ axes = false, grid = false, gridShownForPlacement = false, onAxesChange, onGridChange, paths = false, onPathsChange, pathsNote, sizeMode = 'universe', onSizeModeChange }) => (
+/** Independent view aids and display preferences. */
+export const ViewPanel: React.FC<ViewPanelProps> = ({ axes = false, grid = false, gridShownForPlacement = false, onAxesChange, onGridChange, paths = false, onPathsChange, pathsNote, sizeMode = DEFAULT_SIZE_MODE, onSizeModeChange }) => (
 
 
   <div style={panelStyle}>
@@ -66,8 +66,8 @@ export const ViewPanel: React.FC<ViewPanelProps> = ({ axes = false, grid = false
         </div>
         <p style={{ margin: '6px 0 0 0', fontSize: '11px', color: theme.textMuted }}>
           {sizeMode === 'universe'
-            ? 'The real scale: the Sun dominates and planets are small dots (a small minimum size keeps them visible).'
-            : 'Planets enlarged to find and select them; moons stay distinguishable when you zoom in on a system.'}
+            ? 'Smaller true-scale view; a minimum screen size keeps planets and moons visible.'
+            : 'Larger planets and moons for easier viewing; zooming in reveals more detail.'}
         </p>
       </div>
     )}
