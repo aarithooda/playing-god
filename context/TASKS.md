@@ -55,6 +55,8 @@ Review/merge `feature/production-rebound-simulation` (production engine done: P-
 | T-011 | B1: system diagnostics in the state response (backend `compute_diagnostics`, `diagnostics` field) and frontend data path (types, strict parser, view model) | high | done 2026-10-24 (D-013 accepted; PRs #1 `d2352b0`, #2 `3ca349e`; pytest 259, vitest 69) | lead + Vaibhav (physics review) + Nikhil (consumer) | T-007 | merged with CI green |
 | T-012 | B1 UI: system diagnostics panel (units, "about origin" label, `null` as Undefined; drift indicators intentionally omitted) | medium | merged 2026-10-24 (PR #3, `ede80c0`, owner exception D-014); follow-up done in M2: relocated into the left sidebar below Event History | lead (AI session); Nikhil reviews (shared `App.tsx`) | T-011 | panel shown with tests; no frontend physics; vitest 96 |
 
+| T-013 | Simulation stall resilience: lock-free committed reads, bounded mutation waits (503 busy), API client timeouts, recoverable load error, resync after unknown-outcome step | high | implemented 2026-10-24 on `fix/simulation-stall-resilience`, PR #10, D-021 accepted by the owner (no independent review) | AI session; owner decides merge | T-007, D-011, D-012 | tests in `tests/test_stall_resilience.py`, `api/client.test.ts`, hook/App tests; limitation: a native integrate that never reaches the heartbeat is not interruptible in-process |
+
 ### Remote branch inventory — 2026-10-23
 Fetched and created local tracking refs for `feature/m0-rebound-physics-api` (Aarit) and `codex/3drender` (Nikhil). Their work remains unmerged; branch-local test/status claims are not main verification. See HANDOFF/STATUS for changed files and current tips. M0 task statuses on main remain unchanged pending review/integration.
 

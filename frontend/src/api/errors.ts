@@ -1,4 +1,5 @@
-export type ApiErrorKind = "network" | "http" | "invalid-response";
+/** "timeout": the backend accepted the request but did not answer in time (outcome of a write is unknown). */
+export type ApiErrorKind = "network" | "http" | "invalid-response" | "timeout";
 
 export class ApiError extends Error {
   readonly kind: ApiErrorKind;

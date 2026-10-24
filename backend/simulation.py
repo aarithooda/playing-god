@@ -17,9 +17,13 @@ Model (decisions D-007, D-008, D-010; evidence in context/PHYSICS_SPIKE.md):
   StepTimeoutError and takes the same rollback path, so a timed-out step advances nothing. The engine is rebuilt from
   the saved state, so the replay uses a different internal step grid (same physics, not bitwise identical).
 - Structural edits (add/remove/patch) re-select IAS15 so no stale predictor state survives.
-- State is in-memory, single process, lost on restart; all methods are serialized by one lock.
+- State is in-memory, single process, lost on restart; every mutation (and every step) is serialized by one lock.
+- Reads never wait for that lock: `snapshot()` returns the last *committed* state, published at the end of every
+  successful mutation or step, so a long or stuck step can neither block nor tear a read. Mutations wait for the
+  lock only a bounded time (`lock_wait_s`) and then fail with SimulationBusyError (HTTP 503) instead of hanging.
 Known limits: see context/API_CONTRACT.md ("Physics limitations").
 """
+import contextlib
 import logging
 import math
 import os
@@ -44,6 +48,8 @@ MAX_CHUNKS_PER_STEP = 2000  # bounds wall time; if reached, chunks are longer th
 MAX_EVENTS_KEPT = 1000
 # Wall-clock budget for one step request (seconds), checked between chunks; override with PG_STEP_TIME_LIMIT_S.
 DEFAULT_STEP_TIME_LIMIT_S = 10.0
+# A mutation waits this much longer than the step budget for the lock before answering 503 "busy".
+LOCK_WAIT_MARGIN_S = 5.0
 
 
 class NotFoundError(Exception):
@@ -52,6 +58,10 @@ class NotFoundError(Exception):
 
 class ConflictError(Exception):
     pass
+
+
+class SimulationBusyError(Exception):
+    """Another request holds the simulation (normally a step in progress); nothing was changed."""
 
 
 class SimulationFailure(Exception):
@@ -67,6 +77,8 @@ class SimulationService:
         self._lock = threading.RLock()
         self._event_seq = 0  # never reset, so event ids are never reused
         self.step_time_limit_s = float(os.getenv("PG_STEP_TIME_LIMIT_S", DEFAULT_STEP_TIME_LIMIT_S))
+        # How long a mutation waits for a running step before answering 503; None = step budget + LOCK_WAIT_MARGIN_S.
+        self.lock_wait_s: float | None = None
         self._clock = time.monotonic  # injectable for tests
         self._init_state()
 
@@ -79,6 +91,24 @@ class SimulationService:
         self._timed_out = False
         self._resolver = MergeResolver(self._record_merge)
         self._sim = self._new_sim([], 0.0)
+        self._published = self._snapshot()  # last committed state, served to readers without the lock
+
+    @contextlib.contextmanager
+    def _guard(self):
+        """Holds the simulation lock for a mutation, but never indefinitely."""
+        wait = self.lock_wait_s if self.lock_wait_s is not None else self.step_time_limit_s + LOCK_WAIT_MARGIN_S
+        if not self._lock.acquire(timeout=max(wait, 0.0)):
+            logger.warning("simulation busy: a request waited %.1f s for the lock and gave up", wait)
+            raise SimulationBusyError(
+                "the simulation is busy (a step is still running); nothing was changed, try again shortly")
+        try:
+            yield
+        finally:
+            self._lock.release()
+
+    def _publish(self) -> None:
+        """Call under the lock after a committed change."""
+        self._published = self._snapshot()
 
     def _new_sim(self, records: list[dict], t: float) -> rebound.Simulation:
         sim = rebound.Simulation()
@@ -96,18 +126,17 @@ class SimulationService:
 
     def reset(self) -> SimulationState:
         """Remove all bodies and events, time to 0. Event ids keep counting (never reused)."""
-        with self._lock:
+        with self._guard():
             self._init_state()
-            return self._snapshot()
+            return self.snapshot()
 
     # ---------- reads ----------
     def snapshot(self) -> SimulationState:
-        with self._lock:
-            return self._snapshot()
+        """The last committed state. Never waits for a running step and never shows a half-advanced state."""
+        return self._published.model_copy(deep=True)
 
     def events(self) -> list[Event]:
-        with self._lock:
-            return list(self._events)
+        return list(self._events)  # one atomic list copy; steps only append/trim after they succeed
 
     def _particle(self, body_id: str):
         """Look a body up by scanning, not through REBOUND's name hash table: after a removal (every merger) the
@@ -139,7 +168,7 @@ class SimulationService:
 
     # ---------- CRUD ----------
     def add_body(self, data: BodyCreate) -> Body:
-        with self._lock:
+        with self._guard():
             if len(self._meta) >= MAX_BODIES:
                 raise ConflictError(f"body limit reached ({MAX_BODIES})")
             self._require_free(data.positionM, data.radiusM, ignore_id=None)
@@ -151,10 +180,11 @@ class SimulationService:
                           vz=data.velocityMPerS.z, name=body_id)
             self._meta[body_id] = (data.name, data.colorHex)
             select_ias15(self._sim)  # reset integrator state after a structural change
+            self._publish()
             return self._body(body_id, self._particle(body_id))
 
     def update_body(self, body_id: str, patch: BodyUpdate) -> Body:
-        with self._lock:
+        with self._guard():
             self._require_known(body_id)
             p = self._particle(body_id)
             fields = patch.model_fields_set
@@ -175,15 +205,17 @@ class SimulationService:
                                    patch.colorHex if "colorHex" in fields else color)
             if fields & {"massKg", "radiusM", "positionM", "velocityMPerS"}:
                 select_ias15(self._sim)
+            self._publish()
             return self._body(body_id, self._particle(body_id))
 
     def delete_body(self, body_id: str) -> None:
-        with self._lock:
+        with self._guard():
             self._require_known(body_id)
             self._sim.remove(self._particle(body_id).index)
             del self._meta[body_id]
             self._resolver.spin.pop(body_id, None)
             select_ias15(self._sim)
+            self._publish()
 
     def _require_known(self, body_id: str) -> None:
         if body_id not in self._meta:
@@ -200,7 +232,7 @@ class SimulationService:
 
     # ---------- stepping ----------
     def step(self, dt_s: float) -> StepResponse:
-        with self._lock:
+        with self._guard():
             before = self._capture()
             self._pending = []
             t0 = self._sim.t
@@ -220,6 +252,7 @@ class SimulationService:
             self._pending = []
             self._events.extend(events)
             del self._events[:-MAX_EVENTS_KEPT]
+            self._publish()
             state = self._snapshot()
             return StepResponse(**state.model_dump(), advancedS=self._sim.t - t0, events=events)
 

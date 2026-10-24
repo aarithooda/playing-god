@@ -183,10 +183,21 @@ export default function App() {
         </div>
 
         <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", pointerEvents: "auto" }}>
-          {loadStatus === "loading" && <p role="status" style={{ ...panelStyle, margin: 0 }}>Connecting to the simulation backend…</p>}
+          {loadStatus === "loading" && (
+            <p role="status" style={{ ...panelStyle, margin: 0 }}>
+              {simulation.health === "ok" ? "Backend reachable. Loading the simulation state…" : "Waiting for the backend…"}
+            </p>
+          )}
           {loadStatus === "error" && (
-            <div role="alert" style={{ ...panelStyle, borderColor: theme.danger, textAlign: "center" }}>
-              <p style={{ margin: "0 0 10px 0" }}>Cannot load the simulation: {simulation.loadError}</p>
+            <div role="alert" style={{ ...panelStyle, borderColor: theme.danger, textAlign: "center", maxWidth: 360 }}>
+              <p style={{ margin: "0 0 6px 0" }}>Cannot load the simulation: {simulation.loadError}</p>
+              {simulation.health === "ok" && (
+                <p style={{ margin: "0 0 10px 0", fontSize: 12, color: theme.textMuted }}>
+                  The backend answers health checks, but the simulation itself did not respond. A step may still be
+                  running or stuck; the simulation state on the backend is unchanged. Retry, or restart the backend
+                  (restarting clears the in-memory universe).
+                </p>
+              )}
               <button style={btnStyle} onClick={() => void simulation.reload()}>Retry</button>
             </div>
           )}
