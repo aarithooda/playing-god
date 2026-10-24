@@ -13,6 +13,7 @@ import {
 import type { BodyView } from '../../sim/viewModel';
 import type { Vec3 } from '../../api/types';
 import { BodyFields } from './BodyFields';
+import { ConfirmButton } from './ConfirmButton';
 import { btnStyle, errorTextStyle, panelStyle } from './styles';
 import { theme } from './theme';
 
@@ -30,6 +31,8 @@ interface ControlPanelProps {
   onPause: () => void;
   onStep: () => void;
   onReset: () => void;
+  /** Reset discards the current state: ask for a second press first. */
+  confirmReset?: boolean;
   onFit: () => void;
   onCreate: (body: BodyCreateDto) => Promise<ActionResult>;
   placementMode?: boolean;
@@ -55,6 +58,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   onPause,
   onStep,
   onReset,
+  confirmReset = false,
   onFit,
   onCreate,
   placementMode = false,
@@ -179,7 +183,17 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         <button style={btnStyle} onClick={onPause} disabled={!playing}>Pause</button>
       </div>
       <button style={btnStyle} onClick={onStep} disabled={disabled || stepping || !canRun}>Step Forward</button>
-      <button style={btnStyle} onClick={onReset} disabled={disabled}>Reset Universe</button>
+      {confirmReset ? (
+        <ConfirmButton
+          label="Reset Universe"
+          confirmLabel="Confirm reset (returns to the initial state)"
+          onConfirm={onReset}
+          disabled={disabled}
+          style={{ width: '100%' }}
+        />
+      ) : (
+        <button style={btnStyle} onClick={onReset} disabled={disabled}>Reset Universe</button>
+      )}
       <button style={btnStyle} onClick={onFit}>Fit view</button>
       <div style={{ marginTop: '4px' }}>
         <label htmlFor="sim-speed" style={{ fontSize: '12px', display: 'block', marginBottom: '5px' }}>

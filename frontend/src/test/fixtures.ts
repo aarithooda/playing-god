@@ -1,6 +1,20 @@
 // Test-only fixtures (never imported by production code).
-import type { ApiClient } from "../api/client";
-import type { BodyDto, DiagnosticsDto, SimulationEventDto, SimulationStateDto, StepResponseDto } from "../api/types";
+import type { ApiClient, ScopedClient } from "../api/client";
+import type {
+  BodyCreateDto,
+  BodyDto,
+  BodyUpdateDto,
+  DiagnosticsDto,
+  HistoryPageDto,
+  PresetSummaryDto,
+  SimulationEventDto,
+  SimulationStateDto,
+  SnapshotSummaryDto,
+  StepResponseDto,
+  UniverseListDto,
+  UniverseScope,
+  UniverseSummaryDto,
+} from "../api/types";
 
 export const sun: BodyDto = {
   id: "body-aaaaaaaaaaaa",
@@ -10,6 +24,8 @@ export const sun: BodyDto = {
   positionM: { x: 0, y: 0, z: 0 },
   velocityMPerS: { x: 0, y: 0, z: 0 },
   colorHex: "#fdb813",
+  kind: "star",
+  catalogueEntryId: null,
 };
 
 export const earth: BodyDto = {
@@ -20,6 +36,8 @@ export const earth: BodyDto = {
   positionM: { x: 1.496e11, y: 0, z: 0 },
   velocityMPerS: { x: 0, y: 29780, z: 0 },
   colorHex: "#3b82f6",
+  kind: "planet",
+  catalogueEntryId: null,
 };
 
 export const mergerEvent: SimulationEventDto = {
@@ -55,17 +73,62 @@ export function stepResponse(bodies: BodyDto[], t: number, events: SimulationEve
   return { ...state(bodies, t), advancedS: 100, events };
 }
 
-/** A scriptable in-memory ApiClient; tests override the methods they care about. */
-export function fakeClient(overrides: Partial<ApiClient> = {}): ApiClient {
+export function universe(o: Partial<UniverseSummaryDto> = {}): UniverseSummaryDto {
   return {
+    id: "uni-default", name: "Sandbox", role: "sandbox", presetId: null, experimentId: null, active: true,
+    simulationTimeS: 0, bodyCount: 2, revision: 0, status: "idle", lastFailure: null,
+    createdAtIso: "2026-01-01T00:00:00Z", epochLabel: null, historyMode: "step", ...o,
+  };
+}
+
+export function universeList(universes: UniverseSummaryDto[] = [universe()], epoch = 1): UniverseListDto {
+  const active = universes.find((u) => u.active) ?? universes[0]!;
+  return { universes, activeUniverseId: active.id, activationEpoch: epoch };
+}
+
+export const solarPreset: PresetSummaryDto = {
+  id: "solar-system-j2000", name: "Solar System (J2000.0)", description: "The Sun and the eight planets.",
+  available: true, unavailableReason: null, bodyCount: 9, epochLabel: "J2000.0",
+};
+
+export type FakeClient = ApiClient;
+
+/**
+ * A scriptable in-memory client; tests override the methods they care about. It serves both the unscoped surface
+ * and, through `scoped()`, a scoped one that shares the same overrides (so existing single-universe tests keep
+ * working unchanged).
+ */
+export function fakeClient(overrides: Partial<ApiClient & ScopedClient> = {}): ApiClient {
+  const base = {
     health: async () => true,
     getState: async () => state([sun, earth]),
-    createBody: async (b) => ({ id: "body-new", ...b }),
-    updateBody: async (id, patch) => ({ ...sun, ...patch, id }),
+    createBody: async (b: BodyCreateDto): Promise<BodyDto> => ({
+      id: "body-new", name: b.name, massKg: b.massKg, radiusM: b.radiusM, positionM: b.positionM,
+      velocityMPerS: b.velocityMPerS, colorHex: b.colorHex, kind: b.kind ?? "planet", catalogueEntryId: b.catalogueEntryId ?? null,
+    }),
+    updateBody: async (id: string, patch: BodyUpdateDto): Promise<BodyDto> => ({ ...sun, ...patch, id } as BodyDto),
     deleteBody: async () => undefined,
     step: async () => stepResponse([sun, earth], 100),
     reset: async () => state([]),
     getEvents: async () => [],
-    ...overrides,
+    listUniverses: async () => universeList(),
+    createUniverse: async () => universe({ id: "uni-new", active: false }),
+    activateUniverse: async (id: string) => ({ activeUniverseId: id, activationEpoch: 2 }),
+    deleteUniverse: async () => undefined,
+    listPresets: async () => [solarPreset],
+    listSnapshots: async () => [],
+    createSnapshot: async (name?: string): Promise<SnapshotSummaryDto> => ({
+      id: "snap-1", name: name ?? "Snapshot", createdAtIso: "2026-01-01T00:00:00Z", simulationTimeS: 0, bodyCount: 2,
+      revision: 0, controlled: true,
+    }),
+    restoreSnapshot: async () => state([sun, earth]),
+    deleteSnapshot: async () => undefined,
+    getHistory: async (): Promise<HistoryPageDto> => ({
+      universeId: "uni-default", mode: "step", sampleIntervalS: null, generation: 1, firstIndex: 0, nextIndex: 0,
+      droppedBefore: 0, truncated: false, samples: [], bodies: {},
+    }),
   };
+  const self = { ...base, ...overrides } as ApiClient & ScopedClient;
+  self.scoped = overrides.scoped ?? ((scope: UniverseScope) => ({ ...self, scope }) as ScopedClient);
+  return self;
 }

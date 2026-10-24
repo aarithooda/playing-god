@@ -7,6 +7,8 @@ export interface Vec3 {
   z: number;
 }
 
+export type BodyKind = "star" | "planet";
+
 export interface BodyDto {
   id: string;
   name: string;
@@ -15,10 +17,16 @@ export interface BodyDto {
   positionM: Vec3;
   velocityMPerS: Vec3;
   colorHex: string;
+  kind: BodyKind;
+  /** Catalogue provenance only (a catalogue entry is a copy, never a live reference). */
+  catalogueEntryId: string | null;
 }
 
-/** POST /api/v1/bodies request (the server generates `id`). */
-export type BodyCreateDto = Omit<BodyDto, "id">;
+/** POST /api/v1/bodies request (the server generates `id`). `kind` defaults to "planet" on the server. */
+export type BodyCreateDto = Omit<BodyDto, "id" | "kind" | "catalogueEntryId"> & {
+  kind?: BodyKind;
+  catalogueEntryId?: string | null;
+};
 
 /** PATCH /api/v1/bodies/{id} request: any non-empty subset; vectors are replaced whole. */
 export type BodyUpdateDto = Partial<BodyCreateDto>;
@@ -55,6 +63,9 @@ export interface SimulationStateDto {
   diagnostics: DiagnosticsDto | null;
   /** Why `diagnostics` is null (missing, unsupported version, malformed); null when diagnostics are present. */
   diagnosticsIssue: string | null;
+  /** Universe-scoped responses only: which universe this state belongs to and its commit counter. */
+  universeId?: string;
+  revision?: number;
 }
 
 export interface SimulationEventDto {
@@ -89,3 +100,100 @@ export const LIMITS = {
   maxStepS: 1.0e8,
   maxNameLength: 64,
 } as const;
+
+// ---------- Simulation Lab: universes, presets, snapshots, history ----------
+export type UniverseRole = "sandbox" | "preset" | "baseline" | "modified";
+
+export interface LastFailureDto {
+  kind: string;
+  message: string;
+  atSimulationTimeS: number;
+  atIso: string;
+}
+
+export interface UniverseSummaryDto {
+  id: string;
+  name: string;
+  role: UniverseRole;
+  presetId: string | null;
+  experimentId: string | null;
+  active: boolean;
+  simulationTimeS: number;
+  bodyCount: number;
+  revision: number;
+  status: "idle" | "mutating";
+  lastFailure: LastFailureDto | null;
+  createdAtIso: string;
+  epochLabel: string | null;
+  historyMode: "grid" | "step";
+}
+
+export interface UniverseListDto {
+  universes: UniverseSummaryDto[];
+  activeUniverseId: string;
+  activationEpoch: number;
+}
+
+export interface ActivationDto {
+  activeUniverseId: string;
+  activationEpoch: number;
+}
+
+export type CreateUniverseDto = {
+  name?: string;
+  source: { kind: "empty" } | { kind: "preset"; presetId: string };
+  activate?: boolean;
+};
+
+export interface PresetSummaryDto {
+  id: string;
+  name: string;
+  description: string;
+  available: boolean;
+  unavailableReason: string | null;
+  bodyCount: number;
+  epochLabel: string | null;
+}
+
+export interface SnapshotSummaryDto {
+  id: string;
+  name: string;
+  createdAtIso: string;
+  simulationTimeS: number;
+  bodyCount: number;
+  revision: number;
+  controlled: boolean;
+}
+
+export interface HistorySampleDto {
+  index: number;
+  simulationTimeS: number;
+  segment: number;
+  positionsM: Record<string, [number, number, number]>;
+}
+
+export interface HistoryBodyMetaDto {
+  name: string;
+  colorHex: string;
+  radiusM: number;
+  kind: string;
+}
+
+export interface HistoryPageDto {
+  universeId: string;
+  mode: "grid" | "step";
+  sampleIntervalS: number | null;
+  generation: number;
+  firstIndex: number;
+  nextIndex: number;
+  droppedBefore: number;
+  truncated: boolean;
+  samples: HistorySampleDto[];
+  bodies: Record<string, HistoryBodyMetaDto>;
+}
+
+/** The universe a client acts on: every mutation echoes `activationEpoch` so a stale request is refused. */
+export interface UniverseScope {
+  universeId: string;
+  activationEpoch: number;
+}

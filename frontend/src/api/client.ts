@@ -1,17 +1,38 @@
 import { ApiError, describeDetail } from "./errors";
-import { parseBodyDto, parseEventList, parseStateDto, parseStepResponse } from "./parse";
+import {
+  parseActivation,
+  parseBodyDto,
+  parseEventList,
+  parseHistoryPage,
+  parsePresetList,
+  parseSnapshotList,
+  parseSnapshotSummary,
+  parseStateDto,
+  parseStepResponse,
+  parseUniverseList,
+  parseUniverseSummary,
+} from "./parse";
 import type {
+  ActivationDto,
   BodyCreateDto,
   BodyDto,
   BodyUpdateDto,
+  CreateUniverseDto,
+  HistoryPageDto,
+  PresetSummaryDto,
   SimulationEventDto,
   SimulationStateDto,
+  SnapshotSummaryDto,
   StepResponseDto,
+  UniverseListDto,
+  UniverseScope,
+  UniverseSummaryDto,
 } from "./types";
 
 const V1 = "/api/v1";
 
-export interface ApiClient {
+/** What the simulation hook needs from the backend: the legacy single-simulation surface, or one universe's. */
+export interface SimulationClient {
   health(): Promise<boolean>;
   getState(): Promise<SimulationStateDto>;
   createBody(body: BodyCreateDto): Promise<BodyDto>;
@@ -20,6 +41,33 @@ export interface ApiClient {
   step(dtS: number): Promise<StepResponseDto>;
   reset(): Promise<SimulationStateDto>;
   getEvents(): Promise<SimulationEventDto[]>;
+}
+
+export interface HistoryQuery {
+  generation?: number;
+  fromIndex?: number;
+  bodyIds?: string[];
+  limit?: number;
+}
+
+/** A client bound to one universe and one activation epoch: every mutation carries the epoch. */
+export interface ScopedClient extends SimulationClient {
+  readonly scope: UniverseScope;
+  listSnapshots(): Promise<SnapshotSummaryDto[]>;
+  createSnapshot(name?: string): Promise<SnapshotSummaryDto>;
+  restoreSnapshot(snapshotId: string): Promise<SimulationStateDto>;
+  deleteSnapshot(snapshotId: string): Promise<void>;
+  getHistory(query?: HistoryQuery): Promise<HistoryPageDto>;
+}
+
+export interface ApiClient extends SimulationClient {
+  listUniverses(): Promise<UniverseListDto>;
+  createUniverse(request: CreateUniverseDto): Promise<UniverseSummaryDto>;
+  activateUniverse(universeId: string): Promise<ActivationDto>;
+  deleteUniverse(universeId: string): Promise<void>;
+  listPresets(): Promise<PresetSummaryDto[]>;
+  /** A client for one universe; mutations echo `scope.activationEpoch`. */
+  scoped(scope: UniverseScope): ScopedClient;
 }
 
 export interface ApiClientOptions {
@@ -81,7 +129,8 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
         } catch {
           parsed = undefined;
         }
-        throw new ApiError("http", describeDetail(parsed, `HTTP ${res.status}`), res.status);
+        const code = typeof (parsed as { code?: unknown } | undefined)?.code === "string" ? (parsed as { code: string }).code : undefined;
+        throw new ApiError("http", describeDetail(parsed, `HTTP ${res.status}`), res.status, code);
       }
       if (!wantJson) return undefined;
       try {
@@ -100,11 +149,66 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
     }
   }
 
+  const health = async () => {
+    const data = (await call("GET", "/healthz", readTimeoutMs)) as { status?: unknown } | null;
+    return data?.status === "ok";
+  };
+
+  function scoped(scope: UniverseScope): ScopedClient {
+    const root = `${V1}/universes/${encodeURIComponent(scope.universeId)}`;
+    const epoch = `activationEpoch=${scope.activationEpoch}`;
+    return {
+      scope,
+      health,
+      async getState() {
+        return parseStateDto(await call("GET", `${root}/state`, readTimeoutMs));
+      },
+      async createBody(body) {
+        return parseBodyDto(await call("POST", `${root}/bodies?${epoch}`, writeTimeoutMs, body));
+      },
+      async updateBody(id, patch) {
+        return parseBodyDto(await call("PATCH", `${root}/bodies/${encodeURIComponent(id)}?${epoch}`, writeTimeoutMs, patch));
+      },
+      async deleteBody(id) {
+        await call("DELETE", `${root}/bodies/${encodeURIComponent(id)}?${epoch}`, writeTimeoutMs, undefined, false);
+      },
+      async step(dtS) {
+        return parseStepResponse(await call("POST", `${root}/step?${epoch}`, writeTimeoutMs, { dtS }));
+      },
+      async reset() {
+        return parseStateDto(await call("POST", `${root}/reset?${epoch}`, writeTimeoutMs));
+      },
+      async getEvents() {
+        return parseEventList(await call("GET", `${root}/events`, readTimeoutMs)).events;
+      },
+      async listSnapshots() {
+        return parseSnapshotList(await call("GET", `${root}/snapshots`, readTimeoutMs));
+      },
+      async createSnapshot(name) {
+        return parseSnapshotSummary(await call("POST", `${root}/snapshots?${epoch}`, writeTimeoutMs, name ? { name } : {}));
+      },
+      async restoreSnapshot(snapshotId) {
+        return parseStateDto(
+          await call("POST", `${root}/snapshots/${encodeURIComponent(snapshotId)}/restore?${epoch}`, writeTimeoutMs),
+        );
+      },
+      async deleteSnapshot(snapshotId) {
+        await call("DELETE", `${root}/snapshots/${encodeURIComponent(snapshotId)}?${epoch}`, writeTimeoutMs, undefined, false);
+      },
+      async getHistory(query = {}) {
+        const p = new URLSearchParams();
+        if (query.generation !== undefined) p.set("generation", String(query.generation));
+        if (query.fromIndex !== undefined) p.set("fromIndex", String(query.fromIndex));
+        if (query.bodyIds?.length) p.set("bodyIds", query.bodyIds.join(","));
+        if (query.limit !== undefined) p.set("limit", String(query.limit));
+        const qs = p.toString();
+        return parseHistoryPage(await call("GET", `${root}/history${qs ? `?${qs}` : ""}`, readTimeoutMs));
+      },
+    };
+  }
+
   return {
-    async health() {
-      const data = (await call("GET", "/healthz", readTimeoutMs)) as { status?: unknown } | null;
-      return data?.status === "ok";
-    },
+    health,
     async getState() {
       return parseStateDto(await call("GET", `${V1}/simulation/state`, readTimeoutMs));
     },
@@ -126,5 +230,21 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
     async getEvents() {
       return parseEventList(await call("GET", `${V1}/events`, readTimeoutMs)).events;
     },
+    async listUniverses() {
+      return parseUniverseList(await call("GET", `${V1}/universes`, readTimeoutMs));
+    },
+    async createUniverse(request) {
+      return parseUniverseSummary(await call("POST", `${V1}/universes`, writeTimeoutMs, request));
+    },
+    async activateUniverse(universeId) {
+      return parseActivation(await call("POST", `${V1}/universes/${encodeURIComponent(universeId)}/activate`, writeTimeoutMs));
+    },
+    async deleteUniverse(universeId) {
+      await call("DELETE", `${V1}/universes/${encodeURIComponent(universeId)}`, writeTimeoutMs, undefined, false);
+    },
+    async listPresets() {
+      return parsePresetList(await call("GET", `${V1}/presets`, readTimeoutMs));
+    },
+    scoped,
   };
 }

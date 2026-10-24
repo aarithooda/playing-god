@@ -3,12 +3,18 @@
 import { ApiError } from "./errors";
 import { DIAGNOSTICS_VERSION } from "./types";
 import type {
+  ActivationDto,
   BodyDto,
   DiagnosticsDto,
   EventListDto,
+  HistoryPageDto,
+  PresetSummaryDto,
   SimulationEventDto,
   SimulationStateDto,
+  SnapshotSummaryDto,
   StepResponseDto,
+  UniverseListDto,
+  UniverseSummaryDto,
   Vec3,
 } from "./types";
 
@@ -96,6 +102,9 @@ export function parseBodyDto(v: unknown): BodyDto {
     positionM: vec3(o.positionM, "body.positionM"),
     velocityMPerS: vec3(o.velocityMPerS, "body.velocityMPerS"),
     colorHex: str(o.colorHex, "body.colorHex"),
+    // Older backends send neither field: a body without a kind is a planet.
+    kind: o.kind === "star" ? "star" : "planet",
+    catalogueEntryId: typeof o.catalogueEntryId === "string" ? o.catalogueEntryId : null,
   };
 }
 
@@ -109,6 +118,8 @@ export function parseStateDto(v: unknown): SimulationStateDto {
     simulationTimeS: num(o.simulationTimeS, "state.simulationTimeS"),
     bodies: (o.bodies as unknown[]).map(parseBodyDto),
     ...parseDiagnosticsLenient(o.diagnostics),
+    ...(typeof o.universeId === "string" ? { universeId: o.universeId } : {}),
+    ...(typeof o.revision === "number" && Number.isFinite(o.revision) ? { revision: o.revision } : {}),
   };
 }
 
@@ -147,5 +158,145 @@ export function parseStepResponse(v: unknown): StepResponseDto {
     ...state,
     advancedS: num(o.advancedS, "step.advancedS"),
     events: (o.events as unknown[]).map(parseEventDto),
+  };
+}
+
+// ---------- Simulation Lab ----------
+function bool(v: unknown, what: string): boolean {
+  if (typeof v !== "boolean") bad(what);
+  return v;
+}
+
+function strOrNull(v: unknown, what: string): string | null {
+  return v === null || v === undefined ? null : str(v, what);
+}
+
+export function parseUniverseSummary(v: unknown): UniverseSummaryDto {
+  const o = obj(v, "universe");
+  const role = o.role;
+  if (role !== "sandbox" && role !== "preset" && role !== "baseline" && role !== "modified") bad("universe.role");
+  const lf = o.lastFailure;
+  return {
+    id: str(o.id, "universe.id"),
+    name: str(o.name, "universe.name"),
+    role,
+    presetId: strOrNull(o.presetId, "universe.presetId"),
+    experimentId: strOrNull(o.experimentId, "universe.experimentId"),
+    active: bool(o.active, "universe.active"),
+    simulationTimeS: num(o.simulationTimeS, "universe.simulationTimeS"),
+    bodyCount: num(o.bodyCount, "universe.bodyCount"),
+    revision: num(o.revision, "universe.revision"),
+    status: o.status === "mutating" ? "mutating" : "idle",
+    lastFailure:
+      lf === null || lf === undefined
+        ? null
+        : (() => {
+            const f = obj(lf, "universe.lastFailure");
+            return {
+              kind: str(f.kind, "lastFailure.kind"),
+              message: str(f.message, "lastFailure.message"),
+              atSimulationTimeS: num(f.atSimulationTimeS, "lastFailure.atSimulationTimeS"),
+              atIso: str(f.atIso, "lastFailure.atIso"),
+            };
+          })(),
+    createdAtIso: str(o.createdAtIso, "universe.createdAtIso"),
+    epochLabel: strOrNull(o.epochLabel, "universe.epochLabel"),
+    historyMode: o.historyMode === "grid" ? "grid" : "step",
+  };
+}
+
+export function parseUniverseList(v: unknown): UniverseListDto {
+  const o = obj(v, "universes");
+  if (!Array.isArray(o.universes)) bad("universes.universes");
+  return {
+    universes: (o.universes as unknown[]).map(parseUniverseSummary),
+    activeUniverseId: str(o.activeUniverseId, "universes.activeUniverseId"),
+    activationEpoch: num(o.activationEpoch, "universes.activationEpoch"),
+  };
+}
+
+export function parseActivation(v: unknown): ActivationDto {
+  const o = obj(v, "activation");
+  return {
+    activeUniverseId: str(o.activeUniverseId, "activation.activeUniverseId"),
+    activationEpoch: num(o.activationEpoch, "activation.activationEpoch"),
+  };
+}
+
+export function parsePresetList(v: unknown): PresetSummaryDto[] {
+  const o = obj(v, "presets");
+  if (!Array.isArray(o.presets)) bad("presets.presets");
+  return (o.presets as unknown[]).map((p) => {
+    const q = obj(p, "preset");
+    return {
+      id: str(q.id, "preset.id"),
+      name: str(q.name, "preset.name"),
+      description: typeof q.description === "string" ? q.description : "",
+      available: bool(q.available, "preset.available"),
+      unavailableReason: strOrNull(q.unavailableReason, "preset.unavailableReason"),
+      bodyCount: typeof q.bodyCount === "number" ? q.bodyCount : 0,
+      epochLabel: strOrNull(q.epochLabel, "preset.epochLabel"),
+    };
+  });
+}
+
+export function parseSnapshotSummary(v: unknown): SnapshotSummaryDto {
+  const o = obj(v, "snapshot");
+  return {
+    id: str(o.id, "snapshot.id"),
+    name: str(o.name, "snapshot.name"),
+    createdAtIso: str(o.createdAtIso, "snapshot.createdAtIso"),
+    simulationTimeS: num(o.simulationTimeS, "snapshot.simulationTimeS"),
+    bodyCount: num(o.bodyCount, "snapshot.bodyCount"),
+    revision: num(o.revision, "snapshot.revision"),
+    controlled: bool(o.controlled, "snapshot.controlled"),
+  };
+}
+
+export function parseSnapshotList(v: unknown): SnapshotSummaryDto[] {
+  const o = obj(v, "snapshots");
+  if (!Array.isArray(o.snapshots)) bad("snapshots.snapshots");
+  return (o.snapshots as unknown[]).map(parseSnapshotSummary);
+}
+
+export function parseHistoryPage(v: unknown): HistoryPageDto {
+  const o = obj(v, "history");
+  if (o.mode !== "grid" && o.mode !== "step") bad("history.mode");
+  if (!Array.isArray(o.samples)) bad("history.samples");
+  const bodies: HistoryPageDto["bodies"] = {};
+  for (const [id, m] of Object.entries(obj(o.bodies, "history.bodies"))) {
+    const b = obj(m, "history.bodies[]");
+    bodies[id] = {
+      name: str(b.name, "history.body.name"),
+      colorHex: str(b.colorHex, "history.body.colorHex"),
+      radiusM: num(b.radiusM, "history.body.radiusM"),
+      kind: str(b.kind, "history.body.kind"),
+    };
+  }
+  return {
+    universeId: str(o.universeId, "history.universeId"),
+    mode: o.mode,
+    sampleIntervalS:
+      o.sampleIntervalS === null || o.sampleIntervalS === undefined ? null : num(o.sampleIntervalS, "history.sampleIntervalS"),
+    generation: num(o.generation, "history.generation"),
+    firstIndex: num(o.firstIndex, "history.firstIndex"),
+    nextIndex: num(o.nextIndex, "history.nextIndex"),
+    droppedBefore: num(o.droppedBefore, "history.droppedBefore"),
+    truncated: bool(o.truncated, "history.truncated"),
+    samples: (o.samples as unknown[]).map((s) => {
+      const q = obj(s, "history.sample");
+      const positions: Record<string, [number, number, number]> = {};
+      for (const [id, p] of Object.entries(obj(q.positionsM, "history.sample.positionsM"))) {
+        if (!Array.isArray(p) || p.length !== 3) bad("history.sample.positionsM[]");
+        positions[id] = [num(p[0], "x"), num(p[1], "y"), num(p[2], "z")];
+      }
+      return {
+        index: num(q.index, "sample.index"),
+        simulationTimeS: num(q.simulationTimeS, "sample.simulationTimeS"),
+        segment: num(q.segment, "sample.segment"),
+        positionsM: positions,
+      };
+    }),
+    bodies,
   };
 }

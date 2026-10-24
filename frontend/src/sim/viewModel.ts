@@ -1,6 +1,6 @@
 // DTO -> view model mapping. Physical quantities keep their SI names and values; the view model only
 // adds derived read-only values (speed). Scene (render) values are produced separately by toSceneBody.
-import type { BodyDto, DiagnosticsDto, SimulationEventDto, SimulationStateDto, SimulationStatus, Vec3 } from "../api/types";
+import type { BodyDto, BodyKind, DiagnosticsDto, SimulationEventDto, SimulationStateDto, SimulationStatus, Vec3 } from "../api/types";
 import {
   displayRadiusUnits,
   toScenePosition,
@@ -16,6 +16,8 @@ export interface BodyView {
   positionM: Vec3;
   velocityMPerS: Vec3;
   colorHex: string;
+  kind: BodyKind;
+  catalogueEntryId: string | null;
   /** |velocityMPerS| in m/s (derived). */
   speedMPerS: number;
 }
@@ -28,6 +30,8 @@ export interface SimulationView {
   diagnostics: DiagnosticsDto | null;
   /** Why diagnostics are unavailable (null when present). */
   diagnosticsIssue: string | null;
+  /** Commit counter of the universe this state belongs to (universe-scoped responses only). */
+  revision?: number;
 }
 
 export interface SceneBody {
@@ -49,6 +53,8 @@ export function toBodyView(dto: BodyDto): BodyView {
     positionM: { ...dto.positionM },
     velocityMPerS: { ...v },
     colorHex: dto.colorHex,
+    kind: dto.kind,
+    catalogueEntryId: dto.catalogueEntryId,
     speedMPerS: Math.hypot(v.x, v.y, v.z),
   };
 }
@@ -60,6 +66,7 @@ export function toSimulationView(dto: SimulationStateDto): SimulationView {
     bodies: dto.bodies.map(toBodyView),
     diagnostics: dto.diagnostics,
     diagnosticsIssue: dto.diagnosticsIssue,
+    ...(dto.revision !== undefined ? { revision: dto.revision } : {}),
   };
 }
 
