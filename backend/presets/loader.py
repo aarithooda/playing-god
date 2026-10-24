@@ -7,9 +7,12 @@ universe from it fails with `preset_invalid` and creates nothing."""
 import hashlib
 import json
 import math
+import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import get_args
 
+from backend.models import ASSET_KEY_PATTERN, BodyType, check_kind_body_type
 from backend.simulation import G_SI, InitialBody
 
 PRESETS_DIR = Path(__file__).resolve().parent
@@ -99,6 +102,17 @@ def _build(data: dict) -> LoadedPreset:
         if abs(mass * G_SI / gm_si - 1.0) > 1e-15:
             raise PresetDataError(f"{b['id']}: mass does not reproduce its GM")
         raw.append((b, mass, radius, _vec(st["positionM"]), _vec(st["velocityMPerS"])))
+    for b, *_ in raw:  # renderer metadata is optional; when present it must satisfy the same rules as the API
+        body_type, asset_key = b.get("bodyType"), b.get("assetKey")
+        if body_type is not None and body_type not in get_args(BodyType):
+            raise PresetDataError(f"{b['id']}: unknown bodyType {body_type!r}")
+        if body_type is not None:
+            try:
+                check_kind_body_type(b["kind"], body_type)
+            except ValueError as exc:
+                raise PresetDataError(f"{b['id']}: {exc}") from exc
+        if asset_key is not None and not (isinstance(asset_key, str) and re.fullmatch(ASSET_KEY_PATTERN, asset_key)):
+            raise PresetDataError(f"{b['id']}: malformed assetKey {asset_key!r}")
     if len(raw) < 2 or len({r[0]["id"] for r in raw}) != len(raw):
         raise PresetDataError("a preset needs at least two bodies with unique ids")
     total = math.fsum(m for _, m, *_ in raw)
@@ -107,7 +121,7 @@ def _build(data: dict) -> LoadedPreset:
     bodies = [InitialBody(
         id=b["id"], name=b["name"], kind=b["kind"], massKg=m, radiusM=r,
         positionM=tuple(p[k] - centre_x[k] for k in range(3)), velocityMPerS=tuple(v[k] - centre_v[k] for k in range(3)),
-        colorHex=b["colorHex"],
+        colorHex=b["colorHex"], bodyType=b.get("bodyType"), assetKey=b.get("assetKey"),
         basis={"mass": b["gm"]["basis"], "radius": b["radius"]["basis"], "state": b["state"]["basis"]},
         sources=(b["gm"]["source"], b["radius"]["source"], b["state"]["sourceFile"])) for b, m, r, p, v in raw]
     raw_bodies = [InitialBody(

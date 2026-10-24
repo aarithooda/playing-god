@@ -163,7 +163,7 @@ def test_history_keeps_metadata_of_merged_bodies():
     assert [b.id for b in c.snapshot().bodies] == [p.id]
     bodies = c.history.page(None, 0, None, 100)["bodies"]
     assert q.id in bodies and bodies[q.id]["name"] == "Q" and bodies[q.id]["kind"] == "planet"
-    assert set(bodies[p.id]) == {"name", "colorHex", "radiusM", "kind"}
+    assert set(bodies[p.id]) == {"name", "colorHex", "radiusM", "kind", "bodyType", "assetKey"}
 
 
 def test_history_isolated_between_universes(registry):
