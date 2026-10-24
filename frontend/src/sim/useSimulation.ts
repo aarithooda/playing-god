@@ -22,6 +22,8 @@ import {
 export type LoadStatus = "loading" | "ready" | "error";
 export type Health = "unknown" | "ok" | "down";
 export type ActionResult = { ok: true } | { ok: false; error: string };
+/** Like ActionResult, but a successful create also reports the id the backend assigned. */
+export type CreateResult = { ok: true; id: string } | { ok: false; error: string };
 
 export interface SimulationOptions {
   /** Pause between the end of one Play step and the start of the next. */
@@ -234,12 +236,15 @@ export function useSimulation(client: ApiClient, options: SimulationOptions = {}
   }, [act, client, applySim]);
 
   const createBody = useCallback(
-    (body: BodyCreateDto): Promise<ActionResult> =>
-      act(async () => {
-        await client.createBody(body);
+    async (body: BodyCreateDto): Promise<CreateResult> => {
+      let id = "";
+      const result = await act(async () => {
+        id = (await client.createBody(body)).id;
         await refreshState();
         if (mounted.current) setLayoutEpoch((n) => n + 1);
-      }),
+      });
+      return result.ok ? { ok: true, id } : result;
+    },
     [act, client, refreshState],
   );
 

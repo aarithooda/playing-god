@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { earth } from "../test/fixtures";
 import { formatNumber } from "./format";
-import { NEW_BODY_DEFAULTS, parseBodyEdits, parseBodyForm, valuesFromBody } from "./validation";
+import { defaultsForNewBody, NEW_BODY_DEFAULTS, parseBodyEdits, parseBodyForm, valuesFromBody } from "./validation";
+import { displayRadiusUnits, fitTransform, toScenePosition } from "./renderTransform";
 import { toBodyView } from "./viewModel";
 
 describe("create form validation", () => {
@@ -37,6 +38,52 @@ describe("create form validation", () => {
   it("rejects values beyond the backend bounds", () => {
     expect(parseBodyForm({ ...NEW_BODY_DEFAULTS, mass: "1e46" }).ok).toBe(false);
     expect(parseBodyForm({ ...NEW_BODY_DEFAULTS, px: "1e19" }).ok).toBe(false);
+  });
+
+  it("places consecutive default bodies clear of physical and displayed spheres after refitting", () => {
+    const bodies = [toBodyView(earth)];
+    for (let index = 0; index < 4; index += 1) {
+      const defaults = defaultsForNewBody(bodies);
+      const candidate = {
+        ...toBodyView(earth),
+        id: `new-${index}`,
+        positionM: { x: Number(defaults.px), y: Number(defaults.py), z: Number(defaults.pz) },
+      };
+      const afterCreate = [...bodies, candidate];
+      const transform = fitTransform(afterCreate.map((body) => body.positionM));
+      const candidateScene = toScenePosition(candidate.positionM, transform);
+
+      for (const body of bodies) {
+        const physicalDistance = Math.hypot(
+          candidate.positionM.x - body.positionM.x,
+          candidate.positionM.y - body.positionM.y,
+          candidate.positionM.z - body.positionM.z,
+        );
+        expect(physicalDistance).toBeGreaterThan(body.radiusM + candidate.radiusM);
+
+        const bodyScene = toScenePosition(body.positionM, transform);
+        const displayedDistance = Math.hypot(
+          candidateScene[0] - bodyScene[0],
+          candidateScene[1] - bodyScene[1],
+          candidateScene[2] - bodyScene[2],
+        );
+        expect(displayedDistance).toBeGreaterThanOrEqual(
+          displayRadiusUnits(candidate.radiusM) + displayRadiusUnits(body.radiusM) + 1.5,
+        );
+      }
+      bodies.push(candidate);
+    }
+  });
+
+  it("accounts for large physical radii when choosing the search stride", () => {
+    const giant = {
+      ...toBodyView(earth),
+      radiusM: 1e17,
+      positionM: { x: 0, y: 0, z: 0 },
+    };
+    const defaults = defaultsForNewBody([giant]);
+    const candidate = { x: Number(defaults.px), y: Number(defaults.py), z: Number(defaults.pz) };
+    expect(Math.hypot(candidate.x, candidate.y, candidate.z)).toBeGreaterThan(giant.radiusM + Number(defaults.radius));
   });
 });
 

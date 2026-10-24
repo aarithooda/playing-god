@@ -1,18 +1,22 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createApiClient } from "./api/client";
 import { UniverseCanvas, type FocusRequest } from "./components/canvas/UniverseCanvas";
 import { ControlPanel } from "./components/ui/ControlPanel";
 import { BodyInspector } from "./components/ui/BodyInspector";
 import { DiagnosticsPanel } from "./components/ui/DiagnosticsPanel";
 import { EventTimeline } from "./components/ui/EventTimeline";
+import { PlacementHint } from "./components/ui/PlacementHint";
+import { UndoNotice } from "./components/ui/UndoNotice";
 import {
   fitTransform,
   DEFAULT_METERS_PER_UNIT,
-  toScenePosition,
+  displayRadiusUnits,
+  toPhysicsPosition,
   type RenderTransform,
 } from "./sim/renderTransform";
 import { useSimulation, type Health } from "./sim/useSimulation";
 import { toSceneBody } from "./sim/viewModel";
+import { useUndoableCreate } from "./sim/useUndoableCreate";
 
 // Same-origin: in dev the Vite proxy forwards /api and /healthz to the backend unchanged.
 const client = createApiClient();
@@ -28,6 +32,12 @@ export default function App() {
   const [transform, setTransform] = useState<RenderTransform>({ metersPerUnit: DEFAULT_METERS_PER_UNIT });
   const [frameEpoch, setFrameEpoch] = useState(0);
   const [focus, setFocus] = useState<FocusRequest | undefined>(undefined);
+  const [placementMode, setPlacementMode] = useState(false);
+  const [placementRadiusM, setPlacementRadiusM] = useState(6.371e6);
+  const [pickedPosition, setPickedPosition] = useState<{ position: { x: number; y: number; z: number }; nonce: number } | undefined>();
+  const [placementPreview, setPlacementPreview] = useState<[number, number, number] | null>(null);
+  // When set, the next layout change keeps the display scale (and camera) if it leaves this many bodies.
+  const preserveSceneScaleRef = useRef<{ expectedBodyCount: number; layoutEpoch: number } | null>(null);
 
   const bodies = sim?.bodies ?? [];
 
@@ -36,6 +46,11 @@ export default function App() {
   const { layoutEpoch } = simulation;
   useEffect(() => {
     if (layoutEpoch === 0) return;
+    const preserve = preserveSceneScaleRef.current;
+    if (preserve && layoutEpoch > preserve.layoutEpoch) {
+      preserveSceneScaleRef.current = null;
+      if (bodies.length === preserve.expectedBodyCount) return;
+    }
     setTransform(fitTransform(bodies.map((b) => b.positionM)));
     setFrameEpoch((n) => n + 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -46,13 +61,50 @@ export default function App() {
   useEffect(() => {
     if (selectedBodyId && !selectedBody && sim) setSelectedBodyId(undefined);
   }, [selectedBodyId, selectedBody, sim]);
+  const closeInspector = useCallback(() => setSelectedBodyId(undefined), []);
 
   const sceneBodies = useMemo(() => bodies.map((b) => toSceneBody(b, transform)), [bodies, transform]);
 
   const focusBody = (id: string) => {
     const body = bodies.find((b) => b.id === id);
-    if (body) setFocus((f) => ({ nonce: (f?.nonce ?? 0) + 1, position: toScenePosition(body.positionM, transform) }));
+    if (body) {
+      const sceneBody = toSceneBody(body, transform);
+      setFocus((f) => ({
+        nonce: (f?.nonce ?? 0) + 1,
+        position: sceneBody.position,
+        radius: sceneBody.radius,
+      }));
+    }
   };
+
+  const confirmPlacement = useCallback((scenePosition: [number, number, number]) => {
+    preserveSceneScaleRef.current = { expectedBodyCount: bodies.length + 1, layoutEpoch };
+    setPickedPosition((current) => ({
+      position: toPhysicsPosition(scenePosition, transform),
+      nonce: (current?.nonce ?? 0) + 1,
+    }));
+    setPlacementMode(false);
+  }, [bodies.length, layoutEpoch, transform]);
+  const cancelPlacement = useCallback(() => setPlacementMode(false), []);
+  const placementCreateResult = useCallback((success: boolean) => {
+    if (!success) preserveSceneScaleRef.current = null;
+  }, []);
+
+  // Undo deletes the body just created; keep the display scale so the camera does not jump.
+  const deleteForUndo = useCallback(
+    async (id: string) => {
+      preserveSceneScaleRef.current = { expectedBodyCount: bodies.length - 1, layoutEpoch };
+      const result = await simulation.deleteBody(id);
+      if (!result.ok) preserveSceneScaleRef.current = null;
+      return result;
+    },
+    [bodies.length, layoutEpoch, simulation.deleteBody],
+  );
+  const created = useUndoableCreate({
+    createBody: simulation.createBody,
+    deleteBody: deleteForUndo,
+    simulationTimeS: sim?.simulationTimeS,
+  });
 
   const ready = loadStatus === "ready";
 
@@ -63,9 +115,21 @@ export default function App() {
         bodies={sceneBodies}
         selectedBodyId={selectedBodyId}
         onSelectBody={setSelectedBodyId}
+        onFocusBody={focusBody}
+        onClearSelection={closeInspector}
         frameEpoch={frameEpoch}
         focus={focus}
+        placementMode={placementMode}
+        placementRadius={displayRadiusUnits(Number.isFinite(placementRadiusM) && placementRadiusM > 0 ? placementRadiusM : 6.371e6)}
+        onPlacementConfirm={confirmPlacement}
+        onPlacementCancel={cancelPlacement}
+        onPlacementPreview={setPlacementPreview}
       />
+
+      {placementMode && <PlacementHint position={placementPreview ? toPhysicsPosition(placementPreview, transform) : null} />}
+      {!placementMode && created.undoable && (
+        <UndoNotice bodyName={created.undoable.name} onUndo={() => void created.undo()} onDismiss={created.dismiss} />
+      )}
 
       {/* UI Overlay Wrapper with Safe Zone */}
       <div style={{
@@ -115,6 +179,7 @@ export default function App() {
           {/* Right: Controls */}
           <div style={{ pointerEvents: "auto" }}>
             <ControlPanel
+              bodies={bodies}
               playing={simulation.playing}
               stepping={simulation.stepping}
               canRun={bodies.length > 0}
@@ -131,7 +196,12 @@ export default function App() {
                 setTransform(fitTransform(bodies.map((b) => b.positionM)));
                 setFrameEpoch((n) => n + 1);
               }}
-              onCreate={simulation.createBody}
+              onCreate={created.create}
+              placementMode={placementMode}
+              onPlacementModeChange={setPlacementMode}
+              pickedPosition={pickedPosition}
+              onPlacementRadiusChange={setPlacementRadiusM}
+              onPlacementCreateResult={placementCreateResult}
             />
           </div>
         </div>
@@ -163,6 +233,7 @@ export default function App() {
               onSave={simulation.updateBody}
               onDelete={simulation.deleteBody}
               onFocus={focusBody}
+              onClose={closeInspector}
             />
           </div>
         </div>
