@@ -15,6 +15,8 @@ interface DiagnosticsPanelProps {
   /** Backend diagnostics; null when missing or untrusted (then `issue` says why). */
   diagnostics: DiagnosticsDto | null;
   issue: string | null;
+  /** The scene shows a recorded state: these diagnostics are the live state's, not that sample's. */
+  historyView?: boolean;
 }
 
 const noteStyle: React.CSSProperties = { fontSize: '11px', color: theme.textMuted, marginTop: '2px' };
@@ -37,7 +39,7 @@ const Row: React.FC<RowProps> = ({ id, label, value, note }) => (
 );
 
 /** System-level (all bodies) diagnostics, exactly as computed by the backend; collapsed by default. */
-export const DiagnosticsPanel: React.FC<DiagnosticsPanelProps> = ({ loadStatus, diagnostics, issue }) => {
+export const DiagnosticsPanel: React.FC<DiagnosticsPanelProps> = ({ loadStatus, diagnostics, issue, historyView = false }) => {
   const [open, setOpen] = useState(false);
 
   let body: React.ReactNode;
@@ -137,6 +139,11 @@ export const DiagnosticsPanel: React.FC<DiagnosticsPanelProps> = ({ loadStatus, 
         <h3 style={{ margin: 0, fontSize: '14px' }}>System diagnostics</h3>
         <span aria-hidden="true">{open ? '▾' : '▸'}</span>
       </button>
+      {historyView && (
+        <p data-testid="diag-live-only" style={{ ...noteStyle, margin: '6px 0 0 0' }}>
+          Live state only: diagnostics are not recorded per sample and are never reconstructed for the history view.
+        </p>
+      )}
       {open && (
         <div id="diagnostics-body" style={{ marginTop: '12px' }}>
           {body}

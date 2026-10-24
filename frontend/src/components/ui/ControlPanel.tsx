@@ -42,6 +42,8 @@ interface ControlPanelProps {
   onPlacementCreateResult?: (success: boolean) => void;
   /** Increment to open the create form (used by the empty-universe call to action). */
   openCreateRequest?: number;
+  /** A recorded state is on screen: stepping, resetting and adding are off. Play stays (it returns to live first). */
+  historyView?: boolean;
   /** Open the create form prefilled from a catalogue entry (a copy: the entry is never changed). */
   catalogueRequest?: { entry: CatalogueEntryDto; nonce: number };
 }
@@ -70,6 +72,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   onPlacementCreateResult,
   openCreateRequest = 0,
   catalogueRequest,
+  historyView = false,
 }) => {
   const [creating, setCreating] = useState(false);
   const [values, setValues] = useState<FormValues>(NEW_BODY_DEFAULTS);
@@ -223,17 +226,17 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         <button style={btnStyle} onClick={onPlay} disabled={disabled || playing || !canRun}>Play</button>
         <button style={btnStyle} onClick={onPause} disabled={!playing}>Pause</button>
       </div>
-      <button style={btnStyle} onClick={onStep} disabled={disabled || stepping || !canRun}>Step Forward</button>
+      <button style={btnStyle} onClick={onStep} disabled={disabled || stepping || !canRun || historyView} title={historyView ? 'Return to live to step' : undefined}>Step Forward</button>
       {confirmReset ? (
         <ConfirmButton
           label="Reset Universe"
           confirmLabel="Confirm reset (returns to the initial state)"
           onConfirm={onReset}
-          disabled={disabled}
+          disabled={disabled || historyView}
           style={{ width: '100%' }}
         />
       ) : (
-        <button style={btnStyle} onClick={onReset} disabled={disabled}>Reset Universe</button>
+        <button style={btnStyle} onClick={onReset} disabled={disabled || historyView}>Reset Universe</button>
       )}
       <button style={btnStyle} onClick={onFit}>Fit view</button>
       <div style={{ marginTop: '4px' }}>
@@ -253,7 +256,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       </div>
 
       <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: '10px' }}>
-        <button style={btnStyle} onClick={toggleCreate} disabled={disabled}>
+        <button style={btnStyle} onClick={toggleCreate} disabled={disabled || historyView} title={historyView ? 'Return to live to add a body' : undefined}>
           {creating ? 'Cancel' : 'Add body…'}
         </button>
         {creating && (

@@ -71,7 +71,10 @@ export function toSimulationView(dto: SimulationStateDto): SimulationView {
   };
 }
 
-export function toSceneBody(body: BodyView, t: RenderTransform): SceneBody {
+/** What the scene needs of a body: a live BodyView and a recorded history frame both provide it. */
+export type DisplayBody = Pick<BodyView, "id" | "name" | "colorHex" | "kind" | "positionM" | "radiusM">;
+
+export function toSceneBody(body: DisplayBody, t: RenderTransform): SceneBody {
   return {
     id: body.id,
     name: body.name,

@@ -13,6 +13,7 @@ import { CataloguePanel } from "./components/ui/CataloguePanel";
 import { ControlPanel } from "./components/ui/ControlPanel";
 import { DiagnosticsPanel } from "./components/ui/DiagnosticsPanel";
 import { EventTimeline } from "./components/ui/EventTimeline";
+import { HistoryTimeline } from "./components/ui/HistoryTimeline";
 import { FirstUse } from "./components/ui/FirstUse";
 import { PlacementHint } from "./components/ui/PlacementHint";
 import { Sidebar } from "./components/ui/Sidebar";
@@ -29,7 +30,11 @@ import { gridCell } from "./sim/gridScale";
 import { DEFAULT_METERS_PER_UNIT, displayRadiusUnits, fitTransform, toPhysicsPosition, type RenderTransform } from "./sim/renderTransform";
 import { isScopeInvalid, useSimulation } from "./sim/useSimulation";
 import { useUndoableCreate } from "./sim/useUndoableCreate";
-import { toSceneBody } from "./sim/viewModel";
+import { pathsNote, pathTargets } from "./sim/history/pathSelection";
+import { frameAt, trajectoryOf } from "./sim/history/historyModel";
+import { useHistory } from "./sim/history/useHistory";
+import { useHistoryNavigation } from "./sim/history/useHistoryNavigation";
+import { toSceneBody, type DisplayBody } from "./sim/viewModel";
 
 export interface UniverseWorkspaceProps {
   client: ScopedClient;
@@ -68,6 +73,7 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
   const [pickedPosition, setPickedPosition] = useState<{ position: { x: number; y: number; z: number }; nonce: number } | undefined>();
   const [placementPreview, setPlacementPreview] = useState<[number, number, number] | null>(null);
   const [snapshotBusy, setSnapshotBusy] = useState(false);
+  const [showPaths, setShowPaths] = useState(false);
   const [catalogueRequest, setCatalogueRequest] = useState<{ entry: CatalogueEntryDto; nonce: number } | undefined>();
   // When set, the next layout change keeps the display scale (and camera) if it leaves this many bodies.
   const preserveSceneScaleRef = useRef<{ expectedBodyCount: number; layoutEpoch: number } | null>(null);
@@ -96,7 +102,34 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
   }, [selectedBodyId, selectedBody, sim]);
   const closeInspector = useCallback(() => setSelectedBodyId(undefined), []);
 
-  const sceneBodies = useMemo(() => bodies.map((b) => toSceneBody(b, transform)), [bodies, transform]);
+  // Recorded history (UI-2). The backend recorded it; this only displays it. While a recorded sample is viewed, the
+  // simulation is paused and the scene shows that sample through the very same display path as live bodies.
+  const history = useHistory(client, simulation.revision);
+  const nav = useHistoryNavigation(history.cache, { onEnter: simulation.pause });
+  const viewingHistory = nav.mode === "history";
+  const frame = viewingHistory && history.cache && nav.position !== null ? frameAt(history.cache, nav.position) : null;
+  const displayBodies = useMemo<DisplayBody[]>(
+    () =>
+      frame
+        ? frame.bodies.map((b) => ({
+            id: b.id, name: b.meta.name, colorHex: b.meta.colorHex, kind: b.meta.kind === "star" ? "star" : "planet",
+            positionM: b.positionM, radiusM: b.meta.radiusM,
+          }))
+        : bodies,
+    [frame, bodies],
+  );
+  const sceneBodies = useMemo(() => displayBodies.map((b) => toSceneBody(b, transform)), [displayBodies, transform]);
+
+  // "Show paths": the selected body's recorded path, or every body's when there are at most 20 (UI-0 trajectories).
+  const pathIds = pathTargets(displayBodies.map((b) => b.id), selectedBodyId);
+  const trajectories = useMemo(
+    () => (showPaths && history.cache ? pathIds.map((id) => trajectoryOf(history.cache!, id, "active")).filter((t) => t.samples.length > 0) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [showPaths, history.cache, pathIds.join("|")],
+  );
+  useEffect(() => {
+    if (viewingHistory) setPlacementMode(false);
+  }, [viewingHistory]);
 
   const focusBody = (id: string) => {
     const body = bodies.find((b) => b.id === id);
@@ -196,6 +229,7 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
         transform={transform}
         showAxes={showAxes}
         showGrid={gridVisible}
+        trajectories={trajectories}
       />
 
       {/* Free area: everything that floats over the scene is laid out between the sidebars. */}
@@ -258,7 +292,16 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
 
       <Sidebar side="left" title="History & diagnostics" open={sidebars.left} onToggle={setSidebar("left")}>
         <EventTimeline events={simulation.events} bodyName={simulation.bodyName} />
-        <DiagnosticsPanel loadStatus={loadStatus} diagnostics={sim?.diagnostics ?? null} issue={sim?.diagnosticsIssue ?? null} />
+        <HistoryTimeline
+          cache={history.cache}
+          status={history.status}
+          error={history.error}
+          nav={nav}
+          liveTimeS={sim ? sim.simulationTimeS : null}
+          events={simulation.events}
+          onRefresh={() => void history.refresh()}
+        />
+        <DiagnosticsPanel loadStatus={loadStatus} diagnostics={sim?.diagnostics ?? null} issue={sim?.diagnosticsIssue ?? null} historyView={viewingHistory} />
       </Sidebar>
 
       <Sidebar side="right" title="Controls" open={sidebars.right} onToggle={setSidebar("right")}>
@@ -273,7 +316,11 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
           speedExp={simulation.speedExp}
           stepSeconds={simulation.stepSeconds}
           onSpeedChange={simulation.setSpeedExp}
-          onPlay={simulation.play}
+          onPlay={() => {
+            if (viewingHistory) nav.returnToLive(); // Play goes back to the live state first
+            simulation.play();
+          }}
+          historyView={viewingHistory}
           onPause={simulation.pause}
           onStep={() => void simulation.stepOnce()}
           onReset={() => void simulation.reset()}
@@ -298,10 +345,13 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
           gridShownForPlacement={placementMode}
           onAxesChange={props.onAxesChange}
           onGridChange={props.onGridChange}
+          paths={showPaths}
+          onPathsChange={setShowPaths}
+          pathsNote={pathsNote(showPaths, displayBodies.length, selectedBodyId)}
         />
         <SnapshotPanel
           client={client}
-          disabled={!ready}
+          disabled={!ready || viewingHistory}
           blockedReason={snapshotBlockedReason}
           onBeforeRestore={simulation.pause}
           onRestored={() => void simulation.reload()}
@@ -309,7 +359,7 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
           onError={(e) => isScopeInvalid(e) && props.onScopeInvalid(e)}
         />
         <BodyInspector
-          body={selectedBody}
+          body={viewingHistory ? null : selectedBody}
           focused={selectedBody !== null && selectedBody.id === focusedBodyId}
           editBlockedReason={simulation.playing ? "Pause to edit: changes are applied between steps." : undefined}
           onSave={simulation.updateBody}

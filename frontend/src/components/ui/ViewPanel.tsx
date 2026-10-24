@@ -9,6 +9,11 @@ interface ViewPanelProps {
   gridShownForPlacement: boolean;
   onAxesChange: (on: boolean) => void;
   onGridChange: (on: boolean) => void;
+  /** Recorded paths (UI-0 trajectories). The control appears only when the caller supports it. */
+  paths?: boolean;
+  onPathsChange?: (on: boolean) => void;
+  /** Why fewer paths are drawn than expected (for example a crowded scene). */
+  pathsNote?: string;
 }
 
 const toggleStyle = (on: boolean): React.CSSProperties => ({
@@ -19,7 +24,7 @@ const toggleStyle = (on: boolean): React.CSSProperties => ({
 });
 
 /** Two independent view aids. Both start off. */
-export const ViewPanel: React.FC<ViewPanelProps> = ({ axes, grid, gridShownForPlacement, onAxesChange, onGridChange }) => (
+export const ViewPanel: React.FC<ViewPanelProps> = ({ axes, grid, gridShownForPlacement, onAxesChange, onGridChange, paths = false, onPathsChange, pathsNote }) => (
   <div style={panelStyle}>
     <h3 style={{ margin: '0 0 8px 0', fontSize: '14px' }}>View</h3>
     <div style={{ display: 'flex', gap: '8px' }}>
@@ -30,6 +35,16 @@ export const ViewPanel: React.FC<ViewPanelProps> = ({ axes, grid, gridShownForPl
         Grid
       </button>
     </div>
+    {onPathsChange && (
+      <div style={{ marginTop: '8px' }}>
+        <button type="button" aria-pressed={paths} style={{ ...toggleStyle(paths), width: '100%' }} onClick={() => onPathsChange(!paths)}>
+          Show paths
+        </button>
+        {paths && pathsNote && (
+          <p style={{ margin: '6px 0 0 0', fontSize: '11px', color: theme.textMuted }}>{pathsNote}</p>
+        )}
+      </div>
+    )}
     {gridShownForPlacement && !grid && (
       <p data-testid="grid-placement-note" style={{ margin: '8px 0 0 0', fontSize: '11px', color: theme.textMuted }}>
         The grid is shown while you place a body, then hidden again.
