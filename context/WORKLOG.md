@@ -433,3 +433,7 @@
 - Copied only the orbit visualization implementation and its focused tests to a clean worktree from agreed base 7148556; removed collision-VFX wiring from the copied canvas so the branch remains orbit-only.
 - Focused trajectory, label and galaxy texture tests passed 14/14; typecheck and production build passed (689 modules; existing >500 kB chunk warning). The graphics-smoke E2E timed out waiting for page navigation in this worktree and is not treated as passing.
 - Branch is prepared for the requested push; no backend/API/physics change.
+
+## 2026-10-24 — Push animations branch
+- Pushed orbit-only commit 570c386 to new remote branch origin/animations; no merge or PR was created.
+- The working source tree still has unrelated local changes; they were not included in this branch.

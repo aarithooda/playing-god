@@ -1,5 +1,5 @@
 ## Orbit graphics branch (2026-10-24, Codex) — newest
-- Implemented on `animations` from `7148556`; orbit-only frontend changes, not yet pushed at the time this entry was written.
+- Implemented and pushed on `animations` from `7148556`; commit `570c386` contains the orbit-only frontend change.
 - Added smooth recorded orbit curves with spatial endpoint fade, selection emphasis, display labels, restrained stellar halo, procedural galactic backdrop, damped controls and eased Overview return. Tests: focused 14/14, typecheck and build passed; E2E smoke timed out at page navigation and remains unverified.
 
 ## UI-4 / UI-6 independent frontend branch (2026-10-24) — latest

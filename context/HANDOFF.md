@@ -1,5 +1,5 @@
 ## Orbit graphics handoff (2026-10-24, Codex) — latest
-- Branch `animations` is based on agreed `main` `7148556`; it contains only orbit graphics, recorded-trail presentation, labels, restrained star glow and the procedural background. Collision VFX and other local changes remain outside this branch. No backend physics or API was changed.
+- Branch `animations` is based on agreed `main` `7148556`, pushed at `570c386`; it contains only orbit graphics, recorded-trail presentation, labels, restrained star glow and the procedural background. Collision VFX and other local changes remain outside this branch. No backend physics or API was changed.
 - Trails use backend-recorded positions only, bounded centripetal display interpolation, and spatial arc-length alpha from transparent at the oldest point to bright at the current endpoint. Selection uses amber; comparison-run history remains dashed/muted. The latest-loop trim/zero-at-body change was reverted.
 - Checks: focused tests 14/14, typecheck, production build (689 modules; existing >500 kB warning), and diff check passed. Graphics-smoke E2E was attempted in the isolated worktree but timed out waiting for the page load; it was not included in the branch.
 - Follow up with a manual browser check using live recorded history and confirm camera/fade behavior at wide and close views.

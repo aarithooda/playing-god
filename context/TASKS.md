@@ -2,7 +2,7 @@
 Status: todo / in progress / blocked / done. Keep tasks small and independently testable.
 
 ## NEXT ACTION
-**Orbit graphics** are isolated on local branch `animations` from `7148556`. Trails use backend history with spatial fade, smooth display interpolation and no fabricated prediction. Labels, restrained star glow, procedural space background, damped camera and eased Overview are included. Focused tests 14/14, typecheck and build passed; graphics-smoke E2E timed out on navigation and needs a manual/browser follow-up. No backend changes.
+**Orbit graphics** are isolated and pushed on branch `animations` from `7148556` at commit `570c386`. Trails use backend history with spatial fade, smooth display interpolation and no fabricated prediction. Labels, restrained star glow, procedural space background, damped camera and eased Overview are included. Focused tests 14/14, typecheck and build passed; graphics-smoke E2E timed out on navigation and needs a manual/browser follow-up. No backend changes.
 
 **Simulation Lab + Experiment 01 implemented** on `feature/simulation-lab-experiment-01` (T-015; one PR to `main`, not merged). Next: the owner's product review of the PR, then the independent technical review (OD-6); then merge by the owner. Open owner decisions: whether to approve an alternative gate for TRAPPIST-1 (D-027) and whether to correct the barycentre-drift sentence in `EXPERIMENT_01_SPEC.md` section 4.2 (D-028). Older text follows.
 
