@@ -19,6 +19,9 @@ interface CelestialBodyProps {
   name: string;
   bodyType?: BodyType;
   assetKey?: string;
+  /** See SceneBody: far-away appearance of a planet that stores a small radius for its moons. */
+  apparentRadius?: number;
+  clearance?: number;
   isSelected?: boolean;
   onClick?: () => void;
   onDoubleClick?: () => void;
@@ -32,6 +35,8 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
   name,
   bodyType = 'default',
   assetKey,
+  apparentRadius,
+  clearance,
   isSelected = false,
   onClick,
   onDoubleClick,
@@ -47,7 +52,9 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
     if (!body.current || !(camera as PerspectiveCamera).isPerspectiveCamera) return;
     const [x, y, z] = position;
     const distance = Math.hypot(camera.position.x - x, camera.position.y - y, camera.position.z - z);
-    body.current.scale.setScalar(bodyDisplayScale(radius, distance, (camera as PerspectiveCamera).fov, size.height));
+    body.current.scale.setScalar(
+      bodyDisplayScale(radius, distance, (camera as PerspectiveCamera).fov, size.height, { apparentRadius, clearance }),
+    );
   });
 
   return (

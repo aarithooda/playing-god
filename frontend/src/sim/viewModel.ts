@@ -20,6 +20,8 @@ export interface BodyView {
   catalogueEntryId: string | null;
   bodyType: BodyType;
   assetKey?: string;
+  /** The body this one orbits (a moon's planet), when the backend says so. Relationship metadata only. */
+  primaryId?: string;
   /** |velocityMPerS| in m/s (derived). */
   speedMPerS: number;
 }
@@ -43,9 +45,18 @@ export interface SceneBody {
   kind: BodyKind;
   bodyType: BodyType;
   assetKey?: string;
+  /** The body this one orbits, when known (moons). Used only to size and label; positions are always simulated. */
+  primaryId?: string;
   position: ScenePosition;
   /** Display radius in scene units (exaggerated, NOT the physical radius). */
   radius: number;
+  /**
+   * Size the body should APPEAR to have from far away (scene units). A planet with moons has a small `radius` so its
+   * moons are not inside it; from far away it is enlarged on screen towards this size (sim/bodyVisibility.ts).
+   */
+  apparentRadius?: number;
+  /** Scene distance to the nearest moon (for a planet) or to the primary (for a moon): caps the on-screen enlargement. */
+  clearance?: number;
 }
 
 /**
@@ -71,6 +82,7 @@ export function toBodyView(dto: BodyDto): BodyView {
     catalogueEntryId: dto.catalogueEntryId,
     bodyType: bodyTypeFor(dto.kind, dto.bodyType),
     ...(dto.assetKey === undefined ? {} : { assetKey: dto.assetKey }),
+    ...(dto.primaryId === undefined ? {} : { primaryId: dto.primaryId }),
     speedMPerS: Math.hypot(v.x, v.y, v.z),
   };
 }
@@ -88,7 +100,7 @@ export function toSimulationView(dto: SimulationStateDto): SimulationView {
 
 /** What the scene needs of a body: a live BodyView and a recorded history frame both provide it. */
 export type DisplayBody = Pick<BodyView, "id" | "name" | "colorHex" | "kind" | "positionM" | "radiusM"> &
-  Partial<Pick<BodyView, "bodyType" | "assetKey">>;
+  Partial<Pick<BodyView, "bodyType" | "assetKey" | "primaryId">>;
 
 export function toSceneBody(body: DisplayBody, t: RenderTransform): SceneBody {
   return {
@@ -98,6 +110,7 @@ export function toSceneBody(body: DisplayBody, t: RenderTransform): SceneBody {
     kind: body.kind,
     bodyType: bodyTypeFor(body.kind, body.bodyType),
     ...(body.assetKey === undefined ? {} : { assetKey: body.assetKey }),
+    ...(body.primaryId === undefined ? {} : { primaryId: body.primaryId }),
     position: toScenePosition(body.positionM, t),
     radius: displayRadiusUnits(body.radiusM),
   };

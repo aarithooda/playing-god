@@ -20,8 +20,8 @@ DATA_DIR = PRESETS_DIR / "data"
 SOURCES_DIR = PRESETS_DIR / "sources"
 
 # preset id -> data file name. A preset that is excluded (see context/PRESETS.md) is simply not listed.
-PRESET_FILES = {"solar-system-j2000": "solar-system-j2000.json",
-                "solar-system-moons-j2000": "solar-system-moons-j2000.json"}
+PRESET_FILES = {"solar-system-moons-j2000": "solar-system-moons-j2000.json",
+                "solar-system-j2000": "solar-system-j2000.json"}
 BASES = ("measured", "nominal", "derived", "assumed")
 
 

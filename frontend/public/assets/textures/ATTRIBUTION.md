@@ -24,3 +24,5 @@ Attribution: **Solar System Scope (INOVE), “Solar Textures,” CC BY 4.0.** So
 The derivative maps are stylized rendering inputs, not measured topography or physical material data.
 All generated JPEG files were saved at quality 90. Rebuild with `scripts/build_ui0_textures.py` and the
 listed source files in a local `raw_textures/` directory.
+
+Moons (bodyType moon, assetKey moon) reuse the generic_asteroid maps, which are derived from the Solar System Scope 2k_moon.jpg. Moons other than Earth Moon have no surface map of their own; they use the same map multiplied by the body display colour (a visual distinction, not a surface claim).

@@ -41,6 +41,8 @@ import { useHistory } from "./sim/history/useHistory";
 import { useHistoryNavigation } from "./sim/history/useHistoryNavigation";
 import { toSceneBody, type DisplayBody } from "./sim/viewModel";
 import { separateDisplayRadii } from "./sim/radiusSeparation";
+import { BodyList } from "./components/ui/BodyList";
+import { focusRadiusFor, systemIds } from "./sim/moonSystems";
 
 export interface UniverseWorkspaceProps {
   client: ScopedClient;
@@ -170,12 +172,18 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
         ? frame.bodies.map((b) => ({
             id: b.id, name: b.meta.name, colorHex: b.meta.colorHex, kind: b.meta.kind === "star" ? "star" : "planet",
             positionM: b.positionM, radiusM: b.meta.radiusM,
+            ...(b.meta.bodyType === undefined ? {} : { bodyType: b.meta.bodyType }),
+            ...(b.meta.assetKey === undefined ? {} : { assetKey: b.meta.assetKey }),
+            ...(b.meta.primaryId === undefined ? {} : { primaryId: b.meta.primaryId }),
           }))
         : bodies,
     [frame, bodies],
   );
   // Display radii are capped by neighbour spacing so crowded systems (the inner planets) do not overlap; display only.
   const sceneBodies = useMemo(() => separateDisplayRadii(displayBodies.map((b) => toSceneBody(b, transform))), [displayBodies, transform]);
+
+  // A selected moon or moon-bearing planet gets name tags for its whole system, so the moons can be told apart.
+  const labeledBodyIds = useMemo(() => systemIds(sceneBodies, selectedBodyId), [sceneBodies, selectedBodyId]);
 
   // "Show paths": the selected body's recorded path, or every body's when there are at most 20 (UI-0 trajectories).
   const pathIds = pathTargets(displayBodies.map((b) => b.id), selectedBodyId);
@@ -203,7 +211,7 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
         nonce: (f?.nonce ?? 0) + 1,
         bodyId: id,
         position: sceneBody.position,
-        radius: sceneBody.radius,
+        radius: focusRadiusFor(sceneBodies, id) ?? sceneBody.radius,
       }));
       setFocusedBodyId(id);
     }
@@ -360,6 +368,7 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
         transform={transform}
         viewControls={viewControls}
         trajectories={trajectories}
+        labeledBodyIds={labeledBodyIds}
       />
 
       {/* Free area: everything that floats over the scene is laid out between the sidebars. */}
@@ -509,6 +518,7 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
           onBusyChange={setSnapshotBusy}
           onError={(e) => isScopeInvalid(e) && props.onScopeInvalid(e)}
         />
+        <BodyList bodies={bodies} selectedBodyId={selectedBodyId} onSelect={selectBody} onFocus={focusBody} />
         <BodyInspector
           body={viewingHistory ? null : selectedBody}
           focused={selectedBody !== null && selectedBody.id === focusedBodyId}

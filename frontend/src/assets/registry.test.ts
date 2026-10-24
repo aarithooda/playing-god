@@ -14,4 +14,10 @@ describe("celestial asset registry", () => {
   it("leaves unknown/default bodies untextured so their supplied color is used", () => {
     expect(resolveCelestialAssets(undefined, "default")).toBeUndefined();
   });
+
+  it("gives every moon the Moon map, and Earth's Moon its own key", () => {
+    expect(resolveCelestialAssets("moon", "moon")?.diffuse).toBe("/assets/textures/generic_asteroid_diffuse.jpg");
+    expect(resolveCelestialAssets("io", "moon")?.diffuse).toBe("/assets/textures/generic_asteroid_diffuse.jpg");
+    expect(resolveCelestialAssets(undefined, "moon")?.normal).toBe("/assets/textures/generic_asteroid_normal.jpg");
+  });
 });

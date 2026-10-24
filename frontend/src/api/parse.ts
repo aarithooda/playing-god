@@ -28,7 +28,7 @@ import type {
   Vec3,
 } from "./types";
 
-const BODY_TYPES: BodyType[] = ["star", "rocky-planet", "gas-giant", "ice-giant", "asteroid", "default"];
+const BODY_TYPES: BodyType[] = ["star", "rocky-planet", "gas-giant", "ice-giant", "moon", "asteroid", "default"];
 
 function bad(what: string): never {
   throw new ApiError("invalid-response", `Unexpected response shape: ${what}`);
@@ -104,16 +104,24 @@ function parseDiagnosticsLenient(v: unknown): Pick<SimulationStateDto, "diagnost
   }
 }
 
-export function parseBodyDto(v: unknown): BodyDto {
-  const o = obj(v, "body");
-  // Rendering metadata is additive: an unknown future classification should use the safe fallback,
-  // not make otherwise valid simulation state unavailable.
+/** Optional renderer metadata shared by live bodies and history metadata. Unknown values degrade to "absent". */
+function parseRenderMeta(o: Record<string, unknown>, where: string): { bodyType?: BodyType; assetKey?: string; primaryId?: string } {
   const bodyType = typeof o.bodyType === "string" && BODY_TYPES.includes(o.bodyType as BodyType)
     ? (o.bodyType as BodyType)
     : undefined;
-  const rawAssetKey = o.assetKey;
-  if (rawAssetKey !== undefined && rawAssetKey !== null && typeof rawAssetKey !== "string") bad("body.assetKey");
-  const assetKey = typeof rawAssetKey === "string" ? rawAssetKey : undefined;
+  for (const key of ["assetKey", "primaryId"] as const) {
+    const raw = o[key];
+    if (raw !== undefined && raw !== null && typeof raw !== "string") bad(`${where}.${key}`);
+  }
+  return {
+    ...(bodyType === undefined ? {} : { bodyType }),
+    ...(typeof o.assetKey === "string" ? { assetKey: o.assetKey } : {}),
+    ...(typeof o.primaryId === "string" ? { primaryId: o.primaryId } : {}),
+  };
+}
+
+export function parseBodyDto(v: unknown): BodyDto {
+  const o = obj(v, "body");
   return {
     id: str(o.id, "body.id"),
     name: str(o.name, "body.name"),
@@ -125,8 +133,7 @@ export function parseBodyDto(v: unknown): BodyDto {
     // Older backends send neither field: a body without a kind is a planet.
     kind: o.kind === "star" ? "star" : "planet",
     catalogueEntryId: typeof o.catalogueEntryId === "string" ? o.catalogueEntryId : null,
-    ...(bodyType === undefined ? {} : { bodyType }),
-    ...(assetKey === undefined ? {} : { assetKey }),
+    ...parseRenderMeta(o, "body"),
   };
 }
 
@@ -293,6 +300,7 @@ export function parseHistoryPage(v: unknown): HistoryPageDto {
       colorHex: str(b.colorHex, "history.body.colorHex"),
       radiusM: num(b.radiusM, "history.body.radiusM"),
       kind: str(b.kind, "history.body.kind"),
+      ...parseRenderMeta(b, "history.body"),
     };
   }
   return {
