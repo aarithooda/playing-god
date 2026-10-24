@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { PositionSample } from "../render/contract";
 import { toScenePosition } from "./renderTransform";
-import { buildPolylines, decimate, toSceneSamples } from "./trajectory";
+import { buildPolylines, buildTimedPolylines, decimate, smoothTimedPolyline, spatialTrailProgress, toSceneSamples } from "./trajectory";
 
 const sample = (i: number, segment = 0, x = i): PositionSample => ({ simulationTimeS: i * 100, positionM: { x: x * 1e9, y: 2e9, z: 3e9 }, segment });
 const run = (n: number, segmentAt: number[] = []): PositionSample[] =>
@@ -49,6 +49,49 @@ describe("trajectory.ts", () => {
     // nothing connects the last point of one piece to the first of the next
     expect(lines[0]![3]).toEqual(toScenePosition({ x: 3e9, y: 2e9, z: 3e9 }, { metersPerUnit: 1e9 }));
     expect(lines[1]![0]).toEqual(toScenePosition({ x: 4e9, y: 2e9, z: 3e9 }, { metersPerUnit: 1e9 }));
+  });
+
+  it("retains backend sample times without changing recorded geometry", () => {
+    const lines = buildTimedPolylines(run(6, [3]), { metersPerUnit: 1e9 });
+    expect(lines.map((line) => line.simulationTimesS)).toEqual([[0, 100, 200], [300, 400, 500]]);
+    expect(lines.map((line) => line.points)).toEqual(buildPolylines(run(6, [3]), { metersPerUnit: 1e9 }));
+  });
+
+  it("fades by cumulative space along the curve, ending bright at its current endpoint", () => {
+    const progress = spatialTrailProgress([[0, 0, 0], [1, 0, 0], [1, 3, 0]]);
+    expect(progress).toEqual([0, 0.25, 1]);
+    expect(spatialTrailProgress([[4, 2, 1]])).toEqual([1]);
+  });
+
+  it("smooths the displayed path between recorded samples while preserving endpoints and time order", () => {
+    const recorded = buildTimedPolylines(run(5), { metersPerUnit: 1e9 })[0]!;
+    const smooth = smoothTimedPolyline(recorded);
+    expect(smooth.points.length).toBeGreaterThan(recorded.points.length);
+    expect(smooth.points[0]).toEqual(recorded.points[0]);
+    expect(smooth.points[smooth.points.length - 1]).toEqual(recorded.points[recorded.points.length - 1]);
+    expect(smooth.simulationTimesS[0]).toBe(recorded.simulationTimesS[0]);
+    expect(smooth.simulationTimesS[smooth.simulationTimesS.length - 1]).toBe(recorded.simulationTimesS[recorded.simulationTimesS.length - 1]);
+    expect(smooth.simulationTimesS).toEqual([...smooth.simulationTimesS].sort((a, b) => a - b));
+    expect(smooth.points.some((point, i) => i > 0 && i < smooth.points.length - 1
+      && !recorded.points.some((original) => original.every((value, axis) => value === point[axis])))).toBe(true);
+  });
+
+  it("keeps rendered curve density bounded for long recorded histories", () => {
+    const recorded = buildTimedPolylines(run(5000), { metersPerUnit: 1e9 })[0]!;
+    const smooth = smoothTimedPolyline(recorded);
+    expect(smooth.points.length).toBeLessThanOrEqual(10_000);
+    expect(smooth.points[0]).toEqual(recorded.points[0]);
+    expect(smooth.points[smooth.points.length - 1]).toEqual(recorded.points[recorded.points.length - 1]);
+  });
+
+  it("keeps an unevenly sampled curved path finite and smooth", () => {
+    const smooth = smoothTimedPolyline({
+      points: [[0, 0, 0], [0.1, 4, 0], [5, 4, 0], [5.2, 0, 0]],
+      simulationTimesS: [0, 1, 2, 3],
+    });
+    expect(smooth.points.every((point) => point.every(Number.isFinite))).toBe(true);
+    expect(smooth.points[0]).toEqual([0, 0, 0]);
+    expect(smooth.points[smooth.points.length - 1]).toEqual([5.2, 0, 0]);
   });
 
   it("an empty or single-sample trajectory yields no drawable line", () => {

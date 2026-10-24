@@ -421,7 +421,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
       <StarfieldShell />
       {(gridEnabled || placementMode) && <GridOverlay transform={transform} />}
       {axesVisible && <AxesOverlay transform={transform} />}
-      {trajectories.length > 0 && <TrajectoryLayer trajectories={trajectories} transform={transform} />}
+      {trajectories.length > 0 && <TrajectoryLayer trajectories={trajectories} transform={transform} selectedBodyId={selectedBodyId} />}
 
       <ambientLight intensity={hasStar ? 0.3 : 0.6} />
       {hasStar ? (
