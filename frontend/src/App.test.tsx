@@ -67,6 +67,7 @@ describe("App layout", () => {
     await screen.findByText("Simulation");
     const left = screen.getByTestId("sidebar-left");
     expect(within(left).getByText("Event History")).toBeTruthy();
+    expect(within(left).getByText("Simulation History")).toBeTruthy();
     expect(within(left).getByRole("button", { name: /system diagnostics/i, hidden: true })).toBeTruthy();
     expect(within(left).getByText("No events yet.")).toBeTruthy();
   });

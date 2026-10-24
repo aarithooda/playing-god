@@ -13,6 +13,7 @@ import { theme } from "./components/ui/theme";
 import { BodyInspector } from "./components/ui/BodyInspector";
 import { DiagnosticsPanel } from "./components/ui/DiagnosticsPanel";
 import { EventTimeline } from "./components/ui/EventTimeline";
+import { SimulationHistory } from "./components/ui/SimulationHistory";
 import { PlacementHint } from "./components/ui/PlacementHint";
 import { UndoNotice } from "./components/ui/UndoNotice";
 import {
@@ -229,6 +230,7 @@ export default function App() {
       </div>
 
       <Sidebar side="left" title="History & diagnostics" open={sidebars.left} onToggle={setSidebar("left")}>
+        <SimulationHistory history={simulation.trajectoryHistory} />
         <EventTimeline events={simulation.events} bodyName={simulation.bodyName} />
         <DiagnosticsPanel loadStatus={loadStatus} diagnostics={sim?.diagnostics ?? null} issue={sim?.diagnosticsIssue ?? null} />
       </Sidebar>

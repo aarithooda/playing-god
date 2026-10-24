@@ -100,6 +100,21 @@ describe("useSimulation: loading", () => {
 });
 
 describe("useSimulation: step / play / pause", () => {
+  it("records only backend snapshots in one bounded-history run as successful steps arrive", async () => {
+    const moved = { ...earth, positionM: { x: 1.4e11, y: 3e9, z: 0 } };
+    const client = fakeClient({ step: async () => stepResponse([sun, moved], 100) });
+    const { result } = renderHook(() => useSimulation(client, opts));
+    await flush();
+    const runId = result.current.trajectoryHistory?.runId;
+    expect(result.current.trajectoryHistory?.samples).toHaveLength(1);
+    expect(result.current.trajectoryHistory?.samples[0].simulationTimeS).toBe(0);
+
+    await act(async () => { await result.current.stepOnce(); });
+    expect(result.current.trajectoryHistory?.runId).toBe(runId);
+    expect(result.current.trajectoryHistory?.samples).toHaveLength(2);
+    expect(result.current.trajectoryHistory?.samples[1].bodies[1].positionM).toEqual(moved.positionM);
+  });
+
   it("Step sends exactly one bounded step and applies the returned positions and events", async () => {
     const moved = { ...earth, positionM: { x: 1.4e11, y: 5e9, z: 0 } };
     const step = vi.fn(async (_dt: number): Promise<StepResponseDto> => stepResponse([sun, moved], 86400, [mergerEvent]));
@@ -233,6 +248,7 @@ describe("useSimulation: reset and CRUD", () => {
     await flush();
     expect(result.current.events).toHaveLength(1);
     const epoch = result.current.layoutEpoch;
+    const oldRunId = result.current.trajectoryHistory?.runId;
     events = [];
     act(() => result.current.play());
     await act(async () => {
@@ -243,6 +259,9 @@ describe("useSimulation: reset and CRUD", () => {
     expect(result.current.sim?.bodies).toEqual([]);
     expect(result.current.events).toEqual([]);
     expect(result.current.layoutEpoch).toBe(epoch + 1);
+    expect(result.current.trajectoryHistory?.runId).not.toBe(oldRunId);
+    expect(result.current.trajectoryHistory?.samples).toHaveLength(1);
+    expect(result.current.trajectoryHistory?.samples[0].bodies).toEqual([]);
   });
 
   it("create/update/delete call the backend and then re-read authoritative state", async () => {
@@ -280,6 +299,7 @@ describe("useSimulation: reset and CRUD", () => {
     });
     expect(deleteBody).toHaveBeenCalledWith("body-new");
     expect(result.current.sim?.bodies.map((b) => b.id)).toEqual([sun.id]);
+    expect(result.current.trajectoryHistory?.samples.map((sample) => sample.segment)).toEqual([0, 1, 2, 3]);
   });
 
   it("API errors are returned to the caller and never fall back to local state", async () => {
@@ -423,6 +443,7 @@ describe("useSimulation: a stuck or failed backend never leaves the UI loading f
       expect(await result.current.stepOnce()).toBe("failed");
     });
     expect(result.current.sim?.simulationTimeS).toBe(5_000); // what the backend reports, not the old value or a guess
+    expect(result.current.trajectoryHistory?.samples.map((sample) => sample.segment)).toEqual([0, 1]);
     expect(result.current.actionError).toMatch(/may not have completed/);
     expect(result.current.stepping).toBe(false);
   });
