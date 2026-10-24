@@ -468,3 +468,10 @@
 
 ## 2026-10-24 — CP-1 accepted (owner, in chat)
 - The owner accepted the Stage 1 CP-1 evidence and authorised Stage 2 (see D-036). Legacy defect D-035 stays unfixed in `legacy-merge`. CP-SCI-1, DQ-7/8/9 and all later gates are unchanged. Stage 2 started on `collision/stage-2-materials-spin` (from `c6d2643`).
+
+## 2026-10-24 — Collision engine implementation, Stage 2: materials, spin, orientation (Claude Sonnet 5.5)
+- Branch `collision/stage-2-materials-spin` from `b4a7134` (CP-1 acceptance record). Internal design review (single agent): new body fields are omitted when unset so DQ-2 holds literally; a spin state needs a sourced moment of inertia; diagnostics version stays 1 (strict frontend parser) with an optional additive key; registry contains only cited numbers; legacy merge of bodies with the new state books I*omega into the existing ledger.
+- Evidence: pinned digests (solar-system, moons preset, fixed-id Kepler universe) computed on the code before any edit and asserted unchanged; plain-body JSON key set unchanged; trajectories bit-identical with and without spin/material; quaternion unit after 1e6 incremental updates (<= 1e-12); fixed site returns after n periods (1e-9); south-pole latitude -90 +/- 1e-6 deg; tables restored through checkpoint (guard refused at the commit point), failed step, snapshot restore, reset, derive.
+- Bugs caught by tests while building: variable shadowing in the geometry (`b`), a git-grep based boundary test that ignored untracked files (now `--untracked`).
+- Note: the stage-1 latency test failed once under CPU load and passed on rerun (it compares two timings; run it on an idle machine).
+- Not shipped on purpose: earth-like, icy-rock, gas-giant-core and molten profiles (planning marks their numbers [VERIFY]); no equation-of-state or thermal field (no v1 model needs one; rows M-PROP-4/5 stay MISS).

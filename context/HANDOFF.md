@@ -4,6 +4,11 @@
 3. Verified locally: frontend typecheck; Vitest 206/206 across 23 files; build (existing >500 kB warning); Playwright 5/5; diff check. The profile measured 1/16/64 bodies at median 33.4/50.0/99.9 ms per animation frame in Windows headless Chrome with GPU disabled by test config; treat as software frame pacing, not hardware GPU timing. E2E stubs backend responses. Do not merge into `main` without owner approval; real-hardware profiling and UI-0 integration remain follow-ups.
 # Handoff (latest — rewrite at end of each session)
 
+## Collision engine, Stage 2 done (2026-10-24, Claude Sonnet 5.5) — latest
+1. Branch `collision/stage-2-materials-spin` in worktree `C:/Aarit/Projects/Playing God collision-implementation`. D-036 records the CP-1 acceptance; D-037 the Stage 2 choices.
+2. STOP before Stage 3: the owner must answer DQ-7 (c* class rule), DQ-8 (gas-giant handling and envelope threshold), DQ-9 (strength regime) and name the human reviewer for CP-SCI-1. No LS12 constant is used by any model.
+3. Nothing pushed or merged.
+
 ## Collision engine, Stage 1 done — STOPPED AT CP-1 (2026-10-24, Claude Sonnet 5.5) — latest
 1. Branch `collision/stage-1-deferred-resolution` in worktree `C:/Aarit/Projects/Playing God collision-implementation`. Review package: the Stage 1 entry of `WORKLOG.md` and D-035. Nothing is pushed or merged.
 2. To use the new path in a test: `SimulationService(CollisionConfig(mode="outcome-v1"))`; records via `svc.collision_records()`. No universe uses it yet (Stage 4 step 4b).

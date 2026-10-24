@@ -81,3 +81,9 @@ Plan: `COLLISION_ENGINE_PLAN.md`; requirements: `specs/COLLISION_PARTICLE_ENGINE
 - Pure outcome models (`models/`), selector, fragments, damage, lifecycle, conservation, applier, records, visual description (Stages 3-8); frontend collision effects behind two new optional UI-0 inputs (Stage 9).
 - Modes: `legacy-merge` (today's behaviour bit-for-bit) and `outcome-v1`; all universes stay `legacy-merge` until Stage 4 step 4b; presets and Orbit Lab stay `legacy-merge` until Stage 11.
 - Hydrodynamics/SPH remains out of scope; the `OutcomeModel` protocol is the future solver adapter.
+
+### Materials, rotation and orientation [Implemented, Stage 2]
+- `backend/impact/material_profiles.json` + `materials.py`: immutable, provenance-checked registry; unsourced quantities are `incomplete`, never guessed. `rotation.py`: closed-form torque-free rotation, quaternion and body-local <-> world transforms.
+- `SimulationService` keeps two side tables keyed by body id (`_materials`, `_rotations`) that travel through `_capture/_restore`, `_checkpoint/_rollback`, `EngineSnapshot`, reset and `from_snapshot`; the state digest includes them only when non-empty (existing digests unchanged).
+- The impact capture (`geometry.capture_impact`) records each body's spin, orientation at the contact time and material profile, the contact direction in each body's frame, the site's latitude/longitude about the spin pole and the spin-axis angle.
+- `GET /api/v1/materials` (`api_collisions.py`). Frontend: optional body fields and the optional diagnostics term are parsed; nothing is rendered from them yet.

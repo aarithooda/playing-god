@@ -366,9 +366,10 @@ def test_fidelity_labels_match_the_plan():
 # Stage 0 scope guard: nothing existing imports the new package, no behaviour change
 # ---------------------------------------------------------------------------------------------------------------
 # Existing modules that may import backend.impact. Stage 0: none. Stage 1: the legacy resolver shares the merge
-# arithmetic (collisions.py) and the service hosts the deferred engine (simulation.py). Add a module here only together
+# arithmetic (collisions.py) and the service hosts the deferred engine (simulation.py). Stage 2: the materials route
+# (api_collisions.py). Add a module here only together
 # with the stage that wires it, and say so in DECISIONS.md.
-ALLOWED_IMPACT_IMPORTERS = {"collisions.py", "simulation.py"}
+ALLOWED_IMPACT_IMPORTERS = {"api_collisions.py", "collisions.py", "simulation.py"}
 
 
 def test_only_the_wired_modules_import_backend_impact():
@@ -391,6 +392,6 @@ def test_impact_package_does_not_depend_on_the_simulation_service():
 
 
 def test_git_grep_check_matches_the_stage_acceptance_command():
-    out = subprocess.run(["git", "grep", "-l", "backend.impact", "--", "backend/"], cwd=ROOT, capture_output=True, text=True)
+    out = subprocess.run(["git", "grep", "--untracked", "-l", "backend.impact", "--", "backend/"], cwd=ROOT, capture_output=True, text=True)
     files = sorted(ln for ln in out.stdout.splitlines() if not ln.startswith("backend/impact/"))
     assert files == sorted("backend/" + name for name in ALLOWED_IMPACT_IMPORTERS)

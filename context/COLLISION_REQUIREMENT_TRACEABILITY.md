@@ -13,7 +13,7 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 | V-3 | Craters, ejecta, partial disruption, catastrophic fragmentation where justified | none | models + fragments | ST3–ST6 | T/ls12, T/crat, T/frag | MISS |
 | V-4 | Coherent fragment trajectories | n/a | fragments as REBOUND bodies | ST5 | T/frag ICs | MISS |
 | V-5 | Debris orbits, falls back, hits another body, escapes | n/a | lifecycle | ST7 | T/life, T/scn E | MISS |
-| V-6 | Rocky, metallic, icy, gas giants, moons, asteroids | bodies have `kind`, display `bodyType`; no material | profiles | ST2, ST11 | T/mat, T/sel | MISS |
+| V-6 | Rocky, metallic, icy, gas giants, moons, asteroids | bodies have `kind`, display `bodyType`; no material | profiles | ST2, ST11 | T/mat, T/sel | PART: profiles for rock, rubble, iron, ice and a gas envelope exist, each number cited (tests/impact/test_materials.py); named solar-system bodies pending ST11 |
 | V-7 | Understand why an outcome happened | event shows merge speed only | selection reasons + inspector | ST8 | T/rec, V/describe | MISS |
 | V-8 | Replay and investigate events | history replay of positions [Exists `useHistoryNavigation`] | records + visual replay + dry-run replay | ST8–ST9 | T/rec replay, V/effectTimeline seek | PART |
 | V-9 | Simulation continues without breaking the system | transactional steps [Exists D-012] | apply atomically | ST4 | T/app continue-10-orbits, REG | PART |
@@ -30,7 +30,7 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 | ID | Requirement | Current | Gap | Stage | Verification | Status |
 |---|---|---|---|---|---|---|
 | S1-1 | Reliable detection + impact diagnostics | `line` detection, contact-time estimate [Exists] | full ImpactState | ST1 | T/det, T/geo | PART: detection reliable in the tested envelope and geometry captured (Stage 1: test_geometry.py, test_detection.py); materials/spin pending ST2 |
-| S1-2 | Material-aware inputs & outcome selection | — | — | ST2–ST3 | T/mat, T/sel | MISS |
+| S1-2 | Material-aware inputs & outcome selection | — | — | ST2–ST3 | T/mat, T/sel | PART: materials reach the impact capture (Stage 2); outcome selection pending ST3 |
 | S1-3 | Outcomes beyond merging | — | — | ST3–ST4 | T/ls12, T/app | MISS |
 | S1-4 | Localized impact & surface damage | — | — | ST6 | T/dmg | MISS |
 | S1-5 | Documented damage/propagation approximation | — | — | ST6 | T/dmg + SCIENTIFIC_MODELS §4.8 | MISS |
@@ -57,9 +57,9 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 | F1-INFO-4 | Relative impact velocity | `relativeSpeedMPerS` (scalar) [Exists] | vector | ST1 | T/geo | VERIFIED test_geometry.py::test_straight_line_impact_matches_the_analytic_construction (vector and speed, Stage 1) |
 | F1-INFO-5 | Contact point & surface normal | — | — | ST1 | T/geo (1e-9 straight, curvature bound curved) | VERIFIED test_geometry.py (1e-9 straight line; 0.02 R on the e = 0.9 Kepler path, Stage 1) |
 | F1-INFO-6 | Impact angle & impact parameter | — | — | ST1 | T/geo b = 0, 0.5, 0.9 | VERIFIED test_geometry.py b = 0 / 0.5 / 0.9, near and far from the origin (Stage 1) |
-| F1-INFO-7 | Target & projectile rotation | no spin state | rotation state | ST2 (data), ST1 field | T/rot, T/geo | PART: spin fields exist and are null until rotation exists (Stage 1); state pending ST2 |
-| F1-INFO-8 | Relative orientation of spin axes | — | — | ST2 | T/geo spin-axis angle | PART: field `spinAxisAngleDeg` exists and is null (Stage 1); pending ST2 |
-| F1-INFO-9 | Material & internal-structure profiles | — | — | ST2 | T/mat, ImpactState snapshot | PART: `materialProfile` is null and the record says `material_unspecified` (Stage 1: test_record_of_a_merge_links_to_the_legacy_event...); profiles pending ST2 |
+| F1-INFO-7 | Target & projectile rotation | no spin state | rotation state | ST2 (data), ST1 field | T/rot, T/geo | VERIFIED tests/impact/test_rotation.py, tests/impact/test_geometry.py::test_capture_records_spin_orientation_material_latitude_and_axis_angle, tests/impact/test_state_paths_stage2.py (Stage 2) |
+| F1-INFO-8 | Relative orientation of spin axes | — | — | ST2 | T/geo spin-axis angle | VERIFIED tests/impact/test_geometry.py::test_capture_records_spin_orientation_material_latitude_and_axis_angle (90 deg between z and x spin, Stage 2) |
+| F1-INFO-9 | Material & internal-structure profiles | — | — | ST2 | T/mat, ImpactState snapshot | VERIFIED tests/impact/test_geometry.py::test_service_record_carries_rotation_and_material_and_drops_the_unspecified_label (Stage 2) |
 | F1-INFO-10 | Gravitational environment & nearby bodies | `has_satellites` logic [Exists] | environment block | ST1 | T/geo environment fixture (moons preset) | VERIFIED on a star + planet fixture (test_geometry.py::test_environment_*, Stage 1); the moons preset fixture is not run yet |
 | F1-INFO-11 | Collision time in sim time | detection time + estimate [Exists] | — | ST1 | T/det | VERIFIED test_deferred_equivalence.py (detection time and contact estimate equal the legacy values, Stage 1) |
 | F1-INFO-12 | Energy, momentum, escape-velocity diagnostics | KE lost [Exists] | Q_R, v_esc, momentum, L | ST1 | T/geo | VERIFIED test_geometry.py (Q_R, both escape speeds, momentum, orbital L, KE in the COM frame, Stage 1) |
@@ -87,21 +87,21 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 |---|---|---|---|---|---|---|
 | M-OBJ | Same geometry, different materials → different outcomes (when model predicts) | — | — | ST3 | T/sel c* comparison | MISS |
 | M-CAT-ROCK | Rocky/silicate regimes (damage, fracture, crushing, melting, accretion, disruption) via selected approximation | — | LS12 + HH11; melting only as labelled energy partition | ST3, ST6 | T/ls12, T/crat | MISS |
-| M-CAT-METAL | Metallic distinguished (density, response) | — | profile; c* gap recorded | ST2–ST3 | T/mat iron; T/sel | MISS (some params DEC/unsupported) |
-| M-CAT-ICE | Icy distinguished (density, strength, heating, melting, fragmentation) | — | profile; strength DQ-9 | ST2–ST3 | T/mat ice | MISS/DEC |
-| M-CAT-GAS | Gas not solid; envelope-dominated selection; approximation, no gas-dynamics claim | — | envelope model | ST3 | T/env, T/sel never-LS12 | MISS |
-| M-CAT-MOLTEN | Data model permits molten; fluid-like behaviour when supported | — | `phase`, strengthless c* | ST2–ST3 | T/mat molten; T/sel | MISS (behaviour PART by design) |
-| M-CAT-MIXED | Differentiated bodies (core/mantle; ice/rock; core/envelope); not reduced silently | — | layers | ST2, ST5 | T/mat layers; T/frag composition | MISS |
-| M-PROP-1 | Composition & fractions | — | layers | ST2 | T/mat | MISS |
-| M-PROP-2 | Bulk & layer density | radius+mass give bulk density | computed bulk; layer optional | ST2 | T/mat | MISS |
-| M-PROP-3 | Strength/resistance parameters | — | c*, μ̄, BA99 | ST2–ST3 | T/mat | MISS/DEC |
-| M-PROP-4 | Compressibility / EOS ids where supported | — | optional `eosId` field (unused v1, labelled) | ST2 | T/contracts | MISS |
-| M-PROP-5 | Thermal properties where used | — | optional fields | ST2 | T/contracts | MISS |
-| M-PROP-6 | Material-specific disruption/fragmentation params | — | β, c* | ST2–ST3 | T/mat | MISS |
-| M-PROP-7 | Internal-structure description | — | structureClass + layers | ST2 | T/mat | MISS |
-| M-PROP-8 | Validity range & provenance | catalogue pattern [Exists OD-2] | provenance per value | ST2 | T/mat provenance rejection | MISS |
-| M-PROP-MAP | Parameters required by models mapped to body representation | — | SCIENTIFIC_MODELS §5 | ST2 | review CP-SCI-1 | MISS |
-| M-PROP-FALLBACK | Unknown/incomplete properties: explicit fallback; no arbitrary values | — | exact legacy merge + `material_unspecified` label in the record; never assign a material, never refuse (DQ-2 (a), D-033) | ST2–ST4 | T/sel fallback; T/mat incomplete; ST4 legacy-exactness re-run (byte-identical events/state) | MISS (decided D-033) |
+| M-CAT-METAL | Metallic distinguished (density, response) | — | profile; c* gap recorded | ST2–ST3 | T/mat iron; T/sel | PART: `iron` profile with only the analytic k = 0.4; LS12/cratering numbers declared incomplete (tests/impact/test_materials.py); outcomes ST3 |
+| M-CAT-ICE | Icy distinguished (density, strength, heating, melting, fragmentation) | — | profile; strength DQ-9 | ST2–ST3 | T/mat ice | PART: `water-ice` profile, strength/LS12/cratering declared incomplete (DQ-9) (tests/impact/test_materials.py) |
+| M-CAT-GAS | Gas not solid; envelope-dominated selection; approximation, no gas-dynamics claim | — | envelope model | ST3 | T/env, T/sel never-LS12 | PART: `gas-envelope-hhe` (category gas, envelope-dominated, no moment of inertia) (tests/impact/test_materials.py); envelope outcome ST3 |
+| M-CAT-MOLTEN | Data model permits molten; fluid-like behaviour when supported | — | `phase`, strengthless c* | ST2–ST3 | T/mat molten; T/sel | PART: `phase`/`meltFraction` exist in the layer schema (test_contracts.py); no molten profile shipped (strengthless-planet mu_bar unsourced); behaviour ST3 |
+| M-CAT-MIXED | Differentiated bodies (core/mantle; ice/rock; core/envelope); not reduced silently | — | layers | ST2, ST5 | T/mat layers; T/frag composition | PART: layers and per-body layer overrides validated (tests/impact/test_materials.py, tests/impact/test_api_materials.py); differentiated profiles not shipped (core fractions unsourced); composition ST5 |
+| M-PROP-1 | Composition & fractions | — | layers | ST2 | T/mat | VERIFIED tests/impact/test_materials.py::test_resolve_material_accepts_valid_input_and_rejects_the_rest_with_material_invalid (fractions sum to 1, Stage 2) |
+| M-PROP-2 | Bulk & layer density | radius+mass give bulk density | computed bulk; layer optional | ST2 | T/mat | PART: bulk density is computed from mass and radius (not stored); optional layer densities validated (Stage 2) |
+| M-PROP-3 | Strength/resistance parameters | — | c*, μ̄, BA99 | ST2–ST3 | T/mat | PART: LS12 c*, mu_bar stored for rock and rubble with citation (tests/impact/test_materials.py); strength constants incomplete (DQ-9) |
+| M-PROP-4 | Compressibility / EOS ids where supported | — | optional `eosId` field (unused v1, labelled) | ST2 | T/contracts | MISS: no equation-of-state field was added (no model needs it in v1); optional field deferred |
+| M-PROP-5 | Thermal properties where used | — | optional fields | ST2 | T/contracts | MISS: no thermal field was added (no model needs it in v1) |
+| M-PROP-6 | Material-specific disruption/fragmentation params | — | β, c* | ST2–ST3 | T/mat | PART: LS12 c*, mu_bar only (tests/impact/test_materials.py); material-specific beta etc. pending ST3 |
+| M-PROP-7 | Internal-structure description | — | structureClass + layers | ST2 | T/mat | VERIFIED structureClass + layers (tests/impact/test_materials.py, Stage 2) |
+| M-PROP-8 | Validity range & provenance | catalogue pattern [Exists OD-2] | provenance per value | ST2 | T/mat provenance rejection | VERIFIED tests/impact/test_materials.py::test_every_number_of_every_profile_has_provenance, test_a_profile_with_an_unsourced_number_is_rejected (Stage 2) |
+| M-PROP-MAP | Parameters required by models mapped to body representation | — | SCIENTIFIC_MODELS §5 | ST2 | review CP-SCI-1 | PART: only sourced parameters are mapped; the rest are listed `incomplete`; CP-SCI-1 review pending (ST3) |
+| M-PROP-FALLBACK | Unknown/incomplete properties: explicit fallback; no arbitrary values | — | exact legacy merge + `material_unspecified` label in the record; never assign a material, never refuse (DQ-2 (a), D-033) | ST2–ST4 | T/sel fallback; T/mat incomplete; ST4 legacy-exactness re-run (byte-identical events/state) | VERIFIED for body creation: no material is ever assigned (tests/impact/test_state_paths_stage2.py::test_a_body_without_material_has_exactly_the_old_json_and_no_spin_state); outcome fallback ST4 |
 | M-INT-1 | Rock+rock: cratering, accretion, ejecta, disruption | — | — | ST3–ST6 | T/scn A, C, D | MISS |
 | M-INT-2 | Ice+rock: composition-sensitive outcome & debris | — | — | ST3, ST5 | T/sel ice-rock; T/frag composition | MISS |
 | M-INT-3 | Metal-rich+rock: different response, composition-dependent remnants | — | layered stripping | ST3, ST5 | T/frag iron-fraction direction | MISS |
@@ -114,15 +114,15 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 | F2-AC-1 | Materials available to outcome & fragment systems | — | — | ST2–ST5 | T/sel, T/frag | MISS |
 | F2-AC-2 | Equivalent setups comparable with different profiles | — | — | ST3 | T/sel comparison fixture | MISS |
 | F2-AC-3 | Output differences explainable by the model | — | regimeReasons | ST3, ST8 | T/sel reasons, T/rec | MISS |
-| F2-AC-4 | Unsupported combinations → documented fallback or validation error | — | — | ST2–ST3 | T/mat 422, T/sel unsupported | MISS |
+| F2-AC-4 | Unsupported combinations → documented fallback or validation error | — | — | ST2–ST3 | T/mat 422, T/sel unsupported | PART: invalid materials -> 422 material_invalid (tests/impact/test_api_materials.py, tests/impact/test_materials.py); unsupported combinations pending ST3 |
 | F2-AC-5 | Gas giants not processed as rocky spheres | — | — | ST3 | T/sel | MISS |
 
 ## §5 Feature 3 — Localized impact, damage, propagation
 | ID | Requirement | Current | Gap | Stage | Verification | Status |
 |---|---|---|---|---|---|---|
 | L-OBJ | Local damage before global response; south ≠ north instantly | — | sites + front | ST6 | T/dmg antipode-not-yet | MISS |
-| L-LOC-1..5 | Location accounts for orientation, spin axis, normal, contact geometry, impact direction | — | body-local site | ST2, ST6 | T/dmg, T/rot | MISS |
-| L-LOC-FRAME | World vs body-local never confused under rotation | — | `…Local` naming, transforms | ST2, ST6 | T/rot round trip; T/dmg half-rotation | MISS |
+| L-LOC-1..5 | Location accounts for orientation, spin axis, normal, contact geometry, impact direction | — | body-local site | ST2, ST6 | T/dmg, T/rot | PART: orientation, spin axis, normal and contact direction are captured in body-local form (tests/impact/test_geometry.py); damage sites ST6 |
+| L-LOC-FRAME | World vs body-local never confused under rotation | — | `…Local` naming, transforms | ST2, ST6 | T/rot round trip; T/dmg half-rotation | VERIFIED tests/impact/test_rotation.py::test_body_local_world_round_trip_is_exact_to_1e12, tests/impact/test_geometry.py::test_a_fixed_surface_site_keeps_its_latitude_and_longitude_while_the_body_rotates (Stage 2); half-rotation damage alignment ST6 |
 | L-DMG-REP | Spatially varying representation (documented) | — | ImpactSite list | ST6 | T/dmg | MISS |
 | L-DMG-Q1..6 | Damage intensity, crater extent, ejecta sources, heating/intensity, propagation, local material loss | — | site fields | ST6 | T/dmg schema + values | MISS |
 | L-DMG-COMPAT | Compatible with renderer; no hydrodynamics | — | surfaceMarks input | ST6, ST9 | V/surfaceMarks, boundary test | MISS |
@@ -159,7 +159,7 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 | O-MOD-SEL | Model selected & documented for regime | — | selector | ST3 | T/sel each branch | MISS |
 | O-MOD-INPUTS | v/v_esc, angle/b, mass ratio, interacting mass, binding thresholds, material, spin where supported | — | all except spin (LS12 has none → warn) | ST3 | T/ls12; T/sel spin warning | MISS (spin PART) |
 | O-MOD-EXTRAP | No extrapolation beyond validity without fallback | — | envelopes | ST3 | T/sel unsupported | MISS |
-| O-CONS-1 | Merger: remnant mass, position, velocity, spin | merge [Exists], spin as ledger | spin state | ST2, ST4 | T/app | PART |
+| O-CONS-1 | Merger: remnant mass, position, velocity, spin | merge [Exists], spin as ledger | spin state | ST2, ST4 | T/app | PART: spin angular momentum of a merging pair is booked, not lost (tests/impact/test_state_paths_stage2.py::test_merging_books_the_spin_angular_momentum_into_the_existing_ledger); spin state of the remnant ST4 |
 | O-CONS-2 | Hit-and-run: multiple remnants, consistent velocities & accounting | — | — | ST4 | T/scn C | MISS |
 | O-CONS-3 | Disruption: largest remnant + defined population | — | — | ST5 | T/scn D | MISS |
 | O-CONS-4 | Erosion: removed mass into explicit representation | — | — | ST4–ST5 | T/cons | MISS |
@@ -174,7 +174,7 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 | ID | Requirement | Current | Gap | Stage | Verification | Status |
 |---|---|---|---|---|---|---|
 | R-OBJ | Meaningful products, coherent ICs, defined relation to mass & momentum; not decorative | — | — | ST5 | T/frag | MISS |
-| R-A-1..6 | Major remnants: persistent id, mass, pos/vel, radius/shape, composition, spin, collision eligibility; participate in gravity | bodies have mass/state/radius [Exists] | composition, spin, flags | ST2, ST4 | T/app, T/rot | PART |
+| R-A-1..6 | Major remnants: persistent id, mass, pos/vel, radius/shape, composition, spin, collision eligibility; participate in gravity | bodies have mass/state/radius [Exists] | composition, spin, flags | ST2, ST4 | T/app, T/rot | PART: spin state and material exist for bodies (tests/impact/test_state_paths_stage2.py); remnants/composition ST4-ST5 |
 | R-B-1 | Tracked fragments above configurable threshold | — | — | ST5 | T/frag | MISS (threshold DQ-6) |
 | R-B-2 | Statistical populations with documented distributions | — | parcels | ST5 | T/frag power-law fit | DEC (DQ-4) |
 | R-B-3 | Particle samples for visualization | — | V/debrisSampling | ST9 | V/debrisSampling | MISS |
@@ -254,7 +254,7 @@ Test-file shorthand: `T/det` = `tests/impact/test_detection.py`, `T/geo` = `test
 | AS-1..5 | Removal/transformation; remnants; tracked fragments registered; mass & momentum into debris; spin updates | merge [Exists] | — | ST4–ST5 | T/app | PART |
 | AS-NORENDER | Renderer never modifies these values | backend-authoritative [Exists] | — | ST9 | boundary test | SUP (keep) |
 | ISO-1..3 | Isolation of events, populations, seeds, histories, state; preserve model | per-engine [Exists D-025] | collision state per engine | ST10 | T/iso | PART |
-| PER-1..5 | Persist: new body/material fields; fragments & debris; active aftermath; seeds; migration/compat | in-memory snapshots [Exists]; no disk (OD-5) | CollisionState in snapshots | ST2, ST10 | T/pers | PART / DEC (DQ-11) |
+| PER-1..5 | Persist: new body/material fields; fragments & debris; active aftermath; seeds; migration/compat | in-memory snapshots [Exists]; no disk (OD-5) | CollisionState in snapshots | ST2, ST10 | T/pers | PART: materials and rotation survive checkpoint, step rollback, snapshot restore, reset and derive (tests/impact/test_state_paths_stage2.py); collision records ST10; disk persistence DQ-11 |
 | PER-VER | Versioned using repo approach; don't invalidate existing saves | `version` fields pattern [Exists diagnostics] | schemaVersion | ST0, ST10 | T/pers old-snapshot restore | MISS |
 | LIM-1..6 | Configurable limits: fragments, active events, visual particles, secondary processing, aggregation, per-step computation | step time budget [Exists] | CollisionConfig | ST0, ST5, ST7, ST9 | T/frag, T/life, V/effectBudget | PART |
 | LIM-POLICY | Explicit policy at limits; never discard mass | — | plan §9.3/9.4 | ST5, ST7 | T/frag overflow | MISS |
@@ -350,7 +350,7 @@ These are not spec requirements but binding constraints on how the rows above ar
 | ID | Constraint | Stage | Verification | Status |
 |---|---|---|---|---|
 | OD33-BRIEF | `PROJECT_BRIEF.md` references the spec; hydrodynamics/SPH stays a non-goal (DQ-1 a) | ST0 | doc diff review | VERIFIED doc diff: PROJECT_BRIEF.md features list references the spec, non-goals unchanged (Stage 0) |
-| OD33-LEGACY | Material-less pairs resolve exactly as legacy in every mode; label `material_unspecified`; no silent material; no refusal (DQ-2 a) | ST2, ST4 | ST4 legacy-exactness re-run; T/sel fallback | MISS |
+| OD33-LEGACY | Material-less pairs resolve exactly as legacy in every mode; label `material_unspecified`; no silent material; no refusal (DQ-2 a) | ST2, ST4 | ST4 legacy-exactness re-run; T/sel fallback | PART: material-less bodies get no new field and no spin state (tests/impact/test_state_paths_stage2.py); Stage 4 legacy-exactness re-run pending |
 | OD33-MODE | All universes `legacy-merge` until step 4b; then `outcome-v1` for new sandboxes only (including the startup `uni-default`, owner-confirmed); presets and Orbit Lab legacy until Stage 11 | ST0 (constant), ST4b, ST11 | `tests/impact/test_mode_defaults.py`; ST11 acceptance | PART: constant VERIFIED test_contracts.py::test_default_sandbox_mode_is_legacy_merge_until_stage_4b (Stage 0); 4b/Stage 11 pending |
 | OD33-VIS | Visual-only effects: wall-clock duration, freeze on pause, replay on seek-back, never mass-bearing (DQ-12 a) | ST0, ST9 | V/effectTimeline; type-level test | PART: contract VERIFIED test_contracts.py::test_visual_only_effect_has_no_mass_field (Stage 0); timeline tests pending ST9 |
 | OD33-REVIEW | Independent AI session for routine physics checks; named human for CP-SCI-1 and CP-5; everything logged in `WORKLOG.md` (DQ-14 d) | ST3, ST12, all physics stages | WORKLOG entries; TASKS.md reviewer name | MISS |

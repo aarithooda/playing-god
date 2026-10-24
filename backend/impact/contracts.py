@@ -187,10 +187,13 @@ class MaterialProfile(Contract):
     category: Literal["rock", "metal", "ice", "gas", "molten", "mixed"]
     structure_class: Literal["rubble", "strong", "strengthless-planet", "envelope-dominated"]
     layers: tuple[Layer, ...]
-    moment_of_inertia_factor: float
     appearance: Literal["rock", "metal", "ice", "molten", "gas", "dust"]
     provenance: tuple[Provenance, ...]
     validity: Validity
+    # None = no sourced value: a body with this profile cannot carry a spin state (no moment of inertia, DQ-2).
+    moment_of_inertia_factor: Optional[float] = None
+    # Quantities a model might need that this profile does NOT have (no invented values): e.g. "ls12", "cratering".
+    incomplete: tuple[str, ...] = ()
     ls12: Optional[Ls12Params] = None
     strength: Optional[StrengthParams] = None
     cratering: Optional[CrateringParams] = None
@@ -201,8 +204,8 @@ class MaterialProfile(Contract):
         if not re.match(r"^[a-z0-9]+(-[a-z0-9]+)*$", self.id):
             raise ContractError(f"MaterialProfile.id: must be lower-case kebab, got {self.id!r}")
         _validate_layers("MaterialProfile.layers", self.layers)
-        if not 0.0 < self.moment_of_inertia_factor <= 0.4:
-            raise ContractError(f"MaterialProfile.moment_of_inertia_factor: must be within (0, 0.4], got {self.moment_of_inertia_factor!r}")
+        if self.moment_of_inertia_factor is not None and not 0.0 < self.moment_of_inertia_factor <= 0.4:
+            raise ContractError(f"MaterialProfile.moment_of_inertia_factor: must be within (0, 0.4] or null, got {self.moment_of_inertia_factor!r}")
         _positive("MaterialProfile", wave_speed_m_per_s=self.wave_speed_m_per_s)
         if not self.provenance:
             raise ContractError("MaterialProfile.provenance: every number must be traceable; at least one entry is required")

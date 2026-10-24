@@ -7,6 +7,8 @@ import type {
   BodyDto,
   BodyType,
   CatalogueDto,
+  MaterialDto,
+  OrientationDto,
   CataloguePropertyDto,
   ComparisonDto,
   ExperimentDto,
@@ -63,6 +65,42 @@ function vec3OrNull(v: unknown, what: string): Vec3 | null {
   return v === null ? null : vec3(v, what);
 }
 
+/** Optional collision-engine fields of a body. Absent keys stay absent (older backends, bodies without a material). */
+function parseCollisionBodyFields(o: Record<string, unknown>): { material?: MaterialDto; spinRadPerS?: Vec3; orientation?: OrientationDto } {
+  const out: { material?: MaterialDto; spinRadPerS?: Vec3; orientation?: OrientationDto } = {};
+  if (o.material !== undefined && o.material !== null) {
+    const m = obj(o.material, "body.material");
+    const layers = m.layers;
+    if (layers !== undefined && layers !== null && !Array.isArray(layers)) bad("body.material.layers");
+    out.material = {
+      profileId: str(m.profileId, "body.material.profileId"),
+      layers:
+        layers === undefined || layers === null
+          ? null
+          : (layers as unknown[]).map((l, i) => {
+              const lo = obj(l, `body.material.layers[${i}]`);
+              const phase = lo.phase;
+              if (phase !== "solid" && phase !== "molten" && phase !== "partial" && phase !== "gas") bad(`body.material.layers[${i}].phase`);
+              return {
+                materialId: str(lo.materialId, `body.material.layers[${i}].materialId`),
+                massFraction: num(lo.massFraction, `body.material.layers[${i}].massFraction`),
+                phase,
+                meltFraction: lo.meltFraction == null ? null : num(lo.meltFraction, `body.material.layers[${i}].meltFraction`),
+                densityKgPerM3: lo.densityKgPerM3 == null ? null : num(lo.densityKgPerM3, `body.material.layers[${i}].densityKgPerM3`),
+              };
+            }),
+    };
+  }
+  if (o.spinRadPerS !== undefined && o.spinRadPerS !== null) out.spinRadPerS = vec3(o.spinRadPerS, "body.spinRadPerS");
+  if (o.orientation !== undefined && o.orientation !== null) {
+    const r = obj(o.orientation, "body.orientation");
+    if (!Array.isArray(r.quaternion) || r.quaternion.length !== 4) bad("body.orientation.quaternion");
+    const q = r.quaternion.map((c, i) => num(c, `body.orientation.quaternion[${i}]`));
+    out.orientation = { quaternion: [q[0], q[1], q[2], q[3]], epochS: num(r.epochS, "body.orientation.epochS") };
+  }
+  return out;
+}
+
 export function parseDiagnosticsDto(v: unknown): DiagnosticsDto {
   const o = obj(v, "diagnostics");
   if (o.version !== DIAGNOSTICS_VERSION) bad(`diagnostics.version (${String(o.version)}, expected ${DIAGNOSTICS_VERSION})`);
@@ -77,6 +115,10 @@ export function parseDiagnosticsDto(v: unknown): DiagnosticsDto {
       "diagnostics.angularMomentumAboutOriginKgM2PerS",
     ),
     bookedSpinKgM2PerS: vec3OrNull(o.bookedSpinKgM2PerS, "diagnostics.bookedSpinKgM2PerS"),
+    // additive (Stage 2): absent unless some body has a rotation state; the version stays 1
+    ...(o.spinAngularMomentumKgM2PerS === undefined
+      ? {}
+      : { spinAngularMomentumKgM2PerS: vec3OrNull(o.spinAngularMomentumKgM2PerS, "diagnostics.spinAngularMomentumKgM2PerS") }),
   };
 }
 
@@ -134,6 +176,7 @@ export function parseBodyDto(v: unknown): BodyDto {
     kind: o.kind === "star" ? "star" : "planet",
     catalogueEntryId: typeof o.catalogueEntryId === "string" ? o.catalogueEntryId : null,
     ...parseRenderMeta(o, "body"),
+    ...parseCollisionBodyFields(o),
   };
 }
 

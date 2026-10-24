@@ -14,19 +14,64 @@ This module freezes the pair's state before anything is mutated and derives the 
   Leinhardt & Stewart (2012) form sqrt(2 G M / R_C1) with R_C1 the radius of a sphere of the combined mass at
   rho_1 = 1000 kg/m^3 (the printed definition of R_C1 and rho_1; not one of the CP-SCI-1 disputed items). Recorded only.
 - Target = the more massive body (ties: the lexicographically smaller id).
-- Rotation is not tracked until Stage 2: body-local contact directions equal the inertial ones, latitude/longitude and
-  the spin-axis angle are null.
+- Rotation (Stage 2): a body with a rotation state contributes its spin (inertial frame), its orientation AT THE CONTACT TIME
+  and its material profile (a copy from the registry, with layer overrides applied). The contact direction is also given in
+  each body's own frame (inverse rotation by the orientation at t_c), so a site stays attached to the surface as the body
+  rotates. The target's latitude/longitude is measured about its spin axis: the pole is the spin axis (fixed in the body), the
+  prime meridian the body-local x axis projected perpendicular to it (the y axis if x is within 1e-6 of the pole). The spin-axis
+  angle is the angle between the two spin axes. A body without a rotation state (no material, or no moment of inertia) has
+  none of this: its local directions equal the inertial ones and everything else stays null (DQ-2).
 SI units.
 """
+import dataclasses
 import math
-from typing import Sequence
+from typing import Callable, Optional, Sequence
 
+from backend.impact import rotation as rot
 from backend.impact.contracts import (BodyImpactState, ContactLatLon, ContactPointLocal, Environment, ImpactState,
-                                      MutualEscapeSpeed, Vec3)
+                                      MaterialProfile, MaterialRef, MutualEscapeSpeed, Orientation, RotationState, Vec3)
+from backend.impact.materials import get_profile
 from backend.impact.models.perfect_merge import ContactTimeFn, PairBody, Vec, _add, _cross, _dot, _norm, _scale, _sub
 
 LS12_RHO1_KG_PER_M3 = 1000.0  # printed density used by LS12 to define R_C1 (COLLISION_SCIENTIFIC_MODELS.md 3)
 NEARBY_HILL_FACTOR = 3.0  # bodies within this many Hill radii of the pair are listed as nearby (plan 3.5 item 7)
+
+
+# (material, rotation state) of a body, by id; the service supplies it from its side tables
+BodyExtras = Callable[[str], "tuple[Optional[MaterialRef], Optional[RotationState]]"]
+
+
+def resolved_profile(ref: Optional[MaterialRef]) -> Optional[MaterialProfile]:
+    """The registry profile of a material reference, with the reference's layer override applied. None if unspecified."""
+    if ref is None:
+        return None
+    profile = get_profile(ref.profile_id)
+    if profile is None:
+        raise ValueError(f"unknown material profile {ref.profile_id}")
+    return profile if ref.layers is None else dataclasses.replace(profile, layers=ref.layers)
+
+
+def site_latitude_longitude_deg(state: RotationState, t_s: float, direction_world: Sequence[float]) -> Optional[tuple[float, float]]:
+    """Latitude and longitude (degrees) of a world direction relative to the body's spin pole and prime meridian; None when the
+    body does not rotate. Defined in the body's own frame, so it does not change as the body rotates."""
+    w = state.omega_rad_per_s.as_tuple()
+    wn = math.sqrt(w[0] * w[0] + w[1] * w[1] + w[2] * w[2])
+    if wn == 0.0:
+        return None
+    pole = rot.inverse_rotate(state.q0, [c / wn for c in w])  # the spin axis in body coordinates (constant)
+    site = rot.to_local(state, t_s, direction_world)
+    ref = (1.0, 0.0, 0.0) if abs(pole[0]) < 1.0 - 1.0e-6 else (0.0, 1.0, 0.0)
+    d = sum(a * b for a, b in zip(ref, pole))
+    meridian = _unit([r - d * p for r, p in zip(ref, pole)])
+    east = _cross(pole, meridian)
+    lat = math.degrees(math.asin(max(-1.0, min(1.0, _dot(site, pole)))))
+    lon = math.degrees(math.atan2(_dot(site, east), _dot(site, meridian)))
+    return lat, lon
+
+
+def _unit(v: Sequence[float]) -> list[float]:
+    n = _norm(list(v))
+    return [c / n for c in v]
 
 
 def assign_roles(a: PairBody, b: PairBody) -> tuple[PairBody, PairBody]:
@@ -60,7 +105,8 @@ def environment(pair: tuple[PairBody, PairBody], others: Sequence[PairBody], g: 
 
 
 def capture_impact(first: PairBody, second: PairBody, t_detect: float, dt_last_done: float, others: Sequence[PairBody],
-                   chunk_criterion_satisfied: bool, contact_time: ContactTimeFn, g: float) -> tuple[ImpactState, list[str]]:
+                   chunk_criterion_satisfied: bool, contact_time: ContactTimeFn, g: float,
+                   extras: Optional[BodyExtras] = None) -> tuple[ImpactState, list[str]]:
     """Freeze the pair `first`/`second` (states at the detection time) into an `ImpactState`. Returns it with the
     warnings raised while computing it. Raises ValueError for a non-physical pair (non-positive mass or radius)."""
     tgt, prj = assign_roles(first, second)
@@ -101,17 +147,35 @@ def capture_impact(first: PairBody, second: PairBody, t_detect: float, dt_last_d
     momentum = _add(_scale(list(tgt.velocity), tgt.mass), _scale(list(prj.velocity), prj.mass))
     angular = _scale(_cross(r_c, u), mu)
 
-    def state(body: PairBody, position: Vec) -> BodyImpactState:
-        return BodyImpactState(id=body.id, mass_kg=body.mass, radius_m=body.radius, position_m=Vec3.of(position),
-                               velocity_m_per_s=Vec3.of(body.velocity))
+    lookup = extras or (lambda _id: (None, None))
+    t_ref, t_rot = lookup(tgt.id)[0], lookup(tgt.id)[1]
+    p_ref, p_rot = lookup(prj.id)[0], lookup(prj.id)[1]
+
+    def state(body: PairBody, position: Vec, ref: Optional[MaterialRef], rotation: Optional[RotationState]) -> BodyImpactState:
+        return BodyImpactState(
+            id=body.id, mass_kg=body.mass, radius_m=body.radius, position_m=Vec3.of(position), velocity_m_per_s=Vec3.of(body.velocity),
+            spin_rad_per_s=None if rotation is None else rotation.omega_rad_per_s,
+            orientation=None if rotation is None else Orientation(rot.orientation_at(rotation, t_contact), t_contact),
+            material_profile=resolved_profile(ref))
+
+    def local(rotation: Optional[RotationState], direction: Sequence[float]) -> Vec3:
+        return Vec3.of(direction if rotation is None else rot.to_local(rotation, t_contact, direction))
+
+    lat_lon = None if t_rot is None else site_latitude_longitude_deg(t_rot, t_contact, normal)
+    axis_angle = None
+    if t_rot is not None and p_rot is not None:
+        w_t, w_p = list(t_rot.omega_rad_per_s.as_tuple()), list(p_rot.omega_rad_per_s.as_tuple())
+        n_t, n_p = _norm(w_t), _norm(w_p)
+        if n_t > 0.0 and n_p > 0.0:
+            axis_angle = math.degrees(math.acos(max(-1.0, min(1.0, _dot(w_t, w_p) / (n_t * n_p)))))
 
     impact = ImpactState(
         detection_time_s=t_detect, contact_time_s=t_contact, contact_time_estimated=estimated, rewind_s=tau,
-        target=state(tgt, x_t), projectile=state(prj, x_p), relative_velocity_m_per_s=Vec3.of(u),
+        target=state(tgt, x_t, t_ref, t_rot), projectile=state(prj, x_p, p_ref, p_rot), relative_velocity_m_per_s=Vec3.of(u),
         impact_speed_m_per_s=speed, contact_point_m=Vec3.of(contact_point), contact_normal=Vec3.of(normal),
-        contact_point_local=ContactPointLocal(Vec3.of(normal), Vec3.of(_scale(normal, -1.0))),
-        contact_lat_lon_deg=ContactLatLon(None), impact_angle_deg=math.degrees(math.asin(b)), impact_parameter=b,
-        spin_axis_angle_deg=None, total_mass_kg=total, reduced_mass_kg=mu, mass_ratio=prj.mass / tgt.mass,
+        contact_point_local=ContactPointLocal(local(t_rot, normal), local(p_rot, _scale(normal, -1.0))),
+        contact_lat_lon_deg=ContactLatLon(lat_lon), impact_angle_deg=math.degrees(math.asin(b)), impact_parameter=b,
+        spin_axis_angle_deg=axis_angle, total_mass_kg=total, reduced_mass_kg=mu, mass_ratio=prj.mass / tgt.mass,
         mutual_escape_speed_m_per_s=MutualEscapeSpeed(math.sqrt(2.0 * g * total / r_c1),
                                                       math.sqrt(2.0 * g * total / contact_dist)),
         specific_impact_energy_j_per_kg=ke_com / total, pair_momentum_kg_m_per_s=Vec3.of(momentum),

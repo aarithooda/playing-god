@@ -41,6 +41,10 @@ export interface BodyDto {
   assetKey?: string;
   /** Id of the body this one orbits (a moon's planet). Relationship metadata only: positions are always the simulated ones. */
   primaryId?: string;
+  /** Collision engine (optional, present only when set): material profile, spin (rad/s, inertial frame) and orientation. */
+  material?: MaterialDto;
+  spinRadPerS?: Vec3;
+  orientation?: OrientationDto;
 }
 
 /** POST /api/v1/bodies request (the server generates `id`). `kind` defaults to "planet" on the server. */
@@ -63,6 +67,26 @@ export const DIAGNOSTICS_VERSION = 1;
  * System-level quantities of exactly the state in `bodies` (backend/diagnostics.py, API_CONTRACT.md "Diagnostics").
  * Each value is finite or `null` (undefined or overflowed); a vector is all-or-nothing. Computed by the backend only.
  */
+export interface MaterialLayerDto {
+  materialId: string;
+  massFraction: number;
+  phase: "solid" | "molten" | "partial" | "gas";
+  meltFraction: number | null;
+  densityKgPerM3: number | null;
+}
+
+/** A body's material: a backend registry profile id (GET /api/v1/materials), optionally with layer overrides. */
+export interface MaterialDto {
+  profileId: string;
+  layers: MaterialLayerDto[] | null;
+}
+
+/** Unit quaternion [w, x, y, z] (body -> world) at simulation time `epochS`. Present only for a body with a rotation state. */
+export interface OrientationDto {
+  quaternion: [number, number, number, number];
+  epochS: number;
+}
+
 export interface DiagnosticsDto {
   version: typeof DIAGNOSTICS_VERSION;
   totalMassKg: number | null;
@@ -73,6 +97,8 @@ export interface DiagnosticsDto {
   angularMomentumAboutOriginKgM2PerS: Vec3 | null;
   /** Sum of spin booked by mergers (bookkeeping only; no rotation dynamics). */
   bookedSpinKgM2PerS: Vec3 | null;
+  /** Sum of I*omega over bodies WITH a rotation state. Absent (not null) in every state without one. */
+  spinAngularMomentumKgM2PerS?: Vec3 | null;
 }
 
 export interface SimulationStateDto {

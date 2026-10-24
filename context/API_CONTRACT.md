@@ -206,3 +206,13 @@ Source: `COLLISION_ENGINE_PLAN.md` sections 4 and 6. Everything is additive; exi
   re-checks that a remnant still touches the next body of the same detection pass. Mode `legacy-merge` keeps REBOUND's order and, in a
   detection pass with three or more simultaneous contacts, can merge bodies that do not touch (stale indices after the first removal;
   evidence: D-035, `tests/impact/test_deferred_equivalence.py`). Unchanged by decision D-033.
+
+## Collision engine: materials, spin and orientation (Stage 2, implemented; backward compatible)
+- `GET /api/v1/materials` -> `{schemaVersion: 1, profiles: [MaterialProfile]}`: the immutable registry (silicate-rock, rubble-silicate, iron, water-ice, gas-envelope-hhe). Every number has a `provenance` entry; a missing quantity is absent and listed in `incomplete`.
+- `POST /api/v1/bodies` and `PATCH` accept optional `material` (`{profileId, layers?}`), `spinRadPerS` (inertial frame, each component within 1e5 rad/s) and, on create, `orientation` (`{quaternion: [w,x,y,z], epochS}`). `PATCH` with `material: null` or `spinRadPerS: null` clears it.
+- Responses carry `material`, `spinRadPerS` and `orientation` **only when set**; a body without them has exactly the previous JSON. `orientation` is the unit quaternion (body -> world) at the state's `simulationTimeS`, evaluated in closed form (constant spin, torque-free; approximation for non-spherical bodies).
+- A spin or orientation needs a material whose profile has a sourced moment-of-inertia factor (I = k M R^2; currently the analytic uniform-sphere k = 0.4 for rock, rubble, iron, ice; none for the gas envelope). A body without a material never gets a spin state in any mode (D-033 DQ-2).
+- Errors (HTTP 422, `{detail, code}`): `material_invalid` (unknown profile, bad layers), `rotation_requires_material`, `rotation_invalid` (non-unit quaternion). Malformed shapes are ordinary request-validation 422s.
+- `diagnostics` keeps `version: 1`; the additive key `spinAngularMomentumKgM2PerS` (sum of I*omega) appears only while some body has a rotation state.
+- A merger (either mode) books the spin angular momentum of the bodies into `bookedSpinKgM2PerS`, ends their rotation states, and keeps a material only if both bodies had the same one.
+- Spin and material do not affect gravity (trajectories are bit-identical with and without them).

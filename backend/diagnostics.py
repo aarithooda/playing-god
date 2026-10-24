@@ -10,6 +10,9 @@ Definitions, in the single inertial right-handed frame of D-010, G in m^3 kg^-1 
 - potential energy      U = -G sum_{i<j} m_i m_j / |r_i - r_j|        [J], zero at infinite separation
 - angular momentum      L = sum m_i r_i x v_i, about the fixed origin (0,0,0)   [kg m^2/s]
 - booked spin           S = sum of the merger-booked spin vectors     [kg m^2/s] (bookkeeping, no dynamics)
+- spin angular momentum S_rot = sum I_i omega_i over bodies WITH a rotation state [kg m^2/s]; reported (additive,
+                        version unchanged) only when at least one body has such a state, so every other state is
+                        byte-identical to the original diagnostics
 
 Policy: every quantity is a finite float or None (JSON null); a vector is all-or-nothing. Empty sums are 0.0. U is None
 when two centres coincide (undefined) or on overflow. The function never raises and never returns NaN/Infinity.
@@ -61,10 +64,12 @@ def _potential_energy(bodies: Sequence[BodyState], g: float) -> float | None:
     return energy if math.isfinite(energy) else None  # a NaN/inf `g`, or g*total overflowing, is undefined, not a value
 
 
-def compute_diagnostics(bodies: Sequence[BodyState], spins: Iterable[Vec], g: float) -> dict:
-    """Diagnostics of one snapshot. `spins` are the booked spin vectors of the bodies that carry one."""
+def compute_diagnostics(bodies: Sequence[BodyState], spins: Iterable[Vec], g: float, rotations: Iterable[Vec] = ()) -> dict:
+    """Diagnostics of one snapshot. `spins` are the booked spin vectors of the bodies that carry one; `rotations` are the
+    spin angular momenta I*omega of the bodies that have a rotation state (empty for every pre-Stage-2 state)."""
     spin_rows = [tuple(s) for s in spins]
-    return {
+    rotation_rows = [tuple(r) for r in rotations]
+    result = {
         "version": DIAGNOSTICS_VERSION,
         "totalMassKg": _sum(m for m, _, _ in bodies),
         "totalMomentumKgMPerS": _vec_sum([tuple(m * c for c in v) for m, _, v in bodies]),
@@ -74,3 +79,6 @@ def compute_diagnostics(bodies: Sequence[BodyState], spins: Iterable[Vec], g: fl
             [tuple(m * c for c in _cross(r, v)) for m, r, v in bodies]),
         "bookedSpinKgM2PerS": _vec_sum(spin_rows),
     }
+    if rotation_rows:
+        result["spinAngularMomentumKgM2PerS"] = _vec_sum(rotation_rows)
+    return result

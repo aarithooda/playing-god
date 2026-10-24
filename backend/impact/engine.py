@@ -23,7 +23,7 @@ from backend.collisions import contact_time_estimate, select_ias15
 from backend.impact.config import CollisionConfig
 from backend.impact.contracts import CollisionRecord
 from backend.impact.detection import ContactCandidate, order_key
-from backend.impact.geometry import capture_impact
+from backend.impact.geometry import BodyExtras, capture_impact
 from backend.impact.models.perfect_merge import MODEL_ID, MODEL_VERSION, PairBody, PerfectMergeModel, merge_pair
 from backend.impact.records import build_input, build_record
 from backend.impact.models.base import Unsupported
@@ -51,7 +51,8 @@ class CollisionEngine:
         self.model = PerfectMergeModel()
 
     def resolve_batch(self, sim, candidates: Sequence[ContactCandidate], *, ledger, on_merge: Callable[[dict], None],
-                      event_seq: Callable[[], int], chunk_criterion_satisfied: bool) -> BatchReport:
+                      event_seq: Callable[[], int], chunk_criterion_satisfied: bool,
+                      extras: "BodyExtras | None" = None) -> BatchReport:
         """Resolve one detection pass. `ledger` holds `heat_J` and `spin` (the legacy booked-energy and booked-spin
         ledgers); `on_merge(event_fields)` creates the public `merger` event and updates display metadata; `event_seq()`
         returns the engine's event counter (incremented by `on_merge`)."""
@@ -80,7 +81,7 @@ class CollisionEngine:
             first, second = _body(pa), _body(pb)
             others = [_body(p) for p in sim.particles if p.name not in (c.first_id, c.second_id)]
             impact, geometry_warnings = capture_impact(first, second, c.time_s, c.dt_last_done, others,
-                                                       chunk_criterion_satisfied, contact_time_estimate, self.g)
+                                                       chunk_criterion_satisfied, contact_time_estimate, self.g, extras)
             seq = event_seq() + 1
             data = build_input(seq, impact, self.config, MODEL_ID, MODEL_VERSION)
             spec = self.model.evaluate(data)
