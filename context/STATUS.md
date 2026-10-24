@@ -5,7 +5,10 @@
 # Status
 _Concise authoritative snapshot. Update after every meaningful session._
 
-## Collision engine - governance change D-059, Stages 11-12 proceeding (2026-10-25, Claude Sonnet 5.5) - newest
+## Collision engine - Stage 11 done (D-060) (2026-10-25, Claude Sonnet 5.5) - newest
+- Branch `collision/stage-11-12`. Cited moment-of-inertia annotations for 8 bodies; all other material quantities unsupported; trajectories bit-identical; 1388 backend passed. Owner-accepted, not independently validated.
+
+## Collision engine - governance change D-059, Stages 11-12 proceeding (2026-10-25, Claude Sonnet 5.5)
 - The owner waived the CP-SCI-1 / CP-5 wait for continued development (D-059). This is **owner-accepted, not independently validated**: no reviewer, no signature. Provisional labels, UD-1/UD-2, unsourced parameters and unsupported models remain visible. Stage 11 uses only fetched, citable material values; Stage 12 runs the scenarios, performance checks and the DoD audit and reports unmet criteria.
 
 ## Collision engine — DQ-3 (a) recorded, Stage 11 BLOCKED on a named reviewer (2026-10-25, Claude Sonnet 5.5)
@@ -37,7 +40,7 @@ _Concise authoritative snapshot. Update after every meaningful session._
 - **Verified:** backend `python -m pytest -q`: 1081 passed, 1 warning (initial full run; one timing test failed once earlier in the session and passed on rerun); frontend `npm run typecheck` clean, `npx vitest run` 449 passed, `npm run build` OK; Playwright not run (browsers missing). Material-less scenarios give byte-identical events in both modes; system-wide mass/momentum/angular momentum conserved at 48 engine points; found and fixed a REBOUND name-corruption defect (D-044).
 - **Provisional/open:** CP-SCI-1 unsigned; debris launch speed is a placeholder (Stage 5); DQ-13 handled provisionally (D-043).
 
-## Collision engine — Stage 3 (2026-10-24, Claude Sonnet 5.5) — newest
+## Collision engine — Stage 3 (2026-10-24, Claude Sonnet 5.5)
 - **Done** on `collision/stage-3-models`: pure outcome models and selector (LS12 + Genda, envelope, cratering structure), validity envelope as data, provisional-assumption registry, decisions D-038..D-042 (provisional UD-1/UD-2, DQ-7/8/9, diagnostics deviation). **CP-SCI-1 is NOT signed off; UD-1/UD-2 remain open; no reviewer has agreed.**
 - **Verified:** `python -m pytest -q` 935 passed (869 + 66 new), 1 baseline warning. Frontend untouched in this stage.
 - **Open:** Stage 4a next (needs DQ-13: provisional default recorded in its stage). Cratering is Unsupported for all shipped profiles (no sourced constants).

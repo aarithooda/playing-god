@@ -4,7 +4,10 @@
 3. Verified locally: frontend typecheck; Vitest 206/206 across 23 files; build (existing >500 kB warning); Playwright 5/5; diff check. The profile measured 1/16/64 bodies at median 33.4/50.0/99.9 ms per animation frame in Windows headless Chrome with GPU disabled by test config; treat as software frame pacing, not hardware GPU timing. E2E stubs backend responses. Do not merge into `main` without owner approval; real-hardware profiling and UI-0 integration remain follow-ups.
 # Handoff (latest — rewrite at end of each session)
 
-## Collision engine, governance change D-059 (2026-10-25, Claude Sonnet 5.5) - latest
+## Collision engine, Stage 11 done (D-060) (2026-10-25, Claude Sonnet 5.5) - latest
+000000000. Branch `collision/stage-11-12`: `body-materials.json` + loader annotations; 8 cited NASA moment-of-inertia values, everything else unsupported; baselines captured first and unchanged; presets stay legacy-merge. Next: Stage 12.
+
+## Collision engine, governance change D-059 (2026-10-25, Claude Sonnet 5.5)
 000000000. The owner waived the reviewer wait for Stages 11-12 (D-059): CP-SCI-1 and CP-5 are waived FOR CONTINUED DEVELOPMENT ONLY, are NOT signed, and nothing is independently scientifically validated. Wording to use everywhere: "owner-accepted, not independently validated". Provisional labels, UD-1/UD-2, unsourced parameters and unsupported models stay visible; Stage 11 records only fetched, cited values (incomplete otherwise); Stage 12 reports unmet criteria honestly. Entries below are older; where they say Stage 11 is blocked on a reviewer, D-059 supersedes that.
 
 ## Collision engine, review package for Vaibhav prepared (2026-10-25, Claude Sonnet 5.5)
@@ -38,7 +41,7 @@
 1. Branch `collision/stage-4a-application`. Outcomes are applied only in mode outcome-v1 (opt-in). Read D-043 (placeholders, DQ-13) and D-044 (REBOUND name defect: ALWAYS use `add_named_particle`).
 2. Stage 4b (default `outcome-v1` for new sandboxes incl. `uni-default`) is gated by the CP-4b review; Stage 5 needs DQ-4/5/6 (recommended options adopted provisionally in the plan, D-043 for the launch placeholder).
 
-## Collision engine, Stage 3 done (2026-10-24, Claude Sonnet 5.5) — latest
+## Collision engine, Stage 3 done (2026-10-24, Claude Sonnet 5.5)
 1. Branch `collision/stage-3-models`. The selector and models are pure and not yet called by the engine (Stage 4a).
 2. Everything LS12-based is provisional (`backend/impact/models/provisional.py`); human review of D-038 and the open UD-1/UD-2 questions (COLLISION_SCIENTIFIC_MODELS.md 6b) is still welcome and may change outputs.
 

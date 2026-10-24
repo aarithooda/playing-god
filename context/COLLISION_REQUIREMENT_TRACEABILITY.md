@@ -361,3 +361,4 @@ Every numbered item of §1–§18 has at least one row; grouped rows (e.g. `F1-I
 
 ## Governance note (D-059, 2026-10-25)
 CP-SCI-1 and CP-5 are **waived by the owner for continued development** (D-059), not signed. Any row marked PROVISIONAL stays provisional: "owner-accepted, not independently validated". A row is VERIFIED here only in the software sense (a test run was observed); no row claims scientific validation.
+Stage 11 (D-060): V-6 / M-PROP-MAP: moment-of-inertia annotations for 8 preset bodies, each cited (tests/validation/test_preset_material_annotations.py); all other material quantities unsupported by construction; trajectories bit-identical (tests/validation/test_stage11_trajectory_baseline.py). Owner-accepted, not independently validated.

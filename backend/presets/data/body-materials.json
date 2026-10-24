@@ -1,0 +1,98 @@
+{
+ "bodies": {
+  "body-earth": {
+   "momentOfInertiaFactor": {
+    "applicability": "Whole-body moment-of-inertia factor I/MR^2 of this body exactly as printed by the source (the page does not say polar or mean); the source page does not state an uncertainty, so none is recorded.",
+    "basis": "literature",
+    "retrieved": "2026-10-25",
+    "source": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/earthfact.html",
+    "sourceLabel": "NASA NSSDCA Planetary/Moon Fact Sheet, row 'Moment of inertia (I/MR2)', page 'Last Updated: 15 November 2024, DRW'",
+    "units": "dimensionless (I/MR^2)",
+    "value": 0.3308
+   }
+  },
+  "body-jupiter": {
+   "momentOfInertiaFactor": {
+    "applicability": "Whole-body moment-of-inertia factor I/MR^2 of this body exactly as printed by the source (the page does not say polar or mean); the source page does not state an uncertainty, so none is recorded.",
+    "basis": "literature",
+    "retrieved": "2026-10-25",
+    "source": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/jupiterfact.html",
+    "sourceLabel": "NASA NSSDCA Planetary/Moon Fact Sheet, row 'Moment of inertia (I/MR2)', page 'Last Updated: 2 October 2024, DRW'",
+    "units": "dimensionless (I/MR^2)",
+    "value": 0.254
+   }
+  },
+  "body-mars": {
+   "momentOfInertiaFactor": {
+    "applicability": "Whole-body moment-of-inertia factor I/MR^2 of this body exactly as printed by the source (the page does not say polar or mean); the source page does not state an uncertainty, so none is recorded.",
+    "basis": "literature",
+    "retrieved": "2026-10-25",
+    "source": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/marsfact.html",
+    "sourceLabel": "NASA NSSDCA Planetary/Moon Fact Sheet, row 'Moment of inertia (I/MR2)', page 'Last Updated: 19 May 2025, DRW'",
+    "units": "dimensionless (I/MR^2)",
+    "value": 0.366
+   }
+  },
+  "body-mercury": {
+   "momentOfInertiaFactor": {
+    "applicability": "Whole-body moment-of-inertia factor I/MR^2 of this body exactly as printed by the source (the page does not say polar or mean); the source page does not state an uncertainty, so none is recorded.",
+    "basis": "literature",
+    "retrieved": "2026-10-25",
+    "source": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/mercuryfact.html",
+    "sourceLabel": "NASA NSSDCA Planetary/Moon Fact Sheet, row 'Moment of inertia (I/MR2)', page 'Last Updated: 11 January 2024, DRW'",
+    "units": "dimensionless (I/MR^2)",
+    "value": 0.35
+   }
+  },
+  "body-moon": {
+   "momentOfInertiaFactor": {
+    "applicability": "Whole-body moment-of-inertia factor I/MR^2 of this body exactly as printed by the source (the page does not say polar or mean); the source page does not state an uncertainty, so none is recorded.",
+    "basis": "literature",
+    "retrieved": "2026-10-25",
+    "source": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/moonfact.html",
+    "sourceLabel": "NASA NSSDCA Planetary/Moon Fact Sheet, row 'Moment of inertia (I/MR2)', page 'Last Updated: 11 January 2024, DRW'",
+    "units": "dimensionless (I/MR^2)",
+    "value": 0.394
+   }
+  },
+  "body-saturn": {
+   "momentOfInertiaFactor": {
+    "applicability": "Whole-body moment-of-inertia factor I/MR^2 of this body exactly as printed by the source (the page does not say polar or mean); the source page does not state an uncertainty, so none is recorded.",
+    "basis": "literature",
+    "retrieved": "2026-10-25",
+    "source": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/saturnfact.html",
+    "sourceLabel": "NASA NSSDCA Planetary/Moon Fact Sheet, row 'Moment of inertia (I/MR2)', page 'Last Updated: 18 March 2025, DRW'",
+    "units": "dimensionless (I/MR^2)",
+    "value": 0.21
+   }
+  },
+  "body-uranus": {
+   "momentOfInertiaFactor": {
+    "applicability": "Whole-body moment-of-inertia factor I/MR^2 of this body exactly as printed by the source (the page does not say polar or mean); the source page does not state an uncertainty, so none is recorded.",
+    "basis": "literature",
+    "retrieved": "2026-10-25",
+    "source": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/uranusfact.html",
+    "sourceLabel": "NASA NSSDCA Planetary/Moon Fact Sheet, row 'Moment of inertia (I/MR2)', page 'Last Updated: 2 October 2024, DRW'",
+    "units": "dimensionless (I/MR^2)",
+    "value": 0.225
+   }
+  },
+  "body-venus": {
+   "momentOfInertiaFactor": {
+    "applicability": "Whole-body moment-of-inertia factor I/MR^2 of this body exactly as printed by the source (the page does not say polar or mean); the source page does not state an uncertainty, so none is recorded.",
+    "basis": "literature",
+    "retrieved": "2026-10-25",
+    "source": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/venusfact.html",
+    "sourceLabel": "NASA NSSDCA Planetary/Moon Fact Sheet, row 'Moment of inertia (I/MR2)', page 'Last Updated: 11 January 2024, DRW'",
+    "units": "dimensionless (I/MR^2)",
+    "value": 0.337
+   }
+  }
+ },
+ "description": "Sourced material annotations for preset bodies (Stage 11, D-058, D-059). Only values with a fetched, citable source appear here. Anything absent is UNSUPPORTED for the models that need it (computed by the loader), never guessed. Annotations do not enter the integrator: they cannot change gravity. They are owner-accepted for development, NOT independently validated (D-059).",
+ "notFound": {
+  "bodies-without-a-fetched-source": "Sun, Io, Europa, Ganymede, Callisto, Titan, Rhea, Iapetus, Dione, Tethys: JPL SSD satellite physical-parameter page lists GM, mean radius and mean density only (no moment of inertia); no other source was fetched. Not guessed.",
+  "body-neptune": "NASA Neptune fact sheet (neptunefact.html, 'Last Updated: 3 October 2024, DRW') has no moment-of-inertia row."
+ },
+ "schema": 1
+}
