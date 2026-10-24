@@ -15,7 +15,9 @@ import { OrbitLabPanel } from "./components/ui/OrbitLabPanel";
 import { RunBadge } from "./components/ui/RunBadge";
 import { ControlPanel } from "./components/ui/ControlPanel";
 import { DiagnosticsPanel } from "./components/ui/DiagnosticsPanel";
+import { CollisionInspector } from "./components/ui/CollisionInspector";
 import { EventTimeline } from "./components/ui/EventTimeline";
+import { useCollisionInspector } from "./sim/collision/useCollisionInspector";
 import { HistoryTimeline } from "./components/ui/HistoryTimeline";
 import { FirstUse } from "./components/ui/FirstUse";
 import { PlacementHint } from "./components/ui/PlacementHint";
@@ -157,6 +159,7 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
   // Recorded history (UI-2). The backend recorded it; this only displays it. While a recorded sample is viewed, the
   // simulation is paused and the scene shows that sample through the very same display path as live bodies.
   const history = useHistory(client, simulation.revision);
+  const inspector = useCollisionInspector(client);
   // The other run's history is its own cache (never merged with this one): it is drawn as the dashed reference path.
   const referenceClient = useMemo(
     () => apiClient.scoped({ universeId: otherRunId ?? "uni-none", activationEpoch: client.scope.activationEpoch }),
@@ -442,7 +445,22 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
           activeBodyIds={activeBodyIds}
           selectedBodyId={selectedBodyId}
           onSelectBody={selectBody}
+          onInspect={inspector.open}
         />
+        {inspector.eventId !== null && (
+          <CollisionInspector
+            eventId={inspector.eventId}
+            detail={inspector.detail}
+            status={inspector.status}
+            error={inspector.error}
+            replay={inspector.replay}
+            replayBusy={inspector.replayBusy}
+            bodyName={simulation.bodyName}
+            onReplay={inspector.runReplay}
+            onOpenEvent={inspector.open}
+            onClose={inspector.close}
+          />
+        )}
         <HistoryTimeline
           cache={history.cache}
           status={history.status}

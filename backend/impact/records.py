@@ -47,6 +47,28 @@ def build_record(data: CollisionInput, spec: Optional[OutcomeSpec], selection_re
         result_digest="" if result is None else result.result_digest, legacy_event_id=legacy_event_id)
 
 
+def find_record(records: list, event_id: str) -> Optional[CollisionRecord]:
+    """The record of `event_id` (a `col-<n>` id, or the `evt-<n>` id of a legacy merger event that has one)."""
+    for r in reversed(records):
+        if r.event_id == event_id or (r.legacy_event_id is not None and r.legacy_event_id == event_id):
+            return r
+    return None
+
+
+def summarise(record: CollisionRecord) -> dict:
+    """One row of the list route: identity, lineage and the headline of the result; the detail is the record itself."""
+    spec = record.outcome_spec
+    return {
+        "eventId": record.event_id, "legacyEventId": record.legacy_event_id, "parentEventId": record.parent_event_id,
+        "rootEventId": record.root_event_id, "generation": record.generation,
+        "outcome": None if spec is None else spec.outcome, "modelId": None if spec is None else spec.model_id,
+        "modelVersion": None if spec is None else spec.model_version, "timeS": record.input.impact.detection_time_s,
+        "bodyIds": [record.input.impact.target.id, record.input.impact.projectile.id], "warnings": list(record.warnings),
+        "hasResult": record.result is not None, "detailDropped": record.detail_dropped,
+        "inputDigest": record.input_digest, "resultDigest": record.result_digest,
+    }
+
+
 def trim(records: list) -> None:
     """Keep the newest MAX_COLLISION_RECORDS (in place)."""
     del records[:-MAX_COLLISION_RECORDS]

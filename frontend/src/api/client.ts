@@ -3,6 +3,8 @@ import {
   parseActivation,
   parseBodyDto,
   parseCatalogue,
+  parseCollisionDetail,
+  parseCollisionList,
   parseComparison,
   parseEventList,
   parseExperiment,
@@ -10,6 +12,7 @@ import {
   parseInitialDifferences,
   parseOrbitLabSystems,
   parseProvenance,
+  parseReplayReport,
   parseHistoryPage,
   parsePresetList,
   parseSnapshotList,
@@ -25,6 +28,9 @@ import type {
   BodyDto,
   BodyUpdateDto,
   CatalogueDto,
+  CollisionDetailDto,
+  CollisionListDto,
+  ReplayReportDto,
   ComparisonDto,
   CreateUniverseDto,
   ExperimentDto,
@@ -72,6 +78,11 @@ export interface ScopedClient extends SimulationClient {
   deleteSnapshot(snapshotId: string): Promise<void>;
   getHistory(query?: HistoryQuery): Promise<HistoryPageDto>;
   getProvenance(): Promise<UniverseProvenanceDto>;
+  /** Collision records of this universe (empty in a legacy-merge universe). Read-only. */
+  getCollisions(query?: { limit?: number; offset?: number }): Promise<CollisionListDto>;
+  getCollision(eventId: string): Promise<CollisionDetailDto>;
+  /** Dry-run replay: recomputes the event from its record and compares digests; changes nothing. */
+  replayCollision(eventId: string): Promise<ReplayReportDto>;
 }
 
 export interface ModifiedRunRequest {
@@ -235,6 +246,19 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
       },
       async getProvenance() {
         return parseProvenance(await call("GET", `${root}/provenance`, readTimeoutMs));
+      },
+      async getCollisions(query = {}) {
+        const p = new URLSearchParams();
+        if (query.limit !== undefined) p.set("limit", String(query.limit));
+        if (query.offset !== undefined) p.set("offset", String(query.offset));
+        const qs = p.toString();
+        return parseCollisionList(await call("GET", `${root}/collisions${qs ? `?${qs}` : ""}`, readTimeoutMs));
+      },
+      async getCollision(eventId) {
+        return parseCollisionDetail(await call("GET", `${root}/collisions/${encodeURIComponent(eventId)}`, readTimeoutMs));
+      },
+      async replayCollision(eventId) {
+        return parseReplayReport(await call("POST", `${root}/collisions/${encodeURIComponent(eventId)}/replay`, readTimeoutMs));
       },
     };
   }

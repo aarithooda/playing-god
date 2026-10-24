@@ -118,6 +118,117 @@ export interface DiagnosticsDto {
   escaped?: EscapedLedgerDto;
 }
 
+/** One row of the collision-record list (GET .../collisions). */
+export interface CollisionSummaryDto {
+  eventId: string;
+  legacyEventId: string | null;
+  parentEventId: string | null;
+  rootEventId: string;
+  generation: number;
+  outcome: string | null;
+  modelId: string | null;
+  modelVersion: string | null;
+  timeS: number;
+  bodyIds: string[];
+  warnings: string[];
+  hasResult: boolean;
+  detailDropped: boolean;
+  inputDigest: string;
+  resultDigest: string;
+}
+
+export interface CollisionListDto {
+  total: number;
+  offset: number;
+  limit: number;
+  maxRecords: number;
+  records: CollisionSummaryDto[];
+}
+
+/** The parts of a collision record the inspector shows (spec 10.2). Everything in it is a field of the API; nothing is derived. */
+export interface CollisionRecordDto {
+  eventId: string;
+  legacyEventId: string | null;
+  parentEventId: string | null;
+  rootEventId: string;
+  generation: number;
+  selectionReasons: string[];
+  warnings: string[];
+  fidelity: Record<string, string>;
+  inputDigest: string;
+  resultDigest: string;
+  impact: {
+    detectionTimeS: number;
+    targetId: string;
+    projectileId: string;
+    targetMassKg: number;
+    projectileMassKg: number;
+    impactSpeedMPerS: number;
+    impactAngleDeg: number;
+    specificImpactEnergyJPerKg: number;
+    contactPointM: Vec3;
+    targetMaterialId: string | null;
+    projectileMaterialId: string | null;
+  };
+  outcome: {
+    outcome: string;
+    modelId: string;
+    modelVersion: string;
+    regimeReasons: string[];
+    parameters: { name: string; value: number; unit: string; source: string }[];
+    debrisMassKg: number;
+  } | null;
+  result: {
+    removedBodyIds: string[];
+    survivingBodyIds: string[];
+    createdBodyIds: string[];
+    parcelIds: string[];
+    massLedger: Record<string, number>;
+    conservation: {
+      massResidualRel: number;
+      momentumResidualRel: number;
+      angularMomentumResidualRel: number | null;
+      angularMomentumUnmodelled: string | null;
+      dissipatedJ: number;
+      dissipatedNonNegative: boolean;
+      withinTolerance: boolean;
+    };
+  } | null;
+}
+
+export interface CollisionProductDto {
+  bodyId: string;
+  representation: string;
+  massKgAtEvent: number;
+  exists: boolean;
+  fragmentClass: "bound_to_remnant" | "orbiting_system" | "escaping" | null;
+  massKgNow: number | null;
+}
+
+export interface CollisionDetailDto {
+  record: CollisionRecordDto;
+  childEventIds: string[];
+  products: CollisionProductDto[];
+  escapedLedger: EscapedLedgerDto | null;
+  note: string;
+}
+
+export interface ReplayCheckDto {
+  name: string;
+  ok: boolean | null;
+  detail: string;
+}
+
+export interface ReplayReportDto {
+  eventId: string;
+  reproduced: boolean;
+  checks: ReplayCheckDto[];
+  recordedResultDigest: string;
+  replayedResultDigest: string;
+  differingFields: string[];
+  mutatesState: boolean;
+}
+
 export interface EscapedLedgerDto {
   massKg: number;
   momentumKgMPerS: Vec3;

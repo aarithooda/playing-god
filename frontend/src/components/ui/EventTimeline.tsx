@@ -11,6 +11,8 @@ interface EventTimelineProps {
   activeBodyIds?: ReadonlySet<string>;
   selectedBodyId?: string;
   onSelectBody?: (id: string) => void;
+  /** Opens the collision inspector for a `collision` event (only collision events have a record). */
+  onInspect?: (eventId: string) => void;
 }
 
 /** Describes a backend event using only fields the API supplied. */
@@ -43,6 +45,7 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({
   activeBodyIds,
   selectedBodyId,
   onSelectBody,
+  onInspect,
 }) => {
   const newestFirst = [...events].reverse();
   return (
@@ -88,6 +91,11 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({
               )}
               {event.type === 'collision' ? (
                 <>
+                  {onInspect && (
+                    <button type="button" aria-label={`Inspect collision ${event.id}`} onClick={() => onInspect(event.id)} style={{ marginTop: '6px', fontSize: '11px' }}>
+                      Inspect record
+                    </button>
+                  )}
                   <div style={{ color: theme.textMuted, marginTop: '3px' }}>
                     largest remnant {event.largestRemnantMassKg.toExponential(3)} kg · debris {event.debrisMassKg.toExponential(3)} kg
                     {' · '}Q_R {event.specificImpactEnergyJPerKg.toExponential(2)} J/kg

@@ -112,3 +112,18 @@ describe("collision events (Stage 4)", () => {
     expect(screen.queryByRole("button")).toBeNull();
   });
 });
+
+describe("the inspect button (Stage 8)", () => {
+  it("is offered for collision events only, and asks to inspect that event", () => {
+    const onInspect = vi.fn();
+    render(<EventTimeline events={[toEventView(mergerEvent), toEventView(collision)]} bodyName={(id) => id} onInspect={onInspect} />);
+    expect(screen.queryByLabelText(`Inspect collision ${mergerEvent.id}`)).toBeNull();
+    fireEvent.click(screen.getByLabelText("Inspect collision col-3"));
+    expect(onInspect).toHaveBeenCalledWith("col-3");
+  });
+
+  it("is absent when no handler is given", () => {
+    render(<EventTimeline events={[toEventView(collision)]} bodyName={(id) => id} />);
+    expect(screen.queryByText("Inspect record")).toBeNull();
+  });
+});

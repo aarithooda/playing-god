@@ -123,6 +123,21 @@ def _rotation_post(spin: Vec, inertia: Optional[float], q0: rot.Quat, t_s: float
 
 
 # ------------------------------------------------------------------------------------------------ realisation
+REPLAY_KEYS = ("replayParcelAllowed", "replayRepresentSpin", "replayBudgetFragments", "replayBudgetParcels", "replayMinMassFraction")
+# warnings the ENGINE adds around `realise` (not the model): a replay passes them back so the realisation is the same
+ENGINE_WARNINGS = ("model_failed_fallback", "spin_not_represented_fallback", "cascade_limit_reached")
+
+
+def replay_parameters(parcel_allowed: bool, represent_spin: bool, budget: "Optional[frag.FragmentBudget]") -> dict:
+    """The live-state inputs of `realise` that are not in the frozen impact (body budget, tier), recorded so a dry-run can reproduce it."""
+    out = {"replayParcelAllowed": 1.0 if parcel_allowed else 0.0, "replayRepresentSpin": 1.0 if represent_spin else 0.0}
+    if budget is not None:
+        out["replayBudgetFragments"] = float(budget.max_fragments)
+        out["replayBudgetParcels"] = float(budget.max_parcels)
+        out["replayMinMassFraction"] = -1.0 if budget.min_mass_fraction is None else float(budget.min_mass_fraction)
+    return out
+
+
 def frag_size_distribution(beta: float, d_max: float):
     """Descriptor of an untracked population: power law with the LS12 exponent between a provisional lower cut and its upper cut."""
     return SizeDistribution("power-law", beta, frag.PARCEL_DMIN_RATIO * d_max, d_max)
@@ -368,7 +383,8 @@ def realise(data: CollisionInput, spec: OutcomeSpec, g: float, parcel_allowed: b
     result = CollisionResult(
         event_id=data.event_id, outcome=outcome, removed_body_ids=tuple(removed), transformed=tuple(transformed), created=tuple(created),
         debris_parcels=tuple(parcels), impact_sites=sites, mass_ledger=ledger, conservation=report, warnings=tuple(dict.fromkeys(warnings)),
-        fidelity=fidelity, fields_extra={"placementShiftJ": shift, "momentumClosureRecoilMPerS": recoil_report})
+        fidelity=fidelity, fields_extra={"placementShiftJ": shift, "momentumClosureRecoilMPerS": recoil_report,
+                                                                  **replay_parameters(parcel_allowed, represent_spin, budget)})
     return CollisionResult.from_dict({**result.to_dict(), "resultDigest": result.compute_digest()})
 
 
