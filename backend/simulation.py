@@ -90,6 +90,7 @@ class BodyMeta(NamedTuple):
     catalogue_id: str | None = None
     body_type: str = "default"
     asset_key: str | None = None
+    primary_id: str | None = None  # relationship metadata (a moon's planet); the physics never reads it
 
 
 # A commit guard raises (a CodedError) to refuse a mutation; see the module docstring.
@@ -109,6 +110,7 @@ class InitialBody:
     colorHex: str
     bodyType: str | None = None  # None: derived from `kind`
     assetKey: str | None = None
+    primaryId: str | None = None  # id of the body this one orbits; display/inspection metadata only
     basis: dict | None = None
     sources: tuple = ()
 
@@ -306,7 +308,8 @@ class SimulationService:
             p = by_id[body_id]
             positions.append((body_id, p.x, p.y, p.z))
             meta[body_id] = {"name": m.name, "colorHex": m.color, "radiusM": p.r, "kind": m.kind,
-                             "bodyType": m.body_type, "assetKey": m.asset_key}
+                             "bodyType": m.body_type, "assetKey": m.asset_key,
+                             "primaryId": m.primary_id}
         return self._history.record(self._sim.t, positions, meta)
 
     def _audit(self, op: str, body_id: str, changes: dict, physical: bool) -> None:
@@ -373,7 +376,7 @@ class SimulationService:
                 self._sim.add(m=b.massKg, r=b.radiusM, x=b.positionM[0], y=b.positionM[1], z=b.positionM[2],
                               vx=b.velocityMPerS[0], vy=b.velocityMPerS[1], vz=b.velocityMPerS[2], name=b.id)
                 self._meta[b.id] = BodyMeta(b.name, b.colorHex, b.kind, None, b.bodyType or default_body_type(b.kind),
-                                            b.assetKey)
+                                            b.assetKey, b.primaryId)
             select_ias15(self._sim)
             kwargs = {} if max_history_points is None else {"max_points": max_history_points}
             self._history = HistoryBuffer(history_mode, sample_interval_s, **kwargs)
@@ -454,7 +457,7 @@ class SimulationService:
         return Body(id=body_id, name=meta.name, massKg=p.m, radiusM=p.r,
                     positionM=Vec3(x=p.x, y=p.y, z=p.z), velocityMPerS=Vec3(x=p.vx, y=p.vy, z=p.vz),
                     colorHex=meta.color, kind=meta.kind, catalogueEntryId=meta.catalogue_id,
-                    bodyType=meta.body_type, assetKey=meta.asset_key)
+                    bodyType=meta.body_type, assetKey=meta.asset_key, primaryId=meta.primary_id)
 
     def _snapshot(self) -> SimulationState:
         by_id = self._particles_by_id()
@@ -667,8 +670,11 @@ class SimulationService:
         sim.t = target
 
     def _chunk_limit(self) -> float:
-        """Longest chunk keeping a_rel*dt^2/8 <= CURVATURE_FRACTION * contact distance for every pair."""
-        ps = [(p.m, p.r, (p.x, p.y, p.z)) for p in self._sim.particles]
+        """Longest chunk keeping a_rel*dt^2/8 <= CURVATURE_FRACTION * contact distance for every pair, except that a
+        pair which provably cannot reach contact within a longer chunk (current gap, closing speed and relative
+        acceleration, with a factor-2 margin) is allowed that longer chunk instead. Without this relief a system of
+        moons, whose pairs are tiny in contact distance but never approach, is forced into ~500 s chunks."""
+        ps = [(p.m, p.r, (p.x, p.y, p.z), (p.vx, p.vy, p.vz)) for p in self._sim.particles]
         n = len(ps)
         if n < 2:
             return math.inf
@@ -688,7 +694,15 @@ class SimulationService:
             for j in range(i + 1, n):
                 a_rel = math.dist(acc[i], acc[j])
                 if a_rel > 0.0:
-                    limit = min(limit, math.sqrt(8.0 * CURVATURE_FRACTION * (ps[i][1] + ps[j][1]) / a_rel))
+                    contact = ps[i][1] + ps[j][1]
+                    pair = math.sqrt(8.0 * CURVATURE_FRACTION * contact / a_rel)
+                    gap = math.dist(ps[i][2], ps[j][2]) - contact
+                    if gap > 0.0:
+                        v_rel = math.dist(ps[i][3], ps[j][3])
+                        # latest time before which gap - v_rel*t - a_rel*t^2/2 stays positive, halved for margin
+                        clear = 0.5 * (-v_rel + math.sqrt(v_rel * v_rel + 2.0 * a_rel * gap)) / a_rel
+                        pair = max(pair, clear)
+                    limit = min(limit, pair)
         return limit
 
     def _verify_finite(self) -> None:
@@ -709,7 +723,7 @@ class SimulationService:
         survivor = self._meta.get(event.resultBodyId)
         if survivor is not None:  # a merger product is a new body: no inherited asset, generic type (kind is kept)
             self._meta[event.resultBodyId] = survivor._replace(body_type=default_body_type(survivor.kind),
-                                                               asset_key=None)
+                                                               asset_key=None, primary_id=None)
         self._history.bump_segment()  # the path is discontinuous here
 
     # ---------- transactional capture / restore ----------

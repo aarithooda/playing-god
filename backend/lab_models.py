@@ -103,6 +103,9 @@ class HistoryBodyMeta(BaseModel):
     colorHex: str
     radiusM: float
     kind: str
+    bodyType: str = "default"
+    assetKey: str | None = None
+    primaryId: str | None = None
 
 
 class HistorySample(BaseModel):

@@ -86,7 +86,7 @@ def test_existing_fields_are_unchanged_and_diagnostics_is_purely_additive(client
     out = client.post("/api/v1/simulation/step", json={"dtS": 5.0}).json()
     assert set(out) == {"status", "simulationTimeS", "bodies", "advancedS", "events", "diagnostics"}
     assert set(out["bodies"][0]) == {"id", "name", "massKg", "radiusM", "positionM", "velocityMPerS", "colorHex", "kind", "catalogueEntryId",
-                                    "bodyType", "assetKey"}
+                                    "bodyType", "assetKey", "primaryId"}
 
 
 def test_body_endpoints_do_not_carry_diagnostics(client):

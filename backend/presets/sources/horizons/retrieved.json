@@ -191,6 +191,73 @@
       "jdTdb": 2451545.0,
       "sourceLine": "Target body name: Moon (301)                      {source: DE441}",
       "sha256": "42e74b43180632a045784b3e57b6e066d5d10f0ddbf87eba108ed98d1cc9be9c"
+    },
+    "599_2451545.0.txt": {
+      "target": "599",
+      "jdTdb": 2451545.0,
+      "sourceLine": "Target body name: Jupiter (599)                   {source: jup365_merged}",
+      "sha256": "18a89f35611d4bd807b56492a151f43a9c69a8850ae878f036e9c9ae74cb24e1"
+    },
+    "501_2451545.0.txt": {
+      "target": "501",
+      "jdTdb": 2451545.0,
+      "sourceLine": "Target body name: Io (501)                        {source: jup365_merged}",
+      "sha256": "321a3f234560aed7e7006c8fe3803bab0b617f7ee3c006576c0deba8abd3cf93"
+    },
+    "502_2451545.0.txt": {
+      "target": "502",
+      "jdTdb": 2451545.0,
+      "sourceLine": "Target body name: Europa (502)                    {source: jup365_merged}",
+      "sha256": "287f18333127ba2b555e7a91972a754acef46542d06a4e4e20f33fc8756982c3"
+    },
+    "503_2451545.0.txt": {
+      "target": "503",
+      "jdTdb": 2451545.0,
+      "sourceLine": "Target body name: Ganymede (503)                  {source: jup365_merged}",
+      "sha256": "6fb2efb78478e21b865385ad4abcd9a191be14dc2af117f2d7191e703b0f9d8b"
+    },
+    "504_2451545.0.txt": {
+      "target": "504",
+      "jdTdb": 2451545.0,
+      "sourceLine": "Target body name: Callisto (504)                  {source: jup365_merged}",
+      "sha256": "5d82d70254eda0bbba8b8ea1e1ac45da30634f602782ef02b15ac43b68902ca5"
+    },
+    "699_2451545.0.txt": {
+      "target": "699",
+      "jdTdb": 2451545.0,
+      "sourceLine": "Target body name: Saturn (699)                    {source: sat441l}",
+      "sha256": "066e182471e32eb2dbf9e6696c7dfac9646a2edb778f44ffce4a80122416f14f"
+    },
+    "606_2451545.0.txt": {
+      "target": "606",
+      "jdTdb": 2451545.0,
+      "sourceLine": "Target body name: Titan (606)                     {source: sat441l}",
+      "sha256": "3d6594088f00a2fa4285b4be52572d91f102b61b1e13a754b5bc79c119a056b2"
+    },
+    "605_2451545.0.txt": {
+      "target": "605",
+      "jdTdb": 2451545.0,
+      "sourceLine": "Target body name: Rhea (605)                      {source: sat441l}",
+      "sha256": "f7a1032e7ebf291ce2451e876ba9bec43643f2b77a63b5d39943ffce2ec3e4ce"
+    },
+    "608_2451545.0.txt": {
+      "target": "608",
+      "jdTdb": 2451545.0,
+      "sourceLine": "Target body name: Iapetus (608)                   {source: sat441l}",
+      "sha256": "599de4f5406abc380b9eb3842ee961ba654cdde01ee6950f5cd37d87c7b6b180"
+    },
+    "604_2451545.0.txt": {
+      "target": "604",
+      "jdTdb": 2451545.0,
+      "sourceLine": "Target body name: Dione (604)                     {source: sat441l}",
+      "sha256": "84ebead97f155df60e572faf9a754ffb789cb744741cddba2db4bc51ab8cfdbf"
+    },
+    "603_2451545.0.txt": {
+      "target": "603",
+      "jdTdb": 2451545.0,
+      "sourceLine": "Target body name: Tethys (603)                    {source: sat441l}",
+      "sha256": "a4171aab8d64909fa577e0430e6f1c79df3413f3a38d2aace8c1689e2e6b1706"
     }
-  }
+  },
+  "moonsRetrievedUtc": "2026-10-24T11:18:39Z"
 }

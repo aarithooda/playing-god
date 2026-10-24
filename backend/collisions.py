@@ -22,17 +22,46 @@ from typing import Callable
 Vec = list[float]
 
 
-def select_ias15(sim) -> None:
-    """(Re-)select IAS15 with the GLOBAL step-size criterion.
+SATELLITE_MASS_FRACTION = 0.1  # a body is a satellite when its strongest attractor is lighter than this x the heaviest
 
-    Re-selecting resets IAS15's predictor state, which is what a structural change needs. REBOUND 5.2.2's default
-    step-size criterion (PRS23) is not used because it stalls forever when a body's net force cancels by symmetry
-    (three equal masses at rest on a line: the middle body's acceleration is round-off noise ~1e-29, the step size
-    collapses to ~1e-18 s and `integrate` never returns). The original criterion (GLOBAL, Rein & Spiegel 2015)
-    scales the step by the largest acceleration of the whole system and completes the same scenarios in ~10 steps.
-    Evidence: context/WORKLOG.md (2026-10-24 stabilization) and tests/test_step_guard.py."""
+
+def has_satellites(sim) -> bool:
+    """True when some body is dominated by an attractor that is not the system's main mass: a moon bound to its planet
+    rather than to the star. Such a system has two very different dynamical timescales."""
+    ps = [(q.m, q.x, q.y, q.z) for q in sim.particles]
+    if len(ps) < 3:
+        return False
+    heaviest = max(m for m, *_ in ps)
+    for i, (mi, xi, yi, zi) in enumerate(ps):
+        best_a, best_m = 0.0, 0.0
+        for j, (mj, xj, yj, zj) in enumerate(ps):
+            if i == j:
+                continue
+            r2 = (xj - xi) ** 2 + (yj - yi) ** 2 + (zj - zi) ** 2
+            if r2 > 0.0 and mj / r2 > best_a:
+                best_a, best_m = mj / r2, mj
+        if best_m and best_m < SATELLITE_MASS_FRACTION * heaviest and mi < best_m:
+            return True
+    return False
+
+
+def select_ias15(sim) -> None:
+    """(Re-)select IAS15 with the step-size criterion suited to the system.
+
+    Re-selecting resets IAS15's predictor state, which is what a structural change needs.
+
+    Default: the GLOBAL criterion (Rein & Spiegel 2015). REBOUND 5.2.2's default (PRS23) stalls forever when a body's
+    net force cancels by symmetry (three equal masses at rest on a line: the middle body's acceleration is round-off
+    noise ~1e-29, the step size collapses to ~1e-18 s and `integrate` never returns). GLOBAL scales the step by the
+    largest acceleration of the whole system and completes the same scenarios in ~10 steps.
+    Evidence: context/WORKLOG.md (2026-10-24 stabilization) and tests/test_step_guard.py.
+
+    Exception: a system with satellites (see `has_satellites`) uses PRS23. GLOBAL's single scale makes the step collapse
+    erratically in the Sun + planets + moons preset (a 215-day run reached steps of ~1 s and stopped making progress,
+    while PRS23 covers 300 days with a minimum step of ~4,000 s); there every body has a well-defined acceleration, so
+    PRS23's cancellation stall cannot occur. Evidence: context/DECISIONS.md D-030, tests/validation/test_preset_moons.py."""
     sim.integrator = "ias15"
-    sim.integrator.adaptive_mode = "global"
+    sim.integrator.adaptive_mode = "prs23" if has_satellites(sim) else "global"
 
 
 def _sub(a: Vec, b: Vec) -> Vec:

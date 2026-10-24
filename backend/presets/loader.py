@@ -20,7 +20,8 @@ DATA_DIR = PRESETS_DIR / "data"
 SOURCES_DIR = PRESETS_DIR / "sources"
 
 # preset id -> data file name. A preset that is excluded (see context/PRESETS.md) is simply not listed.
-PRESET_FILES = {"solar-system-j2000": "solar-system-j2000.json"}
+PRESET_FILES = {"solar-system-j2000": "solar-system-j2000.json",
+                "solar-system-moons-j2000": "solar-system-moons-j2000.json"}
 BASES = ("measured", "nominal", "derived", "assumed")
 
 
@@ -115,6 +116,11 @@ def _build(data: dict) -> LoadedPreset:
             raise PresetDataError(f"{b['id']}: malformed assetKey {asset_key!r}")
     if len(raw) < 2 or len({r[0]["id"] for r in raw}) != len(raw):
         raise PresetDataError("a preset needs at least two bodies with unique ids")
+    ids = {r[0]["id"] for r in raw}
+    for b, *_ in raw:  # relationship metadata: a primary must be another body of the same preset
+        primary = b.get("primaryId")
+        if primary is not None and (primary not in ids or primary == b["id"]):
+            raise PresetDataError(f"{b['id']}: primaryId {primary!r} is not another body of this preset")
     total = math.fsum(m for _, m, *_ in raw)
     centre_x = [math.fsum(m * p[k] for _, m, _, p, _ in raw) / total for k in range(3)]
     centre_v = [math.fsum(m * v[k] for _, m, _, _, v in raw) / total for k in range(3)]
@@ -122,6 +128,7 @@ def _build(data: dict) -> LoadedPreset:
         id=b["id"], name=b["name"], kind=b["kind"], massKg=m, radiusM=r,
         positionM=tuple(p[k] - centre_x[k] for k in range(3)), velocityMPerS=tuple(v[k] - centre_v[k] for k in range(3)),
         colorHex=b["colorHex"], bodyType=b.get("bodyType"), assetKey=b.get("assetKey"),
+        primaryId=b.get("primaryId"),
         basis={"mass": b["gm"]["basis"], "radius": b["radius"]["basis"], "state": b["state"]["basis"]},
         sources=(b["gm"]["source"], b["radius"]["source"], b["state"]["sourceFile"])) for b, m, r, p, v in raw]
     raw_bodies = [InitialBody(

@@ -203,5 +203,5 @@ def test_nonfinite_or_nonpositive_values_are_rejected(broken_dirs):
 
 def test_presets_list_marks_unavailable(broken_dirs):
     (broken_dirs / "data" / "solar-system-j2000.json").write_text("{}", encoding="utf-8")
-    (p,) = list_presets()
-    assert p["id"] == "solar-system-j2000" and p["available"] is False and p["unavailableReason"]
+    p = next(x for x in list_presets() if x["id"] == "solar-system-j2000")
+    assert p["available"] is False and p["unavailableReason"]
