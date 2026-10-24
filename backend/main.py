@@ -6,8 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 
 from backend.models import (Body, BodyCreate, BodyUpdate, EventList, SimulationState, StepRequest, StepResponse)
-from backend.simulation import (ConflictError, NotFoundError, SimulationFailure, SimulationService, StepTimeoutError,
-                                get_service)
+from backend.simulation import (ConflictError, NotFoundError, SimulationBusyError, SimulationFailure,
+                                SimulationService, StepTimeoutError, get_service)
 
 app = FastAPI(title="Playing God backend")
 
@@ -41,6 +41,11 @@ async def conflict_handler(request: Request, exc: ConflictError):
 @app.exception_handler(StepTimeoutError)
 async def step_timeout_handler(request: Request, exc: StepTimeoutError):
     return JSONResponse(status_code=503, content={"detail": str(exc)})
+
+
+@app.exception_handler(SimulationBusyError)
+async def simulation_busy_handler(request: Request, exc: SimulationBusyError):
+    return JSONResponse(status_code=503, content={"detail": str(exc)}, headers={"Retry-After": "2"})
 
 
 @app.exception_handler(SimulationFailure)
