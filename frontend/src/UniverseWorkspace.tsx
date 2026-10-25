@@ -13,7 +13,7 @@ import { CataloguePanel } from "./components/ui/CataloguePanel";
 import { ComparisonPanel } from "./components/ui/ComparisonPanel";
 import { OrbitLabPanel } from "./components/ui/OrbitLabPanel";
 import { RunBadge } from "./components/ui/RunBadge";
-import { ControlPanel } from "./components/ui/ControlPanel";
+import { CreateBodyPanel } from "./components/ui/CreateBodyPanel";
 import { DiagnosticsPanel } from "./components/ui/DiagnosticsPanel";
 import { CollisionInspector } from "./components/ui/CollisionInspector";
 import { EventTimeline } from "./components/ui/EventTimeline";
@@ -22,13 +22,14 @@ import { useCollisionEffects } from "./sim/collision/useCollisionEffects";
 import { HistoryTimeline } from "./components/ui/HistoryTimeline";
 import { FirstUse } from "./components/ui/FirstUse";
 import { PlacementHint } from "./components/ui/PlacementHint";
-import { Sidebar } from "./components/ui/Sidebar";
+import { SimulationBar } from "./components/ui/SimulationBar";
 import { SnapshotPanel } from "./components/ui/SnapshotPanel";
+import { ToolDrawer } from "./components/ui/ToolDrawer";
+import { ToolRail, type ToolId } from "./components/ui/ToolRail";
 import { CrudFeedback, type CrudFeedbackTone } from "./components/ui/CrudFeedback";
 import { ViewLegend } from "./components/ui/ViewLegend";
-import { ViewPanel } from "./components/ui/ViewPanel";
 import { Wordmark } from "./components/ui/Wordmark";
-import { insets, toggleSidebar, type SidebarState } from "./components/ui/layout";
+import { insets, shellMetrics, toggleSidebar, type SidebarState } from "./components/ui/layout";
 import { btnStyle, panelStyle } from "./components/ui/styles";
 import { theme } from "./components/ui/theme";
 import { gridCell } from "./sim/gridScale";
@@ -46,6 +47,7 @@ import type { DisplayBody } from "./sim/viewModel";
 import { buildSceneBodies } from "./sim/sceneBodies";
 import { BodyList } from "./components/ui/BodyList";
 import { MoonOrbitInset } from "./components/ui/MoonOrbitInset";
+import { Icon } from "./components/ui/Icon";
 import { focusRadiusFor, systemIds } from "./sim/moonSystems";
 import { moonRelativeOrbits } from "./sim/moonOrbit";
 
@@ -68,8 +70,14 @@ export interface UniverseWorkspaceProps {
   /** The simulation speed is a user preference that survives a universe switch, so App owns it. */
   speedExp: number;
   onSpeedExpChange: (exp: number) => void;
+  /** `left`: the tool drawer is open; `right`: the inspector may show while a body is selected. */
   sidebars: SidebarState;
   setSidebars: Dispatch<SetStateAction<SidebarState>>;
+  /** The tool shown in the drawer; a workspace preference, so it survives a universe switch. */
+  tool: ToolId;
+  onToolChange: (tool: ToolId) => void;
+  /** Optional ambient sound (App owns it so it keeps playing across a switch). */
+  sound?: { on: boolean; available: boolean; toggle: () => void };
   windowWidth: number;
   showAxes: boolean;
   showGrid: boolean;
@@ -178,6 +186,10 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
   useEffect(() => {
     if (selectedBodyId && !selectedBody && sim) setSelectedBodyId(undefined);
   }, [selectedBodyId, selectedBody, sim]);
+  // The inspector exists only for a selection: with nothing selected it gives its side back to the scene.
+  useEffect(() => {
+    if (!selectedBodyId && sidebars.right) setSidebars((s) => ({ ...s, right: false }));
+  }, [selectedBodyId, sidebars.right, setSidebars]);
   const closeInspector = useCallback(() => setSelectedBodyId(undefined), []);
 
   // Recorded history (UI-2). The backend recorded it; this only displays it. While a recorded sample is viewed, the
@@ -379,14 +391,30 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
     setMoonOrbitInsetOpen(bodies.some((body) => body.primaryId === id));
     setSidebars((s) => (s.right ? s : toggleSidebar(s, "right", true, windowWidth)));
   };
+  const { tool, onToolChange } = props;
+  const openTool = (next: ToolId) => {
+    onToolChange(next);
+    setSidebars((s) => (s.left ? s : toggleSidebar(s, "left", true, windowWidth)));
+  };
+  // Pressing the tool that is already open closes the drawer.
+  const selectTool = (next: ToolId) => {
+    if (sidebars.left && tool === next) setSidebars((s) => ({ ...s, left: false }));
+    else openTool(next);
+  };
   const addFirstBody = () => {
-    setSidebars((s) => (s.right ? s : toggleSidebar(s, "right", true, windowWidth)));
+    openTool("create");
     setOpenCreateRequest((n) => n + 1);
   };
   const addFromCatalogue = (entry: CatalogueEntryDto) => {
     setCatalogueRequest((r) => ({ entry, nonce: (r?.nonce ?? 0) + 1 }));
   };
-  const edge = insets(sidebars);
+  const inspectorVisible = sidebars.right && selectedBody !== null && !viewingHistory;
+  const edge = insets(sidebars, windowWidth, inspectorVisible);
+  const shell = shellMetrics(windowWidth);
+  const catalogueEntry = selectedBody?.catalogueEntryId
+    ? props.catalogue.entries.find((entry) => entry.id === selectedBody.catalogueEntryId)
+    : undefined;
+  const primaryName = selectedBody?.primaryId ? bodies.find((b) => b.id === selectedBody.primaryId)?.name : undefined;
   // Placing a body shows the grid to help position it; the stored choice is never overwritten.
   const gridVisible = showGrid || placementMode;
   const fitView = useCallback(() => {
@@ -415,8 +443,8 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
       : undefined;
 
   return (
-    <div style={{ width: "100vw", height: "100vh", position: "relative", overflow: "hidden", backgroundColor: theme.bg }}>
-      {/* 3D scene: full-bleed under the sidebars, centred in the free area between them. */}
+    <div className="pg-workspace" style={{ width: "100vw", height: "100vh", position: "relative", overflow: "clip", backgroundColor: theme.bg }}>
+      {/* 3D scene: full-bleed under every panel, centred in the free area between the drawer and the inspector. */}
       <UniverseCanvas
         bodies={sceneBodies}
         selectedBodyId={selectedBodyId}
@@ -446,20 +474,31 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
         surfaceMarks={collisionVisuals.marks}
       />
 
-      {/* Free area: everything that floats over the scene is laid out between the sidebars. */}
+      {/* Free area: everything that floats over the scene is laid out between the panels and above the bar. */}
       <div
         data-testid="free-area"
         style={{
-          position: "absolute", top: 0, bottom: 0, left: edge.left, right: edge.right,
-          pointerEvents: "none", transition: "left 0.25s ease-in-out, right 0.25s ease-in-out",
+          position: "absolute", top: 0, bottom: shell.bar, left: edge.left, right: edge.right,
+          pointerEvents: "none", transition: "left 0.24s cubic-bezier(0.2, 0.7, 0.2, 1), right 0.24s cubic-bezier(0.2, 0.7, 0.2, 1)",
         }}
       >
-        <div style={{ position: "absolute", top: 16, left: 16, right: 16, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8 }}>
+        <div style={{ position: "absolute", top: 16, left: 18, right: 18, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8 }}>
           <Wordmark health={simulation.health} />
           {universe && (
-            <div data-testid="universe-badge" style={{ ...panelStyle, padding: "4px 10px", fontSize: 12 }}>
-              {universe.name}
-            </div>
+            <button
+              type="button"
+              className="pg-chip"
+              onClick={() => openTool("universes")}
+              title="Switch universes or load a preset"
+              aria-label={`Universe: ${universe.name}. Open universes`}
+              style={{ cursor: "pointer", fontFamily: theme.font }}
+            >
+              <span aria-hidden="true" style={{ color: theme.textMuted, display: "inline-flex" }}><Icon name="universes" size={15} /></span>
+              <span data-testid="universe-badge" style={{ fontWeight: 500 }}>{universe.name}</span>
+              <span aria-hidden="true" style={{ color: theme.textFaint, fontVariantNumeric: "tabular-nums" }}>
+                {bodies.length} {bodies.length === 1 ? "body" : "bodies"}
+              </span>
+            </button>
           )}
           {(universe?.role === "baseline" || universe?.role === "modified") && (
             <RunBadge
@@ -476,24 +515,24 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
             cellMeters={gridCell(transform.metersPerUnit).cellMeters}
           />
           {simulation.actionError && (
-            <p role="alert" style={{ ...panelStyle, margin: 0, padding: "6px 10px", fontSize: 12, borderColor: theme.danger }}>
+            <p role="alert" style={{ ...panelStyle, background: theme.glass, margin: 0, padding: "6px 10px", fontSize: 12, borderColor: theme.danger, maxWidth: 520 }}>
               {simulation.actionError}{" "}
-              <button onClick={simulation.dismissError} style={{ ...btnStyle, fontSize: 11, padding: "2px 6px" }}>dismiss</button>
+              <button onClick={simulation.dismissError} style={{ ...btnStyle, fontSize: 11, padding: "2px 8px" }}>Dismiss</button>
             </p>
           )}
         </div>
 
         <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", pointerEvents: "auto" }}>
           {loadStatus === "loading" && (
-            <p role="status" style={{ ...panelStyle, margin: 0 }}>
+            <p role="status" style={{ ...panelStyle, background: theme.glass, margin: 0 }}>
               {simulation.health === "ok" ? "Backend reachable. Loading the simulation state…" : "Waiting for the backend…"}
             </p>
           )}
           {loadStatus === "error" && (
-            <div role="alert" style={{ ...panelStyle, borderColor: theme.danger, textAlign: "center", maxWidth: 360 }}>
+            <div role="alert" style={{ ...panelStyle, background: theme.glass, borderColor: theme.danger, textAlign: "center", maxWidth: 380, padding: 18 }}>
               <p style={{ margin: "0 0 6px 0" }}>Cannot load the simulation: {simulation.loadError}</p>
               {simulation.health === "ok" && (
-                <p style={{ margin: "0 0 10px 0", fontSize: 12, color: theme.textMuted }}>
+                <p style={{ margin: "0 0 12px 0", fontSize: 12, color: theme.textMuted }}>
                   The backend answers health checks, but the simulation itself did not respond. A step may still be
                   running or stuck; the simulation state on the backend is unchanged. Retry, or restart the backend
                   (restarting clears the in-memory universe).
@@ -502,7 +541,9 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
               <button style={btnStyle} onClick={() => void simulation.reload()}>Retry</button>
             </div>
           )}
-          {ready && bodies.length === 0 && !placementMode && <FirstUse onAddFirstBody={addFirstBody} />}
+          {ready && bodies.length === 0 && !placementMode && (
+            <FirstUse onAddFirstBody={addFirstBody} onBrowsePresets={() => openTool("universes")} disabled={universe?.role === "baseline"} />
+          )}
         </div>
 
         {placementMode && <PlacementHint position={placementPreview ? toPhysicsPosition(placementPreview, transform) : null} />}
@@ -511,7 +552,7 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
             {moonOrbitInsetOpen ? (
               <MoonOrbitInset planetName={selectedBody!.name} orbits={selectedMoonOrbits} onClose={() => setMoonOrbitInsetOpen(false)} />
             ) : (
-              <button type="button" onClick={() => setMoonOrbitInsetOpen(true)} style={{ ...btnStyle, boxShadow: "0 4px 18px #0009" }}>
+              <button type="button" className="pg-chip" onClick={() => setMoonOrbitInsetOpen(true)} style={{ cursor: "pointer" }}>
                 Moon orbits ({selectedMoonOrbits.length})
               </button>
             )}
@@ -519,125 +560,164 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
         )}
       </div>
 
-      <Sidebar side="left" title="Body catalogue & history" open={sidebars.left} onToggle={setSidebar("left")}>
-        <CataloguePanel
-          entries={props.catalogue.entries}
-          onPlace={addFromCatalogue}
-          disabled={!ready || viewingHistory || universe?.role === "baseline"}
-        />
-        <EventTimeline
-          events={simulation.events}
-          bodyName={simulation.bodyName}
-          activeBodyIds={activeBodyIds}
-          selectedBodyId={selectedBodyId}
-          onSelectBody={selectBody}
-          onInspect={inspector.open}
-        />
-        {inspector.eventId !== null && (
-          <CollisionInspector
-            eventId={inspector.eventId}
-            detail={inspector.detail}
-            status={inspector.status}
-            error={inspector.error}
-            replay={inspector.replay}
-            replayBusy={inspector.replayBusy}
-            bodyName={simulation.bodyName}
-            onReplay={inspector.runReplay}
-            onOpenEvent={inspector.open}
-            onClose={inspector.close}
-          />
-        )}
-        <HistoryTimeline
-          cache={history.cache}
-          status={history.status}
-          error={history.error}
-          nav={nav}
-          liveTimeS={sim ? sim.simulationTimeS : null}
-          events={simulation.events}
-          onRefresh={() => void history.refresh()}
-        />
-        <DiagnosticsPanel loadStatus={loadStatus} diagnostics={sim?.diagnostics ?? null} issue={sim?.diagnosticsIssue ?? null} historyView={viewingHistory} />
-      </Sidebar>
+      <ToolRail
+        activeTool={tool}
+        drawerOpen={sidebars.left}
+        onSelect={selectTool}
+        badges={{ events: simulation.events.length }}
+      />
+      <ToolDrawer
+        open={sidebars.left}
+        tool={tool}
+        onClose={() => setSidebar("left")(false)}
+        sections={{
+          create: (
+            <>
+              <CataloguePanel
+                entries={props.catalogue.entries}
+                onPlace={addFromCatalogue}
+                disabled={!ready || viewingHistory || universe?.role === "baseline"}
+              />
+              <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: 14 }}>
+                <CreateBodyPanel
+                  bodies={bodies}
+                  disabled={!ready}
+                  historyView={viewingHistory}
+                  addBlockedReason={universe?.role === "baseline" ? BASELINE_LOCK : undefined}
+                  onCreate={createWithFeedback}
+                  placementMode={placementMode}
+                  onPlacementModeChange={setPlacementMode}
+                  pickedPosition={pickedPosition}
+                  onPlacementRadiusChange={setPlacementRadiusM}
+                  onPlacementCreateResult={placementCreateResult}
+                  openCreateRequest={openCreateRequest}
+                  catalogueRequest={catalogueRequest}
+                />
+              </div>
+            </>
+          ),
+          universes: (
+            <>
+              {props.universePanel}
+              <SnapshotPanel
+                client={client}
+                disabled={!ready || viewingHistory}
+                blockedReason={snapshotBlockedReason}
+                onBeforeRestore={simulation.pause}
+                onRestored={() => void simulation.reload()}
+                onBusyChange={setSnapshotBusy}
+                onError={(e) => isScopeInvalid(e) && props.onScopeInvalid(e)}
+              />
+              <BodyList bodies={bodies} selectedBodyId={selectedBodyId} onSelect={selectBody} onFocus={focusBody} />
+            </>
+          ),
+          orbitlab: (
+            <>
+              <OrbitLabPanel
+                systems={orbitLab.systems}
+                systemsLoaded={orbitLab.systemsLoaded}
+                experiment={experiment}
+                experiments={orbitLab.experiments}
+                activeUniverseId={client.scope.universeId}
+                busy={orbitLab.busy}
+                error={orbitLab.error}
+                switchDisabled={props.switchDisabled}
+                onStart={(systemId) => void orbitLab.startExperiment(systemId)}
+                onCreateRun={(experimentId, factor, replace) => void orbitLab.createModifiedRun(experimentId, factor, replace)}
+                onActivate={props.onActivateUniverse}
+                onDelete={(experimentId) => void orbitLab.deleteExperiment(experimentId)}
+                onDismissError={orbitLab.dismissError}
+                getInitialDifferences={apiClient.getInitialDifferences}
+              />
+              {hasRun && isRun && <ComparisonPanel comparison={comparison.comparison} error={comparison.error} onRefresh={() => void comparison.refresh()} />}
+            </>
+          ),
+          events: (
+            <>
+              <EventTimeline
+                events={simulation.events}
+                bodyName={simulation.bodyName}
+                activeBodyIds={activeBodyIds}
+                selectedBodyId={selectedBodyId}
+                onSelectBody={selectBody}
+                onInspect={inspector.open}
+              />
+              {inspector.eventId !== null && (
+                <CollisionInspector
+                  eventId={inspector.eventId}
+                  detail={inspector.detail}
+                  status={inspector.status}
+                  error={inspector.error}
+                  replay={inspector.replay}
+                  replayBusy={inspector.replayBusy}
+                  bodyName={simulation.bodyName}
+                  onReplay={inspector.runReplay}
+                  onOpenEvent={inspector.open}
+                  onClose={inspector.close}
+                />
+              )}
+            </>
+          ),
+          history: (
+            <HistoryTimeline
+              cache={history.cache}
+              status={history.status}
+              error={history.error}
+              nav={nav}
+              liveTimeS={sim ? sim.simulationTimeS : null}
+              events={simulation.events}
+              onRefresh={() => void history.refresh()}
+            />
+          ),
+          diagnostics: (
+            <DiagnosticsPanel loadStatus={loadStatus} diagnostics={sim?.diagnostics ?? null} issue={sim?.diagnosticsIssue ?? null} historyView={viewingHistory} defaultOpen />
+          ),
+        }}
+      />
 
-      <Sidebar side="right" title="Controls" open={sidebars.right} onToggle={setSidebar("right")}>
-        {props.universePanel}
-        <OrbitLabPanel
-          systems={orbitLab.systems}
-          systemsLoaded={orbitLab.systemsLoaded}
-          experiment={experiment}
-          experiments={orbitLab.experiments}
-          activeUniverseId={client.scope.universeId}
-          busy={orbitLab.busy}
-          error={orbitLab.error}
-          switchDisabled={props.switchDisabled}
-          onStart={(systemId) => void orbitLab.startExperiment(systemId)}
-          onCreateRun={(experimentId, factor, replace) => void orbitLab.createModifiedRun(experimentId, factor, replace)}
-          onActivate={props.onActivateUniverse}
-          onDelete={(experimentId) => void orbitLab.deleteExperiment(experimentId)}
-          onDismissError={orbitLab.dismissError}
-          getInitialDifferences={apiClient.getInitialDifferences}
-        />
-        {hasRun && isRun && <ComparisonPanel comparison={comparison.comparison} error={comparison.error} onRefresh={() => void comparison.refresh()} />}
-        <ControlPanel
-          bodies={bodies}
-          playing={simulation.playing}
-          stepping={simulation.stepping}
-          canRun={bodies.length > 0}
-          disabled={!ready}
-          simulationTimeS={sim ? sim.simulationTimeS : null}
-          speedExp={simulation.speedExp}
-          stepSeconds={simulation.stepSeconds}
-          onSpeedChange={simulation.setSpeedExp}
-          onPlay={() => {
-            if (viewingHistory) nav.returnToLive(); // Play goes back to the live state first
-            simulation.play();
-          }}
-          historyView={viewingHistory}
-          addBlockedReason={universe?.role === "baseline" ? BASELINE_LOCK : undefined}
-          onPause={simulation.pause}
-          onStep={() => void simulation.stepOnce()}
-          onReset={() => void simulation.reset()}
-          confirmReset
-          onFit={fitView}
-          viewControls={viewControls}
-          onCreate={createWithFeedback}
-          placementMode={placementMode}
-          onPlacementModeChange={setPlacementMode}
-          pickedPosition={pickedPosition}
-          onPlacementRadiusChange={setPlacementRadiusM}
-          onPlacementCreateResult={placementCreateResult}
-          openCreateRequest={openCreateRequest}
-          catalogueRequest={catalogueRequest}
-        />
-        <ViewPanel
-          paths={showPaths}
-          onPathsChange={setShowPaths}
-          pathsNote={pathsNote(showPaths, displayBodies.length, selectedBodyId, moonIds.size > 0)}
-          sizeMode={sizeMode}
-          onSizeModeChange={setSizeMode}
-        />
-        <SnapshotPanel
-          client={client}
-          disabled={!ready || viewingHistory}
-          blockedReason={snapshotBlockedReason}
-          onBeforeRestore={simulation.pause}
-          onRestored={() => void simulation.reload()}
-          onBusyChange={setSnapshotBusy}
-          onError={(e) => isScopeInvalid(e) && props.onScopeInvalid(e)}
-        />
-        <BodyList bodies={bodies} selectedBodyId={selectedBodyId} onSelect={selectBody} onFocus={focusBody} />
+      <aside className="pg-inspector" aria-label="Body inspector" data-testid="sidebar-right" data-open={inspectorVisible}>
         <BodyInspector
           body={viewingHistory ? null : selectedBody}
           focused={selectedBody !== null && selectedBody.id === focusedBodyId}
           drawnRadiusUnits={sceneBodies.find((b) => b.id === selectedBodyId)?.radius}
           sizeMode={sizeMode}
+          primaryName={primaryName}
+          catalogueEntry={catalogueEntry}
           editBlockedReason={universe?.role === "baseline" ? BASELINE_LOCK : simulation.playing ? "Pause to edit: changes are applied between steps." : undefined}
           onSave={updateWithFeedback}
           onDelete={deleteWithFeedback}
           onFocus={focusBody}
           onClose={closeInspector}
         />
-      </Sidebar>
+      </aside>
+
+      <SimulationBar
+        playing={simulation.playing}
+        stepping={simulation.stepping}
+        canRun={bodies.length > 0}
+        disabled={!ready}
+        simulationTimeS={sim ? sim.simulationTimeS : null}
+        speedExp={simulation.speedExp}
+        stepSeconds={simulation.stepSeconds}
+        onSpeedChange={simulation.setSpeedExp}
+        onPlay={() => {
+          if (viewingHistory) nav.returnToLive(); // Play goes back to the live state first
+          simulation.play();
+        }}
+        onPause={simulation.pause}
+        onStep={() => void simulation.stepOnce()}
+        onReset={() => void simulation.reset()}
+        historyView={viewingHistory}
+        onReturnToLive={nav.returnToLive}
+        viewControls={viewControls}
+        paths={showPaths}
+        onPathsChange={setShowPaths}
+        pathsNote={pathsNote(showPaths, displayBodies.length, selectedBodyId, moonIds.size > 0)}
+        sizeMode={sizeMode}
+        onSizeModeChange={setSizeMode}
+        sound={props.sound}
+      />
+
       {crudFeedback && (
         <CrudFeedback
           key={crudFeedback.id}

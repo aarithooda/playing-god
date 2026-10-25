@@ -6,7 +6,7 @@ import { betelgeuseEntry, earth, earthEntry, sun } from "../../test/fixtures";
 import { toBodyView } from "../../sim/viewModel";
 import { BodyInspector } from "./BodyInspector";
 import { CataloguePanel } from "./CataloguePanel";
-import { ControlPanel } from "./ControlPanel";
+import { CreateBodyPanel } from "./CreateBodyPanel";
 
 afterEach(cleanup);
 
@@ -38,14 +38,11 @@ describe("CataloguePanel", () => {
 });
 
 describe("custom stars and planets", () => {
-  const base = {
-    playing: false, stepping: false, canRun: true, disabled: false, simulationTimeS: 0, speedExp: 5, stepSeconds: 1e5,
-    onSpeedChange: () => {}, onPlay: () => {}, onPause: () => {}, onStep: () => {}, onReset: () => {}, onFit: () => {},
-  };
+  const base = { disabled: false, onCreate: ok };
 
   it("create star sends kind star", async () => {
     const onCreate = vi.fn(ok);
-    render(<ControlPanel {...base} onCreate={onCreate} />);
+    render(<CreateBodyPanel {...base} onCreate={onCreate} />);
     fireEvent.click(screen.getByText("Add body…"));
     fireEvent.change(screen.getByLabelText("Physics role"), { target: { value: "star" } });
     fireEvent.click(screen.getByText("Create"));
@@ -55,7 +52,7 @@ describe("custom stars and planets", () => {
 
   it("a plain body does not send a kind (the backend default is planet)", async () => {
     const onCreate = vi.fn(ok);
-    render(<ControlPanel {...base} onCreate={onCreate} />);
+    render(<CreateBodyPanel {...base} onCreate={onCreate} />);
     fireEvent.click(screen.getByText("Add body…"));
     fireEvent.click(screen.getByText("Create"));
     await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
@@ -67,8 +64,8 @@ describe("custom stars and planets", () => {
     const entry = structuredClone(betelgeuseEntry);
     const before = JSON.stringify(entry);
     const onCreate = vi.fn(ok);
-    const { rerender } = render(<ControlPanel {...base} onCreate={onCreate} />);
-    rerender(<ControlPanel {...base} onCreate={onCreate} catalogueRequest={{ entry, nonce: 1 }} />);
+    const { rerender } = render(<CreateBodyPanel {...base} onCreate={onCreate} />);
+    rerender(<CreateBodyPanel {...base} onCreate={onCreate} catalogueRequest={{ entry, nonce: 1 }} />);
     expect((screen.getByLabelText("Name") as HTMLInputElement).value).toBe("Betelgeuse");
     expect(Number((screen.getByLabelText("Mass (kg)") as HTMLInputElement).value)).toBe(entry.properties.massKg.value);
     expect(Number((screen.getByLabelText("Physical radius (m)") as HTMLInputElement).value)).toBe(entry.properties.radiusM.value);
@@ -83,15 +80,15 @@ describe("custom stars and planets", () => {
   });
 
   it("a catalogue body starts at rest: position and velocity come from the user, not the catalogue", () => {
-    const { rerender } = render(<ControlPanel {...base} onCreate={ok} />);
-    rerender(<ControlPanel {...base} onCreate={ok} catalogueRequest={{ entry: earthEntry, nonce: 1 }} />);
+    const { rerender } = render(<CreateBodyPanel {...base} onCreate={ok} />);
+    rerender(<CreateBodyPanel {...base} onCreate={ok} catalogueRequest={{ entry: earthEntry, nonce: 1 }} />);
     for (const axis of ["X", "Y", "Z"]) expect((screen.getByLabelText(`Velocity (m/s) ${axis}`) as HTMLInputElement).value).toBe("0");
   });
 
   it("a second request for the same entry (new nonce) re-prefills after the form was edited", () => {
-    const { rerender } = render(<ControlPanel {...base} onCreate={ok} catalogueRequest={{ entry: earthEntry, nonce: 1 }} />);
+    const { rerender } = render(<CreateBodyPanel {...base} onCreate={ok} catalogueRequest={{ entry: earthEntry, nonce: 1 }} />);
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "edited" } });
-    rerender(<ControlPanel {...base} onCreate={ok} catalogueRequest={{ entry: earthEntry, nonce: 2 }} />);
+    rerender(<CreateBodyPanel {...base} onCreate={ok} catalogueRequest={{ entry: earthEntry, nonce: 2 }} />);
     expect((screen.getByLabelText("Name") as HTMLInputElement).value).toBe("Earth");
   });
 });

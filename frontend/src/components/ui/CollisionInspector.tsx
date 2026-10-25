@@ -1,7 +1,7 @@
 import React from 'react';
 import type { CollisionDetailDto, ReplayReportDto } from '../../api/types';
 import { describeRecord, describeReplay, hasSoftFidelity } from '../../sim/collision/describe';
-import { panelStyle } from './styles';
+import { btnStyle, drawerSectionStyle } from './styles';
 import { theme } from './theme';
 
 interface CollisionInspectorProps {
@@ -23,7 +23,7 @@ function List({ title, items }: { title: string; items: string[] }) {
   if (items.length === 0) return null;
   return (
     <div style={{ marginTop: '8px' }}>
-      <strong style={{ fontSize: '11px' }}>{title}</strong>
+      <strong style={{ fontSize: '11.5px' }}>{title}</strong>
       <ul style={{ margin: '2px 0 0 0', paddingLeft: '16px' }}>
         {items.map((t, i) => (
           <li key={`${i}:${t}`} style={small}>
@@ -51,14 +51,14 @@ export const CollisionInspector: React.FC<CollisionInspectorProps> = ({
   return (
     <section
       aria-labelledby="collision-inspector-heading"
-      style={{ ...panelStyle, width: '100%', marginTop: '10px' }}
+      style={{ ...drawerSectionStyle, width: '100%', marginTop: '10px' }}
       data-testid="collision-inspector"
     >
       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
         <h3 id="collision-inspector-heading" style={{ margin: 0, fontSize: '14px' }}>
           Collision {eventId}
         </h3>
-        <button type="button" onClick={onClose} aria-label="Close collision inspector" style={{ fontSize: '11px' }}>
+        <button type="button" onClick={onClose} aria-label="Close collision inspector" style={{ ...btnStyle, fontSize: '11px', padding: '3px 9px' }}>
           Close
         </button>
       </div>
@@ -98,14 +98,14 @@ export const CollisionInspector: React.FC<CollisionInspectorProps> = ({
               {detail.childEventIds.length > 0 && (
                 <div style={{ marginTop: '8px' }}>
                   {detail.childEventIds.map((id) => (
-                    <button key={id} type="button" onClick={() => onOpenEvent(id)} style={{ fontSize: '11px', marginRight: '4px' }}>
+                    <button key={id} type="button" onClick={() => onOpenEvent(id)} style={{ ...btnStyle, fontSize: '11px', marginRight: '4px', padding: '3px 9px' }}>
                       Open {id}
                     </button>
                   ))}
                 </div>
               )}
               <div style={{ marginTop: '10px' }}>
-                <button type="button" onClick={onReplay} disabled={replayBusy} style={{ fontSize: '11px' }}>
+                <button type="button" onClick={onReplay} disabled={replayBusy} style={{ ...btnStyle, fontSize: '11px', padding: '3px 9px' }}>
                   {replayBusy ? 'Replaying…' : 'Replay (dry run)'}
                 </button>
                 {replay && (

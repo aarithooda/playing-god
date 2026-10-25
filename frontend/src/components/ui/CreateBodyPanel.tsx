@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { BodyCreateDto, BodyKind, BodyType, CatalogueEntryDto } from '../../api/types';
-import { formatDuration } from '../../sim/format';
-import { MAX_SPEED_EXP, MIN_SPEED_EXP, type ActionResult } from '../../sim/useSimulation';
+import type { ActionResult } from '../../sim/useSimulation';
+import { defaultMaterial } from '../../sim/defaultMaterial';
 import {
   NEW_BODY_DEFAULTS,
   defaultsForNewBody,
@@ -13,30 +13,13 @@ import {
 import type { BodyView } from '../../sim/viewModel';
 import type { Vec3 } from '../../api/types';
 import { BodyFields } from './BodyFields';
-import { ConfirmButton } from './ConfirmButton';
-import { btnStyle, errorTextStyle, panelStyle } from './styles';
+import { btnStyle, errorTextStyle, noteTextStyle, primaryBtnStyle, sectionTitleStyle } from './styles';
 import { theme } from './theme';
-import { ViewToolbar } from './ViewToolbar';
-import type { ViewControlContract } from '../../sim/viewControlContract';
 
-interface ControlPanelProps {
+interface CreateBodyPanelProps {
   bodies?: readonly BodyView[];
-  playing: boolean;
-  stepping: boolean;
-  canRun: boolean;
+  /** The simulation is not loaded. */
   disabled: boolean;
-  simulationTimeS: number | null;
-  speedExp: number;
-  stepSeconds: number;
-  onSpeedChange: (exp: number) => void;
-  onPlay: () => void;
-  onPause: () => void;
-  onStep: () => void;
-  onReset: () => void;
-  /** Reset discards the current state: ask for a second press first. */
-  confirmReset?: boolean;
-  onFit: () => void;
-  viewControls?: ViewControlContract;
   onCreate: (body: BodyCreateDto) => Promise<ActionResult>;
   placementMode?: boolean;
   onPlacementModeChange?: (active: boolean) => void;
@@ -47,33 +30,20 @@ interface ControlPanelProps {
   openCreateRequest?: number;
   /** When set, adding bodies is not possible and this is why (for example the immutable Orbit Lab baseline). */
   addBlockedReason?: string;
-  /** A recorded state is on screen: stepping, resetting and adding are off. Play stays (it returns to live first). */
+  /** A recorded state is on screen: adding is off until the view returns to live. */
   historyView?: boolean;
   /** Open the create form prefilled from a catalogue entry (a copy: the entry is never changed). */
   catalogueRequest?: { entry: CatalogueEntryDto; nonce: number };
 }
 
-const EMPTY_VIEW_CONTROLS: ViewControlContract = {
-  state: { axesVisible: false, gridEnabled: false, gridShownForPlacement: false, canFitView: false, canFocusSelected: false },
-  actions: { setAxesVisible: () => {}, setGridVisible: () => {}, fitView: () => {}, focusSelected: () => {} },
-};
-export const ControlPanel: React.FC<ControlPanelProps> = ({
+/**
+ * Creating a body: the form holds SI values, and a body enters the simulation only when the backend accepts it.
+ * Position comes from a clear automatic default, typed values, or a click in the scene (3D placement); velocity is
+ * whatever is entered (zero means the body starts at rest). Nothing here computes an orbit for the user.
+ */
+export const CreateBodyPanel: React.FC<CreateBodyPanelProps> = ({
   bodies = [],
-  playing,
-  stepping,
-  canRun,
   disabled,
-  simulationTimeS,
-  speedExp,
-  stepSeconds,
-  onSpeedChange,
-  onPlay,
-  onPause,
-  onStep,
-  onReset,
-  confirmReset = false,
-  onFit,
-  viewControls,
   onCreate,
   placementMode = false,
   onPlacementModeChange = () => {},
@@ -85,7 +55,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   historyView = false,
   addBlockedReason,
 }) => {
-  const toolbarControls = viewControls ?? { ...EMPTY_VIEW_CONTROLS, actions: { ...EMPTY_VIEW_CONTROLS.actions, fitView: onFit } };
   const [creating, setCreating] = useState(false);
   const [values, setValues] = useState<FormValues>(NEW_BODY_DEFAULTS);
   const [positionManuallyEdited, setPositionManuallyEdited] = useState(false);
@@ -116,6 +85,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       ...(catalogueEntry ? { catalogueEntryId: catalogueEntry.id } : {}),
       ...(catalogueEntry?.bodyType ? { bodyType: catalogueEntry.bodyType } : {}),
       ...(catalogueEntry?.assetKey ? { assetKey: catalogueEntry.assetKey } : {}),
+      material: defaultMaterial(kind, catalogueEntry?.bodyType),
     };
     const result = await onCreate(payload).finally(() => {
       creatingRef.current = false;
@@ -224,80 +194,73 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   }, [openCreateRequest]);
 
   const submit = async () => createFromDraft(values);
+  const blockedNote = addBlockedReason ?? (historyView ? 'Return to live to add a body.' : undefined);
+  const atRest = values.vx.trim() === '0' && values.vy.trim() === '0' && values.vz.trim() === '0';
 
   return (
-    <div style={{
-      ...panelStyle,
-      width: '100%',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '10px',
-    }}>
-      <h3 style={{ margin: '0 0 4px 0', fontSize: '14px' }}>Simulation</h3>
-      <div style={{ fontSize: '11px', color: theme.textMuted }}>
-        Sim time: {simulationTimeS === null ? '—' : `${formatDuration(simulationTimeS)} (${simulationTimeS.toExponential(3)} s)`}
-      </div>
-      <ViewToolbar controls={toolbarControls} playing={playing} canRun={canRun} disabled={disabled} onPlay={onPlay} onPause={onPause} />
-      <button style={btnStyle} onClick={onStep} disabled={disabled || stepping || !canRun || historyView} title={historyView ? 'Return to live to step' : undefined}>Step Forward</button>
-      {confirmReset ? (
-        <ConfirmButton
-          label="Reset Universe"
-          confirmLabel="Confirm reset (returns to the initial state)"
-          onConfirm={onReset}
-          disabled={disabled || historyView}
-          style={{ width: '100%' }}
-        />
-      ) : (
-        <button style={btnStyle} onClick={onReset} disabled={disabled || historyView}>Reset Universe</button>
-      )}
-      <div style={{ marginTop: '4px' }}>
-        <label htmlFor="sim-speed" style={{ fontSize: '12px', display: 'block', marginBottom: '5px' }}>
-          Sim Speed: {formatDuration(stepSeconds)} per step
-        </label>
-        <input
-          id="sim-speed"
-          type="range"
-          min={MIN_SPEED_EXP}
-          max={MAX_SPEED_EXP}
-          step={0.25}
-          value={speedExp}
-          onChange={(e) => onSpeedChange(Number(e.target.value))}
-          style={{ width: '100%' }}
-        />
-      </div>
-
-      <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: '10px' }}>
-        <button style={btnStyle} onClick={toggleCreate} disabled={disabled || historyView || !!addBlockedReason} title={addBlockedReason ?? (historyView ? 'Return to live to add a body' : undefined)}>
+    <section aria-label="Custom body" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        <div>
+          <h3 style={sectionTitleStyle}>{creating ? (catalogueEntry ? `New ${catalogueEntry.name}` : 'New body') : 'Custom body'}</h3>
+          {!creating && <p style={noteTextStyle}>Set the mass, size, position and velocity yourself.</p>}
+        </div>
+        <button
+          type="button"
+          style={{ ...(creating ? btnStyle : primaryBtnStyle), whiteSpace: 'nowrap', flex: '0 0 auto' }}
+          onClick={toggleCreate}
+          disabled={disabled || historyView || !!addBlockedReason}
+          title={blockedNote}
+        >
           {creating ? 'Cancel' : 'Add body…'}
         </button>
-        {creating && (
-          <form
-            aria-label="Create body"
-            noValidate
-            onSubmit={(event) => { event.preventDefault(); void submit(); }}
-            style={{ marginTop: '10px' }}
-          >
-            <BodyFields
-              values={values}
-              errors={errors}
-              onChange={change}
-              idPrefix="create"
-              isPickingPosition={placementMode}
-              onPickPosition={() => onPlacementModeChange(!placementMode)}
-              kind={kind}
-              bodyType={catalogueEntry?.bodyType}
-              onKindChange={setKind}
-            />
-            {catalogueEntry && (
-              <p style={{ fontSize: '11px', color: theme.textMuted, margin: '0 0 8px 0' }}>
-                Started from the catalogue entry {catalogueEntry.name}. This is a copy: editing it never changes the catalogue.
-              </p>
-            )}
-            {serverError && <p role="alert" style={errorTextStyle}>{serverError}</p>}
-            <button type="submit" style={btnStyle} disabled={busy}>Create</button>
-          </form>
-        )}
       </div>
-    </div>
+      {blockedNote && !creating && <p role="status" style={noteTextStyle}>{blockedNote}</p>}
+
+      {creating && placementMode && (
+        <div
+          role="status"
+          data-testid="placement-banner"
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '8px 10px',
+            borderRadius: 8, background: theme.accentSoft, border: `1px solid ${theme.accent}`, fontSize: 12,
+          }}
+        >
+          <span>Click in the scene to place {catalogueEntry?.name ?? 'the body'}. Esc cancels.</span>
+        </div>
+      )}
+
+      {creating && (
+        <form
+          aria-label="Create body"
+          noValidate
+          onSubmit={(event) => { event.preventDefault(); void submit(); }}
+        >
+          <BodyFields
+            values={values}
+            errors={errors}
+            onChange={change}
+            idPrefix="create"
+            isPickingPosition={placementMode}
+            onPickPosition={() => onPlacementModeChange(!placementMode)}
+            kind={kind}
+            bodyType={catalogueEntry?.bodyType}
+            onKindChange={setKind}
+          />
+          <p style={{ ...noteTextStyle, margin: '0 0 10px' }}>
+            {atRest ? 'Starts at rest (velocity 0). ' : 'Starts with the velocity above. '}
+            The backend integrates it from there under gravity.
+          </p>
+          {catalogueEntry && (
+            <p style={{ ...noteTextStyle, margin: '0 0 10px' }}>
+              Started from the catalogue entry {catalogueEntry.name}. This is a copy: editing it never changes the catalogue.
+            </p>
+          )}
+          {serverError && <p role="alert" style={{ ...errorTextStyle, margin: '0 0 8px' }}>{serverError}</p>}
+          <button type="submit" style={{ ...primaryBtnStyle, width: '100%', padding: '8px 12px' }} disabled={busy} aria-busy={busy}>
+            Create
+          </button>
+        </form>
+      )}
+    </section>
   );
 };

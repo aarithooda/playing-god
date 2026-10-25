@@ -1,20 +1,33 @@
-// Visual tokens for the instrument panels around the 3D scene. One place, so the panels read as one
-// application: solid dark surfaces, strong text contrast, a single restrained accent.
+// Visual tokens for the instruments around the 3D scene. One place, so every surface reads as one application:
+// ink panels over the void, starlight text, and a single sunlight accent kept for selection and primary actions.
+// The same values are mirrored as CSS custom properties in index.css (for hover, focus and media-query states).
 export const theme = {
-  bg: '#0b0f14',
-  surface: '#11161d',
-  surfaceRaised: '#182029',
-  border: '#2a3441',
-  borderStrong: '#3a4656',
-  text: '#e6edf3',
-  textMuted: '#9aa7b5',
-  accent: '#5aa2ff',
-  danger: '#ff7b72',
-  ok: '#3fb950',
-  warn: '#e3b341',
-  font: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-  mono: 'ui-monospace, "SF Mono", Menlo, Consolas, monospace',
-  radius: 6,
+  /** The void behind the scene and under every panel. */
+  bg: '#04060a',
+  /** Panel surface (solid fallback of the translucent ink used by drawers and the bar). */
+  surface: '#0c0f15',
+  /** Translucent ink for floating surfaces over the scene. */
+  glass: 'rgba(12, 15, 21, 0.86)',
+  surfaceRaised: '#151a23',
+  surfaceHover: '#1b212c',
+  border: 'rgba(214, 222, 235, 0.09)',
+  borderStrong: 'rgba(214, 222, 235, 0.18)',
+  text: '#eeeae0',
+  textMuted: '#a7aab2',
+  textFaint: '#6e737e',
+  /** Sunlight: selection, the active tool, primary actions. Never decoration. */
+  accent: '#ebc77f',
+  accentInk: '#1b1405',
+  accentSoft: 'rgba(235, 199, 127, 0.14)',
+  /** Recorded history and other informational states that are not warnings. */
+  info: '#8fb3f0',
+  danger: '#ee7a78',
+  ok: '#7fc79f',
+  warn: '#efa25a',
+  font: '"Geist", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif',
+  serif: '"Cormorant Garamond", "Iowan Old Style", "Palatino Linotype", Georgia, serif',
+  mono: '"Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace',
+  radius: 10,
   gap: 12,
-  pad: 12,
+  pad: 14,
 } as const;

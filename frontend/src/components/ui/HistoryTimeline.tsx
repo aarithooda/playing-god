@@ -4,7 +4,7 @@ import { REPLAY_RATES, type HistoryNavigation } from '../../sim/history/useHisto
 import type { HistoryStatus } from '../../sim/history/useHistory';
 import { formatDuration } from '../../sim/format';
 import type { EventView } from '../../sim/viewModel';
-import { btnStyle, inputStyle, panelStyle } from './styles';
+import { btnStyle, inputStyle, drawerSectionStyle } from './styles';
 import { theme } from './theme';
 
 interface HistoryTimelineProps {
@@ -44,7 +44,7 @@ export const HistoryTimeline: React.FC<HistoryTimelineProps> = ({ cache, status,
     : [];
 
   return (
-    <section aria-label="History" style={{ ...panelStyle, width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <section aria-label="History" style={{ ...drawerSectionStyle, width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
       <h3 style={{ margin: 0, fontSize: 14 }}>History</h3>
       {n === 0 ? (
         <p style={{ margin: 0, fontSize: 12, color: theme.textMuted }}>No recorded history yet.</p>

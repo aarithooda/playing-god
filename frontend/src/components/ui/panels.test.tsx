@@ -3,7 +3,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { earth, mergerEvent, sun } from "../../test/fixtures";
 import { toBodyView, toEventView } from "../../sim/viewModel";
 import { BodyInspector } from "./BodyInspector";
-import { ControlPanel } from "./ControlPanel";
+import { CreateBodyPanel } from "./CreateBodyPanel";
+import { SimulationBar } from "./SimulationBar";
+import type { ViewControlContract } from "../../sim/viewControlContract";
 import { EventTimeline } from "./EventTimeline";
 
 afterEach(cleanup);
@@ -80,8 +82,13 @@ describe("BodyInspector", () => {
   });
 });
 
-describe("ControlPanel", () => {
-  const base = {
+const viewControls: ViewControlContract = {
+  state: { axesVisible: false, gridEnabled: false, gridShownForPlacement: false, canFitView: true, canFocusSelected: false },
+  actions: { setAxesVisible: () => {}, setGridVisible: () => {}, fitView: () => {}, focusSelected: () => {} },
+};
+
+describe("SimulationBar", () => {
+  const bar = {
     playing: false,
     stepping: false,
     canRun: true,
@@ -94,31 +101,67 @@ describe("ControlPanel", () => {
     onPause: () => {},
     onStep: () => {},
     onReset: () => {},
-    onFit: () => {},
-    onCreate: ok,
+    viewControls,
   };
 
   it("wires Play / Pause / Step / Reset to handlers", () => {
     const h = { onPlay: vi.fn(), onPause: vi.fn(), onStep: vi.fn(), onReset: vi.fn() };
-    const { rerender } = render(<ControlPanel {...base} {...h} />);
-    fireEvent.click(screen.getByText("Play"));
-    fireEvent.click(screen.getByText("Step Forward"));
-    fireEvent.click(screen.getByText("Reset Universe"));
+    const { rerender } = render(<SimulationBar {...bar} {...h} />);
+    fireEvent.click(screen.getByRole("button", { name: "Play" }));
+    fireEvent.click(screen.getByRole("button", { name: "Step Forward" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reset Universe" }));
+    expect(h.onReset).not.toHaveBeenCalled(); // reset discards the state: it asks for a second press
+    fireEvent.click(screen.getByRole("button", { name: /Confirm reset/ }));
     expect([h.onPlay, h.onStep, h.onReset].map((f) => f.mock.calls.length)).toEqual([1, 1, 1]);
-    rerender(<ControlPanel {...base} {...h} playing />);
-    fireEvent.click(screen.getByText("Pause"));
+    rerender(<SimulationBar {...bar} {...h} playing />);
+    expect(screen.queryByRole("button", { name: "Play" })).toBeNull(); // one control: it shows the action that applies now
+    fireEvent.click(screen.getByRole("button", { name: "Pause" }));
     expect(h.onPause).toHaveBeenCalledTimes(1);
   });
 
   it("disables Play and Step when there is nothing to simulate", () => {
-    render(<ControlPanel {...base} canRun={false} />);
-    expect((screen.getByText("Play") as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByText("Step Forward") as HTMLButtonElement).disabled).toBe(true);
+    render(<SimulationBar {...bar} canRun={false} />);
+    expect((screen.getByRole("button", { name: "Play" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Step Forward" }) as HTMLButtonElement).disabled).toBe(true);
   });
+
+  it("shows the confirmed simulated time, the step size and the run state", () => {
+    const { rerender } = render(<SimulationBar {...bar} simulationTimeS={100000} />);
+    expect(screen.getByText(/Sim time: 1.16 d/)).toBeTruthy();
+    expect(screen.getByTestId("sim-time").textContent).toBe("1.16 d");
+    expect(screen.getByLabelText(/Sim Speed: 1.16 d per step/)).toBeTruthy();
+    expect(screen.getByTestId("sim-state").textContent).toBe("Paused");
+    rerender(<SimulationBar {...bar} playing />);
+    expect(screen.getByTestId("sim-state").textContent).toBe("Running");
+    rerender(<SimulationBar {...bar} historyView onReturnToLive={() => {}} />);
+    expect(screen.getByTestId("sim-state").textContent).toBe("Showing history");
+    expect((screen.getByRole("button", { name: "Step Forward" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Reset Universe" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("never invents a time before the backend reports one, and makes no rate claim while paused", () => {
+    render(<SimulationBar {...bar} simulationTimeS={null} disabled />);
+    expect(screen.getByTestId("sim-time").textContent).toBe("—");
+    expect(screen.getByTestId("sim-rate").textContent).toBe("");
+    expect(screen.getByTestId("sim-state").textContent).toBe("Waiting for the simulation");
+  });
+
+  it("offers ambient sound only as an explicit, unpressed toggle", () => {
+    const toggle = vi.fn();
+    render(<SimulationBar {...bar} sound={{ on: false, available: true, toggle }} />);
+    const button = screen.getByRole("button", { name: "Ambient sound" });
+    expect(button.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(button);
+    expect(toggle).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("CreateBodyPanel", () => {
+  const base = { disabled: false, onCreate: ok };
 
   it("creates a body from validated SI inputs", async () => {
     const onCreate = vi.fn(ok);
-    render(<ControlPanel {...base} onCreate={onCreate} />);
+    render(<CreateBodyPanel {...base} onCreate={onCreate} />);
     fireEvent.click(screen.getByText("Add body…"));
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Moon" } });
     fireEvent.change(screen.getByLabelText("Mass (kg)"), { target: { value: "7.342e22" } });
@@ -135,7 +178,7 @@ describe("ControlPanel", () => {
 
   it("does not call the API for an invalid new body and shows backend rejections", async () => {
     const onCreate = vi.fn(async (..._args: unknown[]) => ({ ok: false, error: "name: too long" }) as const);
-    render(<ControlPanel {...base} onCreate={onCreate} />);
+    render(<CreateBodyPanel {...base} onCreate={onCreate} />);
     fireEvent.click(screen.getByText("Add body…"));
     fireEvent.change(screen.getByLabelText("Mass (kg)"), { target: { value: "0" } });
     fireEvent.submit(screen.getByRole("form", { name: "Create body" }));
@@ -147,21 +190,21 @@ describe("ControlPanel", () => {
 
   it("starts and cancels 3D placement from the position fields", () => {
     const onPlacementModeChange = vi.fn();
-    const { rerender } = render(<ControlPanel {...base} onPlacementModeChange={onPlacementModeChange} />);
+    const { rerender } = render(<CreateBodyPanel {...base} onPlacementModeChange={onPlacementModeChange} />);
     fireEvent.click(screen.getByText("Add body…"));
     fireEvent.click(screen.getByText("Choose position in 3D"));
     expect(onPlacementModeChange).toHaveBeenLastCalledWith(true);
 
-    rerender(<ControlPanel {...base} placementMode onPlacementModeChange={onPlacementModeChange} />);
+    rerender(<CreateBodyPanel {...base} placementMode onPlacementModeChange={onPlacementModeChange} />);
     fireEvent.click(screen.getByText("Cancel 3D placement"));
     expect(onPlacementModeChange).toHaveBeenLastCalledWith(false);
   });
 
   it("creates a body immediately at the picked 3D position", async () => {
     const onCreate = vi.fn(ok);
-    const { rerender } = render(<ControlPanel {...base} onCreate={onCreate} />);
+    const { rerender } = render(<CreateBodyPanel {...base} onCreate={onCreate} />);
     fireEvent.click(screen.getByText("Add body…"));
-    rerender(<ControlPanel {...base} onCreate={onCreate} pickedPosition={{ position: { x: 1.2e11, y: -3e10, z: 7e9 }, nonce: 1 }} />);
+    rerender(<CreateBodyPanel {...base} onCreate={onCreate} pickedPosition={{ position: { x: 1.2e11, y: -3e10, z: 7e9 }, nonce: 1 }} />);
     await waitFor(() => {
       expect(onCreate).toHaveBeenCalledWith(expect.objectContaining({
         positionM: { x: 1.2e11, y: -3e10, z: 7e9 },

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import type { ComparisonDto, Vec3Tuple } from '../../api/types';
 import { formatDuration } from '../../sim/format';
-import { btnStyle, errorTextStyle, panelStyle } from './styles';
+import { btnStyle, errorTextStyle, drawerSectionStyle } from './styles';
 import { theme } from './theme';
 
 interface ComparisonPanelProps {
@@ -55,7 +55,7 @@ export const ComparisonPanel: React.FC<ComparisonPanelProps> = ({ comparison: c,
   const windowDays = c ? c.observationWindowS / DAY : 730;
   const samplesInWindow = c ? Math.round(c.observationWindowS / c.sampleIntervalS) + 1 : 731;
   return (
-    <section aria-label="Comparison" style={{ ...panelStyle, width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <section aria-label="Comparison" style={{ ...drawerSectionStyle, width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h3 style={{ margin: 0, fontSize: 14 }}>Comparison</h3>
         <button type="button" style={btnStyle} onClick={onRefresh}>Refresh comparison</button>

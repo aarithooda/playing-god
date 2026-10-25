@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { earth, sun } from "./test/fixtures";
+import { openTool, waitForWorkspace } from "./test/appHelpers";
 
 const h = vi.hoisted(() => ({ stateMode: "normal" as "normal" | "hang" | "fail-once", failed: false, empty: false, canvasProps: { current: null as any }, calls: [] as string[] }));
 
@@ -52,66 +53,83 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("App layout", () => {
-  it("starts with Controls open on the right and Body catalogue & history tucked away on the left", async () => {
+  it("starts with the Add drawer open beside the rail and no inspector until a body is selected", async () => {
     render(<App />);
-    await screen.findByText("Simulation");
-    expect(screen.getByTestId("sidebar-right").getAttribute("data-open")).toBe("true");
-    expect(screen.getByTestId("sidebar-left").getAttribute("data-open")).toBe("false");
-    expect(canvas().leftInset).toBe(40);
-    expect(canvas().rightInset).toBe(320);
+    await waitForWorkspace();
+    expect(screen.getByTestId("sidebar-left").getAttribute("data-open")).toBe("true");
+    expect(screen.getByTestId("sidebar-left").getAttribute("data-tool")).toBe("create");
+    expect(screen.getByTestId("sidebar-right").getAttribute("data-open")).toBe("false");
+    expect(canvas().leftInset).toBe(64 + 344);
+    expect(canvas().rightInset).toBe(0);
     await waitFor(() => expect(screen.getByTestId("backend-status").textContent).toMatch(/connected/));
   });
 
-  it("puts Event History and the diagnostics panel in the left sidebar", async () => {
+  it("puts Event History and the diagnostics panel in their own tools of the left drawer", async () => {
     render(<App />);
-    await screen.findByText("Simulation");
+    await waitForWorkspace();
     const left = screen.getByTestId("sidebar-left");
+    openTool("Events");
     expect(within(left).getByText("Event History")).toBeTruthy();
-    expect(within(left).getByRole("button", { name: /system diagnostics/i, hidden: true })).toBeTruthy();
     expect(within(left).getByText("No events yet.")).toBeTruthy();
+    openTool("Diagnostics");
+    expect(within(left).getByRole("button", { name: /system diagnostics/i })).toBeTruthy();
+    expect(screen.getByTestId("diag-mass")).toBeTruthy(); // the diagnostics tool shows its totals without a further click
   });
 
-  it("reports sidebar insets to the canvas as panels open and close (both open on a wide window)", async () => {
+  it("reports panel insets to the canvas as the drawer and the inspector open and close (both open on a wide window)", async () => {
     render(<App />);
-    await screen.findByText("Simulation");
-    fireEvent.click(screen.getByRole("button", { name: "Expand Body catalogue & history" }));
-    expect([canvas().leftInset, canvas().rightInset]).toEqual([320, 320]);
-    fireEvent.click(screen.getByRole("button", { name: "Collapse Controls" }));
-    expect([canvas().leftInset, canvas().rightInset]).toEqual([320, 40]);
+    await waitForWorkspace();
+    act(() => canvas().onSelectBody(earth.id));
+    expect([canvas().leftInset, canvas().rightInset]).toEqual([408, 340]);
+    fireEvent.click(screen.getByRole("button", { name: "Close Add bodies" }));
+    expect([canvas().leftInset, canvas().rightInset]).toEqual([64, 340]);
+    openTool("History");
+    expect([canvas().leftInset, canvas().rightInset]).toEqual([408, 340]);
   });
 
-  it("on a narrow window opening one sidebar closes the other", async () => {
+  it("pressing the open tool again closes the drawer", async () => {
+    render(<App />);
+    await waitForWorkspace();
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    expect(screen.getByTestId("sidebar-left").getAttribute("data-open")).toBe("false");
+    expect(canvas().leftInset).toBe(64);
+  });
+
+  it("on a narrow window opening one side closes the other", async () => {
     setWidth(1000);
     render(<App />);
-    await screen.findByText("Simulation");
-    fireEvent.click(screen.getByRole("button", { name: "Expand Body catalogue & history" }));
-    expect([canvas().leftInset, canvas().rightInset]).toEqual([320, 40]);
-  });
-
-  it("shrinking the window with both sidebars open closes the left one", async () => {
-    render(<App />);
-    await screen.findByText("Simulation");
-    fireEvent.click(screen.getByRole("button", { name: "Expand Body catalogue & history" }));
-    expect([canvas().leftInset, canvas().rightInset]).toEqual([320, 320]);
-    setWidth(900);
-    expect([canvas().leftInset, canvas().rightInset]).toEqual([40, 320]);
-  });
-
-  it("selecting a body opens a collapsed right sidebar and shows the inspector; empty-canvas click dismisses it", async () => {
-    render(<App />);
-    await screen.findByText("Simulation");
-    fireEvent.click(screen.getByRole("button", { name: "Collapse Controls" }));
-    expect(canvas().rightInset).toBe(40);
+    await waitForWorkspace();
     act(() => canvas().onSelectBody(earth.id));
-    expect(canvas().rightInset).toBe(320);
+    expect([canvas().leftInset, canvas().rightInset]).toEqual([64, 320]);
+    openTool("Events");
+    expect([canvas().leftInset, canvas().rightInset]).toEqual([64 + 320, 0]);
+  });
+
+  it("shrinking the window with the drawer and the inspector open closes the drawer", async () => {
+    render(<App />);
+    await waitForWorkspace();
+    act(() => canvas().onSelectBody(earth.id));
+    expect([canvas().leftInset, canvas().rightInset]).toEqual([408, 340]);
+    setWidth(900);
+    expect([canvas().leftInset, canvas().rightInset]).toEqual([64, 320]);
+  });
+
+  it("selecting a body shows the inspector; an empty-canvas click dismisses it and returns the space", async () => {
+    render(<App />);
+    await waitForWorkspace();
+    expect(canvas().rightInset).toBe(0);
+    act(() => canvas().onSelectBody(earth.id));
+    expect(canvas().rightInset).toBe(340);
     expect(await screen.findByText("Body Inspector")).toBeTruthy();
+    expect(screen.getByTestId("sidebar-right").getAttribute("data-open")).toBe("true");
     act(() => canvas().onClearSelection());
     expect(screen.queryByText("Body Inspector")).toBeNull();
+    expect(canvas().rightInset).toBe(0);
   });
 
   it("clicking controls or panels never dismisses the inspector, selects, or places a body", async () => {
     render(<App />);
-    await screen.findByText("Simulation");
+    await waitForWorkspace();
     act(() => canvas().onSelectBody(sun.id));
     await screen.findByText("Body Inspector");
     h.calls.length = 0;
@@ -128,7 +146,7 @@ describe("App layout", () => {
 describe("App focus", () => {
   it("connects the shared view toolbar to the scene, overview, and selected-body focus", async () => {
     render(<App />);
-    await screen.findByText("Simulation");
+    await waitForWorkspace();
 
     fireEvent.click(screen.getByRole("button", { name: "Axes" }));
     fireEvent.click(screen.getByRole("button", { name: "Grid" }));
@@ -148,7 +166,7 @@ describe("App focus", () => {
 
   it("a focus request names the body and the inspector shows Focused only for that body until the camera lets go", async () => {
     render(<App />);
-    await screen.findByText("Simulation");
+    await waitForWorkspace();
     act(() => canvas().onSelectBody(earth.id));
     await screen.findByText("Body Inspector");
     expect(screen.queryByTestId("focused-badge")).toBeNull();
@@ -169,7 +187,7 @@ describe("App focus", () => {
 
   it("each new focus request gets a new nonce so repeated focusing restarts the move", async () => {
     render(<App />);
-    await screen.findByText("Simulation");
+    await waitForWorkspace();
     act(() => canvas().onFocusBody(sun.id));
     const first = canvas().focus.nonce;
     act(() => canvas().onFocusBody(sun.id));
@@ -189,7 +207,7 @@ describe("App first use", () => {
 
   it("shows no call to action when bodies exist", async () => {
     render(<App />);
-    await screen.findByText("Simulation");
+    await waitForWorkspace();
     expect(screen.queryByRole("button", { name: "Add your first body" })).toBeNull();
   });
 });
@@ -197,7 +215,7 @@ describe("App first use", () => {
 describe("App CRUD feedback", () => {
   it("shows the bottom message for a successful body addition", async () => {
     render(<App />);
-    await screen.findByText("Simulation");
+    await waitForWorkspace();
     fireEvent.click(screen.getByText("Add body…"));
     fireEvent.click(screen.getByText("Create"));
     expect((await screen.findByTestId("crud-feedback")).textContent).toMatch(/Added/);
@@ -224,7 +242,7 @@ describe("App: connection health and simulation loading are different states", (
     expect(screen.getByTestId("backend-status").textContent).toMatch(/connected/);
 
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-    expect(await screen.findByText("Simulation")).toBeTruthy();
+    await waitForWorkspace();
     expect(screen.queryByRole("alert")).toBeNull();
   });
 });
@@ -239,7 +257,7 @@ describe("App view aids: axes and grid", () => {
 
   it("starts with both off and passes the display scale to the canvas", async () => {
     render(<App />);
-    await screen.findByText("Simulation");
+    await waitForWorkspace();
     expect([canvas().viewControls.state.axesVisible, canvas().viewControls.state.gridEnabled || canvas().placementMode]).toEqual([false, false]);
     expect(pressed("Axes")).toBe("false");
     expect(pressed("Grid")).toBe("false");
@@ -249,7 +267,7 @@ describe("App view aids: axes and grid", () => {
 
   it("toggles axes and grid independently and labels the visible overlay", async () => {
     render(<App />);
-    await screen.findByText("Simulation");
+    await waitForWorkspace();
     fireEvent.click(screen.getByRole("button", { name: "Axes" }));
     expect([canvas().viewControls.state.axesVisible, canvas().viewControls.state.gridEnabled || canvas().placementMode]).toEqual([true, false]);
     expect(screen.getByTestId("view-legend").textContent).toMatch(/Axes extend through/);
@@ -265,7 +283,7 @@ describe("App view aids: axes and grid", () => {
 
   it("shows the grid while placing a body without changing the user's Grid setting, then restores it", async () => {
     render(<App />);
-    await screen.findByText("Simulation");
+    await waitForWorkspace();
     startPlacement();
     expect((canvas().viewControls.state.gridEnabled || canvas().placementMode)).toBe(true); // temporary aid
     expect(pressed("Grid")).toBe("false"); // the user's own choice is untouched
@@ -277,7 +295,7 @@ describe("App view aids: axes and grid", () => {
 
   it("keeps a grid the user turned on across placement, and never touches the axes", async () => {
     render(<App />);
-    await screen.findByText("Simulation");
+    await waitForWorkspace();
     fireEvent.click(screen.getByRole("button", { name: "Grid" }));
     startPlacement();
     expect([canvas().viewControls.state.axesVisible, canvas().viewControls.state.gridEnabled || canvas().placementMode]).toEqual([false, true]);
@@ -288,7 +306,7 @@ describe("App view aids: axes and grid", () => {
 
   it("turning the grid off during placement does not lose the placement aid, and it ends with the user's choice", async () => {
     render(<App />);
-    await screen.findByText("Simulation");
+    await waitForWorkspace();
     fireEvent.click(screen.getByRole("button", { name: "Grid" })); // on
     startPlacement();
     fireEvent.click(screen.getByRole("button", { name: "Grid" })); // user turns it off while placing

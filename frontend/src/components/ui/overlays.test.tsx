@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { earth } from "../../test/fixtures";
 import { toBodyView } from "../../sim/viewModel";
 import { BodyInspector } from "./BodyInspector";
-import { ControlPanel } from "./ControlPanel";
+import { CreateBodyPanel } from "./CreateBodyPanel";
 import { PlacementHint } from "./PlacementHint";
 import { UndoNotice } from "./UndoNotice";
 
@@ -49,17 +49,13 @@ describe("BodyInspector close button", () => {
   });
 });
 
-describe("ControlPanel creation", () => {
-  const base = {
-    playing: false, stepping: false, canRun: true, disabled: false, simulationTimeS: 0, speedExp: 5,
-    stepSeconds: 1e5, onSpeedChange: () => {}, onPlay: () => {}, onPause: () => {}, onStep: () => {},
-    onReset: () => {}, onFit: () => {}, onCreate: ok,
-  };
+describe("CreateBodyPanel creation", () => {
+  const base = { disabled: false, onCreate: ok };
 
   it("ignores a second create request while the first is still in flight", async () => {
     let release!: () => void;
     const onCreate = vi.fn(() => new Promise<{ ok: true }>((resolve) => { release = () => resolve({ ok: true }); }));
-    render(<ControlPanel {...base} onCreate={onCreate} />);
+    render(<CreateBodyPanel {...base} onCreate={onCreate} />);
     fireEvent.click(screen.getByText("Add body…"));
     fireEvent.click(screen.getByText("Create"));
     fireEvent.click(screen.getByText("Create"));
@@ -71,10 +67,10 @@ describe("ControlPanel creation", () => {
   it("a picked 3D position creates once even if the same pick is re-rendered", async () => {
     const onCreate = vi.fn(ok);
     const picked = { position: { x: 1e9, y: 2e9, z: 3e9 }, nonce: 1 };
-    const { rerender } = render(<ControlPanel {...base} onCreate={onCreate} />);
+    const { rerender } = render(<CreateBodyPanel {...base} onCreate={onCreate} />);
     fireEvent.click(screen.getByText("Add body…"));
-    rerender(<ControlPanel {...base} onCreate={onCreate} pickedPosition={picked} />);
-    rerender(<ControlPanel {...base} onCreate={onCreate} pickedPosition={picked} />);
+    rerender(<CreateBodyPanel {...base} onCreate={onCreate} pickedPosition={picked} />);
+    rerender(<CreateBodyPanel {...base} onCreate={onCreate} pickedPosition={picked} />);
     await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
     expect(onCreate).toHaveBeenCalledWith(expect.objectContaining({ positionM: { x: 1e9, y: 2e9, z: 3e9 } }));
   });

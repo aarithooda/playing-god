@@ -5,7 +5,8 @@ import { applyHistoryPage, type HistoryCache } from "../../sim/history/historyMo
 import type { HistoryNavigation } from "../../sim/history/useHistoryNavigation";
 import type { EventView } from "../../sim/viewModel";
 import { HistoryTimeline } from "./HistoryTimeline";
-import { ViewPanel } from "./ViewPanel";
+import { ViewToolbar } from "./ViewToolbar";
+import type { ViewControlContract } from "../../sim/viewControlContract";
 
 afterEach(cleanup);
 
@@ -95,20 +96,24 @@ describe("HistoryTimeline", () => {
 });
 
 describe("Show paths", () => {
-  const view = { axes: false, grid: false, gridShownForPlacement: false, onAxesChange: () => {}, onGridChange: () => {} };
-  it("is a toggle in the View panel, off by default, with a hint for crowded scenes", () => {
+  const controls: ViewControlContract = {
+    state: { axesVisible: false, gridEnabled: false, gridShownForPlacement: false, canFitView: true, canFocusSelected: false },
+    actions: { setAxesVisible: () => {}, setGridVisible: () => {}, fitView: () => {}, focusSelected: () => {} },
+  };
+  const view = { controls };
+  it("is a toggle in the view controls, off when asked, with a hint for crowded scenes", () => {
     const onPathsChange = vi.fn();
-    const { rerender } = render(<ViewPanel {...view} paths={false} onPathsChange={onPathsChange} />);
+    const { rerender } = render(<ViewToolbar {...view} paths={false} onPathsChange={onPathsChange} />);
     const b = screen.getByRole("button", { name: "Show paths" });
     expect(b.getAttribute("aria-pressed")).toBe("false");
     fireEvent.click(b);
     expect(onPathsChange).toHaveBeenCalledWith(true);
-    rerender(<ViewPanel {...view} paths pathsNote="Select a body to show its path (more than 20 bodies)." onPathsChange={onPathsChange} />);
+    rerender(<ViewToolbar {...view} paths pathsNote="Select a body to show its path (more than 20 bodies)." onPathsChange={onPathsChange} />);
     expect(screen.getByText(/Select a body to show its path/)).toBeTruthy();
   });
 
   it("existing callers without paths support show no paths control", () => {
-    render(<ViewPanel {...view} />);
+    render(<ViewToolbar {...view} />);
     expect(screen.queryByRole("button", { name: "Show paths" })).toBeNull();
   });
 });

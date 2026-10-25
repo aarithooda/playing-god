@@ -18,7 +18,7 @@ export const MoonOrbitInset: React.FC<MoonOrbitInsetProps> = ({ planetName, orbi
   const scale = ((Math.min(WIDTH, HEIGHT) / 2 - PAD) / maxExtent) * zoom;
   const xy = (point: readonly [number, number]): [number, number] => [WIDTH / 2 + point[0] * scale, HEIGHT / 2 - point[1] * scale];
   const zoomButton: React.CSSProperties = {
-    width: 22, height: 22, padding: 0, color: theme.text, background: "#172233", border: `1px solid ${theme.border}`,
+    width: 22, height: 22, padding: 0, color: theme.text, background: theme.surfaceRaised, border: `1px solid ${theme.border}`,
     borderRadius: 4, cursor: "pointer", lineHeight: "20px",
   };
 
@@ -26,8 +26,8 @@ export const MoonOrbitInset: React.FC<MoonOrbitInsetProps> = ({ planetName, orbi
     <section
       aria-label={`${planetName} moon orbits`}
       style={{
-        width: 300, padding: 10, color: theme.text, background: "#0b111bf2", border: `1px solid ${theme.borderStrong}`,
-        borderRadius: 8, boxShadow: "0 8px 28px #0009", backdropFilter: "blur(8px)",
+        width: 300, padding: 10, color: theme.text, background: theme.glass, border: `1px solid ${theme.borderStrong}`,
+        borderRadius: 12, boxShadow: "0 8px 28px #0009", backdropFilter: "blur(8px)",
       }}
     >
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
