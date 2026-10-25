@@ -10,6 +10,7 @@ import { expect, test, type Page } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
 import { legacyPath, UNIVERSE_ID, universeLayer } from "./universeLayer";
+import { openTool } from "./tools";
 
 const EVIDENCE = path.resolve(process.cwd(), "..", "context", "evidence", "stage9-webgl"); // run from frontend/
 const diagnostics = {
@@ -171,7 +172,7 @@ test.describe("collision effects in a browser", () => {
     const errors = await install(page, { bodies: [target(), parcel], events: [collisionEvent], timeS: 1500, visual: visual(), history });
     await page.goto("/");
     await expect(label(page)).toHaveCount(1);
-    await page.getByRole("button", { name: "Expand Body catalogue & history" }).click();
+    await openTool(page, "History");
     const slider = page.getByLabel("History position");
     await expect(slider).toBeVisible();
     const setPosition = async (v: number) => {
@@ -212,7 +213,7 @@ test.describe("collision effects in a browser", () => {
   test("the inspector opens from the event, shows the provisional caveat and runs a dry-run replay", async ({ page }) => {
     await install(page, { bodies: [target(), parcel], events: [collisionEvent], timeS: 1500, visual: visual() });
     await page.goto("/");
-    await page.getByRole("button", { name: "Expand Body catalogue & history" }).click();
+    await openTool(page, "Events");
     await page.getByRole("button", { name: "Inspect collision col-1" }).click();
     const inspector = page.getByTestId("collision-inspector");
     await expect(inspector).toContainText("partial accretion");
@@ -233,10 +234,18 @@ const IDENTITY: [number, number, number, number] = [1, 0, 0, 0];
 const HALF = Math.PI / 8; // half of 45 degrees
 const EIGHTH_TURN_ABOUT_Z: [number, number, number, number] = [Math.cos(HALF), 0, 0, Math.sin(HALF)]; // +45 degrees about the simulation z axis
 
-// the scene area between the sidebars of a 900 x 700 viewport (the panels have blue buttons of their own)
-const SCENE_REGION = { x0: 45, x1: 575, y0: 85, y1: 700 };
+// The scene area between the panels, as the workspace lays it out at the moment of the screenshot (the panels have blue
+// buttons of their own). The band at the top holds the wordmark and the universe chip.
+const TOP_BAND_PX = 85;
+
+async function sceneRegion(page: Page) {
+  const box = await page.getByTestId("free-area").boundingBox();
+  expect(box, "the free area between the panels exists").not.toBeNull();
+  return { x0: Math.ceil(box!.x), x1: Math.floor(box!.x + box!.width), y0: Math.ceil(box!.y) + TOP_BAND_PX, y1: Math.floor(box!.y + box!.height) };
+}
 
 async function pixelCentroids(page: Page, png: Buffer) {
+  const region = await sceneRegion(page);
   return page.evaluate(async ({ b64, region }) => {
     const img = new Image();
     img.src = `data:image/png;base64,${b64}`;
@@ -257,7 +266,7 @@ async function pixelCentroids(page: Page, png: Buffer) {
       }
     }
     return { mark: n ? { x: sx / n, y: sy / n, n } : null, body: bn ? { x: bx / bn, y: by / bn, n: bn } : null };
-  }, { b64: png.toString("base64"), region: SCENE_REGION });
+  }, { b64: png.toString("base64"), region });
 }
 
 async function markCentroid(page: Page, name: string, orientation: [number, number, number, number]) {

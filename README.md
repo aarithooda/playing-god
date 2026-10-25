@@ -28,11 +28,16 @@ cd frontend && npm run dev
 ```
 
 ## Using it
-The universe starts empty: press **Add your first body** (or **Add body…**), fill in SI values or use **Choose position in 3D** and click in the scene. Click a body to select it (inspector opens on the right), double-click to focus the camera on it, click empty space to dismiss. **Play / Pause / Step Forward** advance the backend simulation; **Reset Universe** clears it. **Axes** and **Grid** (View section) are off by default; the grid is shown automatically while placing a body. The left sidebar holds merger events and system diagnostics. Right after creating a body an **Undo** button is offered for a few seconds.
+The workspace keeps the 3D scene in the middle of three surfaces:
+- **Tool rail (left):** Add, Universes, Orbit Lab, Events, History and Diagnostics. Each opens one drawer beside the rail; pressing the open tool again (or ×) closes it. The drawer starts open on Add, except on a phone-sized window.
+- **Simulation bar (bottom):** Play/Pause, Step Forward, the simulation clock and its state, the step size, Reset (asks for confirmation), then the view controls: Axes, Grid, Show paths, Fit view, Focus selected body, and the Universe/Exploration size views. On a phone the bar takes two rows.
+- **Inspector (right):** appears when a body is selected, with its key derived quantities first, then its editable properties.
+
+The universe starts empty: press **Add your first body** (or **Add body…** in the Add drawer), fill in SI values or use **Choose position in 3D** and click in the scene, or pick a catalogue body and click where it goes. Click a body to select it, double-click to focus the camera on it, click empty space to dismiss. **Axes** and **Grid** are off by default; the grid is shown automatically while placing a body. Right after creating a body an **Undo** button is offered for a few seconds. Below 1100 px the drawer and the inspector are never open together; at phone width they cover the scene as sheets.
 
 ### Simulation Lab and Experiment 01
-- **Universes:** the right sidebar lists them; only the active one advances, and each keeps its exact time when you leave it. **Load as new universe** creates the Solar System at J2000.0 without touching anything else. Universes live in backend memory (they are lost when the backend restarts, and the app says so).
-- **History:** the left sidebar's History panel scrubs and replays what the backend recorded (nothing is interpolated); **Show paths** draws recorded paths. **Snapshots** save and restore a universe (restore and Reset ask for confirmation).
+- **Universes:** the Universes drawer lists them; only the active one advances, and each keeps its exact time when you leave it. **Load as new universe** creates a preset (the Solar System at J2000.0, with or without major moons) without touching anything else. Snapshots and, for scenes with moons, the body list are in the same drawer. Universes live in backend memory (they are lost when the backend restarts, and the app says so).
+- **History:** the History drawer scrubs and replays what the backend recorded (nothing is interpolated); **Show paths** in the bar draws recorded paths. **Snapshots** save and restore a universe (restore and Reset ask for confirmation).
 - **Body catalogue:** nine sourced entries (Sun, Proxima Centauri, TRAPPIST-1, Sirius A, Betelgeuse, Earth, Mars, Jupiter, Neptune) with value, uncertainty, source and basis; estimated values are flagged. A catalogue entry only prefills the create form.
 - **Orbit Lab:** "Start Experiment 01" creates the baseline (Sun + Earth-Moon barycentre), you choose a speed factor (preview first), create the modified run, advance each run with the normal controls, switch between them, and read the comparison (`context/EXPERIMENT_01_PROTOCOL.md`).
 

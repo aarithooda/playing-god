@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import type { CatalogueEntryDto } from '../../api/types';
 import { resolveCelestialAssets } from '../../assets/registry';
 import { btnStyle, drawerSectionStyle } from './styles';
@@ -12,17 +12,8 @@ interface CataloguePanelProps {
 
 /** A compact picker: choose a body, then click in the scene to place it. */
 export const CataloguePanel: React.FC<CataloguePanelProps> = ({ entries, onPlace, disabled }) => {
-  const [activeGroupId, setActiveGroupId] = useState<string | null>('stars');
-  const panelRef = useRef<HTMLElement>(null);
-  useEffect(() => {
-    const clearSelectionOutsidePanel = (event: PointerEvent) => {
-      if (event.target instanceof Node && !panelRef.current?.contains(event.target)) {
-        setActiveGroupId(null);
-      }
-    };
-    document.addEventListener('pointerdown', clearSelectionOutsidePanel);
-    return () => document.removeEventListener('pointerdown', clearSelectionOutsidePanel);
-  }, []);
+  // One set is always shown: the catalogue lives in a persistent drawer, so a click elsewhere must not empty it.
+  const [activeGroupId, setActiveGroupId] = useState('stars');
   if (entries.length === 0) return null;
   const groups = [
     { id: 'stars', name: 'Stars', entries: entries.filter((entry) => entry.kind === 'star') },
@@ -31,7 +22,7 @@ export const CataloguePanel: React.FC<CataloguePanelProps> = ({ entries, onPlace
   ];
   const activeGroup = groups.find((group) => group.id === activeGroupId);
   return (
-    <section ref={panelRef} aria-label="Body catalogue" style={{ ...drawerSectionStyle, width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <section aria-label="Body catalogue" style={{ ...drawerSectionStyle, width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
       <h3 style={{ margin: 0, fontSize: 14 }}>Body catalogue</h3>
       <div role="tablist" aria-label="Body sets" style={{ display: 'flex', gap: 5 }}>
         {groups.map((group) => {

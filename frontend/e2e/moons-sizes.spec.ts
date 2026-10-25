@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { legacyPath, universeLayer } from "./universeLayer";
+import { openTool } from "./tools";
 
 const presets = JSON.parse(readFileSync(fileURLToPath(new URL("../src/test/presetBodies.json", import.meta.url)), "utf-8")) as Record<string, unknown>;
 
@@ -49,6 +50,7 @@ test("moons preset: all bodies listed, nested under their planet, physical sizes
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
   await expect(page.getByTestId("backend-status")).toContainText("connected");
+  await openTool(page, "Universes"); // the body list sits with the universe it lists
 
   const list = page.getByRole("region", { name: "Bodies" });
   await expect(list.getByRole("listitem")).toHaveCount(21);
@@ -88,6 +90,7 @@ test("original preset: no moon list and the same default size mode", async ({ pa
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
   await expect(page.getByTestId("backend-status")).toContainText("connected");
+  await openTool(page, "Universes"); // where the list would be: absent there, not merely hidden
   await expect(page.getByRole("region", { name: "Bodies" })).toHaveCount(0); // the list appears only for scenes with moons
   await expect(page.getByRole("button", { name: "Exploration View" })).toHaveAttribute("aria-pressed", "true");
 });

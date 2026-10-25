@@ -10,6 +10,13 @@
 3. Verified locally: frontend typecheck; Vitest 206/206 across 23 files; build (existing >500 kB warning); Playwright 5/5; diff check. The profile measured 1/16/64 bodies at median 33.4/50.0/99.9 ms per animation frame in Windows headless Chrome with GPU disabled by test config; treat as software frame pacing, not hardware GPU timing. E2E stubs backend responses. Do not merge into `main` without owner approval; real-hardware profiling and UI-0 integration remain follow-ups.
 # Handoff (latest — rewrite at end of each session)
 
+## UI redesign `feature/ui-redesign-vo690b` (2026-10-25, Claude Opus 5.5) - latest
+1. The redesign arrived from the desktop as the WIP snapshot `8396fbd` (never committed there). It is kept as is, by owner decision: it also carries non-UI work (backend `api_universes.py`, `impact/materials.py`, `simulation.py`; `sim/ambientSound.ts`, `defaultMaterial.ts`, `useObservedRate.ts`) that belongs to the separate rendering/simulation-stability task; separate it after the redesign is stable. Nothing reset, amended, pushed or merged.
+2. Shell: tool rail (Add, Universes, Orbit Lab, Events, History, Diagnostics) + one left drawer, bottom simulation bar (run controls, clock, step size, reset, view controls), right inspector on selection. Geometry is owned by `frontend/src/components/ui/layout.ts`, mirrored in `index.css`. This session: phone layout (drawer closed at start, two-row bar that fits its reserved height, icon-only Reset), catalogue no longer empties itself on an outside click, tests and e2e selectors moved to the new tools (`frontend/e2e/tools.ts`; `src/test/appHelpers.ts`).
+3. Browsers here: Playwright 1.64.1 expects Chromium 1248; the container has 1243. Run with `PW_CHROMIUM_PATH=/opt/pw-browsers/chromium` (specs) or `E2E_CHROMIUM=... E2E_PYTHON=...` (scripts). Running the alignment spec rewrites `context/evidence/stage9-webgl/*.png`.
+4. Next: owner review of the redesign in a real browser/GPU; then split the WIP snapshot's non-UI changes onto their own branch.
+
+
 ## Integration branch `integration/main-plus-collision-engine` (2026-10-25, Claude Opus 5.5) - latest
 1. Local only (nothing pushed or merged). Base: verified `origin/main` `4ae90a2`. Collision engine merged in (`6902d35`), then the contact-state fix (D-063). Read `context/INTEGRATION_BRANCH.md` section 1-5 first: ancestry, run commands, quickest collision reproduction, what ran, what did not.
 2. D-063: impact records now use a gravity-consistent contact state (integrated copy), and the detection criterion is judged on internal IAS15 steps. Legacy merger events and body state are unchanged.

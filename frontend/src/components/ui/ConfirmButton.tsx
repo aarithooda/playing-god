@@ -14,13 +14,15 @@ interface ConfirmButtonProps {
   /** Shown before the label in the first button. */
   icon?: React.ReactNode;
   style?: React.CSSProperties;
+  /** Class of the first button, for layouts that restyle it (for example an icon-only form on a phone). */
+  className?: string;
 }
 
 /**
  * A destructive action needs two deliberate presses: the first arms it, the second runs it. An armed button disarms
  * itself after a few seconds, so a forgotten prompt cannot be confirmed by a stray later click.
  */
-export const ConfirmButton: React.FC<ConfirmButtonProps> = ({ label, confirmLabel, onConfirm, disabled, title, ariaLabel, icon, style }) => {
+export const ConfirmButton: React.FC<ConfirmButtonProps> = ({ label, confirmLabel, onConfirm, disabled, title, ariaLabel, icon, style, className }) => {
   const [armed, setArmed] = useState(false);
   useEffect(() => {
     if (!armed) return;
@@ -35,6 +37,7 @@ export const ConfirmButton: React.FC<ConfirmButtonProps> = ({ label, confirmLabe
     return (
       <button
         type="button"
+        className={className}
         style={{ ...btnStyle, display: 'inline-flex', alignItems: 'center', gap: 6, ...style }}
         disabled={disabled}
         title={title}
@@ -42,7 +45,7 @@ export const ConfirmButton: React.FC<ConfirmButtonProps> = ({ label, confirmLabe
         onClick={() => setArmed(true)}
       >
         {icon}
-        {label}
+        <span className="pg-confirm__label">{label}</span>
       </button>
     );
   }

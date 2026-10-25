@@ -96,6 +96,13 @@ function browserCandidates() {
   out.push({ channel: "chrome" }, { channel: "msedge" });
   return out;
 }
+// Opens a tool of the left rail (its accessible name may carry a count, e.g. "Events (1)") unless it is already open.
+async function openTool(page, label) {
+  const button = page.getByRole("button", { name: new RegExp(`^${label}( \\(\\d+\\))?$`) });
+  if ((await button.getAttribute("aria-pressed")) !== "true") await button.click();
+  await page.locator('[data-testid="sidebar-left"][data-open="true"]').waitFor();
+}
+
 async function launchBrowser() {
   const errors = [];
   for (const candidate of browserCandidates()) {
@@ -177,7 +184,7 @@ try {
     await page.getByText("Backend: connected").waitFor();
     await until(async () => (await page.getByRole("button", { name: "Step Forward" }).isEnabled()), "Step Forward to be enabled");
     await page.locator("canvas").first().waitFor();
-    await page.getByRole("button", { name: /^Expand Body catalogue & history/ }).click(); // the left sidebar (events, diagnostics) starts collapsed
+    await openTool(page, "Events"); // the events list is one tool of the left rail
   });
 
   await step("Step Forward (10^3.5 s each, at most 3) advances through the real API and the backend resolves the collision", async () => {

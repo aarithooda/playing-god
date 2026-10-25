@@ -140,6 +140,7 @@ export const SimulationBar: React.FC<SimulationBarProps> = ({
         confirmLabel="Confirm reset"
         title={historyView ? 'Return to live to reset' : 'Return this universe to its initial state'}
         icon={<Icon name="reset" size={16} />}
+        className="pg-bar__reset"
         onConfirm={onReset}
         disabled={disabled || historyView}
         style={{ background: 'transparent', borderColor: theme.border, color: theme.textMuted }}

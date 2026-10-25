@@ -5,7 +5,7 @@ import { UniverseSwitcher } from "./components/ui/UniverseSwitcher";
 import { Wordmark } from "./components/ui/Wordmark";
 import { EntrySequence, shouldShowIntro } from "./components/ui/EntrySequence";
 import type { ToolId } from "./components/ui/ToolRail";
-import { enforceNarrow, type SidebarState } from "./components/ui/layout";
+import { enforceNarrow, initialSidebars, type SidebarState } from "./components/ui/layout";
 import { btnStyle, panelStyle } from "./components/ui/styles";
 import { theme } from "./components/ui/theme";
 import { useAmbientSound } from "./sim/ambientSound";
@@ -36,8 +36,8 @@ export default function App() {
   const universes = useUniverses(client);
   const catalogue = useCatalogue(client);
   const orbitLab = useOrbitLab(client, universes.refresh);
-  // The drawer opens on the Add tool; the inspector appears only once a body is selected.
-  const [sidebars, setSidebars] = useState<SidebarState>({ left: true, right: false });
+  // The drawer opens on the Add tool (not on a phone); the inspector appears only once a body is selected.
+  const [sidebars, setSidebars] = useState<SidebarState>(() => initialSidebars(window.innerWidth));
   const [tool, setTool] = useState<ToolId>("create");
   const [intro, setIntro] = useState(shouldShowIntro);
   const sound = useAmbientSound();

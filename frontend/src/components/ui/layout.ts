@@ -2,6 +2,9 @@
 // shifted so the scene is centred in the free area between the left tool rail + drawer and the right inspector
 // (see UniverseCanvas). The numbers mirror the CSS custom properties in index.css, breakpoint for breakpoint.
 
+/** At or below this window width the panels cover the scene as sheets instead of sharing the window with it. */
+export const PHONE_BREAKPOINT = 760;
+
 /** Below this window width the drawer and the inspector are never open together. */
 export const NARROW_BREAKPOINT = 1100;
 
@@ -12,9 +15,14 @@ export interface ShellMetrics {
   bar: number;
 }
 
+/** The drawer starts open beside the scene, but not on a phone, where it would cover the whole scene at first sight. */
+export function initialSidebars(windowWidth: number): SidebarState {
+  return { left: windowWidth > PHONE_BREAKPOINT, right: false };
+}
+
 /** Widths of the shell surfaces at a window width (the same breakpoints as index.css). */
 export function shellMetrics(windowWidth: number): ShellMetrics {
-  if (windowWidth <= 760) {
+  if (windowWidth <= PHONE_BREAKPOINT) {
     const rail = 56;
     return { rail, drawer: Math.max(0, windowWidth - rail), inspector: Math.max(0, windowWidth - rail), bar: 108 };
   }
@@ -32,7 +40,7 @@ export interface SidebarState {
 export function insets(state: SidebarState, windowWidth: number, inspectorVisible: boolean): { left: number; right: number } {
   const m = shellMetrics(windowWidth);
   // On a phone-sized window the panels cover the scene instead of sharing it; keep the scene centred on the window.
-  if (windowWidth <= 760) return { left: m.rail, right: 0 };
+  if (windowWidth <= PHONE_BREAKPOINT) return { left: m.rail, right: 0 };
   return { left: m.rail + (state.left ? m.drawer : 0), right: state.right && inspectorVisible ? m.inspector : 0 };
 }
 

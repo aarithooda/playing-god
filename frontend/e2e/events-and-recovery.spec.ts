@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { legacyPath, universeLayer } from "./universeLayer";
+import { openTool } from "./tools";
 
 const sun = {
   id: "body-aaaaaaaaaaaa",
@@ -76,15 +77,15 @@ test("shows backend merger metadata and keeps the layout responsive", async ({ p
 
   await page.getByRole("button", { name: "Step Forward" }).click();
   await expect(page.getByText(/Sim time: 1.16 d/)).toBeVisible();
-  await page.getByRole("button", { name: "Expand Body catalogue & history" }).click();
-  await expect(page.getByTestId("sidebar-left")).toHaveAttribute("data-open", "true");
+  await openTool(page, "Events");
+  await expect(page.getByTestId("sidebar-left")).toHaveAttribute("data-tool", "events");
   await expect(page.getByTestId("sidebar-right")).toHaveAttribute("data-open", "false");
 
   await expect(page.getByTestId("event-item")).toContainText("estimated contact t = 1.94 h");
   await expect(page.getByTestId("event-item")).toContainText("spin booked");
   const highlightResult = page.getByRole("button", { name: "Highlight surviving body Sun" });
   await highlightResult.click();
-  // At this viewport selecting a body opens Controls and collapses History, so the event button
+  // At this viewport selecting a body opens the inspector and closes the tool drawer, so the event button
   // unmounts after selection. The inspector confirms that the active backend body was selected.
   await expect(page.getByRole("heading", { name: "Body Inspector" })).toBeVisible();
   await expect(page.getByTestId("sidebar-left")).toHaveAttribute("data-open", "false");

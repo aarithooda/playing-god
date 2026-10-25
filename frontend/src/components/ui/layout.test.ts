@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   NARROW_BREAKPOINT,
+  PHONE_BREAKPOINT,
+  initialSidebars,
   enforceNarrow,
   insets,
   sceneShiftPx,
@@ -64,5 +66,14 @@ describe("toggleSidebar", () => {
 
   it("closing never opens the other one", () => {
     expect(toggleSidebar({ left: true, right: true }, "left", false, narrow)).toEqual({ left: false, right: true });
+  });
+});
+
+describe("initialSidebars", () => {
+  it("opens the drawer beside the scene, but not on a phone where it would cover it", () => {
+    expect(initialSidebars(1440)).toEqual({ left: true, right: false });
+    expect(initialSidebars(PHONE_BREAKPOINT + 1)).toEqual({ left: true, right: false });
+    expect(initialSidebars(PHONE_BREAKPOINT)).toEqual({ left: false, right: false });
+    expect(initialSidebars(390)).toEqual({ left: false, right: false });
   });
 });

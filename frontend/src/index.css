@@ -598,10 +598,15 @@ input[type="radio"], input[type="checkbox"] {
     padding: 6px 10px;
   }
   .pg-bar__spacer { display: none; }
-  .pg-bar__view { width: 100%; justify-content: space-between; }
+  /* Two rows: run controls, time, step size, reset and sound; then the view controls across the full width. */
+  .pg-bar__view { order: 10; flex: 1 0 100%; justify-content: space-between; gap: 2px; }
+  .pg-bar__view .pg-divider { display: none; }
+  .pg-bar__view .pg-seg button { padding: 5px 8px; }
+  .pg-bar__reset { padding: 0 9px; min-height: 34px; }
+  .pg-bar__reset .pg-confirm__label { display: none; }
   .pg-rail__btn { width: 48px; font-size: 9.5px; }
   .pg-clock { min-width: 0; }
-  .pg-speed { width: 120px; }
+  .pg-speed { flex: 1 1 96px; width: auto; min-width: 96px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

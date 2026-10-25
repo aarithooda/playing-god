@@ -28,6 +28,14 @@ describe("CataloguePanel", () => {
     expect(JSON.stringify(entries)).toBe(frozen);
   });
 
+  it("keeps the chosen set on screen when the user clicks elsewhere (it lives in a persistent drawer)", () => {
+    render(<CataloguePanel entries={[earthEntry, betelgeuseEntry]} onPlace={() => {}} disabled={false} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Planets" }));
+    fireEvent.pointerDown(document.body);
+    expect(screen.getByRole("tab", { name: "Planets" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("button", { name: "Place Earth" })).toBeTruthy();
+  });
+
   it("is empty-safe and disabled while the universe is not usable", () => {
     const { container, rerender } = render(<CataloguePanel entries={[]} onPlace={() => {}} disabled={false} />);
     expect(container.innerHTML).toBe("");
