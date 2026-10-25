@@ -9,6 +9,7 @@ import type { SurfaceMarkInput } from '../../render/contract';
 import { SurfaceMarks } from './SurfaceMarks';
 import { useCelestialMaterial } from './CelestialMaterial';
 import { RingGrains } from './RingGrains';
+import type { RingIntruder } from '../../sim/ringWorld';
 import { useRingWorldPlanetMaterial } from './RingWorldPlanet';
 import type { BodyKind, BodyType } from '../../api/types';
 
@@ -113,7 +114,7 @@ interface CelestialBodyProps {
   /** Draw at each snapshot without easing. */
   snap?: boolean;
   /** Ring World preset only: draw the cream gas giant and its particle rings (visual grains, not simulated bodies). */
-  ringWorld?: { animate: boolean };
+  ringWorld?: { animate: boolean; intruders?: readonly RingIntruder[] };
 }
 
 export const CelestialBody: React.FC<CelestialBodyProps> = ({
@@ -254,7 +255,7 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
             />
           </Sphere>
         )}
-        {ringWorld && <RingGrains radius={radius} animate={ringWorld.animate} />}
+        {ringWorld && <RingGrains radius={radius} animate={ringWorld.animate} intruders={ringWorld.intruders ?? []} />}
         {!ringWorld && textures.rings && (
           <mesh rotation={[Math.PI / 2, 0, 0]} raycast={() => undefined}>
             <ringGeometry args={[
