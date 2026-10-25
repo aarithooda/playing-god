@@ -1,3 +1,5 @@
+> **2026-10-25 (Claude Opus 5.5), UI redesign:** branch `feature/ui-redesign-vo690b` = WIP snapshot `8396fbd` (redesign plus unseparated non-UI work) + one commit with the phone layout, catalogue fix and test/e2e updates. Frontend verified (typecheck, build, 531 vitest, 14 Playwright, `e2e` 11/11, `e2e:collision` 10/10, software WebGL). Backend 1398 passed / 10 failed: 5 platform-dependent bit-for-bit goldens (fail on base `72b1525` too), 5 caused by the WIP snapshot's preset-material change (pass on base). Not pushed or merged.
+
 > **2026-10-25 (Claude Opus 5.5):** current development checkpoint is the local branch `integration/main-plus-collision-engine` (base `origin/main` 4ae90a2 + collision engine + D-063). See `context/INTEGRATION_BRANCH.md`. Not pushed or merged; not scientifically validated (D-059).
 
 ## UI-4 / UI-6 independent frontend branch (2026-10-24) — latest

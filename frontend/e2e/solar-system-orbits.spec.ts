@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { legacyPath, universeLayer } from "./universeLayer";
+import { openTool } from "./tools";
 
 // D-064: the Solar System preset opens on the tilted overview with its display-only reference orbits, the labelled
 // outer bodies and the main-belt sample; the guides never block selecting a body. Served from the committed preset
@@ -56,6 +57,7 @@ test("Solar System preset: labelled reference orbits, belt and guides toggle; se
   await expect(page.getByTestId("reference-orbits-note")).toContainText("not simulated");
 
   // Guides are display only: a body is still selected from the scene's list and the inspector opens.
+  await openTool(page, "Universes"); // the body list sits with the universe it lists
   await page.getByRole("region", { name: "Bodies" }).getByRole("button", { name: "Saturn", exact: true }).click();
   await expect(page.getByTestId("inspect-visual-radius")).toBeVisible();
 
@@ -76,6 +78,7 @@ test("a universe that is not a Solar System preset draws no reference orbits", a
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
   await expect(page.getByTestId("backend-status")).toContainText("connected");
+  await openTool(page, "Universes");
   await expect(page.getByRole("region", { name: "Bodies" }).getByRole("listitem")).toHaveCount(21);
   await expect(page.locator("[data-orbit-label]")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Orbit guides" })).toHaveCount(0);

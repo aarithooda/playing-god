@@ -78,7 +78,7 @@ describe("PresetPicker", () => {
   it("loads the chosen available preset and says it creates a new universe", () => {
     const onLoad = vi.fn();
     render(<PresetPicker presets={[solarPreset]} disabled={false} onLoad={onLoad} />);
-    fireEvent.click(screen.getByRole("button", { name: "Load as new universe" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Load .* as new universe$/ }));
     expect(onLoad).toHaveBeenCalledWith("solar-system-j2000");
     expect(screen.getByText(/nothing existing is replaced/)).toBeTruthy();
   });
@@ -93,7 +93,7 @@ describe("PresetPicker", () => {
       />,
     );
     expect(screen.getByText(/does not match its recorded hash/)).toBeTruthy();
-    expect((screen.getByRole("button", { name: "Load as new universe" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: /^Load .* as new universe$/ }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("renders nothing when the backend offers no presets", () => {

@@ -3,7 +3,7 @@ import type { ScopedClient } from '../../api/client';
 import type { SnapshotSummaryDto } from '../../api/types';
 import { formatDuration } from '../../sim/format';
 import { ConfirmButton } from './ConfirmButton';
-import { btnStyle, errorTextStyle, inputStyle, panelStyle } from './styles';
+import { btnStyle, errorTextStyle, inputStyle, drawerSectionStyle } from './styles';
 import { theme } from './theme';
 
 interface SnapshotPanelProps {
@@ -64,7 +64,7 @@ export const SnapshotPanel: React.FC<SnapshotPanelProps> = ({
   };
 
   return (
-    <section aria-label="Snapshots" style={{ ...panelStyle, width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <section aria-label="Snapshots" style={{ ...drawerSectionStyle, width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
       <h3 style={{ margin: 0, fontSize: 14 }}>Snapshots</h3>
       {blockedReason ? (
         <p style={{ margin: 0, fontSize: 11, color: theme.textMuted }}>{blockedReason}</p>

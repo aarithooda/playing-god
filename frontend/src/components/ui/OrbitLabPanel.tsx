@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import type { ExperimentDto, InitialDifferencesDto, OrbitLabSystemDto, Vec3Tuple } from '../../api/types';
 import { ConfirmButton } from './ConfirmButton';
-import { btnStyle, errorTextStyle, panelStyle } from './styles';
+import { btnStyle, errorTextStyle, drawerSectionStyle } from './styles';
 import { theme } from './theme';
 
 interface OrbitLabPanelProps {
@@ -74,7 +74,7 @@ export const OrbitLabPanel: React.FC<OrbitLabPanelProps> = ({
   if (!experiment) {
     const system = systems[0];
     return (
-      <section aria-label="Orbit Lab" style={{ ...panelStyle, width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <section aria-label="Orbit Lab" style={{ ...drawerSectionStyle, width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
         {header}
         {system ? (
           <>
@@ -123,7 +123,7 @@ export const OrbitLabPanel: React.FC<OrbitLabPanelProps> = ({
   const m = experiment.modification;
 
   return (
-    <section aria-label="Orbit Lab" style={{ ...panelStyle, width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <section aria-label="Orbit Lab" style={{ ...drawerSectionStyle, width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
       {header}
       <p style={{ margin: 0, fontSize: 12 }}>{system.description}</p>
       <div style={rowStyle}>

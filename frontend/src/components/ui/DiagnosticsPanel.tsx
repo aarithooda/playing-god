@@ -7,7 +7,7 @@ import {
   orbitalPlusBookedSpin,
 } from '../../sim/diagnosticsFormat';
 import type { LoadStatus } from '../../sim/useSimulation';
-import { labelStyle, panelStyle } from './styles';
+import { labelStyle, drawerSectionStyle } from './styles';
 import { theme } from './theme';
 
 interface DiagnosticsPanelProps {
@@ -17,6 +17,8 @@ interface DiagnosticsPanelProps {
   issue: string | null;
   /** The scene shows a recorded state: these diagnostics are the live state's, not that sample's. */
   historyView?: boolean;
+  /** Start expanded (the diagnostics drawer shows nothing else). */
+  defaultOpen?: boolean;
 }
 
 const noteStyle: React.CSSProperties = { fontSize: '11px', color: theme.textMuted, marginTop: '2px' };
@@ -39,8 +41,8 @@ const Row: React.FC<RowProps> = ({ id, label, value, note }) => (
 );
 
 /** System-level (all bodies) diagnostics, exactly as computed by the backend; collapsed by default. */
-export const DiagnosticsPanel: React.FC<DiagnosticsPanelProps> = ({ loadStatus, diagnostics, issue, historyView = false }) => {
-  const [open, setOpen] = useState(false);
+export const DiagnosticsPanel: React.FC<DiagnosticsPanelProps> = ({ loadStatus, diagnostics, issue, historyView = false, defaultOpen = false }) => {
+  const [open, setOpen] = useState(defaultOpen);
 
   let body: React.ReactNode;
   if (loadStatus !== 'ready') {
@@ -118,7 +120,7 @@ export const DiagnosticsPanel: React.FC<DiagnosticsPanelProps> = ({ loadStatus, 
   return (
     <div
       style={{
-        ...panelStyle,
+        ...drawerSectionStyle,
         width: '100%',
       }}
     >

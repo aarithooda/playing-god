@@ -116,6 +116,7 @@ vi.mock("./api/client", async () => {
 
 import App from "./App";
 import * as fx from "./test/fixtures";
+import { openTool, waitForWorkspace } from "./test/appHelpers";
 
 const canvas = () => h.canvasProps.current;
 
@@ -136,7 +137,8 @@ beforeEach(() => {
 afterEach(cleanup);
 
 async function startExperiment() {
-  await screen.findByText("Simulation");
+  await waitForWorkspace();
+  openTool("Orbit Lab");
   fireEvent.click(await screen.findByRole("button", { name: "Start Experiment 01" }));
   await screen.findByTestId("run-badge");
 }
@@ -171,8 +173,10 @@ describe("Orbit Lab workflow in the app", () => {
     const sent = JSON.parse(h.calls.find((c) => c.startsWith("createModifiedRun"))!.slice("createModifiedRun:".length));
     expect(sent).toEqual({ bodyId: "body-earth", speedFactor: 1.1, replaceExisting: false });
     // the new run exists in the switcher, but it was not activated by creating it
+    openTool("Universes");
     expect(screen.getByRole("button", { name: "Switch to Orbit Lab · Modified" })).toBeTruthy();
     expect(screen.getByTestId("run-badge").textContent).toBe("Orbit Lab · BASELINE");
+    openTool("Orbit Lab");
     await waitFor(() => expect(screen.getByTestId("initial-check").textContent).toMatch(/Exactly one difference/));
   });
 
@@ -184,8 +188,9 @@ describe("Orbit Lab workflow in the app", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create modified run" }));
     expect((await screen.findByRole("alert")).textContent).toMatch(/speed factor 1\.1 is not allowed/);
     expect(screen.queryByTestId("modification-record")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Switch to Orbit Lab · Modified" })).toBeNull();
     expect(screen.queryByRole("region", { name: "Comparison" })).toBeNull();
+    openTool("Universes");
+    expect(screen.queryByRole("button", { name: "Switch to Orbit Lab · Modified" })).toBeNull();
   });
 
   it("switching to the modified run changes the badge; both runs reach the renderer as active and reference trajectories", async () => {
@@ -240,6 +245,7 @@ describe("Orbit Lab workflow in the app", () => {
   it("the baseline cannot be edited from the UI, and says why", async () => {
     render(<App />);
     await startExperiment();
+    openTool("Add");
     expect((screen.getByRole("button", { name: "Add body…" }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByRole("button", { name: "Add body…" }).getAttribute("title")).toMatch(/immutable reference/);
     act(() => canvas().onSelectBody("body-earth"));
@@ -250,6 +256,7 @@ describe("Orbit Lab workflow in the app", () => {
     expect((within(inspector).getByText("Apply") as HTMLButtonElement).disabled).toBe(true);
     expect((within(inspector).getByText("Delete") as HTMLButtonElement).disabled).toBe(true);
     // snapshots are refused for the baseline too
+    openTool("Universes");
     expect(screen.getByText(/immutable reference: it cannot be snapshotted or restored/)).toBeTruthy();
   });
 
@@ -272,14 +279,18 @@ describe("Orbit Lab workflow in the app", () => {
     await createRun();
     expect(screen.getByText(/Switch to another universe first/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Delete experiment" })).toBeNull();
+    openTool("Universes");
     fireEvent.click(screen.getByRole("button", { name: "Switch to Sandbox" }));
+    await waitForWorkspace();
+    openTool("Orbit Lab");
     fireEvent.click(await screen.findByRole("button", { name: "Delete experiment" }));
     expect(h.calls.some((c) => c.startsWith("deleteExperiment"))).toBe(false); // the first press only asks
     fireEvent.click(screen.getByRole("button", { name: /Delete both runs/ }));
     await waitFor(() => expect(h.calls).toContain("deleteExperiment:exp-1"));
     await screen.findByRole("button", { name: "Start Experiment 01" });
-    expect(screen.queryByRole("button", { name: /Switch to Orbit Lab/ })).toBeNull();
     expect(screen.queryByRole("region", { name: "Comparison" })).toBeNull();
+    openTool("Universes");
+    expect(screen.queryByRole("button", { name: /Switch to Orbit Lab/ })).toBeNull();
   });
 
   it("an experiment survives a page reload: it is found again and can be opened", async () => {
@@ -287,7 +298,8 @@ describe("Orbit Lab workflow in the app", () => {
     h.backend.live["uni-base"] = { bodies: [sun, earth], t: 0, revision: 1 };
     h.backend.experiments = [fx.experiment()];
     render(<App />);
-    await screen.findByText("Simulation");
+    await waitForWorkspace();
+    openTool("Orbit Lab");
     fireEvent.click(await screen.findByRole("button", { name: /Open baseline of/ }));
     await screen.findByTestId("run-badge");
     expect(screen.getByTestId("run-badge").textContent).toBe("Orbit Lab · BASELINE");

@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { earth, sun } from "./test/fixtures";
+import { openTool, waitForWorkspace } from "./test/appHelpers";
 
 const h = vi.hoisted(() => {
   const gate: { step: null | { promise: Promise<void>; release: () => void }; reset: null | { promise: Promise<void>; release: () => void } } = { step: null, reset: null };
@@ -120,12 +121,15 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-const switchTo = (name: string) => fireEvent.click(screen.getByRole("button", { name: `Switch to ${name}` }));
+const switchTo = (name: string) => {
+  openTool("Universes");
+  fireEvent.click(screen.getByRole("button", { name: `Switch to ${name}` }));
+};
 
 describe("universe identity and navigation", () => {
   it("shows active universe name and role", async () => {
     render(<App />);
-    await screen.findByText("Simulation");
+    await waitForWorkspace();
     const active = screen.getByTestId("active-universe");
     expect(active.textContent).toMatch(/Sandbox/);
     expect(active.textContent).toMatch(/sandbox/);
@@ -135,7 +139,7 @@ describe("universe identity and navigation", () => {
 
   it("switching activates on the backend and shows the other universe's own state and time", async () => {
     render(<App />);
-    await screen.findByText("Simulation");
+    await waitForWorkspace();
     switchTo("Solar");
     await waitFor(() => expect(screen.getByTestId("universe-badge").textContent).toBe("Solar"));
     expect(h.calls).toContain("activate:uni-solar");
@@ -146,7 +150,7 @@ describe("universe identity and navigation", () => {
 
   it("switching remounts workspace and drops a late step response from the old universe", async () => {
     render(<App />);
-    await screen.findByText("Simulation");
+    await waitForWorkspace();
     h.gate.step = deferredGate();
     fireEvent.click(screen.getByRole("button", { name: "Step Forward" }));
     await waitFor(() => expect(h.calls).toContain("step:uni-default"));
@@ -162,10 +166,10 @@ describe("universe identity and navigation", () => {
     expect(screen.queryByText(/1\.000e\+2 s/)).toBeNull();
   });
 
-  it("selection and focus are cleared on switch; axes/grid and sidebars persist", async () => {
+  it("selection and focus are cleared on switch; axes/grid and the open tool persist", async () => {
     render(<App />);
-    await screen.findByText("Simulation");
-    fireEvent.click(screen.getByRole("button", { name: "Expand Body catalogue & history" }));
+    await waitForWorkspace();
+    openTool("Events");
     fireEvent.click(screen.getByRole("button", { name: "Axes" }));
     act(() => canvas().onSelectBody(earth.id));
     act(() => canvas().onFocusBody(earth.id));
@@ -179,16 +183,20 @@ describe("universe identity and navigation", () => {
     expect(canvas().focus).toBeUndefined();
     expect(canvas().viewControls.state.axesVisible).toBe(true);
     expect(screen.getByTestId("sidebar-left").getAttribute("data-open")).toBe("true");
-    expect(screen.getByTestId("sidebar-right").getAttribute("data-open")).toBe("true");
+    // the tool used for the switch is a workspace preference held by App: it survives the remount
+    expect(screen.getByTestId("sidebar-left").getAttribute("data-tool")).toBe("universes");
+    // the inspector belongs to a selection: with the selection gone it gives its side back to the scene
+    expect(screen.getByTestId("sidebar-right").getAttribute("data-open")).toBe("false");
   });
 
   it("switcher disabled while a write is pending", async () => {
     render(<App />);
-    await screen.findByText("Simulation");
+    await waitForWorkspace();
     h.gate.reset = deferredGate();
     fireEvent.click(screen.getByRole("button", { name: "Reset Universe" }));
     fireEvent.click(screen.getByRole("button", { name: /Confirm reset/ }));
     await waitFor(() => expect(h.calls).toContain("reset:uni-default"));
+    openTool("Universes");
     expect((screen.getByRole("button", { name: "Switch to Solar" }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText(/switching is blocked until it finishes/)).toBeTruthy();
     await act(async () => {
@@ -203,8 +211,9 @@ describe("universe identity and navigation", () => {
 describe("presets and creation", () => {
   it("loading a preset creates a new universe and does not delete the current one", async () => {
     render(<App />);
-    await screen.findByText("Simulation");
-    fireEvent.click(screen.getByRole("button", { name: "Load as new universe" }));
+    await waitForWorkspace();
+    openTool("Universes");
+    fireEvent.click(screen.getByRole("button", { name: /as new universe/ }));
     await waitFor(() => expect(h.calls.some((c) => c.startsWith("create:"))).toBe(true));
     const created = JSON.parse(h.calls.find((c) => c.startsWith("create:"))!.slice(7));
     expect(created).toEqual({ source: { kind: "preset", presetId: "solar-system-j2000" }, activate: true });
@@ -218,7 +227,7 @@ describe("presets and creation", () => {
 describe("resync", () => {
   it("stale-activation adopts backend active universe", async () => {
     render(<App />);
-    await screen.findByText("Simulation");
+    await waitForWorkspace();
     // Another tab switched while this one still thinks Sandbox is active.
     h.backend.active = "uni-solar";
     h.backend.epoch = 2;
@@ -230,7 +239,7 @@ describe("resync", () => {
 
   it("shows a universes-lost notice after a backend restart instead of stale state", async () => {
     render(<App />);
-    await screen.findByText("Simulation");
+    await waitForWorkspace();
     switchTo("Solar");
     await waitFor(() => expect(screen.getByTestId("universe-badge").textContent).toBe("Solar"));
     // The backend restarted: only a fresh default universe exists, with epoch 1.
@@ -251,14 +260,14 @@ describe("resync", () => {
     expect(alert.textContent).toMatch(/Cannot load the universes/);
     h.backend.lost = false;
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-    expect(await screen.findByText("Simulation")).toBeTruthy();
+    await waitForWorkspace();
   });
 });
 
 describe("destructive actions are confirmed", () => {
   it("reset and restore require confirmation", async () => {
     render(<App />);
-    await screen.findByText("Simulation");
+    await waitForWorkspace();
     fireEvent.click(screen.getByRole("button", { name: "Reset Universe" }));
     expect(h.calls.some((c) => c.startsWith("reset:"))).toBe(false); // the first press only asks
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
@@ -270,7 +279,8 @@ describe("destructive actions are confirmed", () => {
 
   it("deleting a universe asks first and never deletes the active one", async () => {
     render(<App />);
-    await screen.findByText("Simulation");
+    await waitForWorkspace();
+    openTool("Universes");
     const row = screen.getByRole("button", { name: "Switch to Solar" }).closest("li")!;
     fireEvent.click(within(row).getByRole("button", { name: "Delete" }));
     expect(h.calls.some((c) => c.startsWith("delete:"))).toBe(false);
@@ -284,11 +294,11 @@ describe("destructive actions are confirmed", () => {
 describe("user preferences survive a switch", () => {
   it("the simulation speed is kept when the universe changes", async () => {
     render(<App />);
-    await screen.findByText("Simulation");
+    await waitForWorkspace();
     const slider = () => screen.getByLabelText(/Sim Speed/) as HTMLInputElement;
     fireEvent.change(slider(), { target: { value: "6.5" } });
     expect(slider().value).toBe("6.5");
-    fireEvent.click(screen.getByRole("button", { name: "Switch to Solar" }));
+    switchTo("Solar");
     await waitFor(() => expect(screen.getByTestId("universe-badge").textContent).toBe("Solar"));
     await screen.findByText(/Sim time/);
     expect(slider().value).toBe("6.5");

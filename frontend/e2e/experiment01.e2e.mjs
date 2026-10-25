@@ -95,6 +95,13 @@ function browserCandidates() {
   return out;
 }
 
+// Opens a tool of the left rail (its accessible name may carry a count, e.g. "Events (1)") unless it is already open.
+async function openTool(page, label) {
+  const button = page.getByRole("button", { name: new RegExp(`^${label}( \\(\\d+\\))?$`) });
+  if ((await button.getAttribute("aria-pressed")) !== "true") await button.click();
+  await page.locator('[data-testid="sidebar-left"][data-open="true"]').waitFor();
+}
+
 async function launchBrowser() {
   const errors = [];
   for (const candidate of browserCandidates()) {
@@ -114,9 +121,11 @@ async function launchBrowser() {
 }
 
 // Counts blue-dominant pixels (path colour #3b82f6, including the muted dashed reference path, which is that colour at 55 % opacity) in a screenshot of the scene area, to see that
-// paths were drawn. (The WebGL canvas cannot be read back directly, so the page's own screenshot is decoded in the page.)
+// paths were drawn. The scene area is the workspace's free area between the panels and above the bar (the panels have blue controls of their own).
+// (The WebGL canvas cannot be read back directly, so the page's own screenshot is decoded in the page.)
 async function blueish(page) {
-  const png = (await page.screenshot({ clip: { x: 40, y: 0, width: 1500 - 40 - 340, height: 900 } })).toString("base64");
+  const box = await page.getByTestId("free-area").boundingBox();
+  const png = (await page.screenshot({ clip: { x: Math.ceil(box.x), y: Math.ceil(box.y), width: Math.floor(box.width), height: Math.floor(box.height) } })).toString("base64");
   return page.evaluate(async (b64) => {
     const img = new Image();
     img.src = `data:image/png;base64,${b64}`;
@@ -184,6 +193,7 @@ try {
   await page.getByLabel(/Sim Speed/).fill("6");
 
   await step("start Experiment 01: baseline created and active", async () => {
+    await openTool(page, "Orbit Lab");
     await page.getByRole("button", { name: "Start Experiment 01" }).click();
     await page.getByTestId("run-badge").getByText("Orbit Lab · BASELINE", { exact: true }).waitFor();
     const list = (await j("/api/v1/orbit-lab/experiments")).body.experiments;
@@ -285,6 +295,7 @@ try {
 
   await step("snapshot, restore and reset act on the modified run only", async () => {
     const baseAt = JSON.stringify(await state(exp.base));
+    await openTool(page, "Universes");
     await page.getByLabel("Snapshot name").fill("e2e");
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await page.getByTestId("snapshot-item").waitFor();
@@ -321,8 +332,10 @@ try {
   });
 
   await step("the baseline refuses edits through the API and the UI", async () => {
+    await openTool(page, "Orbit Lab");
     await page.getByRole("button", { name: "Go to baseline" }).click();
     await page.getByTestId("run-badge").getByText("Orbit Lab · BASELINE", { exact: true }).waitFor();
+    await openTool(page, "Add");
     assert.equal(await page.getByRole("button", { name: "Add body…" }).isDisabled(), true);
     const epoch = (await j("/api/v1/universes")).body.activationEpoch;
     const r = await j(`/api/v1/universes/${exp.base}/bodies/body-earth?activationEpoch=${epoch}`, {
@@ -333,7 +346,9 @@ try {
   });
 
   await step("deleting the experiment from the sandbox removes both runs", async () => {
+    await openTool(page, "Universes");
     await page.getByRole("button", { name: /Switch to Sandbox/ }).click();
+    await openTool(page, "Orbit Lab");
     await page.getByRole("button", { name: "Delete experiment" }).click();
     await page.getByRole("button", { name: "Delete both runs" }).click();
     await until(async () => (await j("/api/v1/orbit-lab/experiments")).body.experiments.length === 0, "the experiment to disappear");

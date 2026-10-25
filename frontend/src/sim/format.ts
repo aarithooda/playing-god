@@ -26,3 +26,16 @@ export function formatDuration(seconds: number): string {
 function trim(x: number): string {
   return String(Number(x.toPrecision(3)));
 }
+
+const SUPERSCRIPT: Record<string, string> = { "-": "⁻", "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹" };
+
+/** Three significant figures for reading at a glance: 9.82, 5,513, 5.97 × 10²⁴ (display only, never parsed back). */
+export function formatReadout(x: number): string {
+  if (!Number.isFinite(x)) return "—";
+  if (x === 0) return "0";
+  const abs = Math.abs(x);
+  if (abs >= 0.01 && abs < 1e5) return Number(x.toPrecision(3)).toLocaleString("en-US", { maximumSignificantDigits: 3 });
+  const [mantissa, exponent] = x.toExponential(2).split("e");
+  const exp = String(Number(exponent)).split("").map((c) => SUPERSCRIPT[c] ?? c).join("");
+  return `${mantissa} × 10${exp}`;
+}
