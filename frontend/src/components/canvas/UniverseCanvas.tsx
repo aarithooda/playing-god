@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Html, OrbitControls } from '@react-three/drei';
-import { Group, PerspectiveCamera, Raycaster, Vector2, Vector3 } from 'three';
+import { BufferAttribute, BufferGeometry, Group, Line, LineBasicMaterial, PerspectiveCamera, Raycaster, Vector2, Vector3 } from 'three';
 import { CelestialBody } from './CelestialBody';
 import { StarfieldShell } from './StarfieldShell';
 import { MilkyWayBackdrop } from './MilkyWayBackdrop';
@@ -74,6 +74,8 @@ interface UniverseCanvasProps {
   collisionEffects?: readonly CollisionEffectInput[];
   /** Marks at body-local directions (UI-0, Stage 9, D-053). Display only. */
   surfaceMarks?: readonly SurfaceMarkInput[];
+  /** Scene position of the body a new one is placed relative to (draws the placement sight line). */
+  placementAnchor?: ScenePosition | null;
   /** Display-only reference orbits and main-belt sample of a Solar System preset (D-064); also selects its tilted overview. */
   referenceOrbits?: ReferenceOrbitsInput;
   /** Preset the universe was created from; "saturn-particle-rings" switches on the Ring World scene (display only). */
@@ -310,7 +312,8 @@ const PlacementCursor: React.FC<{
   onConfirm: (position: ScenePosition) => void;
   onCancel: () => void;
   onPreview?: (position: ScenePosition | null) => void;
-}> = ({ active, radius, visiblePx, maxGrowth, onConfirm, onCancel, onPreview }) => {
+  anchor?: ScenePosition | null;
+}> = ({ active, radius, visiblePx, maxGrowth, onConfirm, onCancel, onPreview, anchor }) => {
   const camera = useThree((s) => s.camera);
   const size = useThree((s) => s.size);
   const gl = useThree((s) => s.gl);
@@ -322,6 +325,34 @@ const PlacementCursor: React.FC<{
   const placed = useRef(false);
   const meshGroup = useRef<Group>(null);
   const previewRef = useRef<ScenePosition | null>(null);
+
+  // Sight line A -> preview, updated in place each frame from refs (no React renders, no allocations).
+  const anchorRef = useRef<ScenePosition | null>(null);
+  anchorRef.current = anchor ?? null;
+  const lineObject = useMemo(() => {
+    const geometry = new BufferGeometry();
+    geometry.setAttribute('position', new BufferAttribute(new Float32Array(6), 3));
+    const material = new LineBasicMaterial({ color: '#e2e8f0', transparent: true, opacity: 0.55, depthWrite: false });
+    const line = new Line(geometry, material);
+    line.frustumCulled = false;
+    line.renderOrder = 9;
+    line.visible = false;
+    return line;
+  }, []);
+  useEffect(() => () => { lineObject.geometry.dispose(); (lineObject.material as LineBasicMaterial).dispose(); }, [lineObject]);
+  useFrame(() => {
+    const a = anchorRef.current;
+    const b = previewRef.current;
+    if (!active || !a || !b) {
+      lineObject.visible = false;
+      return;
+    }
+    const attr = lineObject.geometry.getAttribute('position') as BufferAttribute;
+    attr.setXYZ(0, a[0], a[1], a[2]);
+    attr.setXYZ(1, b[0], b[1], b[2]);
+    attr.needsUpdate = true;
+    lineObject.visible = true;
+  });
 
   // Match the body's own view-dependent display sizing so the placement ghost is the size that will be rendered after creation.
   useFrame(() => {
@@ -418,6 +449,8 @@ const PlacementCursor: React.FC<{
 
   if (!active) return null;
   return (
+    <>
+    <primitive object={lineObject} />
     <group ref={meshGroup} visible={false} renderOrder={10}>
       <mesh>
         <sphereGeometry args={[radius, 32, 24]} />
@@ -428,6 +461,7 @@ const PlacementCursor: React.FC<{
         <meshBasicMaterial color="#e2e8f0" wireframe transparent opacity={0.7} depthWrite={false} />
       </mesh>
     </group>
+    </>
   );
 };
 
@@ -456,6 +490,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
   labeledBodyIds = [],
   collisionEffects = [],
   surfaceMarks = [],
+  placementAnchor = null,
   referenceOrbits,
   presetId = null,
   ringWorldAnimate = false,
@@ -542,6 +577,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
           clearance={body.clearance}
           systemPx={body.systemPx}
           orientation={body.orientation}
+          snap={body.snap}
           marks={surfaceMarks.filter((m) => m.bodyId === body.id)}
           ringWorld={ringWorldBody?.id === body.id ? { animate: ringWorldAnimate } : undefined}
           isSelected={selectedBodyId === body.id}
@@ -560,6 +596,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
         onConfirm={onPlacementConfirm}
         onCancel={onPlacementCancel}
         onPreview={onPlacementPreview}
+        anchor={placementAnchor}
       />
       <OrbitControls makeDefault enabled={!placementMode} />
       <CameraRig

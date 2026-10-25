@@ -194,7 +194,6 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
   useEffect(() => {
     if (!selectedBodyId && sidebars.right) setSidebars((s) => ({ ...s, right: false }));
   }, [selectedBodyId, sidebars.right, setSidebars]);
-  const closeInspector = useCallback(() => setSelectedBodyId(undefined), []);
 
   // Recorded history (UI-2). The backend recorded it; this only displays it. While a recorded sample is viewed, the
   // simulation is paused and the scene shows that sample through the very same display path as live bodies.
@@ -224,7 +223,7 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
     [frame, bodies],
   );
   // Display radii are capped by neighbour spacing so crowded systems (the inner planets) do not overlap; display only.
-  const sceneBodies = useMemo(() => buildSceneBodies(displayBodies, transform, sizeMode), [displayBodies, transform, sizeMode]);
+  const sceneBodies = useMemo(() => buildSceneBodies(displayBodies, transform, sizeMode, simulation.playing ? simulation.stepSeconds : 0), [displayBodies, transform, sizeMode, simulation.playing, simulation.stepSeconds]);
 
   // Collision effects (UI-0, Stage 9): the renderer gets only what the visual descriptions and the displayed body states say.
   const effectBodies = useMemo(() => displayBodies.map((b) => ({ id: b.id, positionM: b.positionM, radiusM: b.radiusM })), [displayBodies]);
@@ -329,6 +328,18 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
     }));
     setPlacementMode(false);
   }, [bodies.length, layoutEpoch, transform]);
+  const placementAnchorScene = useMemo(
+    () => (selectedBodyId ? sceneBodies.find((b) => b.id === selectedBodyId)?.position ?? null : null),
+    [selectedBodyId, sceneBodies],
+  );
+  // Dismissing a focused body returns the camera to the Sun (the first star).
+  const closeInspector = useCallback(() => {
+    setSelectedBodyId(undefined);
+    if (focusedBodyId === undefined) return;
+    const star = sceneBodies.find((b) => b.kind === "star");
+    if (star && star.id !== focusedBodyId) focusBody(star.id);
+    else setFocusedBodyId(undefined);
+  }, [focusedBodyId, sceneBodies, focusBody]);
   const cancelPlacement = useCallback(() => setPlacementMode(false), []);
   const placementCreateResult = useCallback((success: boolean) => {
     if (!success) preserveSceneScaleRef.current = null;
@@ -488,6 +499,7 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
         onPlacementConfirm={confirmPlacement}
         onPlacementCancel={cancelPlacement}
         onPlacementPreview={setPlacementPreview}
+        placementAnchor={placementAnchorScene}
         leftInset={edge.left}
         rightInset={edge.right}
         transform={transform}
@@ -573,7 +585,7 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
           )}
         </div>
 
-        {placementMode && <PlacementHint position={placementPreview ? toPhysicsPosition(placementPreview, transform) : null} />}
+        {placementMode && <PlacementHint position={placementPreview ? toPhysicsPosition(placementPreview, transform) : null} anchor={selectedBody && placementAnchorScene ? { name: selectedBody.name, position: selectedBody.positionM } : null} />}
         {!viewingHistory && selectedMoonOrbits.length > 0 && (
           <div style={{ position: "absolute", right: 16, bottom: 16, pointerEvents: "auto", zIndex: 30 }}>
             {moonOrbitInsetOpen ? (
