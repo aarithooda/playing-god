@@ -39,9 +39,11 @@ Then, in the UI: reload, set Sim Speed to about 10^3 s, press **Step Forward** t
 | Frontend `npm run typecheck` | clean (final tree) |
 | Frontend `npm test` | 51 files / 509 tests passed (final tree) |
 | Frontend `npm run build` | succeeded (existing >500 kB chunk warning; run before the label change, which touched two .ts/.tsx files that typecheck and vitest cover) |
-| Playwright (`npx playwright test`) | **NOT RUN** on this branch |
-| Real-backend `npm run e2e:collision` | **NOT RUN** on this branch (passed on `integration/collision-engine`) |
-| Experiment 01 `npm run e2e` | **NOT RUN** |
+| Playwright (`PW_CHROMIUM_PATH='C:\Program Files\Google\Chrome\Application\chrome.exe' npx playwright test`, stubbed API, Vite :5178) | exit 0, **14 passed** (2.2 min), 0 flaky, after the selector fix below |
+| Real-backend `E2E_CHROMIUM='C:\Program Files\Google\Chrome\Application\chrome.exe' npm run e2e:collision` (own backend :8012, Vite :5184) | first run exit 1 at step 2: stale selector `Expand History` (main renamed the left sidebar to "Body catalogue & history"; test defect, not an app regression). Fixed in this spec and in `collision-effects.spec.ts`; rerun exit 0, **ALL PASSED (10/10)**: `partial_accretion`, impact 3170 m/s at contact, angle 0.00 deg |
+| Experiment 01 `npm run e2e` | **NOT RUN** (time-boxed out) |
+
+Browser environment for both runs: headless Google Chrome 155.0.8059.85, software WebGL (`--disable-gpu`), Windows 11. No headed or GPU run. Passing E2E proves software integration only, not scientific validity (D-059).
 
 ## 5. Outstanding (not done; descoped for this checkpoint at the owner's request)
 - Material picker in Add Body and Body Inspector (the backend already serves `GET /api/v1/materials` and validates `material` on create and patch; the frontend has no client call or UI for it).

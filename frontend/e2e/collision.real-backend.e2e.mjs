@@ -177,7 +177,7 @@ try {
     await page.getByText("Backend: connected").waitFor();
     await until(async () => (await page.getByRole("button", { name: "Step Forward" }).isEnabled()), "Step Forward to be enabled");
     await page.locator("canvas").first().waitFor();
-    await page.getByRole("button", { name: /^Expand History/ }).click(); // the left sidebar (events, diagnostics) starts collapsed
+    await page.getByRole("button", { name: /^Expand Body catalogue & history/ }).click(); // the left sidebar (events, diagnostics) starts collapsed
   });
 
   await step("Step Forward (10^3.5 s each, at most 3) advances through the real API and the backend resolves the collision", async () => {

@@ -553,3 +553,4 @@
 - Evidence: two Earths from rest give detection speed +0.09 to +1.3 % above analytic; the integrated contact speed matches to 1e-12. Merged-tree backend run: 1400 passed, 2 failed (the baselines, then fixed); typecheck clean; vitest 508 passed; build OK.
 - Final: backend full 1406 passed / 2 failed before the last fix (speed-semantics test updated; perf test timing-sensitive, passes alone); focused 826 passed after; vitest 509; typecheck clean; build OK.
 - Not run: Playwright, `e2e:collision`, `e2e` (Experiment 01), headed/GPU, full backend after the last label commit.
+- Follow-up verification (same day): `npm run e2e:collision` failed once on a stale sidebar selector (main renamed it); after fixing the selector in two specs, it passed 10/10 (partial_accretion, 3170 m/s). `npx playwright test`: 14 passed. Experiment 01 `npm run e2e` not run.

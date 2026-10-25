@@ -171,7 +171,7 @@ test.describe("collision effects in a browser", () => {
     const errors = await install(page, { bodies: [target(), parcel], events: [collisionEvent], timeS: 1500, visual: visual(), history });
     await page.goto("/");
     await expect(label(page)).toHaveCount(1);
-    await page.getByRole("button", { name: "Expand History & diagnostics" }).click();
+    await page.getByRole("button", { name: "Expand Body catalogue & history" }).click();
     const slider = page.getByLabel("History position");
     await expect(slider).toBeVisible();
     const setPosition = async (v: number) => {
@@ -212,7 +212,7 @@ test.describe("collision effects in a browser", () => {
   test("the inspector opens from the event, shows the provisional caveat and runs a dry-run replay", async ({ page }) => {
     await install(page, { bodies: [target(), parcel], events: [collisionEvent], timeS: 1500, visual: visual() });
     await page.goto("/");
-    await page.getByRole("button", { name: "Expand History & diagnostics" }).click();
+    await page.getByRole("button", { name: "Expand Body catalogue & history" }).click();
     await page.getByRole("button", { name: "Inspect collision col-1" }).click();
     const inspector = page.getByTestId("collision-inspector");
     await expect(inspector).toContainText("partial accretion");
