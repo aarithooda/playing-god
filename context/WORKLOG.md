@@ -546,3 +546,10 @@
 - Did: `git switch -c integration/collision-engine main`; `merge --no-ff` moons (`3ebd881`) then collision (`85ec678`); both clean. Ran backend (1399 passed), typecheck, vitest, build, Playwright. Playwright needed `PW_CHROMIUM_PATH` (Chromium rev 1243 cached vs 1248 expected, and its exe is not launchable here; used Google Chrome). Added `frontend/e2e/collision.real-backend.e2e.mjs` (`npm run e2e:collision`): first real-backend collision run; it exposed duplicate React keys in `CollisionInspector` (identical debris parcels) - fixed with a regression test.
 - A `-x` backend run once failed `test_performance_stage1[200]` under concurrent load (0.340 s vs 0.317 s); passes alone and in the full rerun.
 - Not done: GPU/headed run, Experiment 01 journey, effect frame pacing. Nothing pushed, merged, deployed.
+
+## 2026-10-25 — Integration on current main + contact-state fix (Claude Opus 5.5)
+- Goal: rebase the collision engine onto the current `origin/main` and investigate the reported "Earth merged into Earth" speed/KE offset. Scope was cut to a safe checkpoint at the owner's request.
+- Did: removed a stale `origin/main.lock`, fetched (`origin/main` 4ae90a2); `git switch -c integration/main-plus-collision-engine origin/main`; `merge --no-ff integration/collision-engine` (3 canvas conflicts, kept both sides; moons baselines re-captured with `git archive` evidence) -> `6902d35`. D-063: `backend/impact/contact.py`, `capture_impact` contact state, internal-step detection criterion, `tests/impact/test_contact_refinement.py`.
+- Evidence: two Earths from rest give detection speed +0.09 to +1.3 % above analytic; the integrated contact speed matches to 1e-12. Merged-tree backend run: 1400 passed, 2 failed (the baselines, then fixed); typecheck clean; vitest 508 passed; build OK.
+- Final: backend full 1406 passed / 2 failed before the last fix (speed-semantics test updated; perf test timing-sensitive, passes alone); focused 826 passed after; vitest 509; typecheck clean; build OK.
+- Not run: Playwright, `e2e:collision`, `e2e` (Experiment 01), headed/GPU, full backend after the last label commit.

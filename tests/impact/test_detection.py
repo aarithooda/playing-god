@@ -311,16 +311,31 @@ def test_records_are_bounded_like_the_event_list():
 def test_detection_is_not_degraded_when_the_curvature_criterion_holds():
     svc, steps = loaded("probe_heavy_created_first")
     svc.step(steps[0])
-    assert svc.last_detection == {"degradedChunks": 0, "worstCurvatureRatio": 1.0}
+    assert svc.last_detection == {"degradedChunks": 0, "worstCurvatureRatio": 1.0, "chunksAboveLimit": 0}
     (record,) = svc.collision_records()
     assert record.input.impact.chunk_criterion_satisfied is True
 
 
-def test_detection_is_reported_degraded_when_the_chunk_floor_overrides_the_curvature_limit(monkeypatch):
-    """With MAX_CHUNKS_PER_STEP = 3 the chunk floor (dt / 3 = 3.3e3 s) is far above the 1 % curvature limit near periapsis of an
-    e = 0.9 binary. The step still detects the merger (IAS15 takes its own small internal steps) but says that its guarantee
-    was not met: counted in `last_detection` and flagged in the impact state, never silent."""
+def test_a_long_chunk_is_not_degraded_while_the_internal_steps_respect_the_limit(monkeypatch):
+    """D-063: with MAX_CHUNKS_PER_STEP = 3 the chunk floor (dt / 3 = 3.3e3 s) is far above the 1 % curvature limit near periapsis
+    of an e = 0.9 binary, but IAS15 takes its own internal steps below the limit, and `line` detection sweeps those steps. The long
+    chunks are counted (chunksAboveLimit) without calling detection degraded."""
     monkeypatch.setattr(simulation, "MAX_CHUNKS_PER_STEP", 3)
+    bodies, steps = ls.kepler_merge()
+    svc = deferred()
+    svc.load_bodies(bodies, history_mode="step")
+    svc.step(steps[0])
+    assert svc.last_detection["chunksAboveLimit"] > 0
+    assert svc.last_detection["degradedChunks"] == 0
+    (record,) = svc.collision_records()
+    assert record.input.impact.chunk_criterion_satisfied is True
+
+
+def test_detection_is_reported_degraded_when_internal_steps_exceed_the_curvature_limit(monkeypatch):
+    """A curvature limit (1 microsecond) that every internal IAS15 step exceeds, together with the chunk floor: degraded detection
+    is counted in `last_detection` and flagged in the impact state, never silent."""
+    monkeypatch.setattr(simulation, "MAX_CHUNKS_PER_STEP", 3)
+    monkeypatch.setattr(simulation.SimulationService, "_chunk_limit", lambda self: 1.0e-6)
     bodies, steps = ls.kepler_merge()
     svc = deferred()
     svc.load_bodies(bodies, history_mode="step")
@@ -337,4 +352,4 @@ def test_the_detection_summary_resets_at_every_step():
     svc.load_bodies(bodies, history_mode="step")
     svc.step(steps[0])  # one lone remnant afterwards: nothing to integrate against
     svc.step(10.0)
-    assert svc.last_detection == {"degradedChunks": 0, "worstCurvatureRatio": 1.0}
+    assert svc.last_detection == {"degradedChunks": 0, "worstCurvatureRatio": 1.0, "chunksAboveLimit": 0}

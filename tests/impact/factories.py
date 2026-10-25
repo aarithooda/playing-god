@@ -62,7 +62,8 @@ def impact_state() -> c.ImpactState:
         mutual_escape_speed_m_per_s=c.MutualEscapeSpeed(1.1e4, 1.0e4), specific_impact_energy_j_per_kg=8.3e3,
         pair_momentum_kg_m_per_s=vec(1.0e26, 0.0, 0.0), pair_kinetic_energy_com_j=5.0e29,
         pair_orbital_angular_momentum_com_kg_m2_per_s=vec(0.0, 0.0, 1.0e32),
-        environment=c.Environment("sun", 1.5e9, ("moon", "other")), chunk_criterion_satisfied=True)
+        environment=c.Environment("sun", 1.5e9, ("moon", "other")), chunk_criterion_satisfied=True,
+        contact_state_method="integrated", detection_relative_speed_m_per_s=2.0e4, contact_separation_residual_rel=1.0e-12)
 
 
 def collision_input() -> c.CollisionInput:

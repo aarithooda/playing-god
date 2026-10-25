@@ -8,7 +8,8 @@ Lifecycle of one contact (nothing is resolved inside the REBOUND callback):
 
 `resolve_batch` works on one detection pass:
 1. every pair is ordered by (estimated contact time, sorted ids): deterministic whatever REBOUND's report order was;
-2. a pair whose bodies no longer exist is stale and dropped (counted); a pair involving a body that an earlier pair of the same batch
+2. the contact state of every pair is refined on a copy of the system integrated back to the contact (D-063, `contact.py`); a pair
+   whose bodies no longer exist is stale and dropped (counted); a pair involving a body that an earlier pair of the same batch
    changed is re-checked against the live state and resolved only if the bodies really overlap now; otherwise the next step decides;
 3. the pre-impact state is captured BEFORE anything is mutated;
 4. DQ-2 (D-033): a pair in which a body has no material profile resolves with the EXACT legacy merge (same arithmetic, same `merger`
@@ -24,6 +25,7 @@ from typing import Callable, Optional, Sequence
 from backend.collisions import contact_time_estimate, select_ias15
 from backend.impact.applier import ApplyState, ResultInvalid, apply_result, collision_unresolvable, realise, validate_result
 from backend.impact.config import CollisionConfig
+from backend.impact.contact import refine_contact
 from backend.impact.contracts import CollisionEvent, CollisionRecord, CollisionResult, ContractError, OutcomeSpec
 from backend.impact.detection import ContactCandidate, order_key
 from backend.impact.fragments import FragmentBudget
@@ -82,12 +84,19 @@ class CollisionEngine:
             if a is None or b is None:
                 report.stale += 1
                 continue
-            r_rel = [x - y for x, y in zip((a.x, a.y, a.z), (b.x, b.y, b.z))]
-            v_rel = [x - y for x, y in zip((a.vx, a.vy, a.vz), (b.vx, b.vy, b.vz))]
-            ordered.append((order_key(c, contact_time_estimate(c.time_s, c.dt_last_done, r_rel, v_rel, a.r + b.r)), c))
+            # D-063: the gravity-consistent contact state, from a copy of the whole system integrated back from this detection
+            # pass (computed before anything is mutated; the live simulation is untouched)
+            contact = refine_contact(sim, c.first_id, c.second_id, c.time_s - c.dt_last_done, a.r + b.r) if sim.t == c.time_s else None
+            if contact is not None:
+                t_c = contact.time_s
+            else:
+                r_rel = [x - y for x, y in zip((a.x, a.y, a.z), (b.x, b.y, b.z))]
+                v_rel = [x - y for x, y in zip((a.vx, a.vy, a.vz), (b.vx, b.vy, b.vz))]
+                t_c = contact_time_estimate(c.time_s, c.dt_last_done, r_rel, v_rel, a.r + b.r)
+            ordered.append((order_key(c, t_c), c, contact))
         ordered.sort(key=lambda item: item[0])
         changed: set[str] = set()  # survivors, absorbed and created bodies of earlier pairs of this batch
-        for _, c in ordered:
+        for _, c, contact in ordered:
             live = {p.name: p for p in sim.particles}
             pa, pb = live.get(c.first_id), live.get(c.second_id)
             if pa is None or pb is None:
@@ -98,8 +107,12 @@ class CollisionEngine:
                 continue
             first, second = _body(pa), _body(pb)
             others = [_body(p) for p in sim.particles if p.name not in (c.first_id, c.second_id)]
+            if c.first_id in changed or c.second_id in changed:
+                contact = None  # integrated before an earlier pair changed this body: stale, so the linear rewind is used (labelled)
             impact, geometry_warnings = capture_impact(first, second, c.time_s, c.dt_last_done, others,
-                                                       chunk_criterion_satisfied, contact_time_estimate, self.g, extras)
+                                                       chunk_criterion_satisfied, contact_time_estimate, self.g, extras, contact)
+            if impact.contact_state_method == "linear_rewind" and impact.contact_time_estimated:
+                geometry_warnings.append("contact_state_linear_rewind")  # integrated refinement unavailable: velocities are those at detection
             seq = event_seq() + 1
             parent_id, root_id, generation = self._lineage(c.first_id, c.second_id, apply_state, lineage, seq)
             data = build_input(seq, impact, self.config, MODEL_ID, MODEL_VERSION, parent_event_id=parent_id, generation=generation)
@@ -110,7 +123,8 @@ class CollisionEngine:
             else:
                 if emit_collision is None or apply_state is None or parcel_count is None:
                     raise RuntimeError("the engine was not given the hooks needed to apply a non-legacy outcome")
-                record = self._resolve_outcome(sim, data, selection, emit_collision, apply_state, parcel_count, event_seq, seq, changed, report, root_id)
+                record = self._resolve_outcome(sim, data, selection, emit_collision, apply_state, parcel_count, event_seq, seq, changed, report, root_id,
+                                               tuple(geometry_warnings))
             report.records.append(record)
             report.resolved += 1
         if report.resolved:
@@ -163,7 +177,7 @@ class CollisionEngine:
 
     # ------------------------------------------------------------------------------------------------------------------------
     def _resolve_outcome(self, sim, data, selection: Selection, emit_collision, apply_state, parcel_count, event_seq, seq, changed, report,
-                         root_id=None) -> CollisionRecord:
+                         root_id=None, geometry_warnings: tuple[str, ...] = ()) -> CollisionRecord:
         from backend.models import MAX_BODIES  # local: backend.models does not depend on this package
 
         cfg = self.config
@@ -202,9 +216,9 @@ class CollisionEngine:
             return result
 
         spec = selection.spec
-        cascade_extra: tuple[str, ...] = ()
+        cascade_extra: tuple[str, ...] = geometry_warnings  # carried into every attempt's warnings
         if cascade_limited:
-            cascade_extra = ("cascade_limit_reached",)
+            cascade_extra = (*geometry_warnings, "cascade_limit_reached")
             if spec.outcome in FRAGMENTING_OUTCOMES:
                 fb0 = self.selector.fallback(data, spec.model_id, (f"cascade limit: generation {data.generation} may not fragment",))
                 spec = fb0.spec

@@ -1,4 +1,7 @@
+> **2026-10-25 (Claude Opus 5.5):** current development checkpoint is the local branch `integration/main-plus-collision-engine` (base `origin/main` 4ae90a2 + collision engine + D-063). See `context/INTEGRATION_BRANCH.md`. Not pushed or merged; not scientifically validated (D-059).
+
 ## UI-4 / UI-6 independent frontend branch (2026-10-24) — latest
+
 
 ## Integration branch `integration/collision-engine` (2026-10-25, Claude Sonnet 5.5) - newest
 - One local branch = `main` `7148556` + `feature/moons-system` (`f2c2da3`) + the whole collision stack (`collision/stage-11-12` `941f0b6`); no conflicts; nothing pushed or merged. Full inventory, run instructions, results and test plan: `context/INTEGRATION_BRANCH.md`.

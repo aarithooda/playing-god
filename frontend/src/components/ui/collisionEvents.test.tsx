@@ -82,7 +82,7 @@ describe("collision events (Stage 4)", () => {
 
   it("describes the outcome, speed and angle from backend fields", () => {
     const names: Record<string, string> = { [sun.id]: "Sun", [earth.id]: "Earth" };
-    expect(describeEvent(toEventView(collision), (id) => names[id] ?? id)).toBe("Partial erosion: Earth hit Sun at 1.23e+4 m/s relative speed at detection, 30.0° from the normal");
+    expect(describeEvent(toEventView(collision), (id) => names[id] ?? id)).toBe("Partial erosion: Earth hit Sun at 1.23e+4 m/s relative speed at contact, 30.0° from the normal");
     expect(describeEvent(toEventView({ ...collision, outcome: "something_new" }), (id) => id)).toContain("something_new");
     expect(describeFidelity(collision.fidelitySummary)).toBe("outcome: model · remnantMasses: model · placement: approximation");
   });

@@ -375,9 +375,16 @@ class ImpactState(Contract):
     environment: Environment
     chunk_criterion_satisfied: bool
     schema_version: int = SCHEMA_VERSION
+    # D-063 (additive, defaults keep older records readable): how the contact state was obtained. "integrated": the relative state
+    # comes from integrating a copy of the whole system back to the contact time (positions and velocities refer to the same time);
+    # "linear_rewind": positions rewound in a straight line, velocities of the detection time (the only method before D-063).
+    contact_state_method: Literal["linear_rewind", "integrated"] = "linear_rewind"
+    detection_relative_speed_m_per_s: Optional[float] = None  # |v_rel| at the detection time, for comparison with the impact speed
+    contact_separation_residual_rel: Optional[float] = None  # |d(t_c) - (R_t + R_p)| / (R_t + R_p) of the integrated contact state
 
     def _validate(self) -> None:
-        _non_negative("ImpactState", rewind_s=self.rewind_s, impact_speed_m_per_s=self.impact_speed_m_per_s,
+        _non_negative("ImpactState", rewind_s=self.rewind_s, detection_relative_speed_m_per_s=self.detection_relative_speed_m_per_s,
+                      contact_separation_residual_rel=self.contact_separation_residual_rel, impact_speed_m_per_s=self.impact_speed_m_per_s,
                       specific_impact_energy_j_per_kg=self.specific_impact_energy_j_per_kg,
                       pair_kinetic_energy_com_j=self.pair_kinetic_energy_com_j)
         _positive("ImpactState", total_mass_kg=self.total_mass_kg, reduced_mass_kg=self.reduced_mass_kg)

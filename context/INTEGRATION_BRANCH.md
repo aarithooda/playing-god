@@ -1,4 +1,58 @@
-# Integration branch `integration/collision-engine`
+# Integration branch `integration/main-plus-collision-engine` (current)
+
+Development checkpoint, written 2026-10-25 by Claude Opus 5.5. **Local only: nothing pushed, merged into `main`, opened as a PR or deployed.** This is a runnable development checkpoint, not a claim of scientific validity (D-059: owner-accepted, not independently validated).
+
+## 1. Ancestry
+- **Base:** `origin/main` = `4ae90a2` ("fix(ci): align tests with current solar display behavior"), fetched and verified 2026-10-25. It already contains `feature/moons-system` (`f2c2da3`) plus catalogue, trajectory and sizing work (`404b5ba`..`4ae90a2`). The old base `7148556` is an ancestor of it.
+- **Merge `6902d35`:** `integration/collision-engine` @ `1104dea` (merge base `f2c2da3`, so only the 43 collision-side commits: stack `263a15e`..`941f0b6`, plus `5ddd641` and `1104dea`). Textual conflicts in `CelestialBody.tsx`, `UniverseCanvas.tsx` and `canvasBoundary.test.ts` were resolved by keeping both sides (main's geometry, motion blending and trajectory selection; the collision branch's orientation group, surface marks and effects layer). Semantic conflict: moons-preset bit-identity baselines re-captured for main's new preset data (D-063, with evidence).
+- **Commit after the merge:** contact state at the contact time, plus the detection criterion judged on internal steps (D-063). UI labels: an outcome-v1 `collision` event and record say "relative speed at contact" (or "at detection" when the backend warns `contact_state_linear_rewind` / `contact_time_not_estimable`); legacy `merger` events keep "relative speed at detection".
+- Original branches and worktrees are untouched (`integration/collision-engine` still at `1104dea`). One stale `.git/refs/remotes/origin/main.lock` (from 01:07, no git process running) was removed so the fetch could update `origin/main`.
+- Not integrated: `origin/animations` (2 commits, `570c386`, `85a5cae`, not on main). It was not requested.
+
+## 2. Run it
+```bash
+git checkout integration/main-plus-collision-engine
+python -m venv .venv && .venv/Scripts/pip install -r backend/requirements.txt   # skip if .venv exists
+(cd frontend && npm ci)                                                          # skip if node_modules exists
+.venv/Scripts/python -m uvicorn backend.main:app --port 8000                    # terminal 1, repo root
+cd frontend && npm run dev                                                       # terminal 2 -> http://localhost:5173
+```
+State lives in memory only; restarting the backend loses every universe.
+
+## 3. Quickest collision reproduction
+The sandbox `uni-default` runs `outcome-v1`. **The Add Body form has no material picker yet**, so UI-created bodies take the legacy merge (`material_unspecified`). For material outcomes, create the bodies over the API (bash; requires the backend from section 2):
+```bash
+E=$(curl -s localhost:8000/api/v1/universes | python -c "import sys,json;print(json.load(sys.stdin)['activationEpoch'])")
+B="localhost:8000/api/v1/universes/uni-default/bodies?activationEpoch=$E"
+curl -s -X POST "$B" -H 'content-type: application/json' -d '{"name":"Target","massKg":1e22,"radiusM":1e6,"positionM":{"x":0,"y":0,"z":0},"velocityMPerS":{"x":0,"y":0,"z":0},"colorHex":"#c08040","material":{"profileId":"silicate-rock"}}'
+curl -s -X POST "$B" -H 'content-type: application/json' -d '{"name":"Impactor","massKg":5e21,"radiusM":793700,"positionM":{"x":7.2e6,"y":0,"z":0},"velocityMPerS":{"x":-3000,"y":0,"z":0},"colorHex":"#8080c0","material":{"profileId":"silicate-rock"}}'
+```
+Then, in the UI: reload, set Sim Speed to about 10^3 s, press **Step Forward** twice; a `collision` event appears (checked over the API on this checkpoint: `partial_accretion` at 3137 m/s relative speed at contact on the 2nd 1000 s step). Open **Inspect record**. Legacy path: add two bodies through Add Body (no material) on a collision course; you get a `merger` event labelled `material_unspecified`. Automated equivalent: `cd frontend && E2E_CHROMIUM=<chrome.exe> npm run e2e:collision`.
+
+## 4. Verification on this checkpoint
+| Check | Result |
+|---|---|
+| Backend full suite, merged tree before D-063 | 1400 passed, 2 failed (moons baselines); fixed by re-baselining with evidence, then 28/28 in those files |
+| Backend full suite after D-063 core change | 1406 passed, 2 failed: `test_event_speed_semantics[outcome-v1]` (encoded the old detection-speed semantics: updated, together with the UI label) and `test_performance_stage1[100]` (0.0615 s vs 0.060 s limit; the file passes alone, 3/3 twice: timing-sensitive, not a confirmed regression) |
+| Backend focused, final tree | `tests/impact` + `tests/test_event_speed_semantics.py`: 826 passed (includes the new `test_contact_refinement.py`) |
+| Backend full suite, final tree | **not re-run** after the last label/warning commit (the focused run covers every changed module) |
+| Frontend `npm run typecheck` | clean (final tree) |
+| Frontend `npm test` | 51 files / 509 tests passed (final tree) |
+| Frontend `npm run build` | succeeded (existing >500 kB chunk warning; run before the label change, which touched two .ts/.tsx files that typecheck and vitest cover) |
+| Playwright (`npx playwright test`) | **NOT RUN** on this branch |
+| Real-backend `npm run e2e:collision` | **NOT RUN** on this branch (passed on `integration/collision-engine`) |
+| Experiment 01 `npm run e2e` | **NOT RUN** |
+
+## 5. Outstanding (not done; descoped for this checkpoint at the owner's request)
+- Material picker in Add Body and Body Inspector (the backend already serves `GET /api/v1/materials` and validates `material` on create and patch; the frontend has no client call or UI for it).
+- Expose the collision mode per universe (`UniverseSummary` has no `collisionMode` field) and show it in the UI.
+- Timestep-convergence studies for grazing, near-miss, high-speed and multi-body cases (only head-on two-body was done, D-063).
+- Headed/GPU browser run; effect frame pacing; Stage 12 DoD items (DOD-2) unchanged.
+- Scientific caveats unchanged: CP-SCI-1 and CP-5 unsigned; UD-1/UD-2 open; provisional parameters; cratering unsupported; no sourced wave speeds; same-platform replay only; no persistence (OD-5). Presets and Orbit Lab stay `legacy-merge`.
+
+---
+
+# Previous: integration branch `integration/collision-engine`
 
 Purpose: one locally checkable branch that contains current `main`, the complete collision engine (Stages 0-12) and the moons work, wired to the real frontend, so the combined system can be started and evaluated without assembling several branches. **Nothing was pushed, merged into `main`, opened as a PR or deployed.** Written 2026-10-25 (Claude Sonnet 5.5).
 

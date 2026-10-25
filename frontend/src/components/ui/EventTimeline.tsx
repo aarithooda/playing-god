@@ -1,6 +1,7 @@
 import React from 'react';
 import { formatDuration } from '../../sim/format';
 import { formatVector } from '../../sim/diagnosticsFormat';
+import { impactSpeedBasis } from '../../sim/collision/describe';
 import { eventFocusBodyId, type EventView } from '../../sim/viewModel';
 import { panelStyle } from './styles';
 import { theme } from './theme';
@@ -32,7 +33,7 @@ export function describeEvent(event: EventView, bodyName: (id: string) => string
   if (event.type === 'collision') {
     const [target, projectile] = event.bodyIds;
     return `${OUTCOME_LABEL[event.outcome] ?? event.outcome}: ${bodyName(projectile ?? '?')} hit ${bodyName(target ?? '?')} ` +
-      `at ${event.impactSpeedMPerS.toPrecision(3)} m/s relative speed at detection, ${event.impactAngleDeg.toFixed(1)}° from the normal`;
+      `at ${event.impactSpeedMPerS.toPrecision(3)} m/s ${impactSpeedBasis(event.warnings)}, ${event.impactAngleDeg.toFixed(1)}° from the normal`;
   }
   const [survivor, absorbed] = event.bodyIds;
   return `${bodyName(absorbed ?? '?')} merged into ${bodyName(survivor ?? event.resultBodyId)} ` +

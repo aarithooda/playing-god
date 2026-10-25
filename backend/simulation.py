@@ -70,6 +70,9 @@ RAND_SEED = 12345
 CURVATURE_FRACTION = 0.01  # max chord deviation per chunk as a fraction of the contact distance
 MAX_CHUNKS_PER_STEP = 2000  # bounds wall time; if reached, chunks are longer than the 1% criterion asks
 MAX_EVENTS_KEPT = 1000
+# Detection summary of one step (D-063). degradedChunks / worstCurvatureRatio judge the INTERNAL IAS15 steps (what `line` detection
+# sweeps); chunksAboveLimit counts chunks the MAX_CHUNKS_PER_STEP floor made longer than the limit, whatever IAS15 did inside them.
+EMPTY_DETECTION = {"degradedChunks": 0, "worstCurvatureRatio": 1.0, "chunksAboveLimit": 0}
 # Wall-clock budget for one step request (seconds), checked between chunks; override with PG_STEP_TIME_LIMIT_S.
 DEFAULT_STEP_TIME_LIMIT_S = 10.0
 # A mutation waits this much longer than the step budget for the lock before answering 503 "busy".
@@ -234,8 +237,9 @@ class SimulationService:
         self._escaped: dict = {}  # escaped-material ledger (Stage 7): massKg, momentum, angularMomentum, bodies [(id, massKg)]
         self._step_resolutions = 0  # collision resolutions of the current step (DQ-10)
         self._budget_hit = False
-        self._chunk_satisfied = True  # did the chunk that is being integrated respect the curvature criterion?
-        self.last_detection: dict = {"degradedChunks": 0, "worstCurvatureRatio": 1.0}  # of the latest step
+        self._chunk_satisfied = True  # did the internal steps of the chunk just integrated respect the curvature criterion?
+        self._chunk_max_dt = 0.0  # longest internal IAS15 step of the chunk being integrated (heartbeat)
+        self.last_detection: dict = dict(EMPTY_DETECTION)  # of the latest step
         self._sim = self._new_sim([], 0.0)
         self._history = HistoryBuffer("step")
         self._record_history()  # sample 0: the empty start
@@ -811,7 +815,7 @@ class SimulationService:
                 guard()
             before = self._capture()
             self._pending = []
-            self.last_detection = {"degradedChunks": 0, "worstCurvatureRatio": 1.0}
+            self.last_detection = dict(EMPTY_DETECTION)
             t0 = self._sim.t
             try:
                 self._timed_out = False
@@ -854,6 +858,9 @@ class SimulationService:
     def _heartbeat(self, sim_ptr) -> None:
         """REBOUND calls this after every internal step. Past the deadline it stops `integrate`, which is the only
         way to interrupt an engine stall (a step-size collapse never returns on its own)."""
+        dt = abs(sim_ptr.contents.dt_last_done)
+        if dt > self._chunk_max_dt:
+            self._chunk_max_dt = dt  # the detection criterion is judged on internal steps (_note_chunk)
         if self._cancel.is_set():
             sim_ptr.contents.stop()
         elif self._clock() > self._deadline:
@@ -899,10 +906,11 @@ class SimulationService:
                 remaining = target - sim.t
                 limit = self._chunk_limit()
                 chunk = max(limit, floor)
-                self._note_chunk(limit, chunk)
                 nxt = target if chunk >= remaining * (1 - 1e-9) else sim.t + chunk
+                self._chunk_max_dt = 0.0
                 sim.integrate(nxt)
                 self._check_deadline()  # an integrate stopped by the watchdog returns early
+                self._note_chunk(limit, chunk)
                 if self._deferred:
                     self._resolve_contacts(nxt)
                     if self._budget_hit:
@@ -913,12 +921,20 @@ class SimulationService:
             logger.warning("REBOUND warning during step: %s", w.message)
 
     def _note_chunk(self, limit: float, chunk: float) -> None:
-        """Record whether this chunk respects the curvature criterion `line` detection relies on. When the
-        MAX_CHUNKS_PER_STEP floor overrides it, detection is degraded for that chunk: counted in `last_detection` (never silent).
-        The curvature error of a chunk scales with its length squared, so the achieved ratio is (chunk / limit)^2."""
-        self._chunk_satisfied = chunk <= limit * (1.0 + 1e-12)
+        """Record whether the chunk just integrated respected the curvature criterion `line` detection relies on (D-063).
+
+        REBOUND's `line` mode sweeps a straight segment over each INTERNAL IAS15 step, so the criterion applies to those steps; the
+        chunk length is only an upper bound on them. A chunk the MAX_CHUNKS_PER_STEP floor made longer than the limit is counted in
+        `chunksAboveLimit`, but detection is degraded (counted in `degradedChunks`, flagged in the impact state, never silent) only
+        when an internal step itself exceeded the limit. Before D-063 every such chunk was reported degraded although IAS15 had taken
+        steps far below the limit (measured: 37.7 s against a 455 s limit for two Earths at contact). The curvature error scales with
+        the step length squared, so the achieved ratio is (step / limit)^2."""
+        longest = min(chunk, self._chunk_max_dt) if self._chunk_max_dt > 0.0 else chunk
+        if chunk > limit * (1.0 + 1e-12):
+            self.last_detection["chunksAboveLimit"] += 1
+        self._chunk_satisfied = longest <= limit * (1.0 + 1e-12)
         if not self._chunk_satisfied:
-            ratio = math.inf if limit <= 0.0 else (chunk / limit) ** 2
+            ratio = math.inf if limit <= 0.0 else (longest / limit) ** 2
             self.last_detection["degradedChunks"] += 1
             self.last_detection["worstCurvatureRatio"] = max(self.last_detection["worstCurvatureRatio"], ratio)
 

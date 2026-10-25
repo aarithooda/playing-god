@@ -3,11 +3,16 @@
 REBOUND reports a contact only at the END of the internal step in which the swept spheres overlapped (detection time t_d).
 This module freezes the pair's state before anything is mutated and derives the impact quantities:
 
-- Contact time t_c = t_d - tau from the existing straight-line estimate (`backend.collisions.contact_time_estimate`).
-  The pair is rewound linearly: x_k(t_c) = x_k(t_d) - v_k tau, velocities are the ones at t_d. By construction
-  |r(t_c)| = R_t + R_p to round-off when a root exists. Error against the true curved path <= a_rel tau^2 / 2, which is
-  at most the curvature budget (1 % of the contact distance) while the chunk criterion held (`chunk_criterion_satisfied`).
-  Label: approximation. If no root exists (`contact_time_not_estimable`) the state at t_d is used unchanged.
+- Contact state (D-063). Preferred: an integrated `ContactState` (`backend.impact.contact.refine_contact`): the pair's RELATIVE
+  position and velocity at the first time the integrated path reaches |r| = R_t + R_p, so positions and velocities refer to the
+  same time. The pair's centre of mass is taken from the detection state and moved back uniformly (x_com(t_c) = x_com(t_d) -
+  v_com tau, v_com unchanged): it is what the live simulation holds, so total momentum stays continuous to round-off; the
+  external impulse over tau that this ignores is far below the momentum tolerance. Method label `integrated`.
+  Fallback (no integrated root, or a body changed earlier in the same batch): t_c from the straight-line estimate
+  (`backend.collisions.contact_time_estimate`), positions rewound linearly x_k(t_c) = x_k(t_d) - v_k tau with the VELOCITIES OF
+  t_d (label `linear_rewind`, warning `contact_state_linear_rewind`): the speed then includes the infall gained during the
+  overlap (measured up to +1.3 % for two Earths, D-063). If no root exists either (`contact_time_not_estimable`) the state at
+  t_d is used unchanged.
 - Normal n = r(t_c)/|r(t_c)| (target -> projectile); contact point x_c = x_t(t_c) + R_t n (inertial frame, D-010).
 - Impact parameter b = sin(theta) = |n x u_hat| (LS12 convention, 0 = head-on); theta = asin(b).
 - Q_R = 0.5 mu v^2 / M_tot; both mutual escape speeds are recorded: the physical-radii form sqrt(2 G M / (R_t + R_p)) and the
@@ -28,6 +33,7 @@ import math
 from typing import Callable, Optional, Sequence
 
 from backend.impact import rotation as rot
+from backend.impact.contact import ContactState
 from backend.impact.contracts import (BodyImpactState, ContactLatLon, ContactPointLocal, Environment, ImpactState,
                                       MaterialProfile, MaterialRef, MutualEscapeSpeed, Orientation, RotationState, Vec3)
 from backend.impact.materials import get_profile
@@ -106,23 +112,41 @@ def environment(pair: tuple[PairBody, PairBody], others: Sequence[PairBody], g: 
 
 def capture_impact(first: PairBody, second: PairBody, t_detect: float, dt_last_done: float, others: Sequence[PairBody],
                    chunk_criterion_satisfied: bool, contact_time: ContactTimeFn, g: float,
-                   extras: Optional[BodyExtras] = None) -> tuple[ImpactState, list[str]]:
+                   extras: Optional[BodyExtras] = None, contact_state: Optional[ContactState] = None) -> tuple[ImpactState, list[str]]:
     """Freeze the pair `first`/`second` (states at the detection time) into an `ImpactState`. Returns it with the
-    warnings raised while computing it. Raises ValueError for a non-physical pair (non-positive mass or radius)."""
+    warnings raised while computing it. Raises ValueError for a non-physical pair (non-positive mass or radius).
+    `contact_state`: the integrated state at contact (module docstring); None uses the linear rewind."""
     tgt, prj = assign_roles(first, second)
     contact_dist = tgt.radius + prj.radius
     warnings: list[str] = []
     r_d = _sub(list(prj.position), list(tgt.position))
-    u = _sub(list(prj.velocity), list(tgt.velocity))
-    t_contact = contact_time(t_detect, dt_last_done, r_d, u, contact_dist)
-    if t_contact is None:
-        t_contact, estimated = t_detect, False
-        warnings.append("contact_time_not_estimable")
+    u_d = _sub(list(prj.velocity), list(tgt.velocity))
+    v_t, v_p = list(tgt.velocity), list(prj.velocity)
+    if contact_state is not None and tgt.id in contact_state.states and prj.id in contact_state.states:
+        (xt_c, vt_c), (xp_c, vp_c) = contact_state.states[tgt.id], contact_state.states[prj.id]
+        t_contact, estimated, method = contact_state.time_s, True, "integrated"
+        tau = t_detect - t_contact
+        total_m = tgt.mass + prj.mass
+        ft, fp = prj.mass / total_m, tgt.mass / total_m
+        x_com = _scale(_add(_scale(list(tgt.position), tgt.mass), _scale(list(prj.position), prj.mass)), 1.0 / total_m)
+        v_com = _scale(_add(_scale(v_t, tgt.mass), _scale(v_p, prj.mass)), 1.0 / total_m)
+        x_com_c = _sub(x_com, _scale(v_com, tau))
+        r_rel, u = _sub(list(xp_c), list(xt_c)), _sub(list(vp_c), list(vt_c))
+        x_t, x_p = _sub(x_com_c, _scale(r_rel, ft)), _add(x_com_c, _scale(r_rel, fp))
+        v_t, v_p = _sub(v_com, _scale(u, ft)), _add(v_com, _scale(u, fp))
+        residual = contact_state.separation_residual_rel
     else:
-        estimated = True
-    tau = t_detect - t_contact
-    x_t = [x - v * tau for x, v in zip(tgt.position, tgt.velocity)]
-    x_p = [x - v * tau for x, v in zip(prj.position, prj.velocity)]
+        u = u_d
+        method, residual = "linear_rewind", None
+        t_contact = contact_time(t_detect, dt_last_done, r_d, u, contact_dist)
+        if t_contact is None:
+            t_contact, estimated = t_detect, False
+            warnings.append("contact_time_not_estimable")
+        else:
+            estimated = True
+        tau = t_detect - t_contact
+        x_t = [x - v * tau for x, v in zip(tgt.position, tgt.velocity)]
+        x_p = [x - v * tau for x, v in zip(prj.position, prj.velocity)]
     r_c = _sub(x_p, x_t)
     dist = _norm(r_c)
     speed = _norm(u)
@@ -144,16 +168,16 @@ def capture_impact(first: PairBody, second: PairBody, t_detect: float, dt_last_d
     mu = tgt.mass * prj.mass / total
     ke_com = 0.5 * mu * speed * speed
     r_c1 = (3.0 * total / (4.0 * math.pi * LS12_RHO1_KG_PER_M3)) ** (1.0 / 3.0)
-    momentum = _add(_scale(list(tgt.velocity), tgt.mass), _scale(list(prj.velocity), prj.mass))
+    momentum = _add(_scale(v_t, tgt.mass), _scale(v_p, prj.mass))
     angular = _scale(_cross(r_c, u), mu)
 
     lookup = extras or (lambda _id: (None, None))
     t_ref, t_rot = lookup(tgt.id)[0], lookup(tgt.id)[1]
     p_ref, p_rot = lookup(prj.id)[0], lookup(prj.id)[1]
 
-    def state(body: PairBody, position: Vec, ref: Optional[MaterialRef], rotation: Optional[RotationState]) -> BodyImpactState:
+    def state(body: PairBody, position: Vec, velocity: Vec, ref: Optional[MaterialRef], rotation: Optional[RotationState]) -> BodyImpactState:
         return BodyImpactState(
-            id=body.id, mass_kg=body.mass, radius_m=body.radius, position_m=Vec3.of(position), velocity_m_per_s=Vec3.of(body.velocity),
+            id=body.id, mass_kg=body.mass, radius_m=body.radius, position_m=Vec3.of(position), velocity_m_per_s=Vec3.of(velocity),
             spin_rad_per_s=None if rotation is None else rotation.omega_rad_per_s,
             orientation=None if rotation is None else Orientation(rot.orientation_at(rotation, t_contact), t_contact),
             material_profile=resolved_profile(ref))
@@ -171,7 +195,7 @@ def capture_impact(first: PairBody, second: PairBody, t_detect: float, dt_last_d
 
     impact = ImpactState(
         detection_time_s=t_detect, contact_time_s=t_contact, contact_time_estimated=estimated, rewind_s=tau,
-        target=state(tgt, x_t, t_ref, t_rot), projectile=state(prj, x_p, p_ref, p_rot), relative_velocity_m_per_s=Vec3.of(u),
+        target=state(tgt, x_t, v_t, t_ref, t_rot), projectile=state(prj, x_p, v_p, p_ref, p_rot), relative_velocity_m_per_s=Vec3.of(u),
         impact_speed_m_per_s=speed, contact_point_m=Vec3.of(contact_point), contact_normal=Vec3.of(normal),
         contact_point_local=ContactPointLocal(local(t_rot, normal), local(p_rot, _scale(normal, -1.0))),
         contact_lat_lon_deg=ContactLatLon(lat_lon), impact_angle_deg=math.degrees(math.asin(b)), impact_parameter=b,
@@ -180,5 +204,6 @@ def capture_impact(first: PairBody, second: PairBody, t_detect: float, dt_last_d
                                                       math.sqrt(2.0 * g * total / contact_dist)),
         specific_impact_energy_j_per_kg=ke_com / total, pair_momentum_kg_m_per_s=Vec3.of(momentum),
         pair_kinetic_energy_com_j=ke_com, pair_orbital_angular_momentum_com_kg_m2_per_s=Vec3.of(angular),
-        environment=environment((tgt, prj), others, g), chunk_criterion_satisfied=chunk_criterion_satisfied)
+        environment=environment((tgt, prj), others, g), chunk_criterion_satisfied=chunk_criterion_satisfied,
+        contact_state_method=method, detection_relative_speed_m_per_s=_norm(u_d), contact_separation_residual_rel=residual)
     return impact, warnings

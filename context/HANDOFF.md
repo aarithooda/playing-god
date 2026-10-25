@@ -10,6 +10,12 @@
 3. Verified locally: frontend typecheck; Vitest 206/206 across 23 files; build (existing >500 kB warning); Playwright 5/5; diff check. The profile measured 1/16/64 bodies at median 33.4/50.0/99.9 ms per animation frame in Windows headless Chrome with GPU disabled by test config; treat as software frame pacing, not hardware GPU timing. E2E stubs backend responses. Do not merge into `main` without owner approval; real-hardware profiling and UI-0 integration remain follow-ups.
 # Handoff (latest — rewrite at end of each session)
 
+## Integration branch `integration/main-plus-collision-engine` (2026-10-25, Claude Opus 5.5) - latest
+1. Local only (nothing pushed or merged). Base: verified `origin/main` `4ae90a2`. Collision engine merged in (`6902d35`), then the contact-state fix (D-063). Read `context/INTEGRATION_BRANCH.md` section 1-5 first: ancestry, run commands, quickest collision reproduction, what ran, what did not.
+2. D-063: impact records now use a gravity-consistent contact state (integrated copy), and the detection criterion is judged on internal IAS15 steps. Legacy merger events and body state are unchanged.
+3. Descoped at the owner's request (to do next): material picker (Add Body / Inspector), `collisionMode` in the universe summary plus a UI badge, convergence studies beyond head-on, Playwright, real-backend `e2e:collision` and Experiment 01 runs on this branch.
+
+
 ## Collision engine - Stage 12 audit done, criteria partly unmet (D-061) (2026-10-25, Claude Sonnet 5.5) - latest
 0000000000. Re-audit (D-062) done: 59 rows moved to VERIFIED with named tests, 75 PART remain, none MISS; DOD-2 still UNMET; details in STAGE12_DOD_AUDIT.md.
 000000000. Stage 12 ran under D-059/D-061; see `context/STAGE12_DOD_AUDIT.md` for the commands and the unmet list (DOD-2 per-row audit of 44 MISS / 14 open / 94 PART rows; frame pacing with effects unmeasured; no GPU/real-backend run). Stage 12 stays `[-]`. Playwright regenerates `context/evidence/stage9-webgl/*.png`; those two diffs are not committed. Nothing pushed or merged.

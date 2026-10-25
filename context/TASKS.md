@@ -1,5 +1,8 @@
 # Tasks
 
+> **Next (2026-10-25, D-063 checkpoint):** material picker in Add Body/Inspector; `collisionMode` in the universe summary plus a UI badge; convergence studies for grazing, near-miss, high-speed and multi-body cases; run Playwright, `e2e:collision` and `e2e` on `integration/main-plus-collision-engine`.
+
+
 ## INTEGRATION BRANCH (2026-10-25)
 `integration/collision-engine` (base `main` `7148556`) holds the moons work and the complete collision stack and runs as one application; see `context/INTEGRATION_BRANCH.md`. Open: evaluate on a stronger machine (headed, GPU, effect frame pacing), then owner decides on merging. Stage 12 stays `[-]`; DOD-2, effect frame pacing, browser scenario G and a GPU run remain unmet; CP-SCI-1/CP-5 remain unsigned (D-059 waiver is for development only).
 

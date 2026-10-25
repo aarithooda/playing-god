@@ -176,11 +176,17 @@ describe("the inspector component", () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it("labels the headline speed as measured at detection, not at contact", () => {
+  it("labels the headline speed at contact (integrated contact state, D-063)", () => {
     render(<CollisionInspector {...base} />);
     const headline = screen.getByTestId("inspector-headline").textContent ?? "";
-    expect(headline).toContain("relative speed at detection");
-    expect(headline).not.toMatch(/at (estimated )?contact/);
+    expect(headline).toContain("relative speed at contact");
+    expect(headline).not.toContain("at detection");
+  });
+
+  it("labels the headline speed at detection when the backend fell back to the linear rewind", () => {
+    const fallback = { ...detail, record: { ...detail.record, warnings: [...detail.record.warnings, "contact_state_linear_rewind"] } };
+    render(<CollisionInspector {...base} detail={fallback} />);
+    expect(screen.getByTestId("inspector-headline").textContent ?? "").toContain("relative speed at detection");
   });
 
   it("lists several identical products without duplicate React keys (the real backend emits equal debris parcels)", () => {

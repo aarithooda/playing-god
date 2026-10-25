@@ -53,12 +53,20 @@ export function describeProduct(p: CollisionProductDto, bodyName: (id: string) =
   return `${bodyName(p.bodyId)} (${what}): ${formatSci(p.massKgAtEvent)} kg at the event, ${formatSci(p.massKgNow ?? 0)} kg now${cls}`;
 }
 
+/** D-063: an outcome-v1 impact speed refers to the contact time (integrated contact state) unless the backend warns that it fell back
+ *  to the detection-time velocities. Legacy `merger` events always report the speed at detection. */
+export function impactSpeedBasis(warnings: readonly string[]): string {
+  return warnings.includes("contact_state_linear_rewind") || warnings.includes("contact_time_not_estimable")
+    ? "relative speed at detection"
+    : "relative speed at contact";
+}
+
 export function describeRecord(detail: CollisionDetailDto, bodyName: (id: string) => string): InspectorText {
   const r = detail.record;
   const i = r.impact;
   const outcome = r.outcome?.outcome ?? "legacy merge";
   const headline =
-    `${outcome.replace(/_/g, " ")}: ${bodyName(i.projectileId)} hit ${bodyName(i.targetId)} at ${formatSci(i.impactSpeedMPerS)} m/s relative speed at detection, ` +
+    `${outcome.replace(/_/g, " ")}: ${bodyName(i.projectileId)} hit ${bodyName(i.targetId)} at ${formatSci(i.impactSpeedMPerS)} m/s ${impactSpeedBasis(r.warnings)}, ` +
     `${i.impactAngleDeg.toFixed(1)}° from the normal (Q_R ${formatSci(i.specificImpactEnergyJPerKg)} J/kg)`;
   const lineage =
     r.parentEventId === null

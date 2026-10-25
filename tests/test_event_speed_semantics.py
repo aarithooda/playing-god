@@ -1,4 +1,5 @@
-"""The event's relative speed is the speed AT DETECTION (end of the integrator step), not at the estimated contact time; the two times are
+"""Legacy `merger` events report the relative speed AT DETECTION (end of the integrator step). Since D-063 an outcome-v1 `collision` event
+reports the impact speed AT CONTACT (integrated contact state) and its record keeps the detection speed beside it. The two times are
 different fields and are not conflated. Documented in context/API_CONTRACT.md. Isolated pair of equal bodies released from rest, so the
 analytic contact speed is known from the energy integral: v_c = sqrt(2 G M (1/R - 1/d0)), M the total mass, R the contact distance."""
 import math
@@ -34,6 +35,14 @@ def test_reported_speed_is_the_speed_at_detection_and_times_stay_separate(mode, 
     contact_speed = _contact_speed()
     # detection is strictly after the estimated contact, and the speed has grown over that interval (bodies still approaching)
     assert event.estimatedContactTimeS is not None and event.simulationTimeS > event.estimatedContactTimeS
+    if mode == "outcome-v1":
+        assert speed == pytest.approx(contact_speed, rel=1e-9)  # D-063: the impact speed is the one at contact
+        (record,) = svc.collision_records()
+        assert record.input.impact.detection_time_s == event.simulationTimeS
+        assert record.input.impact.contact_time_s == pytest.approx(event.estimatedContactTimeS)
+        assert record.input.impact.impact_speed_m_per_s == speed
+        assert record.input.impact.detection_relative_speed_m_per_s > contact_speed * (1 + 1e-3)
+        return
     assert speed > contact_speed * (1 + 1e-3)
     assert speed == pytest.approx(contact_speed, rel=0.02)  # ... but only by the small amount the step length allows
     if mode == "legacy-merge":
