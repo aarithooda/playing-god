@@ -1,3 +1,4 @@
+import { bodyFact } from '../../sim/bodyFacts';
 import React, { useEffect, useRef, useState } from 'react';
 import type { BodyKind, BodyUpdateDto, CatalogueEntryDto } from '../../api/types';
 import { resolveCelestialAssets } from '../../assets/registry';
@@ -171,6 +172,8 @@ export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDe
             surface gravity and escape speed are derived here from mass and radius for a uniform, non-rotating sphere.
           </p>
         </section>
+
+        <p data-testid="body-fact" style={{ margin: 0, fontSize: 12.5, lineHeight: 1.5, color: theme.textMuted }}>{bodyFact(body.id)}</p>
 
         {catalogueEntry && (
           <section aria-label="About" style={{ borderTop: `1px solid ${theme.border}`, paddingTop: 12 }}>
