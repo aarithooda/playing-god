@@ -26,7 +26,8 @@ MATERIALS_FILE = "body-materials.json"
 MATERIAL_QUANTITIES = ("composition", "structureClass", "momentOfInertiaFactor", "ls12", "waveSpeedMPerS", "cratering")
 ANNOTATABLE = ("momentOfInertiaFactor",)  # the only quantity with sourced values today; others need a new source
 PRESET_FILES = {"solar-system-moons-j2000": "solar-system-moons-j2000.json",
-                "solar-system-j2000": "solar-system-j2000.json"}
+                "solar-system-j2000": "solar-system-j2000.json",
+                "saturn-particle-rings": "saturn-particle-rings.json"}
 BASES = ("measured", "nominal", "derived", "assumed")
 
 
