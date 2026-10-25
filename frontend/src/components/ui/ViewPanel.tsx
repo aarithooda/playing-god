@@ -19,6 +19,11 @@ interface ViewPanelProps {
   /** How the same simulation is drawn: Universe View or Exploration View (the default, with larger objects). */
   sizeMode?: SizeMode;
   onSizeModeChange?: (mode: SizeMode) => void;
+  /** Solar System presets only (D-064): display-only reference orbits and the main-belt sample. */
+  referenceOrbits?: boolean;
+  onReferenceOrbitsChange?: (on: boolean) => void;
+  mainBelt?: boolean;
+  onMainBeltChange?: (on: boolean) => void;
 }
 
 const toggleStyle = (on: boolean): React.CSSProperties => ({
@@ -29,7 +34,7 @@ const toggleStyle = (on: boolean): React.CSSProperties => ({
 });
 
 /** Independent view aids and display preferences. */
-export const ViewPanel: React.FC<ViewPanelProps> = ({ axes = false, grid = false, gridShownForPlacement = false, onAxesChange, onGridChange, paths = false, onPathsChange, pathsNote, sizeMode = DEFAULT_SIZE_MODE, onSizeModeChange }) => (
+export const ViewPanel: React.FC<ViewPanelProps> = ({ axes = false, grid = false, gridShownForPlacement = false, onAxesChange, onGridChange, paths = false, onPathsChange, pathsNote, sizeMode = DEFAULT_SIZE_MODE, onSizeModeChange, referenceOrbits = false, onReferenceOrbitsChange, mainBelt = false, onMainBeltChange }) => (
 
 
   <div style={panelStyle}>
@@ -52,6 +57,22 @@ export const ViewPanel: React.FC<ViewPanelProps> = ({ axes = false, grid = false
         {paths && pathsNote && (
           <p style={{ margin: '6px 0 0 0', fontSize: '11px', color: theme.textMuted }}>{pathsNote}</p>
         )}
+      </div>
+    )}
+    {onReferenceOrbitsChange && onMainBeltChange && (
+      <div role="group" aria-label="Solar System guides" style={{ marginTop: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button type="button" aria-pressed={referenceOrbits} style={toggleStyle(referenceOrbits)} onClick={() => onReferenceOrbitsChange(!referenceOrbits)}>
+            Orbit guides
+          </button>
+          <button type="button" aria-pressed={mainBelt} style={toggleStyle(mainBelt)} onClick={() => onMainBeltChange(!mainBelt)}>
+            Asteroid belt
+          </button>
+        </div>
+        <p data-testid="reference-orbits-note" style={{ margin: '6px 0 0 0', fontSize: '11px', color: theme.textMuted }}>
+          Display only, not simulated: J2000 Kepler orbits from JPL Horizons, and 10,000 numbered main-belt asteroids
+          (JPL SBDB) moved along their own two-body orbits. Pluto and the other outer bodies are labelled guides.
+        </p>
       </div>
     )}
     {onSizeModeChange && (
