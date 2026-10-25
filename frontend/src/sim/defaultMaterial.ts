@@ -22,3 +22,12 @@ export function effectiveBodyType(kind: BodyKind, bodyType: BodyType | undefined
 export function defaultMaterial(kind: BodyKind, bodyType: BodyType | undefined): MaterialDto {
   return { profileId: PROFILE_BY_BODY_TYPE[effectiveBodyType(kind, bodyType)], layers: null };
 }
+
+/** Selectable collision-engine material profiles (ids are the backend registry's, GET /api/v1/materials). */
+export const MATERIAL_OPTIONS: readonly { id: string; label: string }[] = [
+  { id: 'silicate-rock', label: 'Silicate rock' },
+  { id: 'iron', label: 'Iron' },
+  { id: 'water-ice', label: 'Water ice' },
+  { id: 'rubble-silicate', label: 'Rubble (loose silicate)' },
+  { id: 'gas-envelope-hhe', label: 'Gas (hydrogen-helium)' },
+];

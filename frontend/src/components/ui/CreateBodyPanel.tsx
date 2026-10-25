@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { BodyCreateDto, BodyKind, BodyType, CatalogueEntryDto } from '../../api/types';
 import type { ActionResult } from '../../sim/useSimulation';
-import { defaultMaterial } from '../../sim/defaultMaterial';
+import { defaultMaterial, MATERIAL_OPTIONS } from '../../sim/defaultMaterial';
 import {
   NEW_BODY_DEFAULTS,
   defaultsForNewBody,
@@ -13,7 +13,7 @@ import {
 import type { BodyView } from '../../sim/viewModel';
 import type { Vec3 } from '../../api/types';
 import { BodyFields } from './BodyFields';
-import { btnStyle, errorTextStyle, noteTextStyle, primaryBtnStyle, sectionTitleStyle } from './styles';
+import { btnStyle, errorTextStyle, inputStyle, labelStyle, noteTextStyle, primaryBtnStyle, sectionTitleStyle } from './styles';
 import { theme } from './theme';
 
 interface CreateBodyPanelProps {
@@ -63,6 +63,8 @@ export const CreateBodyPanel: React.FC<CreateBodyPanelProps> = ({
   // The type is not a text field; it is sent only when it is not the backend default (planet) or came from the catalogue.
   const [kind, setKind] = useState<BodyKind>('planet');
   const [catalogueEntry, setCatalogueEntry] = useState<{ id: string; name: string; bodyType?: BodyType; assetKey?: string } | null>(null);
+  // '' = automatic (the default for the body's type). Anything else is a backend material profile id sent to the collision engine.
+  const [materialId, setMaterialId] = useState('');
   const [serverError, setServerError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // A second create request (for example a double press) must not start while one is in flight.
@@ -85,7 +87,7 @@ export const CreateBodyPanel: React.FC<CreateBodyPanelProps> = ({
       ...(catalogueEntry ? { catalogueEntryId: catalogueEntry.id } : {}),
       ...(catalogueEntry?.bodyType ? { bodyType: catalogueEntry.bodyType } : {}),
       ...(catalogueEntry?.assetKey ? { assetKey: catalogueEntry.assetKey } : {}),
-      material: defaultMaterial(kind, catalogueEntry?.bodyType),
+      material: materialId ? { profileId: materialId, layers: null } : defaultMaterial(kind, catalogueEntry?.bodyType),
     };
     const result = await onCreate(payload).finally(() => {
       creatingRef.current = false;
@@ -96,6 +98,7 @@ export const CreateBodyPanel: React.FC<CreateBodyPanelProps> = ({
       onPlacementModeChange(false);
       setCreating(false);
       setKind('planet');
+      setMaterialId('');
       setCatalogueEntry(null);
       setValues(NEW_BODY_DEFAULTS);
       onPlacementRadiusChange?.(Number(NEW_BODY_DEFAULTS.radius));
@@ -143,6 +146,7 @@ export const CreateBodyPanel: React.FC<CreateBodyPanelProps> = ({
   const openCreate = () => {
     const defaults = defaultsForNewBody(bodies);
     setKind('planet');
+    setMaterialId('');
     setCatalogueEntry(null);
     setValues(defaults);
     onPlacementRadiusChange?.(Number(defaults.radius));
@@ -169,6 +173,7 @@ export const CreateBodyPanel: React.FC<CreateBodyPanelProps> = ({
       color: entry.visual.colorHex,
     });
     setKind(entry.kind);
+    setMaterialId('');
     setCatalogueEntry({ id: entry.id, name: entry.name, bodyType: entry.bodyType, assetKey: entry.assetKey });
     onPlacementRadiusChange?.(entry.properties.radiusM.value);
     setPositionManuallyEdited(false);
@@ -246,6 +251,13 @@ export const CreateBodyPanel: React.FC<CreateBodyPanelProps> = ({
             bodyType={catalogueEntry?.bodyType}
             onKindChange={setKind}
           />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 10px' }}>
+            <label style={{ ...labelStyle, flex: '0 0 auto' }} htmlFor="create-material">Material</label>
+            <select id="create-material" style={inputStyle} value={materialId} onChange={(e) => setMaterialId(e.target.value)}>
+              <option value="">Automatic ({MATERIAL_OPTIONS.find((m) => m.id === defaultMaterial(kind, catalogueEntry?.bodyType).profileId)?.label})</option>
+              {MATERIAL_OPTIONS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+            </select>
+          </div>
           <p style={{ ...noteTextStyle, margin: '0 0 10px' }}>
             {atRest ? 'Starts at rest (velocity 0). ' : 'Starts with the velocity above. '}
             The backend integrates it from there under gravity.
