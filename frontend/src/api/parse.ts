@@ -7,6 +7,17 @@ import type {
   BodyDto,
   BodyType,
   CatalogueDto,
+  CollisionDetailDto,
+  CollisionListDto,
+  CollisionRecordDto,
+  CollisionSummaryDto,
+  DebrisDto,
+  EscapedLedgerDto,
+  ReplayReportDto,
+  VisualEventDto,
+  VisualPhaseDto,
+  MaterialDto,
+  OrientationDto,
   CataloguePropertyDto,
   ComparisonDto,
   ExperimentDto,
@@ -19,6 +30,7 @@ import type {
   EventListDto,
   HistoryPageDto,
   PresetSummaryDto,
+  CollisionEventDto,
   SimulationEventDto,
   SimulationStateDto,
   SnapshotSummaryDto,
@@ -63,6 +75,71 @@ function vec3OrNull(v: unknown, what: string): Vec3 | null {
   return v === null ? null : vec3(v, what);
 }
 
+/** Optional collision-engine fields of a body. Absent keys stay absent (older backends, bodies without a material). */
+function parseCollisionBodyFields(o: Record<string, unknown>): {
+  material?: MaterialDto; spinRadPerS?: Vec3; orientation?: OrientationDto; representation?: "fragment" | "debris-parcel";
+  originEventId?: string; debris?: DebrisDto; fragmentClass?: "bound_to_remnant" | "orbiting_system" | "escaping";
+} {
+  const out: ReturnType<typeof parseCollisionBodyFields> = {};
+  if (o.representation !== undefined && o.representation !== null) {
+    if (o.representation !== "fragment" && o.representation !== "debris-parcel") bad("body.representation");
+    out.representation = o.representation;
+  }
+  if (o.originEventId !== undefined && o.originEventId !== null) out.originEventId = str(o.originEventId, "body.originEventId");
+  if (o.fragmentClass !== undefined && o.fragmentClass !== null) {
+    if (o.fragmentClass !== "bound_to_remnant" && o.fragmentClass !== "orbiting_system" && o.fragmentClass !== "escaping") bad("body.fragmentClass");
+    out.fragmentClass = o.fragmentClass;
+  }
+  if (o.debris !== undefined && o.debris !== null) {
+    const d = obj(o.debris, "body.debris");
+    const sd = d.sizeDistribution;
+    let sizeDistribution: DebrisDto["sizeDistribution"] = null;
+    if (sd !== undefined && sd !== null) {
+      const s = obj(sd, "body.debris.sizeDistribution");
+      if (s.kind !== "power-law") bad("body.debris.sizeDistribution.kind");
+      sizeDistribution = { kind: "power-law", exponent: num(s.exponent, "body.debris.sizeDistribution.exponent"),
+        dMinM: num(s.dMinM, "body.debris.sizeDistribution.dMinM"), dMaxM: num(s.dMaxM, "body.debris.sizeDistribution.dMaxM") };
+    }
+    out.debris = {
+      totalMassKg: num(d.totalMassKg, "body.debris.totalMassKg"), sizeDistribution,
+      velocityDispersionMPerS: num(d.velocityDispersionMPerS, "body.debris.velocityDispersionMPerS"),
+      materialProfileId: d.materialProfileId === null || d.materialProfileId === undefined ? null : str(d.materialProfileId, "body.debris.materialProfileId"),
+      sampleSeed: num(d.sampleSeed, "body.debris.sampleSeed"),
+    };
+  }
+  if (o.material !== undefined && o.material !== null) {
+    const m = obj(o.material, "body.material");
+    const layers = m.layers;
+    if (layers !== undefined && layers !== null && !Array.isArray(layers)) bad("body.material.layers");
+    out.material = {
+      profileId: str(m.profileId, "body.material.profileId"),
+      layers:
+        layers === undefined || layers === null
+          ? null
+          : (layers as unknown[]).map((l, i) => {
+              const lo = obj(l, `body.material.layers[${i}]`);
+              const phase = lo.phase;
+              if (phase !== "solid" && phase !== "molten" && phase !== "partial" && phase !== "gas") bad(`body.material.layers[${i}].phase`);
+              return {
+                materialId: str(lo.materialId, `body.material.layers[${i}].materialId`),
+                massFraction: num(lo.massFraction, `body.material.layers[${i}].massFraction`),
+                phase,
+                meltFraction: lo.meltFraction == null ? null : num(lo.meltFraction, `body.material.layers[${i}].meltFraction`),
+                densityKgPerM3: lo.densityKgPerM3 == null ? null : num(lo.densityKgPerM3, `body.material.layers[${i}].densityKgPerM3`),
+              };
+            }),
+    };
+  }
+  if (o.spinRadPerS !== undefined && o.spinRadPerS !== null) out.spinRadPerS = vec3(o.spinRadPerS, "body.spinRadPerS");
+  if (o.orientation !== undefined && o.orientation !== null) {
+    const r = obj(o.orientation, "body.orientation");
+    if (!Array.isArray(r.quaternion) || r.quaternion.length !== 4) bad("body.orientation.quaternion");
+    const q = r.quaternion.map((c, i) => num(c, `body.orientation.quaternion[${i}]`));
+    out.orientation = { quaternion: [q[0], q[1], q[2], q[3]], epochS: num(r.epochS, "body.orientation.epochS") };
+  }
+  return out;
+}
+
 export function parseDiagnosticsDto(v: unknown): DiagnosticsDto {
   const o = obj(v, "diagnostics");
   if (o.version !== DIAGNOSTICS_VERSION) bad(`diagnostics.version (${String(o.version)}, expected ${DIAGNOSTICS_VERSION})`);
@@ -77,6 +154,12 @@ export function parseDiagnosticsDto(v: unknown): DiagnosticsDto {
       "diagnostics.angularMomentumAboutOriginKgM2PerS",
     ),
     bookedSpinKgM2PerS: vec3OrNull(o.bookedSpinKgM2PerS, "diagnostics.bookedSpinKgM2PerS"),
+    // additive (Stage 2): absent unless some body has a rotation state; the version stays 1
+    ...(o.spinAngularMomentumKgM2PerS === undefined
+      ? {}
+      : { spinAngularMomentumKgM2PerS: vec3OrNull(o.spinAngularMomentumKgM2PerS, "diagnostics.spinAngularMomentumKgM2PerS") }),
+    // additive (Stage 7): the escaped-material ledger, absent until some debris was removed by the escape rule
+    ...(o.escaped === undefined || o.escaped === null ? {} : { escaped: parseEscaped(o.escaped) }),
   };
 }
 
@@ -134,6 +217,7 @@ export function parseBodyDto(v: unknown): BodyDto {
     kind: o.kind === "star" ? "star" : "planet",
     catalogueEntryId: typeof o.catalogueEntryId === "string" ? o.catalogueEntryId : null,
     ...parseRenderMeta(o, "body"),
+    ...parseCollisionBodyFields(o),
   };
 }
 
@@ -152,8 +236,48 @@ export function parseStateDto(v: unknown): SimulationStateDto {
   };
 }
 
+function strArray(v: unknown, what: string): string[] {
+  if (!Array.isArray(v)) bad(what);
+  return (v as unknown[]).map((x) => str(x, `${what}[]`));
+}
+
+function parseCollisionEvent(o: Record<string, unknown>): CollisionEventDto {
+  const fidelity = obj(o.fidelitySummary, "event.fidelitySummary");
+  return {
+    id: str(o.id, "event.id"),
+    type: "collision",
+    schemaVersion: num(o.schemaVersion, "event.schemaVersion"),
+    outcome: str(o.outcome, "event.outcome"),
+    simulationTimeS: num(o.simulationTimeS, "event.simulationTimeS"),
+    estimatedContactTimeS:
+      o.estimatedContactTimeS === null || o.estimatedContactTimeS === undefined
+        ? null
+        : num(o.estimatedContactTimeS, "event.estimatedContactTimeS"),
+    bodyIds: strArray(o.bodyIds, "event.bodyIds"),
+    survivingBodyIds: strArray(o.survivingBodyIds, "event.survivingBodyIds"),
+    createdBodyIds: strArray(o.createdBodyIds, "event.createdBodyIds"),
+    removedBodyIds: strArray(o.removedBodyIds, "event.removedBodyIds"),
+    parentEventId: o.parentEventId === null || o.parentEventId === undefined ? null : str(o.parentEventId, "event.parentEventId"),
+    rootEventId: str(o.rootEventId, "event.rootEventId"),
+    generation: num(o.generation, "event.generation"),
+    modelId: str(o.modelId, "event.modelId"),
+    modelVersion: str(o.modelVersion, "event.modelVersion"),
+    impactSpeedMPerS: num(o.impactSpeedMPerS, "event.impactSpeedMPerS"),
+    impactAngleDeg: num(o.impactAngleDeg, "event.impactAngleDeg"),
+    specificImpactEnergyJPerKg: num(o.specificImpactEnergyJPerKg, "event.specificImpactEnergyJPerKg"),
+    largestRemnantMassKg: num(o.largestRemnantMassKg, "event.largestRemnantMassKg"),
+    debrisMassKg: num(o.debrisMassKg, "event.debrisMassKg"),
+    massResidualRel: num(o.massResidualRel, "event.massResidualRel"),
+    momentumResidualRel: num(o.momentumResidualRel, "event.momentumResidualRel"),
+    warnings: strArray(o.warnings, "event.warnings"),
+    fidelitySummary: Object.fromEntries(Object.entries(fidelity).map(([k, val]) => [k, str(val, `event.fidelitySummary.${k}`)])),
+    hasVisual: o.hasVisual === true,
+  };
+}
+
 export function parseEventDto(v: unknown): SimulationEventDto {
   const o = obj(v, "event");
+  if (o.type === "collision") return parseCollisionEvent(o);
   if (o.type !== "merger") bad(`event.type (${String(o.type)})`);
   if (!Array.isArray(o.bodyIds)) bad("event.bodyIds");
   return {
@@ -179,14 +303,209 @@ export function parseEventList(v: unknown): EventListDto {
   return { events: (o.events as unknown[]).map(parseEventDto) };
 }
 
+function parseEscaped(v: unknown): EscapedLedgerDto {
+  const o = obj(v, "diagnostics.escaped");
+  const vec = (x: unknown, what: string): Vec3 => {
+    const r = vec3OrNull(x, what);
+    if (r === null) bad(what);
+    return r;
+  };
+  return {
+    massKg: num(o.massKg, "diagnostics.escaped.massKg"),
+    momentumKgMPerS: vec(o.momentumKgMPerS, "diagnostics.escaped.momentumKgMPerS"),
+    angularMomentumAboutOriginKgM2PerS: vec(o.angularMomentumAboutOriginKgM2PerS, "diagnostics.escaped.angularMomentumAboutOriginKgM2PerS"),
+    bodyCount: num(o.bodyCount, "diagnostics.escaped.bodyCount"),
+  };
+}
+
+function strOrNullStrict(v: unknown, what: string): string | null {
+  return v === null ? null : str(v, what);
+}
+
+function parseCollisionSummary(v: unknown): CollisionSummaryDto {
+  const o = obj(v, "collision");
+  return {
+    eventId: str(o.eventId, "collision.eventId"), legacyEventId: strOrNullStrict(o.legacyEventId, "collision.legacyEventId"),
+    parentEventId: strOrNullStrict(o.parentEventId, "collision.parentEventId"), rootEventId: str(o.rootEventId, "collision.rootEventId"),
+    generation: num(o.generation, "collision.generation"), outcome: strOrNullStrict(o.outcome, "collision.outcome"),
+    modelId: strOrNullStrict(o.modelId, "collision.modelId"), modelVersion: strOrNullStrict(o.modelVersion, "collision.modelVersion"),
+    timeS: num(o.timeS, "collision.timeS"), bodyIds: strArray(o.bodyIds, "collision.bodyIds"), warnings: strArray(o.warnings, "collision.warnings"),
+    hasResult: bool(o.hasResult, "collision.hasResult"), detailDropped: bool(o.detailDropped, "collision.detailDropped"),
+    inputDigest: str(o.inputDigest, "collision.inputDigest"), resultDigest: str(o.resultDigest, "collision.resultDigest"),
+  };
+}
+
+export function parseCollisionList(v: unknown): CollisionListDto {
+  const o = obj(v, "collisions");
+  if (!Array.isArray(o.records)) bad("collisions.records");
+  return {
+    total: num(o.total, "collisions.total"), offset: num(o.offset, "collisions.offset"), limit: num(o.limit, "collisions.limit"),
+    maxRecords: num(o.maxRecords, "collisions.maxRecords"), records: (o.records as unknown[]).map(parseCollisionSummary),
+  };
+}
+
+function parseCollisionRecord(v: unknown): CollisionRecordDto {
+  const o = obj(v, "record");
+  const input = obj(o.input, "record.input");
+  const impact = obj(input.impact, "record.input.impact");
+  const target = obj(impact.target, "record.input.impact.target");
+  const projectile = obj(impact.projectile, "record.input.impact.projectile");
+  const profileId = (b: Record<string, unknown>, what: string): string | null =>
+    b.materialProfile === null || b.materialProfile === undefined ? null : str(obj(b.materialProfile, what).id, `${what}.id`);
+  const fid = obj(o.fidelity, "record.fidelity");
+  const fidelity: Record<string, string> = {};
+  for (const [k, label] of Object.entries(fid)) fidelity[k] = str(label, `record.fidelity.${k}`);
+  let outcome: CollisionRecordDto["outcome"] = null;
+  if (o.outcomeSpec !== null && o.outcomeSpec !== undefined) {
+    const s = obj(o.outcomeSpec, "record.outcomeSpec");
+    const params = obj(s.parameters, "record.outcomeSpec.parameters");
+    outcome = {
+      outcome: str(s.outcome, "record.outcomeSpec.outcome"), modelId: str(s.modelId, "record.outcomeSpec.modelId"),
+      modelVersion: str(s.modelVersion, "record.outcomeSpec.modelVersion"), regimeReasons: strArray(s.regimeReasons, "record.outcomeSpec.regimeReasons"),
+      parameters: Object.entries(params).map(([name, p]) => {
+        const po = obj(p, `record.outcomeSpec.parameters.${name}`);
+        return { name, value: num(po.value, `${name}.value`), unit: str(po.unit, `${name}.unit`), source: str(po.source, `${name}.source`) };
+      }),
+      debrisMassKg: num(s.debrisMassKg, "record.outcomeSpec.debrisMassKg"),
+    };
+  }
+  let result: CollisionRecordDto["result"] = null;
+  if (o.result !== null && o.result !== undefined) {
+    const r = obj(o.result, "record.result");
+    const c = obj(r.conservation, "record.result.conservation");
+    const e = obj(c.energy, "record.result.conservation.energy");
+    const ids = (posts: unknown, what: string): string[] => {
+      if (!Array.isArray(posts)) bad(what);
+      return (posts as unknown[]).map((p) => str(obj(p, `${what}[]`).id, `${what}[].id`));
+    };
+    const ledger = obj(r.massLedger, "record.result.massLedger");
+    const massLedger: Record<string, number> = {};
+    for (const [k, x] of Object.entries(ledger)) massLedger[k] = num(x, `record.result.massLedger.${k}`);
+    result = {
+      removedBodyIds: strArray(r.removedBodyIds, "record.result.removedBodyIds"), survivingBodyIds: ids(r.transformed, "record.result.transformed"),
+      createdBodyIds: ids(r.created, "record.result.created"), parcelIds: ids(r.debrisParcels, "record.result.debrisParcels"), massLedger,
+      conservation: {
+        massResidualRel: num(c.massResidualRel, "conservation.massResidualRel"), momentumResidualRel: num(c.momentumResidualRel, "conservation.momentumResidualRel"),
+        angularMomentumResidualRel: numOrNull(c.angularMomentumResidualRel, "conservation.angularMomentumResidualRel"),
+        angularMomentumUnmodelled: strOrNullStrict(c.angularMomentumUnmodelled, "conservation.angularMomentumUnmodelled"),
+        dissipatedJ: num(e.dissipatedJ, "conservation.energy.dissipatedJ"), dissipatedNonNegative: bool(e.dissipatedNonNegative, "conservation.energy.dissipatedNonNegative"),
+        withinTolerance: bool(c.withinTolerance, "conservation.withinTolerance"),
+      },
+    };
+  }
+  return {
+    eventId: str(o.eventId, "record.eventId"), legacyEventId: strOrNullStrict(o.legacyEventId, "record.legacyEventId"),
+    parentEventId: strOrNullStrict(o.parentEventId, "record.parentEventId"), rootEventId: str(o.rootEventId, "record.rootEventId"),
+    generation: num(o.generation, "record.generation"), selectionReasons: strArray(o.selectionReasons, "record.selectionReasons"),
+    warnings: strArray(o.warnings, "record.warnings"), fidelity, inputDigest: str(o.inputDigest, "record.inputDigest"),
+    resultDigest: str(o.resultDigest, "record.resultDigest"),
+    impact: {
+      detectionTimeS: num(impact.detectionTimeS, "impact.detectionTimeS"), targetId: str(target.id, "impact.target.id"),
+      projectileId: str(projectile.id, "impact.projectile.id"), targetMassKg: num(target.massKg, "impact.target.massKg"),
+      projectileMassKg: num(projectile.massKg, "impact.projectile.massKg"), impactSpeedMPerS: num(impact.impactSpeedMPerS, "impact.impactSpeedMPerS"),
+      impactAngleDeg: num(impact.impactAngleDeg, "impact.impactAngleDeg"),
+      specificImpactEnergyJPerKg: num(impact.specificImpactEnergyJPerKg, "impact.specificImpactEnergyJPerKg"),
+      contactPointM: vec3(impact.contactPointM, "impact.contactPointM"), targetMaterialId: profileId(target, "impact.target.materialProfile"),
+      projectileMaterialId: profileId(projectile, "impact.projectile.materialProfile"),
+    },
+    outcome, result,
+  };
+}
+
+export function parseCollisionDetail(v: unknown): CollisionDetailDto {
+  const o = obj(v, "collision detail");
+  if (!Array.isArray(o.products)) bad("detail.products");
+  return {
+    record: parseCollisionRecord(o.record), childEventIds: strArray(o.childEventIds, "detail.childEventIds"),
+    products: (o.products as unknown[]).map((p, i) => {
+      const po = obj(p, `detail.products[${i}]`);
+      const cls = po.fragmentClass;
+      if (cls !== null && cls !== "bound_to_remnant" && cls !== "orbiting_system" && cls !== "escaping") bad(`detail.products[${i}].fragmentClass`);
+      return {
+        bodyId: str(po.bodyId, "product.bodyId"), representation: str(po.representation, "product.representation"),
+        massKgAtEvent: num(po.massKgAtEvent, "product.massKgAtEvent"), exists: bool(po.exists, "product.exists"), fragmentClass: cls,
+        massKgNow: numOrNull(po.massKgNow, "product.massKgNow"),
+      };
+    }),
+    escapedLedger: o.escapedLedger === null || o.escapedLedger === undefined ? null : parseEscaped(o.escapedLedger),
+    note: str(o.note, "detail.note"),
+  };
+}
+
+const PHASE_NAMES = ["contact", "flash", "cratering", "ejecta", "separation", "cloud-expansion", "aftermath"] as const;
+
+export function parseVisualEvent(v: unknown): VisualEventDto {
+  const o = obj(v, "visual");
+  const site = obj(o.impactSite, "visual.impactSite");
+  if (!Array.isArray(o.phases)) bad("visual.phases");
+  if (!Array.isArray(o.visualOnly)) bad("visual.visualOnly");
+  if (!Array.isArray(o.ejectaSources)) bad("visual.ejectaSources");
+  const phases = (o.phases as unknown[]).map((p, i) => {
+    const po = obj(p, `visual.phases[${i}]`);
+    const name = po.name;
+    if (!PHASE_NAMES.includes(name as (typeof PHASE_NAMES)[number])) bad(`visual.phases[${i}].name`);
+    if (po.basis !== "simulation-time" && po.basis !== "visual-wall-clock") bad(`visual.phases[${i}].basis`);
+    const out: VisualPhaseDto = {
+      name: name as VisualPhaseDto["name"], startS: num(po.startS, "phase.startS"),
+      endS: po.endS === null || po.endS === undefined ? null : num(po.endS, "phase.endS"), basis: po.basis,
+    };
+    if (po.durationWallS !== undefined && po.durationWallS !== null) out.durationWallS = num(po.durationWallS, "phase.durationWallS");
+    return out;
+  });
+  const appearance = obj(o.materialAppearance, "visual.materialAppearance");
+  const materialAppearance: Record<string, string> = {};
+  for (const [k, a] of Object.entries(appearance)) materialAppearance[k] = str(a, `visual.materialAppearance.${k}`);
+  let cloud: VisualEventDto["cloud"] = null;
+  if (o.cloud !== null && o.cloud !== undefined) {
+    const c = obj(o.cloud, "visual.cloud");
+    cloud = { initialRadiusM: num(c.initialRadiusM, "cloud.initialRadiusM"), expansionSpeedMPerS: num(c.expansionSpeedMPerS, "cloud.expansionSpeedMPerS"),
+      materialAppearance: str(c.materialAppearance, "cloud.materialAppearance") };
+  }
+  return {
+    eventId: str(o.eventId, "visual.eventId"), outcome: str(o.outcome, "visual.outcome"), timeS: num(o.timeS, "visual.timeS"),
+    impactSite: { bodyId: str(site.bodyId, "site.bodyId"), centerLocal: vec3(site.centerLocal, "site.centerLocal"),
+      centerWorldAtContactM: vec3(site.centerWorldAtContactM, "site.centerWorldAtContactM"), normalWorld: vec3(site.normalWorld, "site.normalWorld") },
+    phases, ejectaSourceCount: (o.ejectaSources as unknown[]).length, fragmentBodyIds: strArray(o.fragmentBodyIds, "visual.fragmentBodyIds"),
+    debrisParcelIds: strArray(o.debrisParcelIds, "visual.debrisParcelIds"), cloud,
+    visualOnly: (o.visualOnly as unknown[]).map((e, i) => {
+      const eo = obj(e, `visual.visualOnly[${i}]`);
+      if (eo.kind !== "flash" && eo.kind !== "glow" && eo.kind !== "shock-indicator") bad(`visual.visualOnly[${i}].kind`);
+      if ("massKg" in eo || "mass" in eo) bad(`visual.visualOnly[${i}] (a visual-only effect has no mass)`);
+      return { kind: eo.kind, intensity: num(eo.intensity, "effect.intensity"), lifetimeWallS: num(eo.lifetimeWallS, "effect.lifetimeWallS") };
+    }),
+    materialAppearance, fidelityNotes: strArray(o.fidelityNotes, "visual.fidelityNotes"),
+  };
+}
+
+export function parseReplayReport(v: unknown): ReplayReportDto {
+  const o = obj(v, "replay");
+  if (!Array.isArray(o.checks)) bad("replay.checks");
+  return {
+    eventId: str(o.eventId, "replay.eventId"), reproduced: bool(o.reproduced, "replay.reproduced"),
+    checks: (o.checks as unknown[]).map((c, i) => {
+      const co = obj(c, `replay.checks[${i}]`);
+      if (co.ok !== null && typeof co.ok !== "boolean") bad(`replay.checks[${i}].ok`);
+      return { name: str(co.name, "check.name"), ok: co.ok as boolean | null, detail: str(co.detail, "check.detail") };
+    }),
+    recordedResultDigest: str(o.recordedResultDigest, "replay.recordedResultDigest"), replayedResultDigest: str(o.replayedResultDigest, "replay.replayedResultDigest"),
+    differingFields: strArray(o.differingFields, "replay.differingFields"), mutatesState: bool(o.mutatesState, "replay.mutatesState"),
+  };
+}
+
 export function parseStepResponse(v: unknown): StepResponseDto {
   const o = obj(v, "step");
   const state = parseStateDto(v);
   if (!Array.isArray(o.events)) bad("step.events");
+  let warnings: string[] | undefined;
+  if (o.warnings !== undefined && o.warnings !== null) {
+    if (!Array.isArray(o.warnings)) bad("step.warnings");
+    warnings = (o.warnings as unknown[]).map((w) => str(w, "step.warnings[]"));
+  }
   return {
     ...state,
     advancedS: num(o.advancedS, "step.advancedS"),
     events: (o.events as unknown[]).map(parseEventDto),
+    ...(warnings && warnings.length ? { warnings } : {}),
   };
 }
 

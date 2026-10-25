@@ -1,7 +1,7 @@
 """Pydantic models for the API contract (see context/API_CONTRACT.md). SI units throughout."""
-from typing import Literal
+from typing import Annotated, Literal, Union
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_serializer, model_validator
 
 from backend.catalogue import catalogue_ids
 
@@ -13,6 +13,7 @@ MAX_SPEED_M_PER_S = 2.99792458e8  # speed of light: this is a Newtonian simulato
 MIN_STEP_S = 1.0e-6
 MAX_STEP_S = 1.0e8  # ~3.2 years per request; Play = many bounded requests
 MAX_BODIES = 200
+MAX_SPIN_RAD_PER_S = 1.0e5  # sanity bound on a requested spin rate (a request limit like the others, not a physical claim)
 
 BodyKind = Literal["star", "planet"]
 
@@ -63,6 +64,75 @@ class Velocity3(BaseModel):
         return self
 
 
+class LayerSpec(BaseModel):
+    """A layer of a body's material override (collision engine, plan 4.2). Validated against the contract in the service."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    materialId: str = Field(min_length=1, max_length=64)
+    massFraction: float = Field(ge=0, le=1, allow_inf_nan=False)
+    phase: Literal["solid", "molten", "partial", "gas"]
+    meltFraction: float | None = Field(default=None, ge=0, le=1, allow_inf_nan=False)
+    densityKgPerM3: float | None = Field(default=None, gt=0, allow_inf_nan=False)
+
+
+class MaterialSpec(BaseModel):
+    """`material` of a body: a registry profile id, optionally with layer overrides. Absent / null = unspecified."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    profileId: str = Field(min_length=1, max_length=64)
+    layers: list[LayerSpec] | None = Field(default=None, min_length=1, max_length=16)
+
+
+class SpinVec3(BaseModel):
+    """Angular velocity in the inertial frame [rad/s]."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    x: float = Field(ge=-MAX_SPIN_RAD_PER_S, le=MAX_SPIN_RAD_PER_S, allow_inf_nan=False)
+    y: float = Field(ge=-MAX_SPIN_RAD_PER_S, le=MAX_SPIN_RAD_PER_S, allow_inf_nan=False)
+    z: float = Field(ge=-MAX_SPIN_RAD_PER_S, le=MAX_SPIN_RAD_PER_S, allow_inf_nan=False)
+
+
+class OrientationSpec(BaseModel):
+    """Unit quaternion [w, x, y, z] (body -> world) at simulation time `epochS`. Request: the orientation at that epoch."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    quaternion: list[float] = Field(min_length=4, max_length=4)
+    epochS: float = Field(allow_inf_nan=False)
+
+    @field_validator("quaternion")
+    @classmethod
+    def _finite(cls, v: list[float]) -> list[float]:
+        if not all(isinstance(c, (int, float)) and abs(c) < float("inf") for c in v):
+            raise ValueError("quaternion components must be finite numbers")
+        return [float(c) for c in v]
+
+
+# Optional collision-engine fields of a body. They are OMITTED from responses when null, so a body without a material looks
+# exactly as before (D-033 DQ-2: no new body fields, no spin state).
+COLLISION_BODY_FIELDS = ("material", "spinRadPerS", "orientation", "representation", "originEventId", "debris", "fragmentClass")
+
+
+class SizeDistributionSpec(BaseModel):
+    kind: Literal["power-law"]
+    exponent: float
+    dMinM: float
+    dMaxM: float
+
+
+class DebrisSpec(BaseModel):
+    """What a debris parcel stands for (statistical population; plan 3.9). `sizeDistribution` is set for parcels of Stage 5 fragmentation (null only for the single-parcel hit-and-run path)."""
+
+    totalMassKg: float
+    sizeDistribution: SizeDistributionSpec | None = None
+    velocityDispersionMPerS: float
+    materialProfileId: str | None = None
+    sampleSeed: int
+
+
 class BodyCreate(BaseModel):
     """Request body for POST /api/v1/bodies. The server generates `id`."""
 
@@ -78,6 +148,9 @@ class BodyCreate(BaseModel):
     catalogueEntryId: str | None = Field(default=None, min_length=1, max_length=64)  # provenance only
     bodyType: BodyType | None = None  # omitted or null: derived from `kind` ("star" for a star, else "default")
     assetKey: str | None = Field(default=None, min_length=1, max_length=ASSET_KEY_MAX_LENGTH, pattern=ASSET_KEY_PATTERN)
+    material: MaterialSpec | None = None  # None: unspecified -> exact legacy merge, no spin state
+    spinRadPerS: SpinVec3 | None = None  # needs a material whose profile has a moment-of-inertia factor
+    orientation: OrientationSpec | None = None  # same requirement
 
     @model_validator(mode="after")
     def _body_type_matches_kind(self) -> "BodyCreate":
@@ -108,6 +181,21 @@ class Body(BaseModel):
     bodyType: BodyType = "default"  # always present
     assetKey: str | None = None  # always present; null = no specific asset, use the bodyType fallback
     primaryId: str | None = None  # always present; id of the body this one orbits (moon -> planet). Display only
+    material: MaterialSpec | None = None  # present only when set
+    spinRadPerS: Vec3 | None = None  # present only when the body has a rotation state
+    orientation: OrientationSpec | None = None  # present only when the body has a rotation state
+    representation: Literal["fragment", "debris-parcel"] | None = None  # present only for products of a collision (absent = "body")
+    originEventId: str | None = None  # the collision event that created this body
+    debris: DebrisSpec | None = None  # parcels only
+    fragmentClass: Literal["bound_to_remnant", "orbiting_system", "escaping"] | None = None  # fragments/parcels: dynamical class (Stage 7)
+
+    @model_serializer(mode="wrap")
+    def _omit_unset_collision_fields(self, handler):
+        data = handler(self)
+        for key in COLLISION_BODY_FIELDS:
+            if data.get(key) is None:
+                data.pop(key, None)
+        return data
 
 
 class BodyUpdate(BaseModel):
@@ -124,15 +212,26 @@ class BodyUpdate(BaseModel):
     kind: BodyKind | None = None
     bodyType: BodyType | None = None
     assetKey: str | None = Field(default=None, min_length=1, max_length=ASSET_KEY_MAX_LENGTH, pattern=ASSET_KEY_PATTERN)
+    material: MaterialSpec | None = None  # an explicit null clears it (not allowed while the body has a spin state)
+    spinRadPerS: SpinVec3 | None = None  # an explicit null clears the rotation state
 
     @model_validator(mode="after")
     def _non_empty_and_no_nulls(self) -> "BodyUpdate":
         if not self.model_fields_set:
             raise ValueError("at least one field must be provided")
         for field in self.model_fields_set:
-            if getattr(self, field) is None and field != "assetKey":  # an explicit null assetKey clears it
+            if getattr(self, field) is None and field not in ("assetKey", "material", "spinRadPerS"):  # explicit null clears these
                 raise ValueError(f"{field} must not be null")
         return self
+
+
+class EscapedLedger(BaseModel):
+    """Material that left the simulation through the explicit escape rule; totals including it are conserved."""
+
+    massKg: float
+    momentumKgMPerS: Vec3
+    angularMomentumAboutOriginKgM2PerS: Vec3
+    bodyCount: int
 
 
 class Diagnostics(BaseModel):
@@ -146,6 +245,19 @@ class Diagnostics(BaseModel):
     potentialEnergyJ: float | None
     angularMomentumAboutOriginKgM2PerS: Vec3 | None
     bookedSpinKgM2PerS: Vec3 | None
+    # Additive and optional: present only when some body has a rotation state (Stage 2). The version stays 1, so older
+    # clients, which are strict about `version`, keep working; the key is simply absent in every other state.
+    spinAngularMomentumKgM2PerS: Vec3 | None = None
+    # Additive and optional (Stage 7): the escaped-material ledger, present only after some debris was removed by the escape rule.
+    escaped: "EscapedLedger | None" = None
+
+    @model_serializer(mode="wrap")
+    def _omit_absent_spin_term(self, handler):
+        data = handler(self)
+        for key in ("spinAngularMomentumKgM2PerS", "escaped"):
+            if data.get(key) is None:
+                data.pop(key, None)
+        return data
 
 
 class SimulationState(BaseModel):
@@ -159,6 +271,37 @@ class StepRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     dtS: float = Field(ge=MIN_STEP_S, le=MAX_STEP_S, allow_inf_nan=False)
+
+
+class CollisionEventOut(BaseModel):
+    """`type: "collision"` (collision engine, mode outcome-v1): summary of one collision; details in the collision record. The legacy
+    `merger` event below is unchanged. Fields mirror the CollisionEvent contract of the collision engine."""
+
+    id: str
+    type: Literal["collision"]
+    schemaVersion: int
+    outcome: str
+    simulationTimeS: float
+    estimatedContactTimeS: float | None
+    bodyIds: list[str]  # [target, projectile]
+    survivingBodyIds: list[str]
+    createdBodyIds: list[str]
+    removedBodyIds: list[str]
+    parentEventId: str | None
+    rootEventId: str
+    generation: int
+    modelId: str
+    modelVersion: str
+    impactSpeedMPerS: float
+    impactAngleDeg: float
+    specificImpactEnergyJPerKg: float
+    largestRemnantMassKg: float
+    debrisMassKg: float
+    massResidualRel: float
+    momentumResidualRel: float
+    warnings: list[str]
+    fidelitySummary: dict[str, str]
+    hasVisual: bool
 
 
 class Event(BaseModel):
@@ -176,10 +319,21 @@ class Event(BaseModel):
     spinAddedKgM2PerS: Vec3  # orbital angular momentum booked as remnant spin (bookkeeping only)
 
 
+AnyEvent = Annotated[Union[Event, CollisionEventOut], Field(discriminator="type")]
+
+
 class StepResponse(SimulationState):
-    advancedS: float  # simulation time actually advanced (== dtS up to rounding)
-    events: list[Event]  # events that occurred during this step only
+    advancedS: float  # simulation time actually advanced (== dtS up to rounding, unless `collision_budget_reached` is in `warnings`, DQ-10)
+    events: list[AnyEvent]  # events that occurred during this step only
+    warnings: list[str] = []  # present only when non-empty: "collision_budget_reached" = the step ended early, advancedS < dtS
+
+    @model_serializer(mode="wrap")
+    def _omit_empty_warnings(self, handler):
+        data = handler(self)
+        if not data.get("warnings"):
+            data.pop("warnings", None)
+        return data
 
 
 class EventList(BaseModel):
-    events: list[Event]
+    events: list[AnyEvent]

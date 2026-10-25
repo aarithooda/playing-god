@@ -18,7 +18,7 @@ from pathlib import Path
 
 from backend.errors import CodedError
 from backend.presets.loader import PresetDataError, UnknownPresetError, load_preset
-from backend.simulation import InitialBody, SimulationService
+from backend.simulation import LEGACY_MERGE_CONFIG, InitialBody, SimulationService
 from backend.universes import UniverseRegistry, get_registry
 
 SYSTEMS_FILE = Path(__file__).resolve().parent / "orbit_lab_systems.json"
@@ -86,7 +86,7 @@ class OrbitLab:
         except KeyError as exc:
             raise CodedError(f"the preset has no body {exc.args[0]}", code="preset_invalid", status=500) from exc
         bodies = _recentre(chosen)
-        engine = SimulationService()
+        engine = SimulationService(LEGACY_MERGE_CONFIG)  # Orbit Lab stays legacy-merge until Stage 11 (D-045)
         try:
             engine.load_bodies(bodies, history_mode=system["historyMode"], sample_interval_s=system["sampleIntervalS"])
         except Exception as exc:  # noqa: BLE001
@@ -179,7 +179,8 @@ class OrbitLab:
                         p.vx, p.vy, p.vz = factor * p.vx, factor * p.vy, factor * p.vz
 
             engine = SimulationService.from_snapshot(snap, transform=scale, history_mode=system["historyMode"],
-                                                     sample_interval_s=system["sampleIntervalS"])
+                                                     sample_interval_s=system["sampleIntervalS"],
+                                                     collision_config=LEGACY_MERGE_CONFIG)
             engine.audit_edits = True
             modified_v = [factor * v for v in original_v]
             modification = {

@@ -1,7 +1,20 @@
 # Tasks
+
+> **Next (2026-10-25, D-063 checkpoint):** material picker in Add Body/Inspector; `collisionMode` in the universe summary plus a UI badge; convergence studies for grazing, near-miss, high-speed and multi-body cases; run Playwright, `e2e:collision` and `e2e` on `integration/main-plus-collision-engine`.
+
+
+## INTEGRATION BRANCH (2026-10-25)
+`integration/collision-engine` (base `main` `7148556`) holds the moons work and the complete collision stack and runs as one application; see `context/INTEGRATION_BRANCH.md`. Open: evaluate on a stronger machine (headed, GPU, effect frame pacing), then owner decides on merging. Stage 12 stays `[-]`; DOD-2, effect frame pacing, browser scenario G and a GPU run remain unmet; CP-SCI-1/CP-5 remain unsigned (D-059 waiver is for development only).
+
 Status: todo / in progress / blocked / done. Keep tasks small and independently testable.
 
 ## NEXT ACTION
+**Stage 2 finished (CP-1 accepted, D-036).** Stage 3 is blocked: DQ-7, DQ-8, DQ-9 are unanswered and no CP-SCI-1 human reviewer is named (see the Stage 2 report). Later stages need Stage 3. Nothing is pushed or merged.
+
+**Stage 1 finished — waiting at CP-1.** The owner/reviewer must review the Stage 1 equivalence evidence (`WORKLOG.md`, Stage 1 entry) and decide D-035 (keep `legacy-merge` exact including a found defect, recommended, or fix it). Per the execution guide Stage 2 starts only after CP-1 is accepted; Stage 3 needs DQ-7/8/9 and a named CP-SCI-1 reviewer; no stage may be merged or pushed without separate authorisation.
+
+**Collision & particle engine implementation in progress** (owner instruction 2026-10-24; nothing pushed, merged or deployed). Live board: the table at the end of this file. Stage 0 done on `collision/stage-0-contracts`; Stage 1 next. Gates that will stop the chain: CP-1 (after Stage 1), DQ-7/8/9 and a named CP-SCI-1 human reviewer (Stage 3), CP-SCI-1 sign-off + DQ-13 (Stage 4).
+
 **Simulation Lab + Experiment 01 implemented** on `feature/simulation-lab-experiment-01` (T-015; one PR to `main`, not merged). Next: the owner's product review of the PR, then the independent technical review (OD-6); then merge by the owner. Open owner decisions: whether to approve an alternative gate for TRAPPIST-1 (D-027) and whether to correct the barycentre-drift sentence in `EXPERIMENT_01_SPEC.md` section 4.2 (D-028). Older text follows.
 
 UI integration series M0-M5 **complete and merged** (PRs #4, #7, #8, #9, #11, #12; stall fix #10); repository handed over, see the FINAL HANDOVER section at the top of `STATUS.md`. Next: the owner defines and starts Experiment 01 (not defined in the repo, not started). Open items: T-010 browser E2E, the history-system decision, checkpoints/tidal (brief features not implemented).
@@ -71,3 +84,28 @@ Fetched and created local tracking refs for `feature/m0-rebound-physics-api` (Aa
 
 ### Independent production physics review — 2026-10-24
 On isolated branch `validation/production-physics-review`, 11 new analytical/reference checks passed against `feature/production-rebound-simulation`; the complete branch suite passed 160 tests with 3 warnings. This does not close P-003: the review recommends additional strongly curved non-radial and three-body cases, connected clusters of >3 simultaneous mergers, seed/order variation, and testing the 2000-chunk cap. See `context/PRODUCTION_PHYSICS_INDEPENDENT_VALIDATION.md`.
+
+<!-- COLLISION-BOARD:START -->
+**GOVERNANCE CHANGE (D-059, 2026-10-25):** CP-SCI-1 and CP-5 are WAIVED by the owner for continued development only (owner-accepted, NOT independently validated; no signature exists). Stages 11 and 12 proceed without a named reviewer.
+
+### Collision & particle engine — implementation board (live; updated at every stage boundary)
+Branch chain (stacked, nothing pushed or merged): see `WORKLOG.md`. Status: `[ ]` not started · `[-]` in progress · `[x]` completed and verified · `[!]` blocked / awaiting human approval. Per-requirement detail: `COLLISION_REQUIREMENT_TRACEABILITY.md`.
+
+| Stage | Status | Deliverable | Depends on | Acceptance | Tests | Commit |
+|---|---|---|---|---|---|---|
+| 0 Governance, contracts, configuration | [x] pytest 700 / vitest 433 / build OK | backend/impact/{serialization,config,contracts}.py; tests/impact/test_contracts.py; D-034; docs | D-033 | pytest 567 + new green; vitest 433; build OK; no import of backend.impact outside the package; DEFAULT_SANDBOX_MODE legacy-merge | tests/impact/test_contracts.py | bb61e8d |
+| 1 Deferred resolution, impact capture, event identity (legacy outcome only) | [!] implemented and verified (800 passed); STOPPED AT CP-1 (human review) | detection, geometry, records, engine, models/{base,perfect_merge}; simulation.py wiring behind mode outcome-v1 | 0 | 567 existing tests unchanged; golden equivalence <= 1e-12 (CP-1 if an internal-step shift appears); geometry/determinism tests; latency +10% | test_deferred_equivalence, test_geometry, test_detection | 9299ec2 |
+| 2 Materials, spin, orientation | [x] 869 backend / 439 vitest / build OK | materials, rotation, profiles JSON, GET /materials, side tables, diagnostics v2 | 1 + CP-1 accepted | REG green; digests of existing presets unchanged; material-less bodies get no spin state | test_materials, test_rotation | e4a9b3c |
+| 3 Outcome models and selector (pure) | [x] 935 backend tests; provisional science (D-038); CP-SCI-1 NOT signed off | ls12, cratering, envelope, selector, reference_values | 0; DQ-7/8/9 answered; named CP-SCI-1 human reviewer | reference reproductions; UD-1 and UD-2 resolved; CP-SCI-1 signed off | test_ls12, test_cratering, test_envelope, test_selector | 893a2b9 |
+| 4a Atomic application and conservation (all universes legacy) | [x] 1081 backend / 449 vitest / build OK; opt-in outcome-v1; CP-SCI-1 unsigned | applier, conservation, Event union, frontend parse | 1-3, CP-1, CP-SCI-1, DQ-13 | scenario per outcome class; conservation; legacy exactness in outcome-v1 | test_applier, test_conservation | 4f8fd69 |
+| 4b Default switch: new sandboxes outcome-v1 (CP-4b) | [x] 1092 backend / 449 vitest / build OK; new sandboxes + uni-default outcome-v1; presets/Orbit Lab legacy; CP-SCI-1 unsigned | config constant, universe creation paths | 4a green + reviewed | test_mode_defaults incl. fresh uni-default; presets/Orbit Lab legacy | test_mode_defaults | 25e5484 |
+| 5 Fragmentation and bounded debris | [x] 1278 backend / 449 vitest / build OK; fragments+parcels with budgets; PROVISIONAL science; cratering Unsupported; hit-and-run debris still single parcel | fragments.py, parcels, budgets | 4; DQ-4/5/6 (CP-2) | sum exactness, power law, no overlap, determinism, overflow | test_fragments | 1e38a1b |
+| 6 Localized damage and propagation | [x] 1309 backend (1278 + 31 new) / 449 vitest / tsc clean / build OK; sites + surface route; ALL shipped profiles static (no sourced wave speed); crater size unmodelled | damage.py, surface route | 2, 4 (5) | south-pole fixture | test_damage | 092bf8d |
+| 7 Debris lifecycle, reaccretion, secondary impacts | [x] 1336 backend / 452 vitest / build OK; lineage, cascade limit, DQ-10(a) step budget, classification, escape ledger, PRS23 for debris | lifecycle.py, escape ledger | 5, 6; DQ-10 | bound/escape, child events, cascade limit, Scenario E | test_lifecycle | 8fcd29c |
+| 8 Records API, inspection, replay | [x] 1345 backend (1336 + 9 new) / 470 vitest (+18 new) / tsc clean / build OK; records list/detail/replay routes, inspector UI, replay by digest (same platform) | collisions routes, inspector UI | 7 | every 10.2 field; replay digest identical | test_records, vitest describe | 4bdda47 |
+| 9 Particle engine and event visualization | [x] 1373 backend / 502 vitest / tsc clean / build OK; CP-3 approved; logic tested, renderer NOT run in a browser; e2e spec and WebGL check not done | render contract, effects layers | 8; CP-3 | timeline tests; boundary test; e2e stub | vitest effectTimeline etc. | 96db320 |
+| 9b Browser verification of Stage 9 (e2e spec + WebGL alignment) | [x] 502 vitest / tsc clean / build OK; 14 e2e (7 new + 7 existing) pass in headless software-WebGL Chromium; backend unchanged (1373); 2 defects fixed; GPU/other browsers/caps/real backend NOT verified | frontend/e2e/collision-effects.spec.ts, evidence screenshots | 9, Chromium available | 7 e2e tests pass in headless software-WebGL Chromium; 2 defects found and fixed | collision-effects.spec.ts | c9aab80 |
+| 10 Persistence, isolation, determinism hardening | [x] 1373 backend / 502 vitest / tsc clean / build OK; CollisionState serialisation (no disk, D-054), persistence + isolation tests | CollisionState serialisation, derive | 9 (or 8); DQ-11 | restore bitwise; isolation | test_persistence, test_isolation | 96db320 |
+| 11 Sourced material annotation of presets (DQ-3) | [x] 1388 backend; D-059 governance, D-060: 8 cited moment-of-inertia values, rest unsupported; trajectories bit-identical; presets stay legacy; owner-accepted, NOT independently validated | body-materials.json, loader annotations | DQ-3 = yes | validation trajectories bit-identical | test_stage11_trajectory_baseline, test_preset_material_annotations |  |
+| 12 Scenarios A-H, performance, Definition of Done | [-] scenarios + performance + audit done; 1399 backend / 502 vitest / 14 e2e; UNMET: DOD-2 (re-audit done, D-062: 75 PART rows remain), frame pacing with effects, browser scenario G; CP-5 WAIVED (D-059), not signed | context/STAGE12_DOD_AUDIT.md, test_scenarios_e2e, test_performance | 0-11 | every traceability row VERIFIED (UNMET); CP-5 (waived) | test_scenarios_e2e, test_performance |  |
+<!-- COLLISION-BOARD:END -->
