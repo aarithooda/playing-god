@@ -599,7 +599,8 @@ input[type="radio"], input[type="checkbox"] {
   }
   .pg-bar__spacer { display: none; }
   /* Two rows: run controls, time, step size, reset and sound; then the view controls across the full width. */
-  .pg-bar__view { order: 10; flex: 1 0 100%; justify-content: space-between; gap: 2px; }
+  .pg-bar__view { order: 10; flex: 1 0 100%; justify-content: space-between; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+  .pg-bar__view .pg-icon-btn { width: 34px; flex: 0 0 34px; }
   .pg-bar__view .pg-divider { display: none; }
   .pg-bar__view .pg-seg button { padding: 5px 8px; }
   .pg-bar__reset { padding: 0 9px; min-height: 34px; }

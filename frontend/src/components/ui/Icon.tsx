@@ -4,7 +4,8 @@ import React from 'react';
 // (play, the light mark). Icons are always decorative here: the button that carries one also carries a name.
 export type IconName =
   | 'play' | 'pause' | 'step' | 'reset' | 'axes' | 'grid' | 'paths' | 'fit' | 'focus' | 'create' | 'universes'
-  | 'orbitlab' | 'events' | 'history' | 'diagnostics' | 'close' | 'sound' | 'soundOff' | 'light' | 'chevron' | 'trash';
+  | 'orbitlab' | 'events' | 'history' | 'diagnostics' | 'close' | 'sound' | 'soundOff' | 'light' | 'chevron' | 'trash'
+  | 'guides' | 'belt';
 
 const PATHS: Record<IconName, React.ReactNode> = {
   play: <path d="M7 4.8v10.4a.6.6 0 0 0 .9.5l8.3-5.2a.6.6 0 0 0 0-1L7.9 4.3a.6.6 0 0 0-.9.5Z" fill="currentColor" stroke="none" />,
@@ -27,6 +28,8 @@ const PATHS: Record<IconName, React.ReactNode> = {
   soundOff: <><path d="M4 8h2.6L10 5v10l-3.4-3H4z" /><path d="M13.2 8l3.6 4M16.8 8l-3.6 4" /></>,
   light: <><circle cx="10" cy="10" r="2.6" fill="currentColor" stroke="none" /><path d="M10 2v3.2M10 14.8V18M2 10h3.2M14.8 10H18M4.4 4.4l2 2M13.6 13.6l2 2M4.4 15.6l2-2M13.6 6.4l2-2" opacity=".75" /></>,
   chevron: <path d="M7.5 5l5 5-5 5" />,
+  guides: <><circle cx="10" cy="10" r="1.6" fill="currentColor" stroke="none" /><ellipse cx="10" cy="10" rx="4.2" ry="2.6" /><ellipse cx="10" cy="10" rx="7.5" ry="4.8" /></>,
+  belt: <><circle cx="10" cy="10" r="1.6" fill="currentColor" stroke="none" />{[0, 40, 80, 120, 160, 200, 240, 280, 320].map((a) => <circle key={a} cx={10 + 6.6 * Math.cos((a * Math.PI) / 180)} cy={10 + 4.2 * Math.sin((a * Math.PI) / 180)} r="0.75" fill="currentColor" stroke="none" />)}</>,
   trash: <><path d="M4.5 6h11M8 6V4.5h4V6M6 6l.7 9.5h6.6L14 6" /></>,
 };
 

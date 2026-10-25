@@ -13,7 +13,20 @@ interface ViewToolbarProps {
   /** How the same simulation is drawn: Universe View (true scale) or Exploration View (larger objects). */
   sizeMode?: SizeMode;
   onSizeModeChange?: (mode: SizeMode) => void;
+  /** Solar System presets only (D-064): display-only reference orbits and the main-belt sample. */
+  guides?: SolarSystemGuides;
 }
+
+export interface SolarSystemGuides {
+  orbits: boolean;
+  onOrbitsChange: (on: boolean) => void;
+  belt: boolean;
+  onBeltChange: (on: boolean) => void;
+}
+
+const GUIDES_NOTE =
+  "Display only, not simulated: J2000 Kepler orbits from JPL Horizons, and 10,000 numbered main-belt asteroids " +
+  "(JPL SBDB) moved along their own two-body orbits. Pluto and the other outer bodies are labelled guides.";
 
 const SIZE_MODE_NOTE: Record<SizeMode, string> = {
   universe: "Smaller true-scale view; a minimum screen size keeps planets and moons visible.",
@@ -21,7 +34,7 @@ const SIZE_MODE_NOTE: Record<SizeMode, string> = {
 };
 
 /** The view half of the instrument bar: spatial aids, camera framing and the drawing scale. Display only. */
-export const ViewToolbar: React.FC<ViewToolbarProps> = ({ controls, paths = false, onPathsChange, pathsNote, sizeMode = DEFAULT_SIZE_MODE, onSizeModeChange }) => {
+export const ViewToolbar: React.FC<ViewToolbarProps> = ({ controls, paths = false, onPathsChange, pathsNote, sizeMode = DEFAULT_SIZE_MODE, onSizeModeChange, guides }) => {
   const { state, actions } = controls;
   return (
     <nav className="pg-bar__group pg-bar__view" aria-label="View controls">
@@ -62,6 +75,31 @@ export const ViewToolbar: React.FC<ViewToolbarProps> = ({ controls, paths = fals
         </button>
       )}
       {paths && pathsNote && <span id="paths-note" className="sr-only">{pathsNote}</span>}
+      {guides && (
+        <div className="pg-bar__group" role="group" aria-label="Solar System guides" aria-describedby="reference-orbits-note">
+          <button
+            type="button"
+            className="pg-icon-btn"
+            aria-label="Orbit guides"
+            aria-pressed={guides.orbits}
+            title={`Orbit guides. ${GUIDES_NOTE}`}
+            onClick={() => guides.onOrbitsChange(!guides.orbits)}
+          >
+            <Icon name="guides" />
+          </button>
+          <button
+            type="button"
+            className="pg-icon-btn"
+            aria-label="Asteroid belt"
+            aria-pressed={guides.belt}
+            title={`Asteroid belt. ${GUIDES_NOTE}`}
+            onClick={() => guides.onBeltChange(!guides.belt)}
+          >
+            <Icon name="belt" />
+          </button>
+          <span id="reference-orbits-note" data-testid="reference-orbits-note" className="sr-only">{GUIDES_NOTE}</span>
+        </div>
+      )}
       <span className="pg-divider" aria-hidden="true" />
       <button
         type="button"

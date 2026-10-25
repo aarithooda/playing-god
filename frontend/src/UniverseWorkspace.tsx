@@ -50,6 +50,8 @@ import { MoonOrbitInset } from "./components/ui/MoonOrbitInset";
 import { Icon } from "./components/ui/Icon";
 import { focusRadiusFor, systemIds } from "./sim/moonSystems";
 import { moonRelativeOrbits } from "./sim/moonOrbit";
+import { orbitColorForBody, referenceOrbitsApply, SUN_BODY_ID, visibleReferenceOrbits } from "./sim/referenceOrbits";
+import type { ReferenceOrbitsInput } from "./render/contract";
 
 export interface UniverseWorkspaceProps {
   client: ScopedClient;
@@ -119,6 +121,8 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
   const [placementPreview, setPlacementPreview] = useState<[number, number, number] | null>(null);
   const [snapshotBusy, setSnapshotBusy] = useState(false);
   const [showPaths, setShowPaths] = useState(true);
+  const [showReferenceOrbits, setShowReferenceOrbits] = useState(true);
+  const [showMainBelt, setShowMainBelt] = useState(true);
   const [moonOrbitInsetOpen, setMoonOrbitInsetOpen] = useState(false);
   const [sizeMode, setSizeMode] = useState<SizeMode>(DEFAULT_SIZE_MODE);
   const [crudFeedback, setCrudFeedback] = useState<CrudFeedbackState | null>(null);
@@ -234,6 +238,22 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
     enabled: loadStatus === "ready",
   });
 
+  // Solar System presets (D-064): display-only J2000 reference orbits, the outer-body web and the main-belt sample.
+  const displayBodyIds = displayBodies.map((b) => b.id);
+  const hasReferenceOrbits = referenceOrbitsApply(universe?.presetId, displayBodyIds);
+  const displayTimeS = frame ? frame.simulationTimeS : sim ? sim.simulationTimeS : 0;
+  const referenceOrbitIds = displayBodyIds.join("|");
+  const referenceOrbitList = useMemo(
+    () => (hasReferenceOrbits ? visibleReferenceOrbits(referenceOrbitIds.split("|")) : []),
+    [hasReferenceOrbits, referenceOrbitIds],
+  );
+  const referenceOrbits = useMemo<ReferenceOrbitsInput | undefined>(
+    () => hasReferenceOrbits
+      ? { sunBodyId: SUN_BODY_ID, orbits: referenceOrbitList, displayTimeS, showGuides: showReferenceOrbits, showMainBelt }
+      : undefined,
+    [hasReferenceOrbits, referenceOrbitList, displayTimeS, showReferenceOrbits, showMainBelt],
+  );
+
   // A selected moon or moon-bearing planet gets name tags for its whole system, so the moons can be told apart.
   const labeledBodyIds = useMemo(() => systemIds(sceneBodies, selectedBodyId), [sceneBodies, selectedBodyId]);
 
@@ -249,11 +269,15 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
         if (referenceHistory.cache && referenceHistory.cache.universeId === otherRunId) out.push(trajectoryOf(referenceHistory.cache, comparisonBody, "reference"));
       }
       const livePositions = new Map(displayBodies.map((body) => [body.id, body.positionM]));
-      return out.map((trajectory) => {
+      return out.map((recorded) => {
+        let trajectory = recorded;
         // History is sampled discretely, but the active body is already moving between samples.
         // A history fetch can see a newly committed step before its state response reaches this component. Keep the
         // active path at or behind the displayed state, then extend it to that exact live position; otherwise the
         // trail can jump ahead and appear detached at high simulation speeds.
+        // A planet's recorded path takes its reference-orbit colour, so the path and its guide read as one.
+        const guideColor = hasReferenceOrbits ? orbitColorForBody(trajectory.bodyId) : undefined;
+        if (guideColor) trajectory = { ...trajectory, colorHex: guideColor };
         if (trajectory.role !== "active" || viewingHistory) return trajectory;
         const currentTimeS = sim?.simulationTimeS;
         const visibleSamples = currentTimeS === undefined
@@ -278,7 +302,7 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
       }).filter((trajectory) => trajectory.samples.length > 0);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [showPaths, history.cache, referenceHistory.cache, hasRun, comparisonBody, otherRunId, pathIds.join("|"), displayBodies, sim?.simulationTimeS, viewingHistory],
+    [showPaths, history.cache, referenceHistory.cache, hasRun, comparisonBody, otherRunId, pathIds.join("|"), displayBodies, sim?.simulationTimeS, viewingHistory, hasReferenceOrbits],
   );
   useEffect(() => {
     if (viewingHistory) setPlacementMode(false);
@@ -452,7 +476,7 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
         onFocusBody={focusBody}
         onClearSelection={closeInspector}
         frameEpoch={frameEpoch}
-        overviewZoom={universe?.presetId === "solar-system-moons-j2000" ? 1.2 : 1.8}
+        overviewZoom={hasReferenceOrbits ? 1 : universe?.presetId === "solar-system-moons-j2000" ? 1.2 : 1.8}
         focus={focus}
         onFocusRelease={() => setFocusedBodyId(undefined)}
         placementMode={placementMode}
@@ -472,6 +496,7 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
         labeledBodyIds={labeledBodyIds}
         collisionEffects={collisionVisuals.effects}
         surfaceMarks={collisionVisuals.marks}
+        referenceOrbits={referenceOrbits}
         presetId={universe?.presetId}
         ringWorldAnimate={simulation.playing}
       />
@@ -717,6 +742,9 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
         pathsNote={pathsNote(showPaths, displayBodies.length, selectedBodyId, moonIds.size > 0)}
         sizeMode={sizeMode}
         onSizeModeChange={setSizeMode}
+        guides={hasReferenceOrbits
+          ? { orbits: showReferenceOrbits, onOrbitsChange: setShowReferenceOrbits, belt: showMainBelt, onBeltChange: setShowMainBelt }
+          : undefined}
         sound={props.sound}
       />
 

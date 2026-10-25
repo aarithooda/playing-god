@@ -7,7 +7,7 @@ import type { ViewControlContract } from '../../sim/viewControlContract';
 import { ConfirmButton } from './ConfirmButton';
 import { Icon } from './Icon';
 import { theme } from './theme';
-import { ViewToolbar } from './ViewToolbar';
+import { ViewToolbar, type SolarSystemGuides } from './ViewToolbar';
 
 export interface SimulationBarProps {
   playing: boolean;
@@ -34,6 +34,8 @@ export interface SimulationBarProps {
   pathsNote?: string;
   sizeMode?: SizeMode;
   onSizeModeChange?: (mode: SizeMode) => void;
+  /** Solar System presets only: the display-only guide toggles. */
+  guides?: SolarSystemGuides;
   sound?: { on: boolean; available: boolean; toggle: () => void };
 }
 
@@ -53,7 +55,7 @@ const STATE_LABEL: Record<ClockState, string> = {
  */
 export const SimulationBar: React.FC<SimulationBarProps> = ({
   playing, stepping, canRun, disabled, simulationTimeS, speedExp, stepSeconds, onSpeedChange, onPlay, onPause, onStep,
-  onReset, historyView = false, onReturnToLive, viewControls, paths, onPathsChange, pathsNote, sizeMode, onSizeModeChange, sound,
+  onReset, historyView = false, onReturnToLive, viewControls, paths, onPathsChange, pathsNote, sizeMode, onSizeModeChange, guides, sound,
 }) => {
   const rate = useObservedRate(simulationTimeS, playing && !historyView);
   const clockState: ClockState = disabled ? 'waiting' : historyView ? 'history' : playing ? 'running' : 'paused';
@@ -155,6 +157,7 @@ export const SimulationBar: React.FC<SimulationBarProps> = ({
         pathsNote={pathsNote}
         sizeMode={sizeMode}
         onSizeModeChange={onSizeModeChange}
+        guides={guides}
       />
       {sound?.available && (
         <button
