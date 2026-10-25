@@ -15,7 +15,10 @@ import { OrbitLabPanel } from "./components/ui/OrbitLabPanel";
 import { RunBadge } from "./components/ui/RunBadge";
 import { ControlPanel } from "./components/ui/ControlPanel";
 import { DiagnosticsPanel } from "./components/ui/DiagnosticsPanel";
+import { CollisionInspector } from "./components/ui/CollisionInspector";
 import { EventTimeline } from "./components/ui/EventTimeline";
+import { useCollisionInspector } from "./sim/collision/useCollisionInspector";
+import { useCollisionEffects } from "./sim/collision/useCollisionEffects";
 import { HistoryTimeline } from "./components/ui/HistoryTimeline";
 import { FirstUse } from "./components/ui/FirstUse";
 import { PlacementHint } from "./components/ui/PlacementHint";
@@ -180,6 +183,7 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
   // Recorded history (UI-2). The backend recorded it; this only displays it. While a recorded sample is viewed, the
   // simulation is paused and the scene shows that sample through the very same display path as live bodies.
   const history = useHistory(client, simulation.revision);
+  const inspector = useCollisionInspector(client);
   // The other run's history is its own cache (never merged with this one): it is drawn as the dashed reference path.
   const referenceClient = useMemo(
     () => apiClient.scoped({ universeId: otherRunId ?? "uni-none", activationEpoch: client.scope.activationEpoch }),
@@ -205,6 +209,18 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
   );
   // Display radii are capped by neighbour spacing so crowded systems (the inner planets) do not overlap; display only.
   const sceneBodies = useMemo(() => buildSceneBodies(displayBodies, transform, sizeMode), [displayBodies, transform, sizeMode]);
+
+  // Collision effects (UI-0, Stage 9): the renderer gets only what the visual descriptions and the displayed body states say.
+  const effectBodies = useMemo(() => displayBodies.map((b) => ({ id: b.id, positionM: b.positionM, radiusM: b.radiusM })), [displayBodies]);
+  const collisionVisuals = useCollisionEffects({
+    client,
+    events: simulation.events,
+    bodies: effectBodies,
+    displayTimeS: frame ? frame.simulationTimeS : sim ? sim.simulationTimeS : null,
+    seekKey: viewingHistory ? `history:${nav.position}` : "live",
+    advancing: viewingHistory ? nav.replaying : simulation.playing,
+    enabled: loadStatus === "ready",
+  });
 
   // A selected moon or moon-bearing planet gets name tags for its whole system, so the moons can be told apart.
   const labeledBodyIds = useMemo(() => systemIds(sceneBodies, selectedBodyId), [sceneBodies, selectedBodyId]);
@@ -426,6 +442,8 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
         viewControls={viewControls}
         trajectories={trajectories}
         labeledBodyIds={labeledBodyIds}
+        collisionEffects={collisionVisuals.effects}
+        surfaceMarks={collisionVisuals.marks}
       />
 
       {/* Free area: everything that floats over the scene is laid out between the sidebars. */}
@@ -513,7 +531,22 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
           activeBodyIds={activeBodyIds}
           selectedBodyId={selectedBodyId}
           onSelectBody={selectBody}
+          onInspect={inspector.open}
         />
+        {inspector.eventId !== null && (
+          <CollisionInspector
+            eventId={inspector.eventId}
+            detail={inspector.detail}
+            status={inspector.status}
+            error={inspector.error}
+            replay={inspector.replay}
+            replayBusy={inspector.replayBusy}
+            bodyName={simulation.bodyName}
+            onReplay={inspector.runReplay}
+            onOpenEvent={inspector.open}
+            onClose={inspector.close}
+          />
+        )}
         <HistoryTimeline
           cache={history.cache}
           status={history.status}

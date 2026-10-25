@@ -202,3 +202,120 @@ describe("state and step responses with diagnostics", () => {
     expect(s.diagnostics).toEqual(diagnostics);
   });
 });
+
+describe("collision engine fields (Stage 2)", () => {
+  const withMaterial = {
+    ...earth,
+    material: { profileId: "silicate-rock", layers: null },
+    spinRadPerS: { x: 0, y: 0, z: 7.2921e-5 },
+    orientation: { quaternion: [1, 0, 0, 0], epochS: 0 },
+  };
+
+  it("leaves a body without the new fields exactly as it was (old backends and material-less bodies)", () => {
+    const parsed = parseBodyDto(earth);
+    expect("material" in parsed).toBe(false);
+    expect("spinRadPerS" in parsed).toBe(false);
+    expect("orientation" in parsed).toBe(false);
+  });
+
+  it("parses material, spin and orientation when present", () => {
+    expect(parseBodyDto(withMaterial)).toMatchObject({
+      material: { profileId: "silicate-rock", layers: null },
+      spinRadPerS: { x: 0, y: 0, z: 7.2921e-5 },
+      orientation: { quaternion: [1, 0, 0, 0], epochS: 0 },
+    });
+  });
+
+  it("parses layer overrides and treats null layer details as null", () => {
+    const parsed = parseBodyDto({
+      ...earth,
+      material: {
+        profileId: "silicate-rock",
+        layers: [{ materialId: "iron", massFraction: 1, phase: "partial", meltFraction: 0.5, densityKgPerM3: null }],
+      },
+    });
+    expect(parsed.material?.layers).toEqual([
+      { materialId: "iron", massFraction: 1, phase: "partial", meltFraction: 0.5, densityKgPerM3: null },
+    ]);
+  });
+
+  it("rejects malformed new fields instead of passing them on", () => {
+    rejects(() => parseBodyDto({ ...earth, material: { profileId: 5 } }), "body.material.profileId");
+    rejects(() => parseBodyDto({ ...earth, material: { profileId: "x", layers: "no" } }), "body.material.layers");
+    rejects(() => parseBodyDto({ ...earth, spinRadPerS: { x: 0, y: 0 } }), "body.spinRadPerS.z");
+    rejects(() => parseBodyDto({ ...earth, orientation: { quaternion: [1, 0, 0], epochS: 0 } }), "body.orientation.quaternion");
+    rejects(() => parseBodyDto({ ...earth, orientation: { quaternion: [1, 0, 0, NaN], epochS: 0 } }), "body.orientation.quaternion[3]");
+    rejects(
+      () => parseBodyDto({ ...earth, material: { profileId: "x", layers: [{ materialId: "a", massFraction: 1, phase: "plasma" }] } }),
+      "body.material.layers[0].phase",
+    );
+  });
+
+  it("accepts the additive spin angular momentum in diagnostics without changing the version", () => {
+    const base = parseDiagnosticsDto(diagnostics);
+    expect("spinAngularMomentumKgM2PerS" in base).toBe(false);
+    const rich = parseDiagnosticsDto({ ...diagnostics, spinAngularMomentumKgM2PerS: { x: 0, y: 0, z: 1e33 } });
+    expect(rich.version).toBe(1);
+    expect(rich.spinAngularMomentumKgM2PerS).toEqual({ x: 0, y: 0, z: 1e33 });
+    expect(parseDiagnosticsDto({ ...diagnostics, spinAngularMomentumKgM2PerS: null }).spinAngularMomentumKgM2PerS).toBeNull();
+    rejects(() => parseDiagnosticsDto({ ...diagnostics, spinAngularMomentumKgM2PerS: { x: 1 } }), "diagnostics.spinAngularMomentumKgM2PerS");
+  });
+
+  it("parses a whole state whose body carries the new fields, and keeps its diagnostics", () => {
+    const parsed = parseStateDto({ ...state([], 0), bodies: [withMaterial], diagnostics: { ...diagnostics, spinAngularMomentumKgM2PerS: { x: 0, y: 0, z: 1 } } });
+    expect(parsed.bodies[0].orientation?.epochS).toBe(0);
+    expect(parsed.diagnostics?.spinAngularMomentumKgM2PerS).toEqual({ x: 0, y: 0, z: 1 });
+    expect(parsed.diagnosticsIssue).toBeNull();
+  });
+});
+
+describe("collision products on bodies (Stage 4)", () => {
+  const parcel = {
+    ...earth,
+    id: "debris-3-0",
+    representation: "debris-parcel",
+    originEventId: "col-3",
+    debris: { totalMassKg: 5e20, sizeDistribution: null, velocityDispersionMPerS: 0, materialProfileId: "silicate-rock", sampleSeed: 12345 },
+  };
+
+  it("parses a debris parcel and leaves ordinary bodies without the fields", () => {
+    const p = parseBodyDto(parcel);
+    expect(p.representation).toBe("debris-parcel");
+    expect(p.originEventId).toBe("col-3");
+    expect(p.debris).toEqual({ totalMassKg: 5e20, sizeDistribution: null, velocityDispersionMPerS: 0, materialProfileId: "silicate-rock", sampleSeed: 12345 });
+    const plain = parseBodyDto(earth);
+    expect("representation" in plain || "originEventId" in plain || "debris" in plain).toBe(false);
+  });
+
+  it("parses a resolved size distribution and rejects malformed product fields", () => {
+    const d = { ...parcel.debris, sizeDistribution: { kind: "power-law", exponent: 2.85, dMinM: 1, dMaxM: 1e5 } };
+    expect(parseBodyDto({ ...parcel, debris: d }).debris?.sizeDistribution).toEqual({ kind: "power-law", exponent: 2.85, dMinM: 1, dMaxM: 1e5 });
+    rejects(() => parseBodyDto({ ...parcel, representation: "cloud" }), "body.representation");
+    rejects(() => parseBodyDto({ ...parcel, debris: { ...parcel.debris, totalMassKg: "x" } }), "body.debris.totalMassKg");
+    rejects(() => parseBodyDto({ ...parcel, debris: { ...parcel.debris, sizeDistribution: { kind: "gaussian" } } }), "sizeDistribution.kind");
+  });
+});
+
+describe("debris lifecycle fields (Stage 7)", () => {
+  const frag = { ...earth, id: "frag-3-1", representation: "fragment", originEventId: "col-3", fragmentClass: "escaping" };
+
+  it("parses the dynamical class of a fragment and leaves ordinary bodies without it", () => {
+    expect(parseBodyDto(frag).fragmentClass).toBe("escaping");
+    expect("fragmentClass" in parseBodyDto(earth)).toBe(false);
+    rejects(() => parseBodyDto({ ...frag, fragmentClass: "lost" }), "body.fragmentClass");
+  });
+
+  it("parses the escaped-material ledger of the diagnostics and keeps it absent otherwise", () => {
+    const escaped = { massKg: 1e3, momentumKgMPerS: { x: 1, y: 2, z: 3 }, angularMomentumAboutOriginKgM2PerS: { x: 0, y: 0, z: 4 }, bodyCount: 1 };
+    expect(parseDiagnosticsDto({ ...diagnostics, escaped }).escaped).toEqual(escaped);
+    expect("escaped" in parseDiagnosticsDto(diagnostics)).toBe(false);
+    rejects(() => parseDiagnosticsDto({ ...diagnostics, escaped: { ...escaped, bodyCount: "one" } }), "diagnostics.escaped.bodyCount");
+  });
+
+  it("parses the budget warning of a shortened step and keeps it absent for a normal step", () => {
+    const base = stepResponse([sun], 100, []);
+    expect(parseStepResponse({ ...base, warnings: ["collision_budget_reached"], advancedS: 40 }).warnings).toEqual(["collision_budget_reached"]);
+    expect("warnings" in parseStepResponse(base)).toBe(false);
+    rejects(() => parseStepResponse({ ...base, warnings: "x" }), "step.warnings");
+  });
+});

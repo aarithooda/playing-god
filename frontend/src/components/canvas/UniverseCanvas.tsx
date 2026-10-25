@@ -4,6 +4,7 @@ import { Html, OrbitControls } from '@react-three/drei';
 import { Group, PerspectiveCamera, Raycaster, Vector2, Vector3 } from 'three';
 import { CelestialBody } from './CelestialBody';
 import { StarfieldShell } from './StarfieldShell';
+import { CollisionEffectsLayer } from './CollisionEffectsLayer';
 import { TrajectoryLayer } from './TrajectoryLayer';
 import { AxesOverlay, GridOverlay } from './ViewOverlays';
 import { bodyDisplayScale } from '../../sim/bodyVisibility';
@@ -20,7 +21,7 @@ import {
 } from '../../sim/focusTracking';
 import type { SceneBody } from '../../sim/viewModel';
 import type { ViewControlContract } from '../../sim/viewControlContract';
-import type { TrajectoryInput } from '../../render/contract';
+import type { CollisionEffectInput, SurfaceMarkInput, TrajectoryInput } from '../../render/contract';
 
 export interface FocusRequest {
   nonce: number;
@@ -65,6 +66,10 @@ interface UniverseCanvasProps {
   trajectories?: readonly TrajectoryInput[];
   /** Bodies that get a name tag in the scene (the selected body's planet system). */
   labeledBodyIds?: readonly string[];
+  /** Collision effects at the displayed time (UI-0, Stage 9, D-053). Display only; absent or empty = the canvas is drawn as before. */
+  collisionEffects?: readonly CollisionEffectInput[];
+  /** Marks at body-local directions (UI-0, Stage 9, D-053). Display only. */
+  surfaceMarks?: readonly SurfaceMarkInput[];
 }
 
 interface OrbitTarget {
@@ -422,6 +427,8 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
   showGrid = false,
   trajectories = [],
   labeledBodyIds = [],
+  collisionEffects = [],
+  surfaceMarks = [],
 }) => {
   const axesVisible = viewControls?.state.axesVisible ?? showAxes;
   const gridEnabled = viewControls?.state.gridEnabled ?? showGrid;
@@ -442,6 +449,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
       {(gridEnabled || placementMode) && <GridOverlay transform={transform} />}
       {axesVisible && <AxesOverlay transform={transform} />}
       {trajectories.length > 0 && <TrajectoryLayer trajectories={trajectories} transform={transform} selectedBodyId={selectedBodyId} />}
+      {collisionEffects.length > 0 && <CollisionEffectsLayer effects={collisionEffects} transform={transform} />}
 
       <ambientLight intensity={hasStar ? 0.3 : 0.6} />
       {hasStar ? (
@@ -470,6 +478,8 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
           maxGrowth={body.maxGrowth}
           clearance={body.clearance}
           systemPx={body.systemPx}
+          orientation={body.orientation}
+          marks={surfaceMarks.filter((m) => m.bodyId === body.id)}
           isSelected={selectedBodyId === body.id}
           onClick={placementMode ? undefined : () => onSelectBody(body.id)}
           onDoubleClick={placementMode ? undefined : () => onFocusBody(body.id)}

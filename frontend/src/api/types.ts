@@ -54,6 +54,16 @@ export interface BodyDto {
   assetKey?: string;
   /** Id of the body this one orbits (a moon's planet). Relationship metadata only: positions are always the simulated ones. */
   primaryId?: string;
+  /** Collision engine (optional, present only when set): material profile, spin (rad/s, inertial frame) and orientation. */
+  material?: MaterialDto;
+  spinRadPerS?: Vec3;
+  orientation?: OrientationDto;
+  /** Bodies created by a collision: absent for ordinary bodies. A parcel carries a mass but stands for many pieces. */
+  representation?: "fragment" | "debris-parcel";
+  originEventId?: string;
+  debris?: DebrisDto;
+  /** Fragments and parcels: dynamical class from the present state (Stage 7). Not a prediction. */
+  fragmentClass?: "bound_to_remnant" | "orbiting_system" | "escaping";
 }
 
 /** POST /api/v1/bodies request (the server generates `id`). `kind` defaults to "planet" on the server. */
@@ -76,6 +86,35 @@ export const DIAGNOSTICS_VERSION = 1;
  * System-level quantities of exactly the state in `bodies` (backend/diagnostics.py, API_CONTRACT.md "Diagnostics").
  * Each value is finite or `null` (undefined or overflowed); a vector is all-or-nothing. Computed by the backend only.
  */
+export interface MaterialLayerDto {
+  materialId: string;
+  massFraction: number;
+  phase: "solid" | "molten" | "partial" | "gas";
+  meltFraction: number | null;
+  densityKgPerM3: number | null;
+}
+
+/** A body's material: a backend registry profile id (GET /api/v1/materials), optionally with layer overrides. */
+export interface MaterialDto {
+  profileId: string;
+  layers: MaterialLayerDto[] | null;
+}
+
+/** Unit quaternion [w, x, y, z] (body -> world) at simulation time `epochS`. Present only for a body with a rotation state. */
+export interface OrientationDto {
+  quaternion: [number, number, number, number];
+  epochS: number;
+}
+
+/** What a debris parcel stands for (a statistical population, not a single object). `sizeDistribution` is set for parcels of Stage 5 fragmentation (null only for the single-parcel hit-and-run path). */
+export interface DebrisDto {
+  totalMassKg: number;
+  sizeDistribution: { kind: "power-law"; exponent: number; dMinM: number; dMaxM: number } | null;
+  velocityDispersionMPerS: number;
+  materialProfileId: string | null;
+  sampleSeed: number;
+}
+
 export interface DiagnosticsDto {
   version: typeof DIAGNOSTICS_VERSION;
   totalMassKg: number | null;
@@ -86,6 +125,154 @@ export interface DiagnosticsDto {
   angularMomentumAboutOriginKgM2PerS: Vec3 | null;
   /** Sum of spin booked by mergers (bookkeeping only; no rotation dynamics). */
   bookedSpinKgM2PerS: Vec3 | null;
+  /** Sum of I*omega over bodies WITH a rotation state. Absent (not null) in every state without one. */
+  spinAngularMomentumKgM2PerS?: Vec3 | null;
+  /** Material that left the simulation through the explicit escape rule (Stage 7); totals including it are conserved. Absent until then. */
+  escaped?: EscapedLedgerDto;
+}
+
+/** One row of the collision-record list (GET .../collisions). */
+export interface CollisionSummaryDto {
+  eventId: string;
+  legacyEventId: string | null;
+  parentEventId: string | null;
+  rootEventId: string;
+  generation: number;
+  outcome: string | null;
+  modelId: string | null;
+  modelVersion: string | null;
+  timeS: number;
+  bodyIds: string[];
+  warnings: string[];
+  hasResult: boolean;
+  detailDropped: boolean;
+  inputDigest: string;
+  resultDigest: string;
+}
+
+export interface CollisionListDto {
+  total: number;
+  offset: number;
+  limit: number;
+  maxRecords: number;
+  records: CollisionSummaryDto[];
+}
+
+/** The parts of a collision record the inspector shows (spec 10.2). Everything in it is a field of the API; nothing is derived. */
+export interface CollisionRecordDto {
+  eventId: string;
+  legacyEventId: string | null;
+  parentEventId: string | null;
+  rootEventId: string;
+  generation: number;
+  selectionReasons: string[];
+  warnings: string[];
+  fidelity: Record<string, string>;
+  inputDigest: string;
+  resultDigest: string;
+  impact: {
+    detectionTimeS: number;
+    targetId: string;
+    projectileId: string;
+    targetMassKg: number;
+    projectileMassKg: number;
+    impactSpeedMPerS: number;
+    impactAngleDeg: number;
+    specificImpactEnergyJPerKg: number;
+    contactPointM: Vec3;
+    targetMaterialId: string | null;
+    projectileMaterialId: string | null;
+  };
+  outcome: {
+    outcome: string;
+    modelId: string;
+    modelVersion: string;
+    regimeReasons: string[];
+    parameters: { name: string; value: number; unit: string; source: string }[];
+    debrisMassKg: number;
+  } | null;
+  result: {
+    removedBodyIds: string[];
+    survivingBodyIds: string[];
+    createdBodyIds: string[];
+    parcelIds: string[];
+    massLedger: Record<string, number>;
+    conservation: {
+      massResidualRel: number;
+      momentumResidualRel: number;
+      angularMomentumResidualRel: number | null;
+      angularMomentumUnmodelled: string | null;
+      dissipatedJ: number;
+      dissipatedNonNegative: boolean;
+      withinTolerance: boolean;
+    };
+  } | null;
+}
+
+export interface CollisionProductDto {
+  bodyId: string;
+  representation: string;
+  massKgAtEvent: number;
+  exists: boolean;
+  fragmentClass: "bound_to_remnant" | "orbiting_system" | "escaping" | null;
+  massKgNow: number | null;
+}
+
+export interface CollisionDetailDto {
+  record: CollisionRecordDto;
+  childEventIds: string[];
+  products: CollisionProductDto[];
+  escapedLedger: EscapedLedgerDto | null;
+  note: string;
+}
+
+export interface ReplayCheckDto {
+  name: string;
+  ok: boolean | null;
+  detail: string;
+}
+
+export interface ReplayReportDto {
+  eventId: string;
+  reproduced: boolean;
+  checks: ReplayCheckDto[];
+  recordedResultDigest: string;
+  replayedResultDigest: string;
+  differingFields: string[];
+  mutatesState: boolean;
+}
+
+/** What the renderer reads of an event (GET .../collisions/{id}/visual). Built by the backend from the validated result only. */
+export interface VisualPhaseDto {
+  name: "contact" | "flash" | "cratering" | "ejecta" | "separation" | "cloud-expansion" | "aftermath";
+  startS: number;
+  endS: number | null;
+  /** "simulation-time" phases follow the displayed simulation time (they represent material); "visual-wall-clock" ones are visual only. */
+  basis: "simulation-time" | "visual-wall-clock";
+  durationWallS?: number;
+}
+
+export interface VisualEventDto {
+  eventId: string;
+  outcome: string;
+  timeS: number;
+  impactSite: { bodyId: string; centerLocal: Vec3; centerWorldAtContactM: Vec3; normalWorld: Vec3 };
+  phases: VisualPhaseDto[];
+  ejectaSourceCount: number;
+  fragmentBodyIds: string[];
+  debrisParcelIds: string[];
+  cloud: { initialRadiusM: number; expansionSpeedMPerS: number; materialAppearance: string } | null;
+  /** Visual only: there is deliberately NO mass field. */
+  visualOnly: { kind: "flash" | "glow" | "shock-indicator"; intensity: number; lifetimeWallS: number }[];
+  materialAppearance: Record<string, string>;
+  fidelityNotes: string[];
+}
+
+export interface EscapedLedgerDto {
+  massKg: number;
+  momentumKgMPerS: Vec3;
+  angularMomentumAboutOriginKgM2PerS: Vec3;
+  bodyCount: number;
 }
 
 export interface SimulationStateDto {
@@ -104,7 +291,8 @@ export interface SimulationStateDto {
   revision?: number;
 }
 
-export interface SimulationEventDto {
+/** The legacy perfectly inelastic merger (unchanged shape). */
+export interface MergerEventDto {
   id: string;
   type: "merger";
   simulationTimeS: number;
@@ -117,8 +305,42 @@ export interface SimulationEventDto {
   spinAddedKgM2PerS: Vec3;
 }
 
+/** Collision engine event (backend mode outcome-v1): a summary; the physics, residuals and reasons are the backend's. */
+export interface CollisionEventDto {
+  id: string;
+  type: "collision";
+  schemaVersion: number;
+  outcome: string;
+  simulationTimeS: number;
+  estimatedContactTimeS: number | null;
+  bodyIds: string[]; // [target, projectile]
+  survivingBodyIds: string[];
+  createdBodyIds: string[];
+  removedBodyIds: string[];
+  parentEventId: string | null;
+  rootEventId: string;
+  generation: number;
+  modelId: string;
+  modelVersion: string;
+  impactSpeedMPerS: number;
+  impactAngleDeg: number;
+  specificImpactEnergyJPerKg: number;
+  largestRemnantMassKg: number;
+  debrisMassKg: number;
+  massResidualRel: number;
+  momentumResidualRel: number;
+  warnings: string[];
+  /** quantity -> computed | model | approximation | statistical | visual | unsupported */
+  fidelitySummary: Record<string, string>;
+  hasVisual: boolean;
+}
+
+export type SimulationEventDto = MergerEventDto | CollisionEventDto;
+
 export interface StepResponseDto extends SimulationStateDto {
   advancedS: number;
+  /** Present only when non-empty: "collision_budget_reached" = the step ended early (advancedS < dtS), by design (DQ-10). */
+  warnings?: string[];
   events: SimulationEventDto[];
 }
 

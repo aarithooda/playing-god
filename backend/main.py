@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 
 from backend.api_catalogue import router as catalogue_router
+from backend.api_collisions import router as collisions_router
 from backend.api_orbit_lab import router as orbit_lab_router
 from backend.api_presets import router as presets_router
 from backend.api_universes import router as universes_router
@@ -67,6 +68,7 @@ async def simulation_failure_handler(request: Request, exc: SimulationFailure):
 app.include_router(universes_router)
 app.include_router(presets_router)
 app.include_router(catalogue_router)
+app.include_router(collisions_router)
 app.include_router(orbit_lab_router)
 
 

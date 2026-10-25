@@ -4,6 +4,9 @@ import { Outlines, Sphere } from '@react-three/drei';
 import * as THREE from 'three';
 import { Group, PerspectiveCamera, DoubleSide, BackSide } from 'three';
 import { bodyDisplayScale, fixedDisplayScaleAtDistance, OVERVIEW_DISTANCE } from '../../sim/bodyVisibility';
+import { isUnitQuaternion, sceneQuaternion } from '../../sim/collision/orientation';
+import type { SurfaceMarkInput } from '../../render/contract';
+import { SurfaceMarks } from './SurfaceMarks';
 import { useCelestialMaterial } from './CelestialMaterial';
 import type { BodyKind, BodyType } from '../../api/types';
 
@@ -101,6 +104,10 @@ interface CelestialBodyProps {
   isSelected?: boolean;
   onClick?: () => void;
   onDoubleClick?: () => void;
+  /** Orientation (w, x, y, z) in the simulation frame. Applied ONLY when present and a unit quaternion; otherwise the body is drawn as before. */
+  orientation?: readonly [number, number, number, number];
+  /** Marks at body-local directions; they turn with the body. */
+  marks?: readonly SurfaceMarkInput[];
 }
 
 export const CelestialBody: React.FC<CelestialBodyProps> = ({
@@ -118,6 +125,8 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
   isSelected = false,
   onClick,
   onDoubleClick,
+  orientation,
+  marks,
 }) => {
   const root = useRef<Group>(null);
   const body = useRef<Group>(null);
@@ -128,6 +137,7 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
     duration: number;
   } | null>(null);
   const lastTargetAt = useRef(0);
+  const quaternion = orientation !== undefined && isUnitQuaternion(orientation) ? sceneQuaternion(orientation) : undefined;
   const { assets, textures, material } = useCelestialMaterial(bodyType, assetKey, color);
   const profile = shapeProfile(bodyType, name);
   const geometry = useMemo(() => makeBodyGeometry(radius, profile, name), [radius, profile, name]);
@@ -210,6 +220,8 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
       }}
     >
       <group ref={body}>
+        {/* The orientation group turns the sphere (and its marks) only; atmosphere and rings stay as they were. */}
+        <group quaternion={quaternion}>
         <mesh geometry={geometry}>
           <primitive object={material} attach="material" />
           {/* Mounted only while selected, so deselecting (or selecting another body) leaves nothing behind.
@@ -217,6 +229,8 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
               minimum on-screen size, is occluded by nearer bodies, and never changes the body itself. */}
           {isSelected && <Outlines thickness={SELECTION_OUTLINE_PX * dpr} color={SELECTION_OUTLINE_COLOR} />}
         </mesh>
+        {marks && marks.length > 0 && <SurfaceMarks marks={marks} radius={radius} />}
+        </group>
         {assets?.atmosphereColor && (
           <Sphere args={[radius * 1.045, 32, 32]} raycast={() => undefined}>
             <meshPhysicalMaterial

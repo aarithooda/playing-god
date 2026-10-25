@@ -9,7 +9,7 @@ import pytest
 
 from backend import simulation
 from backend.models import BodyCreate, BodyUpdate
-from backend.simulation import ConflictError, NotFoundError, SimulationFailure, SimulationService
+from backend.simulation import LEGACY_MERGE_CONFIG, ConflictError, NotFoundError, SimulationFailure, SimulationService
 
 G = 6.67430e-11
 M_SUN, M_EARTH, M_MOON = 1.98847e30, 5.9722e24, 7.342e22
@@ -37,7 +37,7 @@ def mom_scale(state):
 
 @pytest.fixture
 def svc():
-    return SimulationService()
+    return SimulationService()  # the sandbox default (outcome-v1 since Stage 4b): the whole pre-existing suite runs on the new path
 
 
 # ---------- constants and basic gravity ----------
@@ -305,7 +305,8 @@ def test_failed_step_is_rolled_back_and_engine_stays_usable(svc, monkeypatch):
     assert len(s.events) == 1 and len(s.bodies) == 1
 
 
-def test_resolver_exception_fails_step_and_rolls_back(svc, monkeypatch):
+def test_resolver_exception_fails_step_and_rolls_back(monkeypatch):
+    svc = SimulationService(LEGACY_MERGE_CONFIG)  # the in-callback MergeResolver exists only in legacy-merge mode
     for body in spheres():
         svc.add_body(body)
     before = svc.snapshot()

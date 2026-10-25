@@ -47,6 +47,7 @@ describe("DTO -> view model", () => {
 
   it("merges events by id without duplicating", () => {
     const e = toEventView(mergerEvent);
+    if (e.type !== "merger") throw new Error("expected a merger view");
     expect(e.estimatedContactTimeS).toBe(mergerEvent.estimatedContactTimeS);
     expect(e.spinAddedKgM2PerS).toEqual(mergerEvent.spinAddedKgM2PerS);
     e.spinAddedKgM2PerS.z = 0;

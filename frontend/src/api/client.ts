@@ -3,6 +3,8 @@ import {
   parseActivation,
   parseBodyDto,
   parseCatalogue,
+  parseCollisionDetail,
+  parseCollisionList,
   parseComparison,
   parseEventList,
   parseExperiment,
@@ -10,6 +12,8 @@ import {
   parseInitialDifferences,
   parseOrbitLabSystems,
   parseProvenance,
+  parseReplayReport,
+  parseVisualEvent,
   parseHistoryPage,
   parsePresetList,
   parseSnapshotList,
@@ -25,6 +29,10 @@ import type {
   BodyDto,
   BodyUpdateDto,
   CatalogueDto,
+  CollisionDetailDto,
+  CollisionListDto,
+  ReplayReportDto,
+  VisualEventDto,
   ComparisonDto,
   CreateUniverseDto,
   ExperimentDto,
@@ -72,6 +80,13 @@ export interface ScopedClient extends SimulationClient {
   deleteSnapshot(snapshotId: string): Promise<void>;
   getHistory(query?: HistoryQuery): Promise<HistoryPageDto>;
   getProvenance(): Promise<UniverseProvenanceDto>;
+  /** Collision records of this universe (empty in a legacy-merge universe). Read-only. */
+  getCollisions(query?: { limit?: number; offset?: number }): Promise<CollisionListDto>;
+  getCollision(eventId: string): Promise<CollisionDetailDto>;
+  /** Dry-run replay: recomputes the event from its record and compares digests; changes nothing. */
+  replayCollision(eventId: string): Promise<ReplayReportDto>;
+  /** The visual description of an event (404 for a legacy merge): the renderer's only input about the event beyond body states. */
+  getCollisionVisual(eventId: string): Promise<VisualEventDto>;
 }
 
 export interface ModifiedRunRequest {
@@ -235,6 +250,22 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
       },
       async getProvenance() {
         return parseProvenance(await call("GET", `${root}/provenance`, readTimeoutMs));
+      },
+      async getCollisions(query = {}) {
+        const p = new URLSearchParams();
+        if (query.limit !== undefined) p.set("limit", String(query.limit));
+        if (query.offset !== undefined) p.set("offset", String(query.offset));
+        const qs = p.toString();
+        return parseCollisionList(await call("GET", `${root}/collisions${qs ? `?${qs}` : ""}`, readTimeoutMs));
+      },
+      async getCollision(eventId) {
+        return parseCollisionDetail(await call("GET", `${root}/collisions/${encodeURIComponent(eventId)}`, readTimeoutMs));
+      },
+      async getCollisionVisual(eventId) {
+        return parseVisualEvent(await call("GET", `${root}/collisions/${encodeURIComponent(eventId)}/visual`, readTimeoutMs));
+      },
+      async replayCollision(eventId) {
+        return parseReplayReport(await call("POST", `${root}/collisions/${encodeURIComponent(eventId)}/replay`, readTimeoutMs));
       },
     };
   }

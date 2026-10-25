@@ -7,7 +7,7 @@ from backend.lab_models import (ActivationResult, CreateUniverseRequest, History
                                 SnapshotSummary, UniverseList, UniverseProvenance, UniverseState, UniverseStepResponse, UniverseSummary)
 from backend.models import Body, BodyCreate, BodyUpdate, EventList, StepRequest
 from backend.presets.loader import PresetDataError, UnknownPresetError, load_preset
-from backend.simulation import SimulationService
+from backend.simulation import LEGACY_MERGE_CONFIG, SimulationService
 from backend.universes import StoredSnapshot, Universe, UniverseRegistry, get_registry
 from backend.errors import CodedError
 
@@ -35,7 +35,7 @@ def create_preset_universe(reg: UniverseRegistry, preset_id: str, name: str | No
         raise CodedError(f"unknown preset: {preset_id}", code="preset_not_found", status=404) from None
     except PresetDataError as exc:
         raise CodedError(f"preset {preset_id} cannot be loaded: {exc}", code="preset_invalid", status=500) from exc
-    engine = SimulationService()
+    engine = SimulationService(LEGACY_MERGE_CONFIG)  # presets stay legacy-merge until Stage 11 (D-045)
     try:
         engine.load_bodies(preset.bodies, history_mode=preset.history_mode, sample_interval_s=preset.sample_interval_s)
     except Exception as exc:  # noqa: BLE001

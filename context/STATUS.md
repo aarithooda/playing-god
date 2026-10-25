@@ -1,9 +1,74 @@
 ## UI-4 / UI-6 independent frontend branch (2026-10-24) — latest
+
+## Integration branch `integration/collision-engine` (2026-10-25, Claude Sonnet 5.5) - newest
+- One local branch = `main` `7148556` + `feature/moons-system` (`f2c2da3`) + the whole collision stack (`collision/stage-11-12` `941f0b6`); no conflicts; nothing pushed or merged. Full inventory, run instructions, results and test plan: `context/INTEGRATION_BRANCH.md`.
+- Verified here (Windows, software WebGL, no GPU): backend 1399 passed; typecheck clean; vitest, build, 14 stubbed Playwright and the NEW real-backend journey `npm run e2e:collision` (UI Step Forward -> real collision -> record/visual/replay -> continue -> isolated second universe -> reset) pass; see the file for the exact final counts. One integration defect found and fixed (duplicate React keys in the collision inspector for identical debris parcels).
+- Unchanged: D-059 = owner-accepted, NOT independently validated; CP-SCI-1/CP-5 unsigned; Stage 12 stays `[-]`; UD-1/UD-2, provisional parameters, same-platform replay only, OD-5 in-memory only; presets and Orbit Lab stay `legacy-merge`.
+
 - **Branch:** all UI-4/UI-6 work is consolidated on `frontend/ui-4-6`, based on agreed `main` `d5220f9`; latest commit is recorded in Git. No PR or merge into `main` has been performed.
 - **Completed additions:** UI-4 merger events can select/highlight the surviving body only while its result ID remains in the authoritative backend state; selection uses existing app/canvas highlight and opens the inspector. UI-6 adds keyboard activation/narrow viewport and disconnected-backend recovery E2E cases plus a browser frame-pacing profile at 1/16/64 bodies. `UniverseCanvas.tsx`, `CelestialBody.tsx`, UI-0 registry/material code, view model, renderer, and backend were not changed.
 - **Checks:** `npm run typecheck` passed; `npm test` passed (206 tests / 23 files); `npm run build` passed (existing >500 kB warning); `npm run test:e2e` passed (5 tests); `git diff --check` passed. The profile run (Windows Chrome 156, 1440×900, Playwright config with GPU disabled) measured median requestAnimationFrame intervals of 33.4 ms (1 body), 50.0 ms (16 bodies), and 99.9 ms (64 bodies). This is a software/headless frame-pacing baseline, not hardware GPU timing or a general device benchmark. Browser E2E stubs backend HTTP; remote CI has not run.
 # Status
 _Concise authoritative snapshot. Update after every meaningful session._
+
+## Collision engine - Stage 12 audit done, criteria partly unmet (D-061) (2026-10-25, Claude Sonnet 5.5) - newest
+- Re-audit (D-062): traceability rows re-checked; 156 VERIFIED, 75 PART, 0 MISS in the matrix; DOD-2 still UNMET.
+- Branch `collision/stage-11-12`. Scenarios A-H, performance checks and the DoD audit ran (`context/STAGE12_DOD_AUDIT.md`): 1399 backend / 502 vitest / 14 e2e pass. UNMET: per-row matrix re-audit (DOD-2), frame pacing with effects, browser scenario G, GPU/real-backend runs. CP-SCI-1/CP-5 waived by the owner (D-059), not signed; nothing independently validated. Nothing pushed.
+
+## Collision engine - Stage 11 done (D-060) (2026-10-25, Claude Sonnet 5.5)
+- Branch `collision/stage-11-12`. Cited moment-of-inertia annotations for 8 bodies; all other material quantities unsupported; trajectories bit-identical; 1388 backend passed. Owner-accepted, not independently validated.
+
+## Collision engine - governance change D-059, Stages 11-12 proceeding (2026-10-25, Claude Sonnet 5.5)
+- The owner waived the CP-SCI-1 / CP-5 wait for continued development (D-059). This is **owner-accepted, not independently validated**: no reviewer, no signature. Provisional labels, UD-1/UD-2, unsourced parameters and unsupported models remain visible. Stage 11 uses only fetched, citable material values; Stage 12 runs the scenarios, performance checks and the DoD audit and reports unmet criteria.
+
+## Collision engine — DQ-3 (a) recorded, Stage 11 BLOCKED on a named reviewer (2026-10-25, Claude Sonnet 5.5)
+- DQ-3 (a) with safeguards (D-058). No reviewer is named, so no Stage 11 code was written; a source inventory exists (`context/STAGE11_SOURCE_INVENTORY.md`). CP-SCI-1 and CP-5 pending. No code changed this session.
+
+## Collision engine — browser verification of Stage 9 (2026-10-25, Claude Sonnet 5.5)
+- **Done** on `collision/browser-verification`: `frontend/e2e/collision-effects.spec.ts` (7 tests) passes in headless Chromium 153 (chrome-headless-shell, revision 1243) with --disable-gpu, i.e. software WebGL, driven by Playwright 1.64.1 against a STUBBED API; not a GPU run, not a headed browser, not Firefox/Safari, not the real backend; two rendering defects fixed (D-057); evidence in `context/evidence/stage9-webgl/`. 502 vitest / tsc clean / build OK; 14 e2e (7 new + 7 existing) pass in headless software-WebGL Chromium; backend unchanged (1373). **Not verified:** GPU, other browsers, caps/time scale/frame pacing with effects, real-backend end to end. **Blocked on the owner:** DQ-3 and a named human reviewer (CP-SCI-1, CP-5).
+
+## Collision engine — Stages 9-10 (2026-10-25, Claude Sonnet 5.5)
+- **Done** on `collision/stage-9-visualization`: visual description backend, UI-0 extension and effects logic (CP-3, D-053..D-056), CollisionState serialisation and isolation tests (DQ-11 (a)). 1373 backend / 502 vitest / tsc clean / build OK. **Not run:** Playwright, any browser or WebGL check of the renderer. CP-SCI-1 and CP-5 pending.
+
+## Collision engine — Stage 8 (2026-10-25, Claude Sonnet 5.5)
+- **Done** on `collision/stage-8-records`: records list/detail/replay routes, replay module, frontend inspector (D-052); `tests/impact/test_records_api.py`, `frontend/src/components/ui/collisionInspector.test.tsx`. 1345 backend (1336 + 9 new) / 470 vitest (+18 new) / tsc clean / build OK. Science PROVISIONAL, CP-SCI-1 unsigned.
+
+## Collision engine — Stage 7 (2026-10-25, Claude Sonnet 5.5)
+- **Done** on `collision/stage-7-lifecycle`: lineage + cascade limit, step budget (DQ-10 a), classification, escape ledger, PRS23 for debris (D-051), `tests/impact/test_lifecycle.py`. 1336 backend (1309 + 27 new) / 452 vitest (+3 new) / tsc clean / build OK. Science PROVISIONAL, CP-SCI-1 unsigned.
+
+## Collision engine — Stage 6 (2026-10-24, Claude Sonnet 5.5)
+- **Done** on `collision/stage-6-damage`: impact sites + surface route + propagation model (D-050), `tests/impact/test_damage.py`. 1309 backend (1278 + 31 new) / 449 vitest / tsc clean / build OK. All shipped profiles static (no sourced wave speed); crater size unmodelled; CP-SCI-1 unsigned.
+
+## Collision engine — Stage 5 (2026-10-24, Claude Sonnet 5.5)
+- **Done** on `collision/stage-5-fragments`: fragments + parcels with budgets (D-046..D-049), `tests/impact/test_fragments.py`. 1278 backend (1092 + 186 new) / 449 vitest / tsc clean / build OK. Science PROVISIONAL, CP-SCI-1 unsigned; cratering Unsupported.
+
+## Collision engine — Stage 4b (2026-10-24, Claude Sonnet 5.5)
+- **Done** on `collision/stage-4b-default-mode`: new sandboxes and the startup `uni-default` use `outcome-v1`; presets and Orbit Lab stay `legacy-merge` until Stage 11 (D-045); `tests/impact/test_mode_defaults.py` added. 1092 backend (1081 + 11 new) / 449 vitest / tsc clean / build OK. Science PROVISIONAL, CP-SCI-1 unsigned. **Open:** Stage 5 needs DQ-4/5/6.
+
+## Collision engine — Stage 4a (2026-10-24, Claude Sonnet 5.5)
+- **Done** on `collision/stage-4a-application`: conservation module, pure realiser, whole-result validation, atomic applier, collision events (`merger | collision`), parcels and products table, three resolution tiers, frontend event union. Every universe is still `legacy-merge`; `outcome-v1` is opt-in. **Stage 4b NOT started** (needs the CP-4b review).
+- **Verified:** backend `python -m pytest -q`: 1081 passed, 1 warning (initial full run; one timing test failed once earlier in the session and passed on rerun); frontend `npm run typecheck` clean, `npx vitest run` 449 passed, `npm run build` OK; Playwright not run (browsers missing). Material-less scenarios give byte-identical events in both modes; system-wide mass/momentum/angular momentum conserved at 48 engine points; found and fixed a REBOUND name-corruption defect (D-044).
+- **Provisional/open:** CP-SCI-1 unsigned; debris launch speed is a placeholder (Stage 5); DQ-13 handled provisionally (D-043).
+
+## Collision engine — Stage 3 (2026-10-24, Claude Sonnet 5.5)
+- **Done** on `collision/stage-3-models`: pure outcome models and selector (LS12 + Genda, envelope, cratering structure), validity envelope as data, provisional-assumption registry, decisions D-038..D-042 (provisional UD-1/UD-2, DQ-7/8/9, diagnostics deviation). **CP-SCI-1 is NOT signed off; UD-1/UD-2 remain open; no reviewer has agreed.**
+- **Verified:** `python -m pytest -q` 935 passed (869 + 66 new), 1 baseline warning. Frontend untouched in this stage.
+- **Open:** Stage 4a next (needs DQ-13: provisional default recorded in its stage). Cratering is Unsupported for all shipped profiles (no sourced constants).
+
+## Collision engine — Stage 2 (2026-10-24, Claude Sonnet 5.5)
+- **Done** on `collision/stage-2-materials-spin` (from `b4a7134`): material registry (5 profiles, every number cited, unsourced quantities declared `incomplete`), rotation state and quaternion utilities, optional `material`/`spinRadPerS`/`orientation` on bodies (omitted when unset, so a material-less body is byte-identical), `GET /api/v1/materials`, side tables on every state path, additive diagnostics term (version stays 1), rotation/material/site latitude in the impact capture, frontend optional parsing. Every universe still `legacy-merge`.
+- **Verified:** `python -m pytest -q` 869 passed (800 + 69 new), 1 baseline warning; preset and fixed-id digests equal the values computed at f2c2da3; existing suite forced onto the deferred engine: 566/567 (the same one legacy-hook test); frontend `npm run typecheck` clean, `npx vitest run` 439 passed (433 + 6), `npm run build` OK; Playwright not run (browsers missing).
+- **Open:** Stage 3 blocked (DQ-7/8/9, named CP-SCI-1 reviewer). Differentiated/molten profiles not shipped (unsourced).
+
+## Collision engine — Stage 1 (2026-10-24, Claude Sonnet 5.5) — newest; STOP AT CP-1
+- **Done** on `collision/stage-1-deferred-resolution` (from `bb61e8d`): deferred collision resolution. `backend/impact/{detection,geometry,records,engine}.py`, `models/{base,perfect_merge}.py`; `simulation.py` gains `SimulationService(collision_config)`; `collisions.py` shares the merge arithmetic. Mode `legacy-merge` (default of EVERY universe) is the unchanged in-callback resolver; mode `outcome-v1` records contacts in the callback and resolves them between `integrate` calls with the same `merger` events plus a `CollisionRecord` per event. Nothing selects `outcome-v1` yet except tests.
+- **Verified:** `python -m pytest -q` 800 passed (567 baseline + 233 in `tests/impact`), 1 baseline warning; legacy mode reproduces golden values captured from the unchanged f2c2da3 code byte for byte; deferred mode equals them to <= 1e-12 for every single-contact scenario, the chain and the independent pairs; with all 567 existing tests forced onto the deferred engine 566 pass (the 1 exception patches a legacy-resolver internal hook); collision-free step latency ratio deferred/legacy 0.90 / 1.00 / 0.93 at N = 50 / 100 / 200. Frontend untouched (no file changed since Stage 0, where vitest 433, typecheck and build passed); Playwright not run (browsers missing).
+- **Found:** the legacy resolver merges non-touching bodies when a detection pass has three or more contacts (D-035). Not changed (D-033 requires exact legacy). **CP-1 review required before Stage 2.**
+
+## Collision engine — Stage 0 (2026-10-24, Claude Sonnet 5.5) — newest
+- **Done:** `backend/impact/{serialization,config,contracts}.py` (all schemas of plan section 4, strict canonical JSON, SHA-256 digest, `CollisionConfig` with `DEFAULT_SANDBOX_MODE = "legacy-merge"`), `tests/impact/test_contracts.py` (133 tests), D-034 (architecture E-1..E-12, proposed), PROJECT_BRIEF reference (DQ-1 a), ARCHITECTURE/API_CONTRACT planned sections. No behaviour change; nothing outside `backend/impact/` imports it.
+- **Verified (run in the worktree `Playing God collision-implementation`, branch `collision/stage-0-contracts`, base `263a15e`):** `python -m pytest -q` 700 passed (567 baseline + 133 new), 1 warning (Starlette/httpx, baseline), exit 0; `npm run typecheck` exit 0; `npx vitest run` 433 passed / 46 files; `npm run build` OK (existing >500 kB warning). Playwright not run (browsers missing locally, baseline).
+- **Not done / open:** Stages 1-12. Open owner decisions DQ-3..DQ-11, DQ-13; no CP-SCI-1 reviewer is named yet (`TASKS.md`).
 
 ## Finalisation sprint (2026-10-24, Claude Sonnet 5.5) — newest
 - **Spec correction:** `EXPERIMENT_01_SPEC.md` section 4.2 now says the modified run's barycentre drifts about 580 km over the 730-day window (9.2 mm/s measured, about 10^-5 to 10^-6 of the separations); revision record entry "Draft 0.3, correction 2". The corrected quantity was already protected by `tests/validation/test_experiment01.py::test_exp01_modified_barycentre_motion_is_the_documented_consequence` (asserts 5e5 m < drift < 6.5e5 m), so no new assertion was added. The owner confirms the correction at review.

@@ -1,7 +1,7 @@
 import React from 'react';
 import { formatDuration } from '../../sim/format';
 import { formatVector } from '../../sim/diagnosticsFormat';
-import type { EventView } from '../../sim/viewModel';
+import { eventFocusBodyId, type EventView } from '../../sim/viewModel';
 import { panelStyle } from './styles';
 import { theme } from './theme';
 
@@ -11,13 +11,32 @@ interface EventTimelineProps {
   activeBodyIds?: ReadonlySet<string>;
   selectedBodyId?: string;
   onSelectBody?: (id: string) => void;
+  /** Opens the collision inspector for a `collision` event (only collision events have a record). */
+  onInspect?: (eventId: string) => void;
 }
 
 /** Describes a backend event using only fields the API supplied. */
+const OUTCOME_LABEL: Record<string, string> = {
+  perfect_merge: 'Merger', graze_and_merge: 'Graze-and-merge', hit_and_run: 'Hit-and-run', partial_accretion: 'Partial accretion',
+  partial_erosion: 'Partial erosion', cratering: 'Cratering', catastrophic_disruption: 'Catastrophic disruption',
+  super_catastrophic_disruption: 'Super-catastrophic disruption', envelope_deposition: 'Deposition in a gas envelope',
+  envelope_merge_approximation: 'Envelope merger (approximation)', legacy_merge: 'Merger',
+};
+
+/** Fidelity labels exactly as the backend reports them, so an approximation is never shown as a computed result. */
+export function describeFidelity(summary: Record<string, string>): string {
+  return Object.entries(summary).map(([quantity, label]) => `${quantity}: ${label}`).join(' · ');
+}
+
 export function describeEvent(event: EventView, bodyName: (id: string) => string): string {
+  if (event.type === 'collision') {
+    const [target, projectile] = event.bodyIds;
+    return `${OUTCOME_LABEL[event.outcome] ?? event.outcome}: ${bodyName(projectile ?? '?')} hit ${bodyName(target ?? '?')} ` +
+      `at ${event.impactSpeedMPerS.toPrecision(3)} m/s relative speed at detection, ${event.impactAngleDeg.toFixed(1)}° from the normal`;
+  }
   const [survivor, absorbed] = event.bodyIds;
   return `${bodyName(absorbed ?? '?')} merged into ${bodyName(survivor ?? event.resultBodyId)} ` +
-    `at ${event.relativeSpeedMPerS.toPrecision(3)} m/s`;
+    `at ${event.relativeSpeedMPerS.toPrecision(3)} m/s relative speed at detection`;
 }
 
 export const EventTimeline: React.FC<EventTimelineProps> = ({
@@ -26,6 +45,7 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({
   activeBodyIds,
   selectedBodyId,
   onSelectBody,
+  onInspect,
 }) => {
   const newestFirst = [...events].reverse();
   return (
@@ -38,7 +58,9 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({
         <p style={{ fontSize: '12px', color: theme.textMuted, margin: 0 }}>No events yet.</p>
       ) : (
         <ol aria-label="Merger events" style={{ display: 'flex', flexDirection: 'column', gap: '10px', listStyle: 'none', margin: 0, padding: 0 }}>
-          {newestFirst.map((event) => (
+          {newestFirst.map((event) => {
+            const focusId = eventFocusBodyId(event);
+            return (
             <li key={event.id} data-testid="event-item" style={{
               padding: '8px',
               background: theme.surfaceRaised,
@@ -56,17 +78,41 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({
                 </span>
               </div>
               <div>{describeEvent(event, bodyName)}</div>
-              {onSelectBody && activeBodyIds?.has(event.resultBodyId) && (
+              {onSelectBody && focusId !== undefined && activeBodyIds?.has(focusId) && (
                 <button
                   type="button"
-                  aria-label={`Highlight surviving body ${bodyName(event.resultBodyId)}`}
-                  aria-pressed={selectedBodyId === event.resultBodyId}
-                  onClick={() => onSelectBody(event.resultBodyId)}
+                  aria-label={`Highlight surviving body ${bodyName(focusId)}`}
+                  aria-pressed={selectedBodyId === focusId}
+                  onClick={() => onSelectBody(focusId)}
                   style={{ marginTop: '6px', fontSize: '11px' }}
                 >
-                  Highlight surviving body: {bodyName(event.resultBodyId)}
+                  Highlight surviving body: {bodyName(focusId)}
                 </button>
               )}
+              {event.type === 'collision' ? (
+                <>
+                  {onInspect && (
+                    <button type="button" aria-label={`Inspect collision ${event.id}`} onClick={() => onInspect(event.id)} style={{ marginTop: '6px', fontSize: '11px' }}>
+                      Inspect record
+                    </button>
+                  )}
+                  <div style={{ color: theme.textMuted, marginTop: '3px' }}>
+                    largest remnant {event.largestRemnantMassKg.toExponential(3)} kg · debris {event.debrisMassKg.toExponential(3)} kg
+                    {' · '}Q_R {event.specificImpactEnergyJPerKg.toExponential(2)} J/kg
+                  </div>
+                  <div style={{ color: theme.textMuted, marginTop: '3px' }}>
+                    model {event.modelId} {event.modelVersion} · mass residual {event.massResidualRel.toExponential(1)} · momentum residual{' '}
+                    {event.momentumResidualRel.toExponential(1)}
+                  </div>
+                  <div style={{ color: theme.textMuted, marginTop: '3px' }} data-testid="event-fidelity">
+                    {describeFidelity(event.fidelitySummary)}
+                  </div>
+                  {event.warnings.length > 0 && (
+                    <div style={{ color: theme.textMuted, marginTop: '3px' }} data-testid="event-warnings">warnings: {event.warnings.join(', ')}</div>
+                  )}
+                </>
+              ) : (
+              <>
               <div style={{ color: theme.textMuted, marginTop: '3px' }}>
                 result mass {event.resultMassKg.toExponential(3)} kg · KE lost {event.kineticEnergyLostJ.toExponential(2)} J
               </div>
@@ -79,8 +125,11 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({
               <div style={{ color: theme.textMuted, marginTop: '3px' }}>
                 spin booked {formatVector(event.spinAddedKgM2PerS, 'kg·m²/s')} · bookkeeping only; no rotation dynamics
               </div>
+              </>
+              )}
             </li>
-          ))}
+            );
+          })}
         </ol>
       )}
     </section>

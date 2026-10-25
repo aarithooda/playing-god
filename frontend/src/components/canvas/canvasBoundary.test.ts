@@ -13,14 +13,28 @@ function propNames(source: string): string[] {
 }
 
 describe("UI-0 renderer boundary", () => {
-  it("the canvas exposes trajectory, label and overview framing inputs", () => {
+  it("the canvas gains exactly five inputs beyond the props it had before: trajectories, labeledBodyIds, overviewZoom and (CP-3 / D-053) collisionEffects, surfaceMarks", () => {
     const before = [
       "bodies", "selectedBodyId", "onSelectBody", "onFocusBody", "onClearSelection", "frameEpoch", "focus", "onFocusRelease",
       "placementMode", "placementRadius", "onPlacementConfirm", "onPlacementCancel", "onPlacementPreview", "leftInset",
       "rightInset", "transform", "showAxes", "showGrid", "viewControls", // viewControls: the UI view-toolbar contract (UI foundation)
     ];
-    expect(propNames(canvasSource).sort()).toEqual([...before, "trajectories", "labeledBodyIds", "overviewZoom"].sort());
+    expect(propNames(canvasSource).sort()).toEqual([...before, "trajectories", "labeledBodyIds", "overviewZoom", "collisionEffects", "surfaceMarks"].sort());
     expect(canvasSource).toMatch(/trajectories\?: readonly TrajectoryInput\[\]/);
+    // the two Stage 9 inputs are optional and typed by the contract; the layer is conditional
+    expect(canvasSource).toMatch(/collisionEffects\?: readonly CollisionEffectInput\[\]/);
+    expect(canvasSource).toMatch(/surfaceMarks\?: readonly SurfaceMarkInput\[\]/);
+    expect(canvasSource).toMatch(/collisionEffects\.length > 0 && <CollisionEffectsLayer/);
+  });
+
+  it("the Stage 9 contract types carry no mass and the effect layers import nothing that reaches the simulation", () => {
+    const contract = sources.get("render/contract.ts")!;
+    const effectTypes = contract.slice(contract.indexOf("export interface CollisionEffectInput"), contract.indexOf("export interface TrajectoryInput"));
+    expect(effectTypes).not.toMatch(/mass\w*\??\s*:/i); // no mass property on either input type
+    for (const file of ["CollisionEffectsLayer", "DebrisParticles", "SurfaceMarks"]) {
+      const text = sources.get(`components/canvas/${file}.tsx`)!;
+      expect(text).not.toMatch(/api\/client|useSimulation|backend/);
+    }
   });
 
   it("canvas renders without trajectories exactly as before (the prop is optional and the layer is conditional)", () => {
