@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { earth, mergerEvent, sun } from "../../test/fixtures";
+import { betelgeuseEntry, earth, earthEntry, mergerEvent, sun } from "../../test/fixtures";
 import { toBodyView, toEventView } from "../../sim/viewModel";
 import { BodyInspector } from "./BodyInspector";
 import { ControlPanel } from "./ControlPanel";
@@ -131,6 +131,44 @@ describe("ControlPanel", () => {
       positionM: { x: 1.496e11, y: 0, z: 0 },
       velocityMPerS: { x: 0, y: 29780, z: 0 },
     });
+  });
+
+  const profiles = [
+    { id: "silicate-rock", category: "rock", structureClass: "strong" },
+    { id: "gas-envelope-hhe", category: "gas", structureClass: "envelope-dominated" },
+  ];
+
+  it("sends no material unless the user picks one, whatever the kind or catalogue bodyType (DQ-2, D-029)", async () => {
+    const onCreate = vi.fn(ok);
+    const { rerender } = render(<ControlPanel {...base} onCreate={onCreate} materialProfiles={profiles} />);
+    fireEvent.click(screen.getByText("Add body…"));
+    expect((screen.getByLabelText("Material") as HTMLSelectElement).value).toBe("");
+    fireEvent.change(screen.getByLabelText("Physics role"), { target: { value: "star" } });
+    fireEvent.submit(screen.getByRole("form", { name: "Create body" }));
+    await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
+    expect(onCreate.mock.calls[0][0]).not.toHaveProperty("material");
+    for (const [nonce, entry] of [[1, earthEntry], [2, betelgeuseEntry]] as const) {
+      rerender(<ControlPanel {...base} onCreate={onCreate} materialProfiles={profiles} catalogueRequest={{ entry, nonce }} />);
+      expect((screen.getByLabelText("Material") as HTMLSelectElement).value).toBe("");
+      fireEvent.submit(screen.getByRole("form", { name: "Create body" }));
+      await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(nonce + 1));
+      expect(onCreate.mock.calls[nonce][0]).not.toHaveProperty("material");
+    }
+  });
+
+  it("sends the registry profile the user picked, and offers every listed profile", async () => {
+    const onCreate = vi.fn(ok);
+    render(<ControlPanel {...base} onCreate={onCreate} materialProfiles={profiles} />);
+    fireEvent.click(screen.getByText("Add body…"));
+    const select = screen.getByLabelText("Material") as HTMLSelectElement;
+    expect([...select.options].map((o) => o.value)).toEqual(["", "silicate-rock", "gas-envelope-hhe"]);
+    fireEvent.change(select, { target: { value: "silicate-rock" } });
+    fireEvent.submit(screen.getByRole("form", { name: "Create body" }));
+    await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
+    expect(onCreate.mock.calls[0][0]).toMatchObject({ material: { profileId: "silicate-rock", layers: null } });
+    // after a successful create the next body starts unspecified again
+    fireEvent.click(screen.getByText("Add body…"));
+    expect((screen.getByLabelText("Material") as HTMLSelectElement).value).toBe("");
   });
 
   it("does not call the API for an invalid new body and shows backend rejections", async () => {

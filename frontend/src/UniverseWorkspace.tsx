@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import type { ApiError } from "./api/errors";
 import type { ApiClient, ScopedClient } from "./api/client";
-import type { CatalogueDto, CatalogueEntryDto, UniverseSummaryDto } from "./api/types";
+import type { CatalogueDto, CatalogueEntryDto, MaterialProfileSummaryDto, UniverseSummaryDto } from "./api/types";
 import { UniverseCanvas, type FocusRequest } from "./components/canvas/UniverseCanvas";
 import { BodyInspector } from "./components/ui/BodyInspector";
 import { CataloguePanel } from "./components/ui/CataloguePanel";
@@ -58,6 +58,8 @@ export interface UniverseWorkspaceProps {
   notices: ReactNode;
   /** The sourced body catalogue (empty until loaded; the app works without it). */
   catalogue: CatalogueDto;
+  /** Material profiles the create form offers (empty until loaded: then only "Unspecified"). */
+  materialProfiles?: readonly MaterialProfileSummaryDto[];
   /** Orbit Lab: the experiments and their actions (they span two universes, so App owns them). */
   orbitLab: OrbitLabApi;
   /** For the read-only Orbit Lab queries and for reading the other run's history. */
@@ -608,6 +610,7 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
           onPlacementCreateResult={placementCreateResult}
           openCreateRequest={openCreateRequest}
           catalogueRequest={catalogueRequest}
+          materialProfiles={props.materialProfiles}
         />
         <ViewPanel
           paths={showPaths}

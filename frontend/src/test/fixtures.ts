@@ -126,6 +126,7 @@ export function fakeClient(overrides: Partial<ApiClient & ScopedClient> = {}): A
     deleteUniverse: async () => undefined,
     listPresets: async () => [solarPreset],
     getCatalogue: async () => catalogueFixture,
+    listMaterialProfiles: async () => [],
     listOrbitLabSystems: async () => [orbitSystem],
     listExperiments: async () => [],
     createExperiment: async () => experiment(),

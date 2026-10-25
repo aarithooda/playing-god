@@ -3,6 +3,7 @@ import {
   parseActivation,
   parseBodyDto,
   parseCatalogue,
+  parseMaterialProfiles,
   parseCollisionDetail,
   parseCollisionList,
   parseComparison,
@@ -29,6 +30,7 @@ import type {
   BodyDto,
   BodyUpdateDto,
   CatalogueDto,
+  MaterialProfileSummaryDto,
   CollisionDetailDto,
   CollisionListDto,
   ReplayReportDto,
@@ -103,6 +105,8 @@ export interface ApiClient extends SimulationClient {
   listPresets(): Promise<PresetSummaryDto[]>;
   /** The sourced body catalogue (read-only, independent of any universe). */
   getCatalogue(): Promise<CatalogueDto>;
+  /** The material profile registry (read-only, independent of any universe). */
+  listMaterialProfiles(): Promise<MaterialProfileSummaryDto[]>;
   listOrbitLabSystems(): Promise<OrbitLabSystemDto[]>;
   listExperiments(): Promise<ExperimentDto[]>;
   createExperiment(systemId: string): Promise<ExperimentDto>;
@@ -310,6 +314,9 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
     },
     async getCatalogue() {
       return parseCatalogue(await call("GET", `${V1}/catalogue`, readTimeoutMs));
+    },
+    async listMaterialProfiles() {
+      return parseMaterialProfiles(await call("GET", `${V1}/materials`, readTimeoutMs));
     },
     async listOrbitLabSystems() {
       return parseOrbitLabSystems(await call("GET", `${V1}/orbit-lab/systems`, readTimeoutMs));

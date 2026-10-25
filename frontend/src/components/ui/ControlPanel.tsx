@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import type { BodyCreateDto, BodyKind, BodyType, CatalogueEntryDto } from '../../api/types';
+import type { BodyCreateDto, BodyKind, BodyType, CatalogueEntryDto, MaterialProfileSummaryDto } from '../../api/types';
 import { formatDuration } from '../../sim/format';
 import { MAX_SPEED_EXP, MIN_SPEED_EXP, type ActionResult } from '../../sim/useSimulation';
 import {
@@ -14,7 +14,7 @@ import type { BodyView } from '../../sim/viewModel';
 import type { Vec3 } from '../../api/types';
 import { BodyFields } from './BodyFields';
 import { ConfirmButton } from './ConfirmButton';
-import { btnStyle, errorTextStyle, panelStyle } from './styles';
+import { btnStyle, errorTextStyle, fieldGroup, inputStyle, labelStyle, panelStyle } from './styles';
 import { theme } from './theme';
 import { ViewToolbar } from './ViewToolbar';
 import type { ViewControlContract } from '../../sim/viewControlContract';
@@ -51,6 +51,8 @@ interface ControlPanelProps {
   historyView?: boolean;
   /** Open the create form prefilled from a catalogue entry (a copy: the entry is never changed). */
   catalogueRequest?: { entry: CatalogueEntryDto; nonce: number };
+  /** Registry profiles the user may pick for the new body. The choice is the user's: it is never derived from kind or bodyType (D-029). */
+  materialProfiles?: readonly MaterialProfileSummaryDto[];
 }
 
 const EMPTY_VIEW_CONTROLS: ViewControlContract = {
@@ -84,6 +86,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   catalogueRequest,
   historyView = false,
   addBlockedReason,
+  materialProfiles = [],
 }) => {
   const toolbarControls = viewControls ?? { ...EMPTY_VIEW_CONTROLS, actions: { ...EMPTY_VIEW_CONTROLS.actions, fitView: onFit } };
   const [creating, setCreating] = useState(false);
@@ -94,6 +97,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   // The type is not a text field; it is sent only when it is not the backend default (planet) or came from the catalogue.
   const [kind, setKind] = useState<BodyKind>('planet');
   const [catalogueEntry, setCatalogueEntry] = useState<{ id: string; name: string; bodyType?: BodyType; assetKey?: string } | null>(null);
+  // '' = unspecified: the body is sent without a material and its contacts are the exact legacy merge (DQ-2)
+  const [materialId, setMaterialId] = useState('');
   const [serverError, setServerError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // A second create request (for example a double press) must not start while one is in flight.
@@ -116,6 +121,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       ...(catalogueEntry ? { catalogueEntryId: catalogueEntry.id } : {}),
       ...(catalogueEntry?.bodyType ? { bodyType: catalogueEntry.bodyType } : {}),
       ...(catalogueEntry?.assetKey ? { assetKey: catalogueEntry.assetKey } : {}),
+      ...(materialId ? { material: { profileId: materialId, layers: null } } : {}),
     };
     const result = await onCreate(payload).finally(() => {
       creatingRef.current = false;
@@ -127,6 +133,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       setCreating(false);
       setKind('planet');
       setCatalogueEntry(null);
+      setMaterialId('');
       setValues(NEW_BODY_DEFAULTS);
       onPlacementRadiusChange?.(Number(NEW_BODY_DEFAULTS.radius));
       setPositionManuallyEdited(false);
@@ -288,6 +295,18 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               bodyType={catalogueEntry?.bodyType}
               onKindChange={setKind}
             />
+            <div style={fieldGroup}>
+              <label style={labelStyle} htmlFor="create-material">Material</label>
+              <select id="create-material" style={inputStyle} value={materialId} onChange={(e) => setMaterialId(e.target.value)}>
+                <option value="">Unspecified (contacts merge)</option>
+                {materialProfiles.map((p) => (
+                  <option key={p.id} value={p.id}>{`${p.id} (${p.category}, ${p.structureClass})`}</option>
+                ))}
+              </select>
+              <span style={{ fontSize: '11px', color: theme.textMuted }}>
+                Collision outcomes need a material for both bodies; without one every contact is a perfect merge.
+              </span>
+            </div>
             {catalogueEntry && (
               <p style={{ fontSize: '11px', color: theme.textMuted, margin: '0 0 8px 0' }}>
                 Started from the catalogue entry {catalogueEntry.name}. This is a copy: editing it never changes the catalogue.

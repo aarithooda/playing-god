@@ -7,6 +7,7 @@ import type {
   BodyDto,
   BodyType,
   CatalogueDto,
+  MaterialProfileSummaryDto,
   CollisionDetailDto,
   CollisionListDto,
   CollisionRecordDto,
@@ -705,6 +706,15 @@ export function parseCatalogue(v: unknown): CatalogueDto {
       };
     }),
   };
+}
+
+export function parseMaterialProfiles(v: unknown): MaterialProfileSummaryDto[] {
+  const o = obj(v, "materials");
+  if (!Array.isArray(o.profiles)) bad("materials.profiles");
+  return (o.profiles as unknown[]).map((p) => {
+    const q = obj(p, "materials.profile");
+    return { id: str(q.id, "profile.id"), category: str(q.category, "profile.category"), structureClass: str(q.structureClass, "profile.structureClass") };
+  });
 }
 
 // ---------- Orbit Lab ----------

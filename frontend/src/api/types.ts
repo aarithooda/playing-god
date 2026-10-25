@@ -100,6 +100,13 @@ export interface MaterialDto {
   layers: MaterialLayerDto[] | null;
 }
 
+/** One registry profile as listed by GET /api/v1/materials (the fields the create form shows; the full record stays on the server). */
+export interface MaterialProfileSummaryDto {
+  id: string;
+  category: string;
+  structureClass: string;
+}
+
 /** Unit quaternion [w, x, y, z] (body -> world) at simulation time `epochS`. Present only for a body with a rotation state. */
 export interface OrientationDto {
   quaternion: [number, number, number, number];

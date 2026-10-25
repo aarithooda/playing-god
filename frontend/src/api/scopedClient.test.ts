@@ -126,4 +126,12 @@ describe("scoped client", () => {
     const bad = setup(() => json({ entries: [entry(prop({ basis: "guessed" }))] }));
     await expect(bad.client.getCatalogue()).rejects.toMatchObject({ kind: "invalid-response" });
   });
+
+  it("lists the material registry from GET /api/v1/materials and rejects a malformed one", async () => {
+    const { client, calls } = setup(() => json({ schemaVersion: 1, profiles: [{ id: "silicate-rock", category: "rock", structureClass: "strong", ls12: {} }], propagation: {} }));
+    expect(await client.listMaterialProfiles()).toEqual([{ id: "silicate-rock", category: "rock", structureClass: "strong" }]);
+    expect(calls()).toContain("GET /api/v1/materials");
+    const bad = setup(() => json({ profiles: [{ id: "x" }] }));
+    await expect(bad.client.listMaterialProfiles()).rejects.toMatchObject({ kind: "invalid-response" });
+  });
 });
