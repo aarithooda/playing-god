@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { BodyCreateDto, BodyKind, BodyType, CatalogueEntryDto } from '../../api/types';
 import type { ActionResult } from '../../sim/useSimulation';
+import { circularOrbitVelocity, pickPrimaryStar } from '../../sim/orbitVelocity';
 import { defaultMaterial, MATERIAL_OPTIONS } from '../../sim/defaultMaterial';
 import {
   NEW_BODY_DEFAULTS,
@@ -65,6 +66,9 @@ export const CreateBodyPanel: React.FC<CreateBodyPanelProps> = ({
   const [catalogueEntry, setCatalogueEntry] = useState<{ id: string; name: string; bodyType?: BodyType; assetKey?: string } | null>(null);
   // '' = automatic (the default for the body's type). Anything else is a backend material profile id sent to the collision engine.
   const [materialId, setMaterialId] = useState('');
+  // Offered when the universe has a star and the new body is a planet: start it on a circular orbit around that star.
+  const [orbitStar, setOrbitStar] = useState(true);
+  const primaryStar = kind === 'planet' ? pickPrimaryStar(bodies) : undefined;
   const [serverError, setServerError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // A second create request (for example a double press) must not start while one is in flight.
@@ -81,8 +85,10 @@ export const CreateBodyPanel: React.FC<CreateBodyPanelProps> = ({
     creatingRef.current = true;
     setBusy(true);
     setServerError(null);
+    const orbitV = orbitStar && primaryStar ? circularOrbitVelocity(primaryStar, parsed.value.positionM, parsed.value.massKg) : undefined;
     const payload: BodyCreateDto = {
       ...parsed.value,
+      ...(orbitV ? { velocityMPerS: orbitV } : {}),
       ...(kind !== 'planet' || catalogueEntry ? { kind } : {}),
       ...(catalogueEntry ? { catalogueEntryId: catalogueEntry.id } : {}),
       ...(catalogueEntry?.bodyType ? { bodyType: catalogueEntry.bodyType } : {}),
@@ -131,6 +137,7 @@ export const CreateBodyPanel: React.FC<CreateBodyPanelProps> = ({
       setPositionManuallyEdited(true);
       positionManuallyEditedRef.current = true;
     }
+    if (key === 'vx' || key === 'vy' || key === 'vz') setOrbitStar(false); // an explicit velocity wins
     setErrors((e) => ({ ...e, [key]: undefined }));
   };
 
@@ -146,6 +153,7 @@ export const CreateBodyPanel: React.FC<CreateBodyPanelProps> = ({
   const openCreate = () => {
     const defaults = defaultsForNewBody(bodies);
     setKind('planet');
+    setOrbitStar(true);
     setMaterialId('');
     setCatalogueEntry(null);
     setValues(defaults);
@@ -173,6 +181,7 @@ export const CreateBodyPanel: React.FC<CreateBodyPanelProps> = ({
       color: entry.visual.colorHex,
     });
     setKind(entry.kind);
+    setOrbitStar(true);
     setMaterialId('');
     setCatalogueEntry({ id: entry.id, name: entry.name, bodyType: entry.bodyType, assetKey: entry.assetKey });
     onPlacementRadiusChange?.(entry.properties.radiusM.value);
@@ -251,6 +260,12 @@ export const CreateBodyPanel: React.FC<CreateBodyPanelProps> = ({
             bodyType={catalogueEntry?.bodyType}
             onKindChange={setKind}
           />
+          {primaryStar && (
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, margin: '0 0 10px', fontSize: 12.5 }}>
+              <input type="checkbox" checked={orbitStar} onChange={(e) => setOrbitStar(e.target.checked)} style={{ marginTop: 2 }} />
+              <span>Orbit {primaryStar.name}? It is given the circular-orbit velocity from its distance, and its path is traced.{orbitStar ? '' : ' (Off: it uses the velocity above.)'}</span>
+            </label>
+          )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 10px' }}>
             <label style={{ ...labelStyle, flex: '0 0 auto' }} htmlFor="create-material">Material</label>
             <select id="create-material" style={inputStyle} value={materialId} onChange={(e) => setMaterialId(e.target.value)}>
