@@ -216,7 +216,7 @@ export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDe
               borderRadius: 8,
               padding: '10px',
               marginBottom: '10px',
-              background: 'rgba(238, 122, 120, 0.06)',
+              background: theme.dangerSoft,
             }}>
               <strong id="delete-body-heading" style={{ fontSize: '12.5px' }}>Delete {body.name}?</strong>
               <p id="delete-body-description" style={{ ...noteTextStyle, margin: '5px 0 8px' }}>
@@ -237,7 +237,7 @@ export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDe
             <span style={{ flex: 1 }} />
             <button type="button" style={btnStyle} onClick={() => onFocus(body.id)} title="Fly the camera to this body and follow it">Focus</button>
             {!confirmDelete && (
-              <button type="button" style={{ ...btnStyle, color: theme.danger, borderColor: 'rgba(238, 122, 120, 0.45)' }} onClick={() => { setConfirmDelete(true); setServerError(null); }} disabled={busy || !!editBlockedReason}>Delete</button>
+              <button type="button" style={{ ...btnStyle, color: theme.danger, borderColor: theme.dangerLine }} onClick={() => { setConfirmDelete(true); setServerError(null); }} disabled={busy || !!editBlockedReason}>Delete</button>
             )}
           </div>
         </form>
@@ -246,7 +246,7 @@ export const BodyInspector: React.FC<BodyInspectorProps> = ({ body, onSave, onDe
   );
 };
 
-const swatchStyle: React.CSSProperties = { width: 46, height: 46, flex: '0 0 46px', borderRadius: '50%', boxShadow: '0 0 0 1px rgba(255,255,255,0.08), 0 4px 16px #000a', display: 'block' };
+const swatchStyle: React.CSSProperties = { width: 46, height: 46, flex: '0 0 46px', borderRadius: '50%', boxShadow: '0 0 0 1px var(--line), 0 4px 16px rgba(0,0,0,0.35)', display: 'block' };
 
 const Readout: React.FC<{ label: string; value: string; unit: string; testId?: string }> = ({ label, value, unit, testId }) => (
   <div style={{ minWidth: 0 }}>

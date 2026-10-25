@@ -54,8 +54,8 @@ export const UniverseSwitcher: React.FC<UniverseSwitcherProps> = ({
               onClick={() => onActivate(u.id)}
               style={{
                 flex: 1, minWidth: 0, textAlign: 'left', padding: '8px 10px', borderRadius: 8,
-                background: u.active ? theme.accentSoft : 'rgba(255,255,255,0.025)',
-                border: `1px solid ${u.active ? 'rgba(235,199,127,0.4)' : theme.border}`,
+                background: u.active ? theme.accentSoft : theme.tint,
+                border: `1px solid ${u.active ? theme.accentLine : theme.border}`,
                 color: theme.text, display: 'flex', flexDirection: 'column', gap: 1,
                 // The active universe is a disabled button only because it cannot be switched to; keep it legible.
                 ...(u.active ? { opacity: 1, cursor: 'default' } : {}),

@@ -1,29 +1,45 @@
 // Visual tokens for the instruments around the 3D scene. One place, so every surface reads as one application:
 // ink panels over the void, starlight text, and a single sunlight accent kept for selection and primary actions.
-// The same values are mirrored as CSS custom properties in index.css (for hover, focus and media-query states).
+// Colours are CSS custom properties (defined for both themes in index.css, `:root` = dark, `:root[data-theme="light"]` =
+// light), so every inline style that reads `theme.*` follows the active theme without re-rendering. The 3D scene itself is
+// space and stays dark in both themes; `onSpace*` tokens are for text drawn directly on it (never on a panel).
 export const theme = {
   /** The void behind the scene and under every panel. */
-  bg: '#04060a',
+  bg: 'var(--void)',
   /** Panel surface (solid fallback of the translucent ink used by drawers and the bar). */
-  surface: '#0c0f15',
+  surface: 'var(--ink-solid)',
   /** Translucent ink for floating surfaces over the scene. */
-  glass: 'rgba(12, 15, 21, 0.86)',
-  surfaceRaised: '#151a23',
-  surfaceHover: '#1b212c',
-  border: 'rgba(214, 222, 235, 0.09)',
-  borderStrong: 'rgba(214, 222, 235, 0.18)',
-  text: '#eeeae0',
-  textMuted: '#a7aab2',
-  textFaint: '#6e737e',
+  glass: 'var(--ink)',
+  surfaceRaised: 'var(--raised)',
+  surfaceHover: 'var(--hover)',
+  border: 'var(--line)',
+  borderStrong: 'var(--line-strong)',
+  text: 'var(--text)',
+  textMuted: 'var(--text-muted)',
+  textFaint: 'var(--text-faint)',
   /** Sunlight: selection, the active tool, primary actions. Never decoration. */
-  accent: '#ebc77f',
-  accentInk: '#1b1405',
-  accentSoft: 'rgba(235, 199, 127, 0.14)',
+  accent: 'var(--accent)',
+  accentInk: 'var(--accent-ink)',
+  accentSoft: 'var(--accent-soft)',
+  /** Selected-item outline (accent at partial strength). */
+  accentLine: 'var(--accent-line)',
   /** Recorded history and other informational states that are not warnings. */
-  info: '#8fb3f0',
-  danger: '#ee7a78',
-  ok: '#7fc79f',
-  warn: '#efa25a',
+  info: 'var(--info)',
+  danger: 'var(--danger)',
+  /** Faint fill for danger surfaces and the border of a danger button. */
+  dangerSoft: 'var(--danger-soft)',
+  dangerLine: 'var(--danger-line)',
+  ok: 'var(--ok)',
+  warn: 'var(--warn)',
+  /** Barely-there fills that lift a surface off its parent (cards, list rows). */
+  tint: 'var(--tint)',
+  tintStrong: 'var(--tint-strong)',
+  /** Drop shadows of floating surfaces. */
+  shadow: 'var(--shadow)',
+  shadowSmall: 'var(--shadow-small)',
+  /** Text drawn straight on the (always dark) 3D scene. */
+  onSpace: 'var(--on-space)',
+  onSpaceShadow: 'var(--on-space-shadow)',
   font: '"Geist", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif',
   serif: '"Cormorant Garamond", "Iowan Old Style", "Palatino Linotype", Georgia, serif',
   mono: '"Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace',

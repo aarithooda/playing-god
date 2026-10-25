@@ -37,6 +37,11 @@ export interface BodyScaleOptions {
   clearance?: number;
   /** Largest minimum (px) among the members of the system: the pair shares one growth factor, so their ratio is kept. */
   systemPx?: number;
+  /**
+   * Planets only: scene distance to the nearest moon. Limits the planet's zoom-in GROWTH so its enlarged disc cannot reach the
+   * moon's orbit (a moon would otherwise be drawn inside, or pass through, its planet). It never lowers the planet below `minPx`.
+   */
+  moonRoom?: number;
 }
 
 /**
@@ -64,6 +69,10 @@ export function bodyDisplayScale(
   if (growth > 1 && clearance !== undefined && clearance > 0) {
     const room = SYSTEM_GROWTH_FRACTION_OF_CLEARANCE * projectedRadiusPx(clearance, distance, fovDeg, viewportHeightPx);
     growth = Math.min(growth, Math.max(1, room / Math.max(minPx, systemPx ?? minPx)));
+  }
+  if (growth > 1 && options.moonRoom !== undefined && options.moonRoom > 0) {
+    const room = SYSTEM_GROWTH_FRACTION_OF_CLEARANCE * projectedRadiusPx(options.moonRoom, distance, fovDeg, viewportHeightPx);
+    growth = Math.min(growth, Math.max(1, room / minPx));
   }
   const target = minPx * growth;
   return px >= target ? 1 : target / px;

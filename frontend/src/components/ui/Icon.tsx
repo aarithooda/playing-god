@@ -5,7 +5,7 @@ import React from 'react';
 export type IconName =
   | 'play' | 'pause' | 'step' | 'reset' | 'axes' | 'grid' | 'paths' | 'fit' | 'focus' | 'create' | 'universes'
   | 'orbitlab' | 'events' | 'history' | 'diagnostics' | 'close' | 'sound' | 'soundOff' | 'light' | 'chevron' | 'trash'
-  | 'guides' | 'belt';
+  | 'guides' | 'belt' | 'sun' | 'moon';
 
 const PATHS: Record<IconName, React.ReactNode> = {
   play: <path d="M7 4.8v10.4a.6.6 0 0 0 .9.5l8.3-5.2a.6.6 0 0 0 0-1L7.9 4.3a.6.6 0 0 0-.9.5Z" fill="currentColor" stroke="none" />,
@@ -30,6 +30,8 @@ const PATHS: Record<IconName, React.ReactNode> = {
   chevron: <path d="M7.5 5l5 5-5 5" />,
   guides: <><circle cx="10" cy="10" r="1.6" fill="currentColor" stroke="none" /><ellipse cx="10" cy="10" rx="4.2" ry="2.6" /><ellipse cx="10" cy="10" rx="7.5" ry="4.8" /></>,
   belt: <><circle cx="10" cy="10" r="1.6" fill="currentColor" stroke="none" />{[0, 40, 80, 120, 160, 200, 240, 280, 320].map((a) => <circle key={a} cx={10 + 6.6 * Math.cos((a * Math.PI) / 180)} cy={10 + 4.2 * Math.sin((a * Math.PI) / 180)} r="0.75" fill="currentColor" stroke="none" />)}</>,
+  sun: <><circle cx="10" cy="10" r="3.4" /><path d="M10 2.6v2M10 15.4v2M2.6 10h2M15.4 10h2M4.8 4.8l1.4 1.4M13.8 13.8l1.4 1.4M4.8 15.2l1.4-1.4M13.8 6.2l1.4-1.4" /></>,
+  moon: <path d="M15.8 11.6A6.4 6.4 0 0 1 8.4 4.2a6.4 6.4 0 1 0 7.4 7.4Z" />,
   trash: <><path d="M4.5 6h11M8 6V4.5h4V6M6 6l.7 9.5h6.6L14 6" /></>,
 };
 

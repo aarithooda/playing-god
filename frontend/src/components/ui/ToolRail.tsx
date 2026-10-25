@@ -1,5 +1,6 @@
 import React from 'react';
 import { Icon, type IconName } from './Icon';
+import { useTheme } from '../../sim/useTheme';
 
 export type ToolId = 'create' | 'universes' | 'orbitlab' | 'events' | 'history' | 'diagnostics';
 
@@ -22,6 +23,26 @@ export const TOOLS: readonly ToolDef[] = [
   { id: 'history', label: 'History', icon: 'history', title: 'History', description: 'Scrub and replay what the backend recorded.' },
   { id: 'diagnostics', label: 'Diagnostics', icon: 'diagnostics', title: 'Diagnostics', description: 'Whole-system totals computed by the backend.' },
 ];
+
+/** Light/dark switch at the foot of the rail (dark is the default; the choice is remembered in this browser). */
+export const ThemeToggle: React.FC = () => {
+  const { theme, toggle } = useTheme();
+  const light = theme === 'light';
+  return (
+    <button
+      type="button"
+      className="pg-rail__btn"
+      data-testid="theme-toggle"
+      aria-pressed={light}
+      aria-label="Light theme"
+      title={light ? 'Light theme is on: switch back to dark' : 'Switch to the light theme'}
+      onClick={toggle}
+    >
+      <Icon name={light ? 'sun' : 'moon'} size={21} />
+      <span aria-hidden="true">{light ? 'Light' : 'Dark'}</span>
+    </button>
+  );
+};
 
 interface ToolRailProps {
   activeTool: ToolId;
@@ -59,5 +80,6 @@ export const ToolRail: React.FC<ToolRailProps> = ({ activeTool, drawerOpen, onSe
         </React.Fragment>
       );
     })}
+    <ThemeToggle />
   </nav>
 );

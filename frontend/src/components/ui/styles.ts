@@ -41,7 +41,7 @@ export const primaryBtnStyle: React.CSSProperties = {
 };
 
 export const inputStyle: React.CSSProperties = {
-  background: 'rgba(0, 0, 0, 0.35)',
+  background: 'var(--well)',
   border: `1px solid ${theme.borderStrong}`,
   color: theme.text,
   padding: '5px 7px',

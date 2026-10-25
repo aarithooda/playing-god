@@ -7,7 +7,7 @@ const COLOR: Record<Health, string> = { unknown: theme.textFaint, ok: theme.ok, 
 
 /** Product mark with the backend connection state. The connection is spelled out, never shown by colour alone. */
 export const Wordmark: React.FC<{ health: Health }> = ({ health }) => (
-  <div style={{ pointerEvents: 'auto', display: 'inline-flex', alignItems: 'baseline', gap: 12, color: theme.text, textShadow: '0 1px 12px #000' }}>
+  <div style={{ pointerEvents: 'auto', display: 'inline-flex', alignItems: 'baseline', gap: 12, color: theme.onSpace, textShadow: theme.onSpaceShadow }}>
     <span style={{ fontFamily: theme.serif, fontSize: 23, fontWeight: 600, letterSpacing: '0.03em', lineHeight: 1 }}>Playing God</span>
     <span
       role="status"

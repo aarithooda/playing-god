@@ -22,6 +22,19 @@
   --danger: #ee7a78;
   --ok: #7fc79f;
   --warn: #efa25a;
+  --accent-line: rgba(235, 199, 127, 0.4);
+  --danger-soft: rgba(238, 122, 120, 0.08);
+  --danger-line: rgba(238, 122, 120, 0.45);
+  --tint: rgba(255, 255, 255, 0.03);
+  --tint-strong: rgba(255, 255, 255, 0.06);
+  --shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  --shadow-small: 0 1px 7px rgba(0, 0, 0, 0.6);
+  --on-space: #eeeae0;
+  --on-space-shadow: 0 1px 12px #000;
+  --scrollbar: rgba(214, 222, 235, 0.16);
+  --well: rgba(0, 0, 0, 0.35);
+  --on-danger: #1a0605;
+  color-scheme: dark;
   --font: "Geist", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
   --serif: "Cormorant Garamond", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
   --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -32,6 +45,43 @@
   --inspector-w: 340px;
   --bar-h: 64px;
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* Light theme: the same tokens, set for a bright surface. Chosen with the theme toggle (src/sim/useTheme.ts), which sets
+   data-theme on <html>. The 3D scene stays dark; only the instruments around it change. Text pairs are >= 4.5:1. */
+:root[data-theme="light"] {
+  --void: #ece8df;
+  --ink: rgba(250, 248, 243, 0.9);
+  --ink-solid: #faf8f3;
+  --ink-deep: rgba(246, 243, 236, 0.95);
+  --raised: #eee9de;
+  --hover: #e4ddcf;
+  --line: rgba(28, 32, 48, 0.12);
+  --line-strong: rgba(28, 32, 48, 0.26);
+  --text: #1c1d22;
+  --text-muted: #4a4e59;
+  --text-faint: #6b6f7a;
+  --accent: #7d5208;
+  --accent-ink: #fffaf0;
+  --accent-soft: rgba(125, 82, 8, 0.12);
+  --accent-line: rgba(125, 82, 8, 0.45);
+  --info: #2a58ad;
+  --danger: #b3321f;
+  --danger-soft: rgba(179, 50, 31, 0.07);
+  --danger-line: rgba(179, 50, 31, 0.45);
+  --ok: #27704a;
+  --warn: #a2560a;
+  --tint: rgba(28, 32, 48, 0.035);
+  --tint-strong: rgba(28, 32, 48, 0.07);
+  --shadow: 0 8px 28px rgba(40, 36, 28, 0.2);
+  --shadow-small: 0 1px 6px rgba(40, 36, 28, 0.25);
+  --scrollbar: rgba(28, 32, 48, 0.28);
+  --well: rgba(28, 32, 48, 0.07);
+  --on-danger: #fff6f4;
+  /* The scene is always dark, so text drawn directly on it keeps its light colour. */
+  --on-space: #eeeae0;
+  --on-space-shadow: 0 1px 12px #000;
+  color-scheme: light;
 }
 
 * {
@@ -91,9 +141,6 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
   border-color: transparent;
 }
 
-select {
-  color-scheme: dark;
-}
 select option {
   background: var(--ink-solid);
   color: var(--text);
@@ -143,7 +190,7 @@ input[type="radio"], input[type="checkbox"] {
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(214, 222, 235, 0.16) transparent;
+  scrollbar-color: var(--scrollbar) transparent;
 }
 
 .sr-only {
@@ -206,7 +253,7 @@ input[type="radio"], input[type="checkbox"] {
 .pg-rail__btn:not(:disabled):hover {
   filter: none;
   color: var(--text);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--tint-strong);
 }
 .pg-rail__btn[aria-pressed="true"] {
   color: var(--accent);
@@ -231,7 +278,7 @@ input[type="radio"], input[type="checkbox"] {
   padding: 0 4px;
   border-radius: 8px;
   background: var(--danger);
-  color: #1a0605;
+  color: var(--on-danger);
   font-size: 10px;
   font-weight: 600;
   line-height: 16px;
@@ -324,11 +371,11 @@ input[type="radio"], input[type="checkbox"] {
 .pg-icon-btn:not(:disabled):hover {
   filter: none;
   color: var(--text);
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--tint-strong);
 }
 .pg-icon-btn[aria-pressed="true"] {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--hover);
   border-color: var(--line-strong);
 }
 .pg-icon-btn--sm {
@@ -344,7 +391,7 @@ input[type="radio"], input[type="checkbox"] {
   color: var(--void);
 }
 .pg-icon-btn--primary:not(:disabled):hover {
-  background: #fff;
+  background: var(--text);
   color: var(--void);
 }
 .pg-icon-btn--primary[data-playing="true"] {
@@ -357,7 +404,7 @@ input[type="radio"], input[type="checkbox"] {
   padding: 2px;
   gap: 2px;
   border-radius: 9px;
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--well);
   border: 1px solid var(--line);
 }
 .pg-seg button {
@@ -518,7 +565,7 @@ input[type="radio"], input[type="checkbox"] {
   display: grid;
   place-items: center;
   background: #000;
-  color: var(--text);
+  color: var(--on-space);
   cursor: pointer;
   transition: opacity 0.6s ease;
 }

@@ -27,7 +27,7 @@ export const MoonOrbitInset: React.FC<MoonOrbitInsetProps> = ({ planetName, orbi
       aria-label={`${planetName} moon orbits`}
       style={{
         width: 300, padding: 10, color: theme.text, background: theme.glass, border: `1px solid ${theme.borderStrong}`,
-        borderRadius: 12, boxShadow: "0 8px 28px #0009", backdropFilter: "blur(8px)",
+        borderRadius: 12, boxShadow: theme.shadow, backdropFilter: "blur(8px)",
       }}
     >
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
@@ -46,7 +46,7 @@ export const MoonOrbitInset: React.FC<MoonOrbitInsetProps> = ({ planetName, orbi
         </div>
       </header>
       <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label={`Live estimated orbits of ${orbits.map((orbit) => orbit.name).join(", ")}`} style={{ width: "100%", height: 156, display: "block", marginTop: 5 }}>
-        <circle cx={WIDTH / 2} cy={HEIGHT / 2} r={5} fill="#fff3b0" stroke="#fff" strokeWidth={1} />
+        <circle cx={WIDTH / 2} cy={HEIGHT / 2} r={5} fill="#f0c040" stroke="var(--text-muted)" strokeWidth={1} />
         {orbits.map((orbit) => {
           const path = orbit.points.map((point, index) => {
             const [x, y] = xy(point);
@@ -56,7 +56,7 @@ export const MoonOrbitInset: React.FC<MoonOrbitInsetProps> = ({ planetName, orbi
           return (
             <g key={orbit.id}>
               <path d={path} fill="none" stroke={orbit.colorHex} strokeWidth={1.5} opacity={0.82} />
-              <circle cx={current[0]} cy={current[1]} r={3} fill={orbit.colorHex} stroke="#fff" strokeWidth={0.7} />
+              <circle cx={current[0]} cy={current[1]} r={3} fill={orbit.colorHex} stroke="var(--text-muted)" strokeWidth={0.7} />
             </g>
           );
         })}

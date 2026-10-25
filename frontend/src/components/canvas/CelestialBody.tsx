@@ -103,6 +103,7 @@ interface CelestialBodyProps {
   maxGrowth?: number;
   clearance?: number;
   systemPx?: number;
+  moonRoom?: number;
   isSelected?: boolean;
   onClick?: () => void;
   onDoubleClick?: () => void;
@@ -128,6 +129,7 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
   maxGrowth,
   clearance,
   systemPx,
+  moonRoom,
   isSelected = false,
   onClick,
   onDoubleClick,
@@ -212,6 +214,7 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
         maxGrowth,
         clearance,
         systemPx,
+        moonRoom,
       });
     }
     body.current.scale.setScalar(displayScale);

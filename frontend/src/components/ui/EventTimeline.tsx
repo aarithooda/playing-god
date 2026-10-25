@@ -64,7 +64,7 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({
             return (
             <li key={event.id} data-testid="event-item" style={{
               padding: '10px 10px 10px 12px',
-              background: 'rgba(255, 255, 255, 0.03)',
+              background: theme.tint,
               borderRadius: '8px',
               fontSize: '12px',
               lineHeight: 1.5,

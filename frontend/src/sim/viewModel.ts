@@ -66,6 +66,8 @@ export interface SceneBody {
   clearance?: number;
   /** Largest minimum (px) in the body's moon system, so planet and moons share one growth factor. */
   systemPx?: number;
+  /** A planet only: scene distance to its nearest moon; caps the planet's zoom-in growth below the moon's orbit (bodyVisibility.ts). */
+  moonRoom?: number;
   /** Orientation (w, x, y, z) in the simulation frame; absent = the body is drawn exactly as before (D-053). */
   orientation?: readonly [number, number, number, number];
 }

@@ -576,6 +576,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
           maxGrowth={body.maxGrowth}
           clearance={body.clearance}
           systemPx={body.systemPx}
+          moonRoom={body.moonRoom}
           orientation={body.orientation}
           snap={body.snap}
           marks={surfaceMarks.filter((m) => m.bodyId === body.id)}

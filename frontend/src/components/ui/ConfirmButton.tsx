@@ -53,7 +53,7 @@ export const ConfirmButton: React.FC<ConfirmButtonProps> = ({ label, confirmLabe
     <span style={{ display: 'inline-flex', gap: 4 }}>
       <button
         type="button"
-        style={{ ...btnStyle, ...style, borderColor: theme.danger, color: theme.danger, background: 'rgba(238, 122, 120, 0.1)' }}
+        style={{ ...btnStyle, ...style, borderColor: theme.danger, color: theme.danger, background: theme.dangerSoft }}
         onClick={() => {
           setArmed(false);
           onConfirm();

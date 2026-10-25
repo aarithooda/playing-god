@@ -92,7 +92,7 @@ export const PresetPicker: React.FC<PresetPickerProps> = ({ presets, disabled, o
                 aria-labelledby={titleId}
                 data-testid={`preset-${p.id}`}
                 style={{
-                  display: 'flex', gap: 12, padding: 10, borderRadius: 10, background: 'rgba(255,255,255,0.025)',
+                  display: 'flex', gap: 12, padding: 10, borderRadius: 10, background: theme.tint,
                   border: `1px solid ${theme.border}`,
                 }}
               >

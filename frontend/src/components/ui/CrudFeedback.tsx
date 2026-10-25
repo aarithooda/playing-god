@@ -55,7 +55,7 @@ export const CrudFeedback: React.FC<CrudFeedbackProps> = ({
         width: 'min(420px, calc(100vw - 32px))',
         padding: '10px 12px 7px',
         borderColor: tone === 'error' ? theme.danger : theme.borderStrong,
-        boxShadow: '0 8px 28px rgba(0, 0, 0, 0.45)',
+        boxShadow: theme.shadow,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>

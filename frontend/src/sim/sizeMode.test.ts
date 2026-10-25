@@ -29,7 +29,7 @@ const MODES: SizeMode[] = ["universe", "exploration"];
 const by = (bodies: SceneBody[]) => Object.fromEntries(bodies.map((b) => [b.id, b]));
 /** On-screen radius in CSS px, computed exactly as CelestialBody does. */
 function px(b: SceneBody, distance: number): number {
-  const s = bodyDisplayScale(b.radius, distance, FOV, H, { minPx: b.visiblePx, maxGrowth: b.maxGrowth, clearance: b.clearance, systemPx: b.systemPx });
+  const s = bodyDisplayScale(b.radius, distance, FOV, H, { minPx: b.visiblePx, maxGrowth: b.maxGrowth, clearance: b.clearance, systemPx: b.systemPx, moonRoom: b.moonRoom });
   return projectedRadiusPx(b.radius, distance, FOV, H) * s;
 }
 const earthOf = (bodies: DisplayBody[], mode: SizeMode) => by(buildSceneBodies(bodies, transform, mode))["body-earth"];
@@ -119,13 +119,31 @@ describe("the Earth-with-Moon regression", () => {
     expect(ratio("universe")).toBeGreaterThan(ratio("exploration"));
   });
 
-  it("Jupiter keeps its own zoom growth while its moons stay within their orbital clearance (Exploration)", () => {
+  it("a planet's enlarged disc never swallows its moons' orbits (moons must not be drawn inside or pass through the planet)", () => {
+    for (const mode of MODES) {
+      const s = by(buildSceneBodies(moons, transform, mode));
+      for (const [planet, moon] of [["body-earth", "body-moon"], ["body-jupiter", "body-io"], ["body-saturn", "body-titan"]] as const) {
+        const orbitUnits = s[moon].clearance!;
+        for (const d of [10, 1, 0.3, 0.1, 0.03, 0.01]) {
+          const planetPx = px(s[planet], d);
+          const orbitPx = orbitUnits * pxPerUnitAt(d);
+          const trueRadiusPx = projectedRadiusPx(s[planet].radius, d, FOV, H);
+          // Growth beyond the minimum is limited to 35 % of the orbit; the minimum itself (and true size) is never reduced.
+          const allowed = Math.max(s[planet].visiblePx!, trueRadiusPx, 0.35 * orbitPx);
+          expect(planetPx, `${mode} ${planet} d=${d}`).toBeLessThanOrEqual(allowed + 1e-9);
+          expect(planetPx).toBeGreaterThanOrEqual(s[planet].visiblePx! - 1e-9);
+        }
+      }
+    }
+  });
+
+  it("Jupiter's size at the overview does not depend on its moons, and its growth is limited by Io's orbit (Exploration)", () => {
     const s = by(buildSceneBodies(moons, transform, "exploration"));
     const withoutIo = by(buildSceneBodies(moons.filter((b) => b.id !== "body-io"), transform, "exploration"));
     expect(px(s["body-jupiter"], OVERVIEW_DISTANCE)).toBe(px(withoutIo["body-jupiter"], OVERVIEW_DISTANCE));
     const d = 0.2;
     expect(s["body-jupiter"].clearance).toBeUndefined();
-    expect(px(s["body-jupiter"], d)).toBeCloseTo(s["body-jupiter"].visiblePx! * zoomGrowth(d, 8), 6);
+    expect(px(s["body-jupiter"], d)).toBeLessThanOrEqual(px(withoutIo["body-jupiter"], d));
     const sep = s["body-io"].clearance! * pxPerUnitAt(d);
     expect(px(s["body-io"], d)).toBeGreaterThan(SIZE_LAWS.exploration.minPx);
     expect(px(s["body-io"], d)).toBeLessThanOrEqual(0.35 * sep + 1e-9);

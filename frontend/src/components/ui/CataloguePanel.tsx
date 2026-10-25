@@ -40,7 +40,7 @@ export const CataloguePanel: React.FC<CataloguePanelProps> = ({ entries, onPlace
                 ...btnStyle,
                 flex: 1,
                 padding: '6px 3px',
-                borderColor: selected ? 'rgba(235,199,127,0.45)' : theme.border,
+                borderColor: selected ? theme.accentLine : theme.border,
                 background: selected ? theme.accentSoft : 'transparent',
                 color: selected ? theme.text : theme.textMuted,
                 fontWeight: selected ? 700 : 500,
@@ -96,7 +96,7 @@ export const CataloguePanel: React.FC<CataloguePanelProps> = ({ entries, onPlace
                       borderRadius: '50%',
                       objectFit: 'cover',
                       backgroundColor: entry.visual.colorHex,
-                      boxShadow: '0 1px 7px #0009',
+                      boxShadow: theme.shadowSmall,
                     }}
                   />
                 ) : (

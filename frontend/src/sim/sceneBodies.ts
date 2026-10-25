@@ -22,10 +22,11 @@ export function withSystems(bodies: SceneBody[]): SceneBody[] {
     systems.set(primary.id, sys);
   }
   if (systems.size === 0) return bodies;
-  const info = new Map<string, { clearance: number; systemPx: number }>();
+  const info = new Map<string, { clearance: number; systemPx: number } | { moonRoom: number }>();
   for (const { members, clearance } of systems.values()) {
     const systemPx = Math.max(...members.map((b) => b.visiblePx ?? 0));
     for (const moon of members.slice(1)) info.set(moon.id, { clearance, systemPx });
+    info.set(members[0]!.id, { moonRoom: clearance });
   }
   return bodies.map((b) => (info.has(b.id) ? { ...b, ...info.get(b.id)! } : b));
 }
