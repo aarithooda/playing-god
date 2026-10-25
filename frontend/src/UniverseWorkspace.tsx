@@ -472,6 +472,8 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
         labeledBodyIds={labeledBodyIds}
         collisionEffects={collisionVisuals.effects}
         surfaceMarks={collisionVisuals.marks}
+        presetId={universe?.presetId}
+        ringWorldAnimate={simulation.playing}
       />
 
       {/* Free area: everything that floats over the scene is laid out between the panels and above the bar. */}
