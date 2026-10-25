@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { CatalogueEntryDto } from '../../api/types';
 import { resolveCelestialAssets } from '../../assets/registry';
-import { btnStyle, panelStyle } from './styles';
+import { btnStyle, drawerSectionStyle } from './styles';
 import { theme } from './theme';
 
 interface CataloguePanelProps {
@@ -31,7 +31,7 @@ export const CataloguePanel: React.FC<CataloguePanelProps> = ({ entries, onPlace
   ];
   const activeGroup = groups.find((group) => group.id === activeGroupId);
   return (
-    <section ref={panelRef} aria-label="Body catalogue" style={{ ...panelStyle, width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <section ref={panelRef} aria-label="Body catalogue" style={{ ...drawerSectionStyle, width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
       <h3 style={{ margin: 0, fontSize: 14 }}>Body catalogue</h3>
       <div role="tablist" aria-label="Body sets" style={{ display: 'flex', gap: 5 }}>
         {groups.map((group) => {
@@ -49,8 +49,8 @@ export const CataloguePanel: React.FC<CataloguePanelProps> = ({ entries, onPlace
                 ...btnStyle,
                 flex: 1,
                 padding: '6px 3px',
-                borderColor: selected ? theme.accent : theme.borderStrong,
-                background: selected ? '#173152' : theme.surfaceRaised,
+                borderColor: selected ? 'rgba(235,199,127,0.45)' : theme.border,
+                background: selected ? theme.accentSoft : 'transparent',
                 color: selected ? theme.text : theme.textMuted,
                 fontWeight: selected ? 700 : 500,
               }}

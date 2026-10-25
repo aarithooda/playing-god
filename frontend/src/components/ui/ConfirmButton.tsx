@@ -9,6 +9,10 @@ interface ConfirmButtonProps {
   onConfirm: () => void;
   disabled?: boolean;
   title?: string;
+  /** Accessible name of the first button when its visible label is shorter (the visible label must be part of it). */
+  ariaLabel?: string;
+  /** Shown before the label in the first button. */
+  icon?: React.ReactNode;
   style?: React.CSSProperties;
 }
 
@@ -16,7 +20,7 @@ interface ConfirmButtonProps {
  * A destructive action needs two deliberate presses: the first arms it, the second runs it. An armed button disarms
  * itself after a few seconds, so a forgotten prompt cannot be confirmed by a stray later click.
  */
-export const ConfirmButton: React.FC<ConfirmButtonProps> = ({ label, confirmLabel, onConfirm, disabled, title, style }) => {
+export const ConfirmButton: React.FC<ConfirmButtonProps> = ({ label, confirmLabel, onConfirm, disabled, title, ariaLabel, icon, style }) => {
   const [armed, setArmed] = useState(false);
   useEffect(() => {
     if (!armed) return;
@@ -29,7 +33,15 @@ export const ConfirmButton: React.FC<ConfirmButtonProps> = ({ label, confirmLabe
 
   if (!armed) {
     return (
-      <button type="button" style={{ ...btnStyle, ...style }} disabled={disabled} title={title} onClick={() => setArmed(true)}>
+      <button
+        type="button"
+        style={{ ...btnStyle, display: 'inline-flex', alignItems: 'center', gap: 6, ...style }}
+        disabled={disabled}
+        title={title}
+        aria-label={ariaLabel}
+        onClick={() => setArmed(true)}
+      >
+        {icon}
         {label}
       </button>
     );
@@ -38,7 +50,7 @@ export const ConfirmButton: React.FC<ConfirmButtonProps> = ({ label, confirmLabe
     <span style={{ display: 'inline-flex', gap: 4 }}>
       <button
         type="button"
-        style={{ ...btnStyle, ...style, borderColor: theme.danger, color: theme.danger }}
+        style={{ ...btnStyle, ...style, borderColor: theme.danger, color: theme.danger, background: 'rgba(238, 122, 120, 0.1)' }}
         onClick={() => {
           setArmed(false);
           onConfirm();

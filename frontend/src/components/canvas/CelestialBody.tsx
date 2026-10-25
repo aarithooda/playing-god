@@ -108,6 +108,8 @@ interface CelestialBodyProps {
   orientation?: readonly [number, number, number, number];
   /** Marks at body-local directions; they turn with the body. */
   marks?: readonly SurfaceMarkInput[];
+  /** Draw at each snapshot without easing (a step moves the body too far for a straight-line blend). */
+  snap?: boolean;
 }
 
 export const CelestialBody: React.FC<CelestialBodyProps> = ({
@@ -127,6 +129,7 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
   onDoubleClick,
   orientation,
   marks,
+  snap = false,
 }) => {
   const root = useRef<Group>(null);
   const body = useRef<Group>(null);
@@ -153,7 +156,7 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
     if (!node) return;
     const next = new THREE.Vector3(...position);
     const now = performance.now();
-    if (!motion.current) {
+    if (!motion.current || snap) {
       node.position.copy(next);
       motion.current = { target: next, start: next.clone(), elapsed: 0, duration: 0 };
     } else {
@@ -169,7 +172,7 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
       };
     }
     lastTargetAt.current = now;
-  }, [position[0], position[1], position[2]]);
+  }, [position[0], position[1], position[2]]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useFrame((_, delta) => {
     const node = root.current;

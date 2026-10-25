@@ -1,5 +1,6 @@
 // The one place that turns bodies into scene bodies for a view (pure, so it is unit-tested).
 import type { RenderTransform, SizeMode } from "./renderTransform";
+import { unblendableIds } from "./blendSafety";
 import { toSceneBody, type DisplayBody, type SceneBody } from "./viewModel";
 
 /**
@@ -33,6 +34,7 @@ export function withSystems(bodies: SceneBody[]): SceneBody[] {
  * Both views draw the true radius; they differ only in the minimum on-screen size and zoom growth (renderTransform.ts).
  * A body's entry depends on that body, the scale and the view - never on how many other bodies exist.
  */
-export function buildSceneBodies(bodies: readonly DisplayBody[], transform: RenderTransform, view: SizeMode): SceneBody[] {
-  return withSystems(bodies.map((body) => toSceneBody(body, transform, view)));
+export function buildSceneBodies(bodies: readonly DisplayBody[], transform: RenderTransform, view: SizeMode, stepSeconds = 0): SceneBody[] {
+  const snap = unblendableIds(bodies, stepSeconds);
+  return withSystems(bodies.map((body) => (snap.has(body.id) ? { ...toSceneBody(body, transform, view), snap: true } : toSceneBody(body, transform, view))));
 }

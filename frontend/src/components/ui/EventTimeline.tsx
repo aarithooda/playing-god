@@ -3,7 +3,7 @@ import { formatDuration } from '../../sim/format';
 import { formatVector } from '../../sim/diagnosticsFormat';
 import { impactSpeedBasis } from '../../sim/collision/describe';
 import { eventFocusBodyId, type EventView } from '../../sim/viewModel';
-import { panelStyle } from './styles';
+import { btnStyle, drawerSectionStyle } from './styles';
 import { theme } from './theme';
 
 interface EventTimelineProps {
@@ -51,10 +51,10 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({
   const newestFirst = [...events].reverse();
   return (
     <section aria-labelledby="event-history-heading" style={{
-      ...panelStyle,
+      ...drawerSectionStyle,
       width: '100%',
     }}>
-      <h3 id="event-history-heading" style={{ margin: '0 0 12px 0', fontSize: '14px' }}>Event History</h3>
+      <h3 id="event-history-heading" className="sr-only">Event History</h3>
       {events.length === 0 ? (
         <p style={{ fontSize: '12px', color: theme.textMuted, margin: 0 }}>No events yet.</p>
       ) : (
@@ -63,11 +63,12 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({
             const focusId = eventFocusBodyId(event);
             return (
             <li key={event.id} data-testid="event-item" style={{
-              padding: '8px',
-              background: theme.surfaceRaised,
-              borderRadius: '4px',
+              padding: '10px 10px 10px 12px',
+              background: 'rgba(255, 255, 255, 0.03)',
+              borderRadius: '8px',
               fontSize: '12px',
-              borderLeft: `3px solid ${theme.danger}`,
+              lineHeight: 1.5,
+              borderLeft: `2px solid ${event.type === 'collision' ? theme.warn : theme.danger}`,
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
                 <strong>{event.type.toUpperCase()} · {event.id}</strong>
@@ -85,7 +86,7 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({
                   aria-label={`Highlight surviving body ${bodyName(focusId)}`}
                   aria-pressed={selectedBodyId === focusId}
                   onClick={() => onSelectBody(focusId)}
-                  style={{ marginTop: '6px', fontSize: '11px' }}
+                  style={{ ...btnStyle, marginTop: '6px', marginRight: '6px', fontSize: '11px', padding: '3px 9px' }}
                 >
                   Highlight surviving body: {bodyName(focusId)}
                 </button>
@@ -93,7 +94,7 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({
               {event.type === 'collision' ? (
                 <>
                   {onInspect && (
-                    <button type="button" aria-label={`Inspect collision ${event.id}`} onClick={() => onInspect(event.id)} style={{ marginTop: '6px', fontSize: '11px' }}>
+                    <button type="button" aria-label={`Inspect collision ${event.id}`} onClick={() => onInspect(event.id)} style={{ ...btnStyle, marginTop: '6px', marginRight: '6px', fontSize: '11px', padding: '3px 9px' }}>
                       Inspect record
                     </button>
                   )}

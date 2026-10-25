@@ -1,6 +1,6 @@
 import React from 'react';
 import type { BodyView } from '../../sim/viewModel';
-import { btnStyle, panelStyle } from './styles';
+import { btnStyle, drawerSectionStyle } from './styles';
 import { theme } from './theme';
 
 interface BodyListProps {
@@ -31,7 +31,7 @@ export function groupByPrimary<T extends { id: string; primaryId?: string }>(bod
 export const BodyList: React.FC<BodyListProps> = ({ bodies, selectedBodyId, onSelect, onFocus }) => {
   if (!bodies.some((b) => b.primaryId !== undefined)) return null;
   return (
-    <section aria-label="Bodies" style={{ ...panelStyle, width: '100%', display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <section aria-label="Bodies" style={{ ...drawerSectionStyle, width: '100%', display: 'flex', flexDirection: 'column', gap: 4 }}>
       <h3 style={{ margin: 0, fontSize: 14 }}>Bodies</h3>
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 240, overflowY: 'auto' }}>
         {groupByPrimary(bodies).map(({ body, depth }) => {

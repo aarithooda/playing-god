@@ -53,6 +53,8 @@ export interface SceneBody {
   assetKey?: string;
   /** The body this one orbits, when known (moons). Used only to size and label; positions are always simulated. */
   primaryId?: string;
+  /** True when one snapshot step moves this body too far to ease it linearly (blendSafety.ts): draw it at the snapshot. */
+  snap?: boolean;
   position: ScenePosition;
   /** Radius in scene units: the physical radius / metersPerUnit (both views). */
   radius: number;
@@ -112,7 +114,7 @@ export function toSimulationView(dto: SimulationStateDto): SimulationView {
 
 /** What the scene needs of a body: a live BodyView and a recorded history frame both provide it. */
 export type DisplayBody = Pick<BodyView, "id" | "name" | "colorHex" | "kind" | "positionM" | "radiusM"> &
-  Partial<Pick<BodyView, "bodyType" | "assetKey" | "primaryId" | "orientation">>;
+  Partial<Pick<BodyView, "bodyType" | "assetKey" | "primaryId" | "orientation" | "massKg">>;
 
 export function toSceneBody(body: DisplayBody, t: RenderTransform, sizeMode: SizeMode = DEFAULT_SIZE_MODE): SceneBody {
   const law = SIZE_LAWS[sizeMode];

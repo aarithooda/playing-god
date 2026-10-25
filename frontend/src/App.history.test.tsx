@@ -68,6 +68,7 @@ vi.mock("./api/client", async () => {
 });
 
 import App from "./App";
+import { openTool, waitForWorkspace } from "./test/appHelpers";
 import { ApiError } from "./api/errors";
 import * as fx from "./test/fixtures";
 
@@ -101,8 +102,8 @@ beforeEach(() => {
 afterEach(cleanup);
 
 async function openTimeline() {
-  await screen.findByText("Simulation");
-  fireEvent.click(screen.getByRole("button", { name: "Expand Body catalogue & history" }));
+  await waitForWorkspace();
+  openTool("History");
   await screen.findByLabelText("History position");
 }
 const earthX = () => canvas().bodies.find((b: any) => b.id === earth.id).position[0];
@@ -121,17 +122,20 @@ describe("history in the app", () => {
     await openTimeline();
     fireEvent.click(screen.getByRole("button", { name: "Play" }));
     await waitFor(() => expect(h.calls.some((c) => c === "step:uni-default")).toBe(true));
-    expect((screen.getByRole("button", { name: "Play" }) as HTMLButtonElement).disabled).toBe(true); // playing
+    expect(screen.getByRole("button", { name: "Pause" })).toBeTruthy(); // playing: the one run control offers Pause
 
     act(() => void fireEvent.change(screen.getByLabelText("History position"), { target: { value: "1" } }));
     await waitFor(() => expect((screen.getByRole("button", { name: "Play" }) as HTMLButtonElement).disabled).toBe(false)); // paused
+    expect(screen.getByTestId("sim-state").textContent).toBe("Showing history");
     const stepsBefore = h.calls.filter((c) => c === "step:uni-default").length;
 
     expect(screen.getByText(/Viewing recorded history — the simulation is not advancing/)).toBeTruthy();
     expect((screen.getByRole("button", { name: "Step Forward" }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole("button", { name: "Reset Universe" }) as HTMLButtonElement).disabled).toBe(true);
+    openTool("Add");
     expect((screen.getByRole("button", { name: "Add body…" }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.queryByText("Body Inspector")).toBeNull();
+    openTool("Universes");
     expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByTestId("diag-live-only")).toBeTruthy();
     // the scene shows sample 1 (Earth at 1e9 m), not the live state
@@ -191,15 +195,16 @@ describe("history in the app", () => {
 
   it("history page from old workspace is ignored (a switch discards the in-flight fetch)", async () => {
     render(<App />);
-    await screen.findByText("Simulation");
+    await waitForWorkspace();
     let release!: () => void;
     h.historyGate = { promise: new Promise<void>((r) => (release = r)), release: () => release() };
     fireEvent.click(screen.getByRole("button", { name: "Step Forward" })); // triggers a history fetch that will hang
     await waitFor(() => expect(h.calls.filter((c) => c.startsWith("history:uni-default")).length).toBeGreaterThan(0));
     h.historyGate = null;
+    openTool("Universes");
     fireEvent.click(screen.getByRole("button", { name: "Switch to Solar" }));
     await waitFor(() => expect(screen.getByTestId("universe-badge").textContent).toBe("Solar"));
-    fireEvent.click(screen.getByRole("button", { name: "Expand Body catalogue & history" }));
+    openTool("History");
     await screen.findByLabelText("History position");
     expect((screen.getByLabelText("History position") as HTMLInputElement).max).toBe("0"); // Solar's one sample
     await act(async () => {
