@@ -20,16 +20,23 @@ export interface FramingInput {
   /** Pixels of the canvas covered by the sidebars. */
   leftInset: number;
   rightInset: number;
+  /** Overview camera distance and the half-extent to keep in the free area; default: the fitted-scene overview. */
+  distance?: number;
+  extentUnits?: number;
+  /** Upper bound of the pull-back (for an overview that is already far out, D-064). */
+  maxScale?: number;
 }
 
 /** Factor (>= 1) to multiply the default camera offset by. */
-export function framingDistanceScale({ fovDeg, width, height, leftInset, rightInset }: FramingInput): number {
+export function framingDistanceScale({
+  fovDeg, width, height, leftInset, rightInset, distance = DEFAULT_DISTANCE, extentUnits = FIT_EXTENT_UNITS, maxScale = Infinity,
+}: FramingInput): number {
   if (!(width > 0) || !(height > 0) || !(fovDeg > 0 && fovDeg < 180)) return 1;
   const freeFraction = Math.min(1, Math.max(0, (width - leftInset - rightInset) / width));
   if (freeFraction === 0) return 1;
-  const halfHeight = Math.tan((fovDeg * Math.PI) / 360) * DEFAULT_DISTANCE;
+  const halfHeight = Math.tan((fovDeg * Math.PI) / 360) * distance;
   const halfWidthFree = halfHeight * (width / height) * freeFraction;
-  return Math.max(1, (FIT_EXTENT_UNITS * FRAMING_MARGIN) / halfWidthFree);
+  return Math.min(maxScale, Math.max(1, (extentUnits * FRAMING_MARGIN) / halfWidthFree));
 }
 
 /** Default camera near plane, in scene units. */

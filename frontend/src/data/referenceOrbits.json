@@ -1,0 +1,309 @@
+{
+  "description": "Display-only reference orbits: heliocentric osculating Kepler ellipses at J2000.0. Not simulated and not an ephemeris (perturbations after the epoch are ignored).",
+  "epoch": {
+    "label": "J2000.0",
+    "jdTdb": 2451545.0
+  },
+  "frame": "Ecliptic and mean equinox of J2000.0 (Horizons REF_PLANE=ECLIPTIC, REF_SYSTEM=ICRF), centred on the Sun (500@10); the preset frame",
+  "units": "au, deg, deg/day, JD (TDB)",
+  "source": "JPL Horizons geometric osculating elements; raw responses in backend/presets/sources/reference-orbits/horizons (D-064)",
+  "retrievedUtc": "2026-10-25T02:10:49Z",
+  "orbits": [
+    {
+      "id": "mercury",
+      "name": "Mercury",
+      "group": "planet",
+      "horizonsCommand": "199",
+      "sourceLine": "Target body name: Mercury (199)                   {source: DE441}",
+      "sourceFile": "199_2451545.0.txt",
+      "elements": {
+        "jdTdb": 2451545.0,
+        "e": 0.2056302933705567,
+        "aAu": 0.3870982121841597,
+        "iDeg": 7.005014303275355,
+        "nodeDeg": 48.33053855197922,
+        "periDeg": 29.12428165737838,
+        "meanAnomalyDeg": 174.7958829169579,
+        "nDegPerDay": 4.092346153508083
+      },
+      "bodyId": "body-mercury"
+    },
+    {
+      "id": "venus",
+      "name": "Venus",
+      "group": "planet",
+      "horizonsCommand": "299",
+      "sourceLine": "Target body name: Venus (299)                     {source: DE441}",
+      "sourceFile": "299_2451545.0.txt",
+      "elements": {
+        "jdTdb": 2451545.0,
+        "e": 0.006755786251885615,
+        "aAu": 0.723326927479651,
+        "iDeg": 3.39458964908054,
+        "nodeDeg": 76.67837411646899,
+        "periDeg": 55.18596702940252,
+        "meanAnomalyDeg": 50.11477187404461,
+        "nDegPerDay": 1.602148088418008
+      },
+      "bodyId": "body-venus"
+    },
+    {
+      "id": "earth",
+      "name": "Earth",
+      "group": "planet",
+      "horizonsCommand": "3",
+      "sourceLine": "Target body name: Earth-Moon Barycenter (3)       {source: DE441}",
+      "sourceFile": "3_2451545.0.txt",
+      "elements": {
+        "jdTdb": 2451545.0,
+        "e": 0.01670236222428361,
+        "aAu": 0.9999964272441664,
+        "iDeg": 0.0001034624342994112,
+        "nodeDeg": 140.2921798841513,
+        "periDeg": 322.6257524989104,
+        "meanAnomalyDeg": 357.5452038219296,
+        "nDegPerDay": 0.9856144489696432
+      },
+      "bodyId": "body-earth"
+    },
+    {
+      "id": "mars",
+      "name": "Mars",
+      "group": "planet",
+      "horizonsCommand": "4",
+      "sourceLine": "Target body name: Mars Barycenter (4)             {source: DE441}",
+      "sourceFile": "4_2451545.0.txt",
+      "elements": {
+        "jdTdb": 2451545.0,
+        "e": 0.09331510156051126,
+        "aAu": 1.523678992298457,
+        "iDeg": 1.849876455662937,
+        "nodeDeg": 49.56200645402956,
+        "periDeg": 286.5373814058887,
+        "meanAnomalyDeg": 19.35648348442421,
+        "nDegPerDay": 0.5240393802218966
+      },
+      "bodyId": "body-mars"
+    },
+    {
+      "id": "jupiter",
+      "name": "Jupiter",
+      "group": "planet",
+      "horizonsCommand": "5",
+      "sourceLine": "Target body name: Jupiter Barycenter (5)          {source: DE441}",
+      "sourceFile": "5_2451545.0.txt",
+      "elements": {
+        "jdTdb": 2451545.0,
+        "e": 0.04877487762533089,
+        "aAu": 5.204266630723374,
+        "iDeg": 1.304625372771513,
+        "nodeDeg": 100.4916213525931,
+        "periDeg": 275.0660120162461,
+        "meanAnomalyDeg": 18.81846789343971,
+        "nDegPerDay": 0.08305618852833847
+      },
+      "bodyId": "body-jupiter"
+    },
+    {
+      "id": "saturn",
+      "name": "Saturn",
+      "group": "planet",
+      "horizonsCommand": "6",
+      "sourceLine": "Target body name: Saturn Barycenter (6)           {source: DE441}",
+      "sourceFile": "6_2451545.0.txt",
+      "elements": {
+        "jdTdb": 2451545.0,
+        "e": 0.05572339465748773,
+        "aAu": 9.582017174236523,
+        "iDeg": 2.485250440984045,
+        "nodeDeg": 113.6429621251987,
+        "periDeg": 336.0136248888934,
+        "meanAnomalyDeg": 320.3478507551869,
+        "nDegPerDay": 0.03323385547602711
+      },
+      "bodyId": "body-saturn"
+    },
+    {
+      "id": "uranus",
+      "name": "Uranus",
+      "group": "planet",
+      "horizonsCommand": "7",
+      "sourceLine": "Target body name: Uranus Barycenter (7)           {source: DE441}",
+      "sourceFile": "7_2451545.0.txt",
+      "elements": {
+        "jdTdb": 2451545.0,
+        "e": 0.04440552558427553,
+        "aAu": 19.22941660477798,
+        "iDeg": 0.7725675263741457,
+        "nodeDeg": 73.9894163012876,
+        "periDeg": 96.54166904616822,
+        "meanAnomalyDeg": 142.9557518353417,
+        "nDegPerDay": 0.01168865101225252
+      },
+      "bodyId": "body-uranus"
+    },
+    {
+      "id": "neptune",
+      "name": "Neptune",
+      "group": "planet",
+      "horizonsCommand": "8",
+      "sourceLine": "Target body name: Neptune Barycenter (8)          {source: DE441}",
+      "sourceFile": "8_2451545.0.txt",
+      "elements": {
+        "jdTdb": 2451545.0,
+        "e": 0.01121514293584095,
+        "aAu": 30.10363964971507,
+        "iDeg": 1.76798634857378,
+        "nodeDeg": 131.7938660576663,
+        "periDeg": 265.648945399815,
+        "meanAnomalyDeg": 267.7657251278258,
+        "nDegPerDay": 0.005967421980645073
+      },
+      "bodyId": "body-neptune"
+    },
+    {
+      "id": "pluto",
+      "name": "Pluto",
+      "group": "outer",
+      "horizonsCommand": "9",
+      "sourceLine": "Target body name: Pluto Barycenter (9)            {source: DE441}",
+      "sourceFile": "9_2451545.0.txt",
+      "elements": {
+        "jdTdb": 2451545.0,
+        "e": 0.2446745123195729,
+        "aAu": 39.26433741745738,
+        "iDeg": 17.15136439626299,
+        "nodeDeg": 110.286929741788,
+        "periDeg": 113.76290248852,
+        "meanAnomalyDeg": 15.0232691500142,
+        "nDegPerDay": 0.004005960528060211
+      }
+    },
+    {
+      "id": "haumea",
+      "name": "Haumea",
+      "group": "outer",
+      "horizonsCommand": "136108;",
+      "sourceLine": "Target body name: 136108 Haumea (2003 EL61)       {source: JPL#132}",
+      "sourceFile": "136108_2451545.0.txt",
+      "elements": {
+        "jdTdb": 2451545.0,
+        "e": 0.1999209495775153,
+        "aAu": 42.90925766086671,
+        "iDeg": 28.20614176692041,
+        "nodeDeg": 121.9332385932473,
+        "periDeg": 240.5907776701779,
+        "meanAnomalyDeg": 189.5952699212157,
+        "nDegPerDay": 0.003506530106862862
+      }
+    },
+    {
+      "id": "makemake",
+      "name": "Makemake",
+      "group": "outer",
+      "horizonsCommand": "136472;",
+      "sourceLine": "Target body name: 136472 Makemake (2005 FY9)      {source: JPL#130}",
+      "sourceFile": "136472_2451545.0.txt",
+      "elements": {
+        "jdTdb": 2451545.0,
+        "e": 0.1645232903298833,
+        "aAu": 45.37205778306633,
+        "iDeg": 29.00018553920376,
+        "nodeDeg": 79.2749060739329,
+        "periDeg": 296.2809991935295,
+        "meanAnomalyDeg": 139.7201624508081,
+        "nDegPerDay": 0.003224937921886049
+      }
+    },
+    {
+      "id": "quaoar",
+      "name": "Quaoar",
+      "group": "outer",
+      "horizonsCommand": "50000;",
+      "sourceLine": "Target body name: 50000 Quaoar (2002 LM60)        {source: JPL#52}",
+      "sourceFile": "50000_2451545.0.txt",
+      "elements": {
+        "jdTdb": 2451545.0,
+        "e": 0.03951002963353657,
+        "aAu": 43.13300709778619,
+        "iDeg": 8.005089468169608,
+        "nodeDeg": 189.0799904107334,
+        "periDeg": 163.7854872768603,
+        "meanAnomalyDeg": 258.9555075565808,
+        "nDegPerDay": 0.003479280705029249
+      }
+    },
+    {
+      "id": "orcus",
+      "name": "Orcus",
+      "group": "outer",
+      "horizonsCommand": "90482;",
+      "sourceLine": "Target body name: 90482 Orcus (2004 DW)           {source: JPL#61}",
+      "sourceFile": "90482_2451545.0.txt",
+      "elements": {
+        "jdTdb": 2451545.0,
+        "e": 0.225751142405386,
+        "aAu": 39.26252228984306,
+        "iDeg": 20.53929449722906,
+        "nodeDeg": 268.45724311407,
+        "periDeg": 73.7509867753638,
+        "meanAnomalyDeg": 150.0400595978003,
+        "nDegPerDay": 0.00400623831312675
+      }
+    },
+    {
+      "id": "chiron",
+      "name": "Chiron",
+      "group": "outer",
+      "horizonsCommand": "2060;",
+      "sourceLine": "Target body name: 2060 Chiron (1977 UB)           {source: JPL#171}",
+      "sourceFile": "2060_2451545.0.txt",
+      "elements": {
+        "jdTdb": 2451545.0,
+        "e": 0.3793438806104252,
+        "aAu": 13.60507295259335,
+        "iDeg": 6.941566477684404,
+        "nodeDeg": 209.3966703243138,
+        "periDeg": 339.1420137446732,
+        "meanAnomalyDeg": 27.99722098958118,
+        "nDegPerDay": 0.01964051003477336
+      }
+    },
+    {
+      "id": "2014-nw65",
+      "name": "2014 NW65",
+      "group": "outer",
+      "horizonsCommand": "523727;",
+      "sourceLine": "Target body name: 523727 (2014 NW65)              {source: JPL#39}",
+      "sourceFile": "523727_2451545.0.txt",
+      "elements": {
+        "jdTdb": 2451545.0,
+        "e": 0.5199847836228823,
+        "aAu": 23.12435146074958,
+        "iDeg": 20.4720403695855,
+        "nodeDeg": 216.1897507092285,
+        "periDeg": 233.0188627081815,
+        "meanAnomalyDeg": 236.1022694760674,
+        "nDegPerDay": 0.008863387397220106
+      }
+    },
+    {
+      "id": "chiminigagua",
+      "name": "Chiminigagua",
+      "group": "outer",
+      "horizonsCommand": "532037;",
+      "sourceLine": "Target body name: 532037 Chiminigagua (2013 FY27) {source: JPL#18}",
+      "sourceFile": "532037_2451545.0.txt",
+      "elements": {
+        "jdTdb": 2451545.0,
+        "e": 0.396342355273845,
+        "aAu": 58.67830110718968,
+        "iDeg": 33.26573002658537,
+        "nodeDeg": 186.8851702898177,
+        "periDeg": 139.8137407164799,
+        "meanAnomalyDeg": 197.1234340254349,
+        "nDegPerDay": 0.002192743219998202
+      }
+    }
+  ]
+}

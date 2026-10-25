@@ -19,7 +19,10 @@ describe("UI-0 renderer boundary", () => {
       "placementMode", "placementRadius", "onPlacementConfirm", "onPlacementCancel", "onPlacementPreview", "leftInset",
       "rightInset", "transform", "showAxes", "showGrid", "viewControls", // viewControls: the UI view-toolbar contract (UI foundation)
     ];
-    expect(propNames(canvasSource).sort()).toEqual([...before, "trajectories", "labeledBodyIds", "overviewZoom", "collisionEffects", "surfaceMarks"].sort());
+    // D-064 adds one more optional, contract-typed input: the display-only Solar System reference orbits.
+    expect(propNames(canvasSource).sort()).toEqual([...before, "trajectories", "labeledBodyIds", "overviewZoom", "collisionEffects", "surfaceMarks", "referenceOrbits"].sort());
+    expect(canvasSource).toMatch(/referenceOrbits\?: ReferenceOrbitsInput/);
+    expect(canvasSource).toMatch(/referenceOrbits && \(\s*<ReferenceOrbitLayer/);
     expect(canvasSource).toMatch(/trajectories\?: readonly TrajectoryInput\[\]/);
     // the two Stage 9 inputs are optional and typed by the contract; the layer is conditional
     expect(canvasSource).toMatch(/collisionEffects\?: readonly CollisionEffectInput\[\]/);
@@ -31,7 +34,9 @@ describe("UI-0 renderer boundary", () => {
     const contract = sources.get("render/contract.ts")!;
     const effectTypes = contract.slice(contract.indexOf("export interface CollisionEffectInput"), contract.indexOf("export interface TrajectoryInput"));
     expect(effectTypes).not.toMatch(/mass\w*\??\s*:/i); // no mass property on either input type
-    for (const file of ["CollisionEffectsLayer", "DebrisParticles", "SurfaceMarks"]) {
+    const referenceTypes = contract.slice(contract.indexOf("export interface ReferenceOrbitsInput"), contract.indexOf("export interface PositionSample"));
+    expect(referenceTypes).not.toMatch(/mass\w*\??\s*:/i);
+    for (const file of ["CollisionEffectsLayer", "DebrisParticles", "SurfaceMarks", "ReferenceOrbitLayer", "MainBeltLayer"]) {
       const text = sources.get(`components/canvas/${file}.tsx`)!;
       expect(text).not.toMatch(/api\/client|useSimulation|backend/);
     }

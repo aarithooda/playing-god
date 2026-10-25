@@ -64,6 +64,29 @@ export function fitTransform(positions: Vec3[]): RenderTransform {
 /** Closer default framing: the outer preset bodies fill more of the viewport while remaining inside the fitted extent. */
 export const DEFAULT_CAMERA_POSITION: ScenePosition = [0, 0.78 * FIT_EXTENT_UNITS, 1.56 * FIT_EXTENT_UNITS];
 
+/**
+ * Solar System overview (D-064): elevation above the ecliptic, azimuth about the scene's up axis (0 = looking from
+ * physics -y), and distance from the origin in au, so the framing does not depend on how the fitted scale rounds.
+ */
+export const SOLAR_SYSTEM_VIEW = { elevationDeg: 52, azimuthDeg: 0, distanceAu: 105, keepInViewAu: 40, maxPullBack: 2.5 };
+const AU_M = 149_597_870_700;
+
+/**
+ * Overhead but tilted: high enough that the planetary orbits read as near-circles around the Sun, low enough that the
+ * inclined outer orbits visibly leave the ecliptic. Display only; the user's own rotate/zoom/pan are unchanged.
+ */
+export function solarSystemCameraPosition(t: RenderTransform): ScenePosition {
+  const el = (SOLAR_SYSTEM_VIEW.elevationDeg * Math.PI) / 180;
+  const az = (SOLAR_SYSTEM_VIEW.azimuthDeg * Math.PI) / 180;
+  const d = (SOLAR_SYSTEM_VIEW.distanceAu * AU_M) / t.metersPerUnit;
+  return [d * Math.cos(el) * Math.sin(az), d * Math.sin(el), d * Math.cos(el) * Math.cos(az)];
+}
+
+/** Narrow windows pull back only until this many au fit the free area, and never more than `maxPullBack` times. */
+export function solarSystemFraming(t: RenderTransform): { extentUnits: number; maxScale: number } {
+  return { extentUnits: (SOLAR_SYSTEM_VIEW.keepInViewAu * AU_M) / t.metersPerUnit, maxScale: SOLAR_SYSTEM_VIEW.maxPullBack };
+}
+
 // ---- Rendering views: Universe and Exploration ------------------------------------------------------------------
 // Two deliberate ways to DRAW the same simulation. Neither changes a radius, mass, position, force or time; both use the
 // TRUE radius for the geometry (radiusM / metersPerUnit) and differ only in how large a body is guaranteed to look on

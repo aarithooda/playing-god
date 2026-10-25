@@ -6,9 +6,11 @@ import { CelestialBody } from './CelestialBody';
 import { StarfieldShell } from './StarfieldShell';
 import { CollisionEffectsLayer } from './CollisionEffectsLayer';
 import { TrajectoryLayer } from './TrajectoryLayer';
+import { ReferenceOrbitLayer } from './ReferenceOrbitLayer';
+import { MainBeltLayer } from './MainBeltLayer';
 import { AxesOverlay, GridOverlay } from './ViewOverlays';
 import { bodyDisplayScale } from '../../sim/bodyVisibility';
-import { DEFAULT_CAMERA_POSITION, type RenderTransform, type ScenePosition } from '../../sim/renderTransform';
+import { DEFAULT_CAMERA_POSITION, solarSystemCameraPosition, solarSystemFraming, type RenderTransform, type ScenePosition } from '../../sim/renderTransform';
 import { clampPlacementDepth, rayPlaneIntersection } from '../../sim/placement';
 import { sceneShiftPx } from '../ui/layout';
 import { framingDistanceScale, nearPlaneForDistance } from '../../sim/framing';
@@ -21,7 +23,7 @@ import {
 } from '../../sim/focusTracking';
 import type { SceneBody } from '../../sim/viewModel';
 import type { ViewControlContract } from '../../sim/viewControlContract';
-import type { CollisionEffectInput, SurfaceMarkInput, TrajectoryInput } from '../../render/contract';
+import type { CollisionEffectInput, ReferenceOrbitsInput, SurfaceMarkInput, TrajectoryInput } from '../../render/contract';
 
 export interface FocusRequest {
   nonce: number;
@@ -70,6 +72,8 @@ interface UniverseCanvasProps {
   collisionEffects?: readonly CollisionEffectInput[];
   /** Marks at body-local directions (UI-0, Stage 9, D-053). Display only. */
   surfaceMarks?: readonly SurfaceMarkInput[];
+  /** Display-only reference orbits and main-belt sample of a Solar System preset (D-064); also selects its tilted overview. */
+  referenceOrbits?: ReferenceOrbitsInput;
 }
 
 interface OrbitTarget {
@@ -142,12 +146,16 @@ interface FocusSession {
 const CameraRig: React.FC<{
   frameEpoch: number;
   overviewZoom: number;
+  /** Default camera offset from the origin before the sidebar framing and overview zoom are applied. */
+  overviewPosition: ScenePosition;
+  /** Overview framing: half-extent kept in the free area and the largest pull-back (absent: the fitted-scene defaults). */
+  overviewFraming?: { extentUnits: number; maxScale: number };
   focus?: FocusRequest;
   bodies: SceneBody[];
   onFocusRelease?: () => void;
   leftInset: number;
   rightInset: number;
-}> = ({ frameEpoch, overviewZoom, focus, bodies, onFocusRelease, leftInset, rightInset }) => {
+}> = ({ frameEpoch, overviewZoom, overviewPosition, overviewFraming, focus, bodies, onFocusRelease, leftInset, rightInset }) => {
   const camera = useThree((s) => s.camera);
   const size = useThree((s) => s.size);
   // Latest layout for the reset effect below, which must only run when the scene is refitted.
@@ -169,15 +177,16 @@ const CameraRig: React.FC<{
 
   useEffect(() => {
     // Pull back just enough that the fitted scene is not hidden under a sidebar (1 on normal windows).
-    const s = framingDistanceScale({ fovDeg: (camera as PerspectiveCamera).fov, ...layoutRef.current }) / Math.max(1, overviewZoom);
-    camera.position.set(DEFAULT_CAMERA_POSITION[0] * s, DEFAULT_CAMERA_POSITION[1] * s, DEFAULT_CAMERA_POSITION[2] * s);
+    const framing = overviewFraming ? { distance: Math.hypot(...overviewPosition), ...overviewFraming } : {};
+    const s = framingDistanceScale({ fovDeg: (camera as PerspectiveCamera).fov, ...layoutRef.current, ...framing }) / Math.max(1, overviewZoom);
+    camera.position.set(overviewPosition[0] * s, overviewPosition[1] * s, overviewPosition[2] * s);
     release();
     if (controls) {
       controls.target.set(0, 0, 0);
       controls.update();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [frameEpoch, camera, controls, overviewZoom]);
+  }, [frameEpoch, camera, controls, overviewZoom, overviewPosition, overviewFraming]);
 
   useEffect(() => {
     if (!focus || !controls) return;
@@ -429,10 +438,21 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
   labeledBodyIds = [],
   collisionEffects = [],
   surfaceMarks = [],
+  referenceOrbits,
 }) => {
   const axesVisible = viewControls?.state.axesVisible ?? showAxes;
   const gridEnabled = viewControls?.state.gridEnabled ?? showGrid;
   const hasStar = bodies.some((b) => b.kind === 'star');
+  const referenceSun = referenceOrbits ? bodies.find((b) => b.id === referenceOrbits.sunBodyId) : undefined;
+  const solarOverview = !!referenceOrbits;
+  const overviewPosition = useMemo(
+    () => (solarOverview ? solarSystemCameraPosition(transform) : DEFAULT_CAMERA_POSITION),
+    [solarOverview, transform],
+  );
+  const overviewFraming = useMemo(
+    () => (solarOverview ? solarSystemFraming(transform) : undefined),
+    [solarOverview, transform],
+  );
   return (
     <Canvas
       camera={{ position: DEFAULT_CAMERA_POSITION, fov: 50, far: 2000 }}
@@ -450,6 +470,20 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
       {axesVisible && <AxesOverlay transform={transform} />}
       {trajectories.length > 0 && <TrajectoryLayer trajectories={trajectories} transform={transform} selectedBodyId={selectedBodyId} />}
       {collisionEffects.length > 0 && <CollisionEffectsLayer effects={collisionEffects} transform={transform} />}
+      {referenceOrbits && (
+        <ReferenceOrbitLayer
+          input={referenceOrbits}
+          bodies={bodies}
+          transform={transform}
+          selectedBodyId={selectedBodyId}
+          labeledBodyIds={labeledBodyIds}
+          leftInset={leftInset}
+          rightInset={rightInset}
+        />
+      )}
+      {referenceOrbits?.showMainBelt && referenceSun && (
+        <MainBeltLayer sunPosition={referenceSun.position} transform={transform} displayTimeS={referenceOrbits.displayTimeS} />
+      )}
 
       <ambientLight intensity={hasStar ? 0.3 : 0.6} />
       {hasStar ? (
@@ -501,6 +535,8 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
       <CameraRig
         frameEpoch={frameEpoch}
         overviewZoom={overviewZoom}
+        overviewPosition={overviewPosition}
+        overviewFraming={overviewFraming}
         focus={focus}
         bodies={bodies}
         onFocusRelease={onFocusRelease}

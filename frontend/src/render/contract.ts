@@ -6,6 +6,37 @@
 // simulation frame; the renderer converts them with the current RenderTransform. Nothing in this file may import from
 // `components/canvas/*`.
 
+/**
+ * D-064: display-only reference orbits of a Solar System preset. Not simulation state: the guides are J2000 osculating
+ * ellipses, the outer-body markers and the main-belt sample move by two-body propagation of JPL elements, and none of
+ * it is ever sent to the backend. Absent = the canvas is drawn as before.
+ */
+export interface ReferenceOrbitsInput {
+  /** The body whose displayed position is the common focus (the Sun). */
+  sunBodyId: string;
+  orbits: readonly ReferenceOrbitGuide[];
+  /** Simulation time of the displayed state (s since J2000.0, live or a recorded sample). */
+  displayTimeS: number;
+  /** The guides and labels; when false only the canvas's Solar System framing remains. */
+  showGuides: boolean;
+  showMainBelt: boolean;
+}
+
+/** One heliocentric two-body guide (sim/referenceOrbits.ts builds these from committed JPL elements). */
+export interface ReferenceOrbitGuide {
+  id: string;
+  name: string;
+  /** "planet": guide of a simulated planet (`bodyId`); "outer": a non-simulated object, drawn with a moving marker. */
+  group: "planet" | "outer";
+  bodyId?: string;
+  color: string;
+  opacity: number;
+  /** Lower wins label conflicts. */
+  priority: number;
+  /** Osculating elements in the simulation frame: semi-major axis (m), mean anomaly at `epochJd` (rad), mean motion (rad/day), perifocal unit vectors. */
+  elements: { aM: number; e: number; meanAnomaly: number; meanMotionPerDay: number; epochJd: number; p: EffectPoint; q: EffectPoint };
+}
+
 /** A position sample produced from backend state. The renderer converts it to scene units. */
 export interface PositionSample {
   simulationTimeS: number;
