@@ -1,0 +1,325 @@
+{
+  "id": "saturn-particle-rings",
+  "name": "Ring World: Saturn and its particle rings (J2000.0)",
+  "dataVersion": "1",
+  "description": "Saturn and five large moons (Titan, Rhea, Iapetus, Dione, Tethys) as point masses, initial states from JPL Horizons at J2000.0. The ring grains drawn around Saturn are a visual layer only: they are not simulated bodies.",
+  "epoch": {
+    "label": "J2000.0",
+    "jdTdb": 2451545.0,
+    "iso": "2000-01-01T12:00:00 TDB"
+  },
+  "frame": "Ecliptic and mean equinox of J2000.0 (Horizons REF_PLANE=ECLIPTIC, REF_SYSTEM=ICRF); right-handed; the x-y plane is the ecliptic",
+  "origin": "Barycentre of the included bodies (zero total momentum), shifted from the Solar System Barycenter",
+  "units": "SI: m, kg, s, m/s",
+  "gSI": 6.6743e-11,
+  "gSource": "CODATA 2018 (JPL SSD Astrodynamic Parameters); the engine's fixed value",
+  "history": {
+    "mode": "grid",
+    "sampleIntervalS": 432000.0
+  },
+  "validationEpochs": [],
+  "bodies": [
+    {
+      "id": "body-saturn",
+      "name": "Saturn",
+      "kind": "planet",
+      "bodyType": "gas-giant",
+      "assetKey": "saturn",
+      "primaryId": null,
+      "colorHex": "#e0c97f",
+      "colorNote": "display only",
+      "horizonsTarget": "699",
+      "gm": {
+        "valueM3PerS2": 3.79312179158e+16,
+        "sourceValue": "37940584.8418 (system, DE440) - 8978.14 - 153.94 - 120.52 - 73.116 - 41.21 (listed moons) = 37931217.9158 km^3/s^2",
+        "basis": "derived",
+        "source": "JPL SSD Astrodynamic Parameters, DE440 (Park et al. 2021, AJ 161:105) (system GM) minus the listed moons' GM",
+        "note": "Saturn carries its own mass plus every moon not listed as a separate body, so the Saturn system GM equals the DE440 system GM used by the barycentre preset"
+      },
+      "radius": {
+        "valueM": 58232000.0,
+        "sourceValue": "58232 km",
+        "basis": "measured",
+        "source": "JPL SSD Planetary Physical Parameters, mean radius (Archinal et al. 2018)"
+      },
+      "state": {
+        "jdTdb": 2451545.0,
+        "sourceFile": "699_2451545.0.txt",
+        "sourceSha256": "066e182471e32eb2dbf9e6696c7dfac9646a2edb778f44ffce4a80122416f14f",
+        "sourceLine": "Target body name: Saturn (699)                    {source: sat441l}",
+        "positionM": [
+          957317652110.3407,
+          982438007687.5085,
+          -55182117881.50037
+        ],
+        "velocityMPerS": [
+          -7421.90038683812,
+          6723.930997200832,
+          177.5749426205731
+        ],
+        "basis": "measured",
+        "note": "Horizons geometric state relative to the Solar System Barycenter, km -> m by x1000, before the barycentre shift"
+      }
+    },
+    {
+      "id": "body-titan",
+      "name": "Titan",
+      "kind": "planet",
+      "bodyType": "moon",
+      "assetKey": "titan",
+      "primaryId": "body-saturn",
+      "colorHex": "#d69a3c",
+      "colorNote": "display only",
+      "horizonsTarget": "606",
+      "gm": {
+        "valueM3PerS2": 8978140000000.0,
+        "sourceValue": "8978.14 km^3/s^2",
+        "basis": "measured",
+        "source": "JPL Horizons object data page for the body (retrieved 2026-10-24), JPL planetary satellite GM"
+      },
+      "radius": {
+        "valueM": 2575500.0,
+        "sourceValue": "2575.5 km",
+        "basis": "measured",
+        "source": "JPL Horizons object data / JPL SSD planetary satellite physical parameters, mean radius"
+      },
+      "state": {
+        "jdTdb": 2451545.0,
+        "sourceFile": "606_2451545.0.txt",
+        "sourceSha256": "3d6594088f00a2fa4285b4be52572d91f102b61b1e13a754b5bc79c119a056b2",
+        "sourceLine": "Target body name: Titan (606)                     {source: sat441l}",
+        "positionM": [
+          956370849171.8918,
+          983204875719.2092,
+          -55485077869.17704
+        ],
+        "velocityMPerS": [
+          -10983.24390619495,
+          3244.9046595617638,
+          2322.752827158846
+        ],
+        "basis": "measured",
+        "note": "Horizons geometric state relative to the Solar System Barycenter, km -> m by x1000, before the barycentre shift"
+      }
+    },
+    {
+      "id": "body-rhea",
+      "name": "Rhea",
+      "kind": "planet",
+      "bodyType": "moon",
+      "assetKey": "rhea",
+      "primaryId": "body-saturn",
+      "colorHex": "#b8b8b8",
+      "colorNote": "display only",
+      "horizonsTarget": "605",
+      "gm": {
+        "valueM3PerS2": 153940000000.0,
+        "sourceValue": "153.94 km^3/s^2",
+        "basis": "measured",
+        "source": "JPL Horizons object data page for the body (retrieved 2026-10-24), JPL planetary satellite GM"
+      },
+      "radius": {
+        "valueM": 764500.0,
+        "sourceValue": "764.5 km",
+        "basis": "measured",
+        "source": "JPL Horizons object data / JPL SSD planetary satellite physical parameters, mean radius"
+      },
+      "state": {
+        "jdTdb": 2451545.0,
+        "sourceFile": "605_2451545.0.txt",
+        "sourceSha256": "f7a1032e7ebf291ce2451e876ba9bec43643f2b77a63b5d39943ffce2ec3e4ce",
+        "sourceLine": "Target body name: Rhea (605)                      {source: sat441l}",
+        "positionM": [
+          956792889732.6206,
+          982436523204.1804,
+          -55127476801.5247
+        ],
+        "velocityMPerS": [
+          -6990.121492420047,
+          -782.280688905405,
+          4090.7564129753764
+        ],
+        "basis": "measured",
+        "note": "Horizons geometric state relative to the Solar System Barycenter, km -> m by x1000, before the barycentre shift"
+      }
+    },
+    {
+      "id": "body-iapetus",
+      "name": "Iapetus",
+      "kind": "planet",
+      "bodyType": "moon",
+      "assetKey": "iapetus",
+      "primaryId": "body-saturn",
+      "colorHex": "#8a8176",
+      "colorNote": "display only",
+      "horizonsTarget": "608",
+      "gm": {
+        "valueM3PerS2": 120520000000.0,
+        "sourceValue": "120.52 km^3/s^2",
+        "basis": "measured",
+        "source": "JPL Horizons object data page for the body (retrieved 2026-10-24), JPL planetary satellite GM"
+      },
+      "radius": {
+        "valueM": 734500.0,
+        "sourceValue": "734.5 km",
+        "basis": "measured",
+        "source": "JPL Horizons object data / JPL SSD planetary satellite physical parameters, mean radius"
+      },
+      "state": {
+        "jdTdb": 2451545.0,
+        "sourceFile": "608_2451545.0.txt",
+        "sourceSha256": "599de4f5406abc380b9eb3842ee961ba654cdde01ee6950f5cd37d87c7b6b180",
+        "sourceLine": "Target body name: Iapetus (608)                   {source: sat441l}",
+        "positionM": [
+          954463878871.5685,
+          980418079368.9808,
+          -54131360968.37211
+        ],
+        "velocityMPerS": [
+          -5501.123064904944,
+          4194.523605963446,
+          390.5260557993433
+        ],
+        "basis": "measured",
+        "note": "Horizons geometric state relative to the Solar System Barycenter, km -> m by x1000, before the barycentre shift"
+      }
+    },
+    {
+      "id": "body-dione",
+      "name": "Dione",
+      "kind": "planet",
+      "bodyType": "moon",
+      "assetKey": "dione",
+      "primaryId": "body-saturn",
+      "colorHex": "#c9c9c9",
+      "colorNote": "display only",
+      "horizonsTarget": "604",
+      "gm": {
+        "valueM3PerS2": 73116000000.0,
+        "sourceValue": "73.116 km^3/s^2",
+        "basis": "measured",
+        "source": "JPL Horizons object data page for the body (retrieved 2026-10-24), JPL planetary satellite GM"
+      },
+      "radius": {
+        "valueM": 562500.0,
+        "sourceValue": "562.5 km",
+        "basis": "measured",
+        "source": "JPL Horizons object data / JPL SSD planetary satellite physical parameters, mean radius"
+      },
+      "state": {
+        "jdTdb": 2451545.0,
+        "sourceFile": "604_2451545.0.txt",
+        "sourceSha256": "84ebead97f155df60e572faf9a754ffb789cb744741cddba2db4bc51ab8cfdbf",
+        "sourceLine": "Target body name: Dione (604)                     {source: sat441l}",
+        "positionM": [
+          957546200743.9397,
+          982164192140.1753,
+          -55060976137.179855
+        ],
+        "velocityMPerS": [
+          509.9135006162827,
+          11837.245541155131,
+          -3272.163261345546
+        ],
+        "basis": "measured",
+        "note": "Horizons geometric state relative to the Solar System Barycenter, km -> m by x1000, before the barycentre shift"
+      }
+    },
+    {
+      "id": "body-tethys",
+      "name": "Tethys",
+      "kind": "planet",
+      "bodyType": "moon",
+      "assetKey": "tethys",
+      "primaryId": "body-saturn",
+      "colorHex": "#dedede",
+      "colorNote": "display only",
+      "horizonsTarget": "603",
+      "gm": {
+        "valueM3PerS2": 41210000000.0,
+        "sourceValue": "41.21 km^3/s^2",
+        "basis": "measured",
+        "source": "JPL Horizons object data page for the body (retrieved 2026-10-24), JPL planetary satellite GM"
+      },
+      "radius": {
+        "valueM": 536300.0,
+        "sourceValue": "536.3 km",
+        "basis": "measured",
+        "source": "JPL Horizons object data / JPL SSD planetary satellite physical parameters, mean radius"
+      },
+      "state": {
+        "jdTdb": 2451545.0,
+        "sourceFile": "603_2451545.0.txt",
+        "sourceSha256": "a4171aab8d64909fa577e0430e6f1c79df3413f3a38d2aace8c1689e2e6b1706",
+        "sourceLine": "Target body name: Tethys (603)                    {source: sat441l}",
+        "positionM": [
+          957534685871.8075,
+          982251566601.0807,
+          -55111526883.643745
+        ],
+        "velocityMPerS": [
+          178.88439691878318,
+          13899.94346958447,
+          -4246.018352589184
+        ],
+        "basis": "measured",
+        "note": "Horizons geometric state relative to the Solar System Barycenter, km -> m by x1000, before the barycentre shift"
+      }
+    }
+  ],
+  "omitted": [
+    "the ring particles (drawn as massless visual grains, never integrated)",
+    "the Sun and every other planet",
+    "small Saturnian moons (their mass is lumped into Saturn)",
+    "Saturnian oblateness (J2), ring gravity and tides",
+    "general relativity",
+    "non-gravitational forces"
+  ],
+  "assumptions": [
+    "Newtonian point-mass gravity",
+    "positions are DE441 vectors, masses are DE440 GM (the combined effect is measured by the committed validation tests)",
+    "m = GM / G, so the source GM is reproduced exactly",
+    "each planet with listed moons is represented by a center or system-barycentre state from Horizons; its mass is the DE440 system GM minus listed moon masses, so each listed system keeps its DE440 system GM",
+    "moon and planet states come from Horizons (CENTER=500@0), so they share one frame, epoch and origin and no planet-relative transformation is applied",
+    "the same Saturn-system states, GM and radii as the Solar System with major moons preset, re-centred on the barycentre of these six bodies"
+  ],
+  "limitations": [
+    "No Sun: the system is isolated, so Saturn does not orbit anything here",
+    "the rings are a visual layer; they exert no gravity and have no collisions",
+    "Newtonian point-mass orbits only: no oblateness, no resonance forcing beyond mutual gravity"
+  ],
+  "retrieved": {
+    "utc": "2026-10-24T14:22:02Z",
+    "api": "https://ssd.jpl.nasa.gov/api/horizons.api"
+  },
+  "sources": [
+    {
+      "citation": "JPL Horizons System, vector ephemerides",
+      "url": "https://ssd-api.jpl.nasa.gov/doc/horizons.html"
+    },
+    {
+      "citation": "JPL SSD Astrodynamic Parameters (GM, au, G)",
+      "url": "https://ssd.jpl.nasa.gov/astro_par.html"
+    },
+    {
+      "citation": "Park et al. 2021, AJ 161:105 (DE440/DE441)",
+      "url": "https://ssd.jpl.nasa.gov/doc/Park.2021.AJ.DE440.pdf"
+    },
+    {
+      "citation": "JPL SSD Planetary Physical Parameters",
+      "url": "https://ssd.jpl.nasa.gov/planets/phys_par.html"
+    },
+    {
+      "citation": "IAU 2015 Resolution B3 (Mamajek et al.)",
+      "url": "https://arxiv.org/abs/1510.07674"
+    },
+    {
+      "citation": "JPL Horizons object data pages for the satellites (GM, mean radius), and JPL SSD planetary satellite physical parameters",
+      "url": "https://ssd.jpl.nasa.gov/sats/phys_par/"
+    },
+    {
+      "citation": "JPL SSD Planetary Satellite Mean Elements",
+      "url": "https://ssd.jpl.nasa.gov/sats/elem/sep.html"
+    }
+  ]
+}

@@ -8,6 +8,8 @@ import { isUnitQuaternion, sceneQuaternion } from '../../sim/collision/orientati
 import type { SurfaceMarkInput } from '../../render/contract';
 import { SurfaceMarks } from './SurfaceMarks';
 import { useCelestialMaterial } from './CelestialMaterial';
+import { RingGrains } from './RingGrains';
+import { useRingWorldPlanetMaterial } from './RingWorldPlanet';
 import type { BodyKind, BodyType } from '../../api/types';
 
 /** Selected-body silhouette: constant on-screen width (CSS px), whatever the body's size or the zoom. */
@@ -108,6 +110,8 @@ interface CelestialBodyProps {
   orientation?: readonly [number, number, number, number];
   /** Marks at body-local directions; they turn with the body. */
   marks?: readonly SurfaceMarkInput[];
+  /** Ring World preset only: draw the cream gas giant and its particle rings (visual grains, not simulated bodies). */
+  ringWorld?: { animate: boolean };
 }
 
 export const CelestialBody: React.FC<CelestialBodyProps> = ({
@@ -127,6 +131,7 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
   onDoubleClick,
   orientation,
   marks,
+  ringWorld,
 }) => {
   const root = useRef<Group>(null);
   const body = useRef<Group>(null);
@@ -138,7 +143,9 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
   } | null>(null);
   const lastTargetAt = useRef(0);
   const quaternion = orientation !== undefined && isUnitQuaternion(orientation) ? sceneQuaternion(orientation) : undefined;
-  const { assets, textures, material } = useCelestialMaterial(bodyType, assetKey, color);
+  const { assets, textures, material: assetMaterial } = useCelestialMaterial(bodyType, assetKey, color);
+  const ringWorldMaterial = useRingWorldPlanetMaterial(ringWorld !== undefined);
+  const material = ringWorldMaterial ?? assetMaterial;
   const profile = shapeProfile(bodyType, name);
   const geometry = useMemo(() => makeBodyGeometry(radius, profile, name), [radius, profile, name]);
   // drei's Outlines measures thickness in drawing-buffer pixels, so convert from CSS pixels.
@@ -231,7 +238,7 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
         </mesh>
         {marks && marks.length > 0 && <SurfaceMarks marks={marks} radius={radius} />}
         </group>
-        {assets?.atmosphereColor && (
+        {!ringWorld && assets?.atmosphereColor && (
           <Sphere args={[radius * 1.045, 32, 32]} raycast={() => undefined}>
             <meshPhysicalMaterial
               color={assets.atmosphereColor}
@@ -244,7 +251,8 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
             />
           </Sphere>
         )}
-        {textures.rings && (
+        {ringWorld && <RingGrains radius={radius} animate={ringWorld.animate} />}
+        {!ringWorld && textures.rings && (
           <mesh rotation={[Math.PI / 2, 0, 0]} raycast={() => undefined}>
             <ringGeometry args={[
               radius * (assets?.ringInnerScale ?? 1.25),

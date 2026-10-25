@@ -13,13 +13,13 @@ function propNames(source: string): string[] {
 }
 
 describe("UI-0 renderer boundary", () => {
-  it("the canvas gains exactly five inputs beyond the props it had before: trajectories, labeledBodyIds, overviewZoom and (CP-3 / D-053) collisionEffects, surfaceMarks", () => {
+  it("the canvas gains exactly seven inputs beyond the props it had before: trajectories, labeledBodyIds, overviewZoom, (CP-3 / D-053) collisionEffects, surfaceMarks and (Ring World, display only) presetId, ringWorldAnimate", () => {
     const before = [
       "bodies", "selectedBodyId", "onSelectBody", "onFocusBody", "onClearSelection", "frameEpoch", "focus", "onFocusRelease",
       "placementMode", "placementRadius", "onPlacementConfirm", "onPlacementCancel", "onPlacementPreview", "leftInset",
       "rightInset", "transform", "showAxes", "showGrid", "viewControls", // viewControls: the UI view-toolbar contract (UI foundation)
     ];
-    expect(propNames(canvasSource).sort()).toEqual([...before, "trajectories", "labeledBodyIds", "overviewZoom", "collisionEffects", "surfaceMarks"].sort());
+    expect(propNames(canvasSource).sort()).toEqual([...before, "trajectories", "labeledBodyIds", "overviewZoom", "collisionEffects", "surfaceMarks", "presetId", "ringWorldAnimate"].sort());
     expect(canvasSource).toMatch(/trajectories\?: readonly TrajectoryInput\[\]/);
     // the two Stage 9 inputs are optional and typed by the contract; the layer is conditional
     expect(canvasSource).toMatch(/collisionEffects\?: readonly CollisionEffectInput\[\]/);
