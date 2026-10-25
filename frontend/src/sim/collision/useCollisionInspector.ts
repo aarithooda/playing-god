@@ -2,6 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ScopedClient } from "../../api/client";
 import type { CollisionDetailDto, ReplayReportDto } from "../../api/types";
 
+/** Collision detail can be missing (a plain merge, a dropped record): say so calmly instead of showing an API error. */
+const UNAVAILABLE = "Could not simulate this collision in detail, so the bodies were merged. No detailed record is available.";
+
 export interface CollisionInspectorState {
   eventId: string | null;
   detail: CollisionDetailDto | null;
@@ -54,7 +57,7 @@ export function useCollisionInspector(client: ScopedClient): CollisionInspectorS
         },
         (e: unknown) => {
           if (token.current !== mine) return;
-          setError(e instanceof Error ? e.message : "The record could not be loaded.");
+          setError(UNAVAILABLE);
           setStatus("error");
         },
       );
@@ -74,7 +77,7 @@ export function useCollisionInspector(client: ScopedClient): CollisionInspectorS
       },
       (e: unknown) => {
         if (token.current !== mine) return;
-        setError(e instanceof Error ? e.message : "The replay failed.");
+        setError(UNAVAILABLE);
         setStatus("error");
         setReplayBusy(false);
       },

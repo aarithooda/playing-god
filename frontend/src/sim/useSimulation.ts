@@ -56,6 +56,8 @@ export function isScopeInvalid(e: unknown): e is ApiError {
 /** How many finished steps the Play loop keeps ahead of the screen. */
 export const LOOKAHEAD_STEPS = 3;
 
+export const COLLISION_FALLBACK_NOTICE = "Could not simulate the collision in detail, so the bodies were merged instead.";
+
 export const MIN_SPEED_EXP = 2;
 export const MAX_SPEED_EXP = 7;
 
@@ -77,6 +79,8 @@ export function useSimulation(client: SimulationClient, options: SimulationOptio
   const [loadStatus, setLoadStatus] = useState<LoadStatus>("loading");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  /** A calm, non-error message (for example: collisions could not be simulated, so contacts were merged). */
+  const [notice, setNotice] = useState<string | null>(null);
   const [health, setHealth] = useState<Health>("unknown");
   const [playing, setPlaying] = useState(false);
   const [stepping, setStepping] = useState(false);
@@ -221,7 +225,7 @@ export function useSimulation(client: SimulationClient, options: SimulationOptio
     };
   }, [client, healthPollMs]);
 
-  type FetchedStep = { view: SimulationView; events: EventView[] };
+  type FetchedStep = { view: SimulationView; events: EventView[]; merged?: boolean };
 
   /** Failure path shared by single steps and the Play loop. */
   const handleStepFailure = useCallback(async (e: unknown) => {
@@ -242,11 +246,12 @@ export function useSimulation(client: SimulationClient, options: SimulationOptio
 
   const fetchStep = useCallback(async (): Promise<FetchedStep> => {
     const res = await enqueue(() => client.step(stepSecondsForExp(speedRef.current)));
-    return { view: toSimulationView(res), events: res.events.map(toEventView) };
+    return { view: toSimulationView(res), events: res.events.map(toEventView), merged: res.warnings?.includes('collisions_merged_fallback') === true };
   }, [client, enqueue]);
 
   const showStep = useCallback((step: FetchedStep) => {
     applySim(step.view);
+    if (mounted.current && step.merged) setNotice(COLLISION_FALLBACK_NOTICE);
     if (mounted.current && step.events.length) setEvents((prev) => mergeEvents(prev, step.events));
     noteSuccess();
   }, [applySim, noteSuccess]);
@@ -288,8 +293,9 @@ export function useSimulation(client: SimulationClient, options: SimulationOptio
       }
       const events = buffer.flatMap((b) => b.events);
       const last = buffer[buffer.length - 1]!;
+      const buffer0 = buffer.slice();
       buffer.length = 0;
-      showStep({ view: last.view, events });
+      showStep({ view: last.view, events, merged: buffer0.some((b) => b.merged) });
     };
     const consume = () => {
       if (cancelled) return;
@@ -395,6 +401,8 @@ export function useSimulation(client: SimulationClient, options: SimulationOptio
     loadStatus,
     loadError,
     actionError,
+    notice,
+    dismissNotice: () => setNotice(null),
     health,
     playing,
     stepping,

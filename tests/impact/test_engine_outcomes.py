@@ -407,3 +407,14 @@ def test_the_engine_uses_the_last_resort_for_a_slow_grazing_equal_mass_impact_an
     (event,) = out.events
     assert "spin_not_represented_fallback" in event.warnings and "model_failed_fallback" in event.warnings
     assert svc._rotations == {} and svc._resolver.spin  # the angular momentum sits in the booked ledger, reported as unmodelled
+
+
+def test_an_engine_failure_falls_back_to_merging_and_says_so(monkeypatch):
+    """Product rule: never surface a collision-engine failure; merge the pair and warn."""
+    monkeypatch.setattr(SimulationService, "FALLBACK_TO_MERGE", True)
+    svc, *_ = pair_service(8.0)
+    n0 = len(svc.snapshot().bodies)
+    monkeypatch.setattr(engine_module, "realise", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("injected engine failure")))
+    r = svc.step(svc.approach_s)
+    assert "collisions_merged_fallback" in r.warnings
+    assert len(svc.snapshot().bodies) < n0  # the pair merged

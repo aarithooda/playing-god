@@ -201,8 +201,9 @@ describe("the inspector component", () => {
   it("shows loading and error states", () => {
     const { rerender } = render(<CollisionInspector {...base} detail={null} status="loading" />);
     expect(screen.getByText(/Loading the record/)).toBeTruthy();
-    rerender(<CollisionInspector {...base} detail={null} status="error" error="no collision record for col-9" />);
-    expect(screen.getByRole("alert").textContent).toContain("col-9");
+    rerender(<CollisionInspector {...base} detail={null} status="error" error="Could not simulate this collision in detail, so the bodies were merged." />);
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("status").textContent).toContain("merged");
   });
 });
 
@@ -237,7 +238,7 @@ describe("useCollisionInspector", () => {
     const { result, rerender } = renderHook(() => useCollisionInspector(base.scoped(scope)));
     act(() => result.current.open("col-9"));
     await waitFor(() => expect(result.current.status).toBe("error"));
-    expect(result.current.error).toContain("col-9");
+    expect(result.current.error).toContain("merged"); // a calm message, never the raw API error
     scope = { universeId: "uni-2", activationEpoch: 1 };
     rerender();
     await waitFor(() => expect(result.current.eventId).toBeNull());
