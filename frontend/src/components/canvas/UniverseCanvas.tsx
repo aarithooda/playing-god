@@ -4,6 +4,7 @@ import { Html, OrbitControls } from '@react-three/drei';
 import { Group, PerspectiveCamera, Raycaster, Vector2, Vector3 } from 'three';
 import { CelestialBody } from './CelestialBody';
 import { StarfieldShell } from './StarfieldShell';
+import { MilkyWayBackdrop } from './MilkyWayBackdrop';
 import { CollisionEffectsLayer } from './CollisionEffectsLayer';
 import { TrajectoryLayer } from './TrajectoryLayer';
 import { ReferenceOrbitLayer } from './ReferenceOrbitLayer';
@@ -22,6 +23,7 @@ import {
   type TrackingState,
 } from '../../sim/focusTracking';
 import type { SceneBody } from '../../sim/viewModel';
+import { isRingWorldBody, ringWorldCameraOffset, SUN_DIRECTION } from '../../sim/ringWorld';
 import type { ViewControlContract } from '../../sim/viewControlContract';
 import type { CollisionEffectInput, ReferenceOrbitsInput, SurfaceMarkInput, TrajectoryInput } from '../../render/contract';
 
@@ -74,6 +76,10 @@ interface UniverseCanvasProps {
   surfaceMarks?: readonly SurfaceMarkInput[];
   /** Display-only reference orbits and main-belt sample of a Solar System preset (D-064); also selects its tilted overview. */
   referenceOrbits?: ReferenceOrbitsInput;
+  /** Preset the universe was created from; "saturn-particle-rings" switches on the Ring World scene (display only). */
+  presetId?: string | null;
+  /** Ring World: whether the ring grains drift (the simulation is playing). */
+  ringWorldAnimate?: boolean;
 }
 
 interface OrbitTarget {
@@ -155,7 +161,9 @@ const CameraRig: React.FC<{
   onFocusRelease?: () => void;
   leftInset: number;
   rightInset: number;
-}> = ({ frameEpoch, overviewZoom, overviewPosition, overviewFraming, focus, bodies, onFocusRelease, leftInset, rightInset }) => {
+  /** Ring World: the opening camera frames this body (Saturn) and its rings instead of the default overview. */
+  ringWorldBodyId?: string;
+}> = ({ frameEpoch, overviewZoom, overviewPosition, overviewFraming, focus, bodies, onFocusRelease, leftInset, rightInset, ringWorldBodyId }) => {
   const camera = useThree((s) => s.camera);
   const size = useThree((s) => s.size);
   // Latest layout for the reset effect below, which must only run when the scene is refitted.
@@ -177,10 +185,20 @@ const CameraRig: React.FC<{
 
   useEffect(() => {
     // Pull back just enough that the fitted scene is not hidden under a sidebar (1 on normal windows).
+    const ringBody = ringWorldBodyId === undefined ? undefined : bodiesRef.current.find((b) => b.id === ringWorldBodyId);
+    release();
+    if (ringBody) {
+      const [ox, oy, oz] = ringWorldCameraOffset({ radius: ringBody.radius, fovDeg: (camera as PerspectiveCamera).fov, ...layoutRef.current });
+      camera.position.set(ringBody.position[0] + ox, ringBody.position[1] + oy, ringBody.position[2] + oz);
+      if (controls) {
+        controls.target.set(...ringBody.position);
+        controls.update();
+      }
+      return;
+    }
     const framing = overviewFraming ? { distance: Math.hypot(...overviewPosition), ...overviewFraming } : {};
     const s = framingDistanceScale({ fovDeg: (camera as PerspectiveCamera).fov, ...layoutRef.current, ...framing }) / Math.max(1, overviewZoom);
     camera.position.set(overviewPosition[0] * s, overviewPosition[1] * s, overviewPosition[2] * s);
-    release();
     if (controls) {
       controls.target.set(0, 0, 0);
       controls.update();
@@ -439,6 +457,8 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
   collisionEffects = [],
   surfaceMarks = [],
   referenceOrbits,
+  presetId = null,
+  ringWorldAnimate = false,
 }) => {
   const axesVisible = viewControls?.state.axesVisible ?? showAxes;
   const gridEnabled = viewControls?.state.gridEnabled ?? showGrid;
@@ -453,6 +473,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
     () => (solarOverview ? solarSystemFraming(transform) : undefined),
     [solarOverview, transform],
   );
+  const ringWorldBody = bodies.find((b) => isRingWorldBody(presetId, b));
   return (
     <Canvas
       camera={{ position: DEFAULT_CAMERA_POSITION, fov: 50, far: 2000 }}
@@ -465,7 +486,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
       }}
     >
       <color attach="background" args={['#050505']} />
-      <StarfieldShell />
+      {ringWorldBody ? <MilkyWayBackdrop /> : <StarfieldShell />}
       {(gridEnabled || placementMode) && <GridOverlay transform={transform} />}
       {axesVisible && <AxesOverlay transform={transform} />}
       {trajectories.length > 0 && <TrajectoryLayer trajectories={trajectories} transform={transform} selectedBodyId={selectedBodyId} />}
@@ -485,8 +506,16 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
         <MainBeltLayer sunPosition={referenceSun.position} transform={transform} displayTimeS={referenceOrbits.displayTimeS} />
       )}
 
-      <ambientLight intensity={hasStar ? 0.3 : 0.6} />
-      {hasStar ? (
+      {ringWorldBody ? (
+        // Ring World: one warm key light from a fixed direction and a very dim fill, so the limb and the terminator read.
+        <>
+          <ambientLight intensity={0.05} />
+          <directionalLight position={[SUN_DIRECTION[0] * 100, SUN_DIRECTION[1] * 100, SUN_DIRECTION[2] * 100]} intensity={3.4} color="#fff2dc" />
+        </>
+      ) : (
+        <ambientLight intensity={hasStar ? 0.3 : 0.6} />
+      )}
+      {ringWorldBody ? null : hasStar ? (
         // Planets are lit by the stars that are in the scene (no distance falloff: scene units are arbitrary).
         bodies.filter((b) => b.kind === 'star').map((b) => (
           <pointLight key={b.id} position={b.position} intensity={2.2} decay={0} />
@@ -514,6 +543,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
           systemPx={body.systemPx}
           orientation={body.orientation}
           marks={surfaceMarks.filter((m) => m.bodyId === body.id)}
+          ringWorld={ringWorldBody?.id === body.id ? { animate: ringWorldAnimate } : undefined}
           isSelected={selectedBodyId === body.id}
           onClick={placementMode ? undefined : () => onSelectBody(body.id)}
           onDoubleClick={placementMode ? undefined : () => onFocusBody(body.id)}
@@ -542,6 +572,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
         onFocusRelease={onFocusRelease}
         leftInset={leftInset}
         rightInset={rightInset}
+        ringWorldBodyId={ringWorldBody?.id}
       />
       <ViewportInset leftInset={leftInset} rightInset={rightInset} />
     </Canvas>

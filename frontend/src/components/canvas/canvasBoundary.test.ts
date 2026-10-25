@@ -13,14 +13,14 @@ function propNames(source: string): string[] {
 }
 
 describe("UI-0 renderer boundary", () => {
-  it("the canvas gains exactly five inputs beyond the props it had before: trajectories, labeledBodyIds, overviewZoom and (CP-3 / D-053) collisionEffects, surfaceMarks", () => {
+  it("the canvas gains exactly seven inputs beyond the props it had before: trajectories, labeledBodyIds, overviewZoom, (CP-3 / D-053) collisionEffects, surfaceMarks and (Ring World, display only) presetId, ringWorldAnimate", () => {
     const before = [
       "bodies", "selectedBodyId", "onSelectBody", "onFocusBody", "onClearSelection", "frameEpoch", "focus", "onFocusRelease",
       "placementMode", "placementRadius", "onPlacementConfirm", "onPlacementCancel", "onPlacementPreview", "leftInset",
       "rightInset", "transform", "showAxes", "showGrid", "viewControls", // viewControls: the UI view-toolbar contract (UI foundation)
     ];
-    // D-064 adds one more optional, contract-typed input: the display-only Solar System reference orbits.
-    expect(propNames(canvasSource).sort()).toEqual([...before, "trajectories", "labeledBodyIds", "overviewZoom", "collisionEffects", "surfaceMarks", "referenceOrbits"].sort());
+    // D-064 adds the display-only Solar System reference orbits; Ring World adds presetId and ringWorldAnimate.
+    expect(propNames(canvasSource).sort()).toEqual([...before, "trajectories", "labeledBodyIds", "overviewZoom", "collisionEffects", "surfaceMarks", "referenceOrbits", "presetId", "ringWorldAnimate"].sort());
     expect(canvasSource).toMatch(/referenceOrbits\?: ReferenceOrbitsInput/);
     expect(canvasSource).toMatch(/referenceOrbits && \(\s*<ReferenceOrbitLayer/);
     expect(canvasSource).toMatch(/trajectories\?: readonly TrajectoryInput\[\]/);
