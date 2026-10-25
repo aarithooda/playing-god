@@ -14,34 +14,61 @@ interface PresetPickerProps {
  * backend offers no such preset, so there is nothing real to load.
  */
 export const PLANNED_SCENARIOS: readonly { name: string; note: string }[] = [
-  { name: 'Saturn and its rings', note: 'needs sourced ring and moon data' },
   { name: 'Collision playground', note: 'needs a curated set of impact scenarios' },
 ];
 
-/** A small orrery drawn from the preset's own facts (it has moons or not); decorative, not a map of positions. */
-const PresetArt: React.FC<{ withMoons: boolean; dimmed: boolean }> = ({ withMoons, dimmed }) => (
+type ArtKind = 'system' | 'moons' | 'rings';
+
+/** Which picture a preset gets, from its own facts (moons, or the Ring World scene); decorative, not a map of positions. */
+function artKind(presetId: string): ArtKind {
+  if (presetId.includes('rings')) return 'rings';
+  return presetId.includes('moons') ? 'moons' : 'system';
+}
+
+const PresetArt: React.FC<{ kind: ArtKind; dimmed: boolean }> = ({ kind, dimmed }) => (
   <svg viewBox="0 0 96 72" width="96" height="72" aria-hidden="true" style={{ flex: '0 0 96px', borderRadius: 8, background: '#020306', opacity: dimmed ? 0.45 : 1 }}>
     <defs>
-      <radialGradient id={`sun-${withMoons}`} cx="50%" cy="50%" r="50%">
+      <radialGradient id={`sun-${kind}`} cx="50%" cy="50%" r="50%">
         <stop offset="0%" stopColor="#fff7e0" />
         <stop offset="45%" stopColor="#f4d58e" />
         <stop offset="100%" stopColor="#f4d58e" stopOpacity="0" />
       </radialGradient>
+      <linearGradient id={`saturn-${kind}`} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#ecd9a8" />
+        <stop offset="100%" stopColor="#b8935a" />
+      </linearGradient>
     </defs>
-    {[14, 22, 31, 41].map((rx, i) => (
-      <ellipse key={rx} cx="48" cy="36" rx={rx} ry={rx * 0.42} fill="none" stroke="rgba(214,222,235,0.2)" strokeWidth={i === 2 ? 0.9 : 0.6} />
-    ))}
-    <circle cx="48" cy="36" r="9" fill={`url(#sun-${withMoons})`} />
-    <circle cx="48" cy="36" r="3" fill="#fff8e6" />
-    <circle cx="61" cy="39.5" r="1.5" fill="#8fb3f0" />
-    <circle cx="28" cy="31" r="2.6" fill="#d9b48a" />
-    <circle cx="86" cy="40" r="2" fill="#c9b27c" />
-    {withMoons && (
+    {kind === 'rings' ? (
       <>
-        <ellipse cx="28" cy="31" rx="6" ry="2.6" fill="none" stroke="rgba(214,222,235,0.35)" strokeWidth={0.5} />
-        <circle cx="33.6" cy="31.8" r="0.8" fill="#eeeae0" />
-        <circle cx="23" cy="30" r="0.7" fill="#eeeae0" />
-        <circle cx="61" cy="39.5" r="3.2" fill="none" stroke="rgba(214,222,235,0.35)" strokeWidth={0.5} />
+        {/* Saturn with its rings, and a few moons on their orbits */}
+        {[27, 38].map((rx) => (
+          <ellipse key={rx} cx="48" cy="36" rx={rx} ry={rx * 0.42} fill="none" stroke="rgba(214,222,235,0.16)" strokeWidth={0.5} />
+        ))}
+        <path d="M 26 39.5 A 22 7 0 0 1 70 32.5" fill="none" stroke="rgba(226,208,170,0.55)" strokeWidth={2.4} />
+        <circle cx="48" cy="36" r="8.5" fill={`url(#saturn-${kind})`} />
+        <path d="M 70 32.5 A 22 7 0 0 1 26 39.5" fill="none" stroke="rgba(236,220,184,0.85)" strokeWidth={2.4} />
+        <circle cx="75" cy="40" r="1.6" fill="#d9c79f" />
+        <circle cx="19" cy="31" r="1.1" fill="#eeeae0" />
+        <circle cx="58" cy="21" r="0.9" fill="#eeeae0" />
+      </>
+    ) : (
+      <>
+        {[14, 22, 31, 41].map((rx, i) => (
+          <ellipse key={rx} cx="48" cy="36" rx={rx} ry={rx * 0.42} fill="none" stroke="rgba(214,222,235,0.2)" strokeWidth={i === 2 ? 0.9 : 0.6} />
+        ))}
+        <circle cx="48" cy="36" r="9" fill={`url(#sun-${kind})`} />
+        <circle cx="48" cy="36" r="3" fill="#fff8e6" />
+        <circle cx="61" cy="39.5" r="1.5" fill="#8fb3f0" />
+        <circle cx="28" cy="31" r="2.6" fill="#d9b48a" />
+        <circle cx="86" cy="40" r="2" fill="#c9b27c" />
+        {kind === 'moons' && (
+          <>
+            <ellipse cx="28" cy="31" rx="6" ry="2.6" fill="none" stroke="rgba(214,222,235,0.35)" strokeWidth={0.5} />
+            <circle cx="33.6" cy="31.8" r="0.8" fill="#eeeae0" />
+            <circle cx="23" cy="30" r="0.7" fill="#eeeae0" />
+            <circle cx="61" cy="39.5" r="3.2" fill="none" stroke="rgba(214,222,235,0.35)" strokeWidth={0.5} />
+          </>
+        )}
       </>
     )}
   </svg>
@@ -69,7 +96,7 @@ export const PresetPicker: React.FC<PresetPickerProps> = ({ presets, disabled, o
                   border: `1px solid ${theme.border}`,
                 }}
               >
-                <PresetArt withMoons={p.id.includes('moons')} dimmed={!p.available} />
+                <PresetArt kind={artKind(p.id)} dimmed={!p.available} />
                 <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <h4 id={titleId} style={{ margin: 0, fontFamily: theme.serif, fontSize: 17, fontWeight: 600, lineHeight: 1.15 }}>{p.name}</h4>
                   {p.available ? (
