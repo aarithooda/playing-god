@@ -53,6 +53,9 @@ export function isScopeInvalid(e: unknown): e is ApiError {
   );
 }
 
+/** How many finished steps the Play loop keeps ahead of the screen. */
+export const LOOKAHEAD_STEPS = 3;
+
 export const MIN_SPEED_EXP = 2;
 export const MAX_SPEED_EXP = 7;
 
@@ -97,6 +100,8 @@ export function useSimulation(client: SimulationClient, options: SimulationOptio
   const mounted = useRef(false);
   const tail = useRef<Promise<unknown>>(Promise.resolve());
   const stepPending = useRef(false);
+  /** Set by Reset: the Play loop's unshown lookahead belongs to the old state and must not be flushed over it. */
+  const discardLookahead = useRef(false);
   const speedRef = useRef(speedExp);
   speedRef.current = speedExp;
   /** Every body name ever seen, so events can name bodies that no longer exist. */
@@ -216,61 +221,118 @@ export function useSimulation(client: SimulationClient, options: SimulationOptio
     };
   }, [client, healthPollMs]);
 
+  type FetchedStep = { view: SimulationView; events: EventView[] };
+
+  /** Failure path shared by single steps and the Play loop. */
+  const handleStepFailure = useCallback(async (e: unknown) => {
+    noteFailure(e);
+    if (e instanceof ApiError && (e.kind === "timeout" || e.kind === "network" || e.kind === "invalid-response")) {
+      // The outcome of the step is unknown (it may or may not have run). Never guess: re-read the committed
+      // state. The failed response itself is never applied, so the displayed time cannot jump ahead on a failure.
+      if (mounted.current) {
+        setActionError(`${e.message}. The step may not have completed; showing the last state the backend reported.`);
+      }
+      try {
+        await enqueue(() => refreshState());
+      } catch {
+        /* the last known state stays on screen and the error above stays visible */
+      }
+    }
+  }, [enqueue, noteFailure, refreshState]);
+
+  const fetchStep = useCallback(async (): Promise<FetchedStep> => {
+    const res = await enqueue(() => client.step(stepSecondsForExp(speedRef.current)));
+    return { view: toSimulationView(res), events: res.events.map(toEventView) };
+  }, [client, enqueue]);
+
+  const showStep = useCallback((step: FetchedStep) => {
+    applySim(step.view);
+    if (mounted.current && step.events.length) setEvents((prev) => mergeEvents(prev, step.events));
+    noteSuccess();
+  }, [applySim, noteSuccess]);
+
   /** One bounded backend step; "skipped" when another step is still in flight (never overlaps). */
   const doStep = useCallback(async (): Promise<"ok" | "skipped" | "failed"> => {
     if (stepPending.current) return "skipped";
     stepPending.current = true;
     if (mounted.current) setStepping(true);
     try {
-      const res = await enqueue(() => client.step(stepSecondsForExp(speedRef.current)));
-      applySim(toSimulationView(res));
-      if (mounted.current && res.events.length) {
-        setEvents((prev) => mergeEvents(prev, res.events.map(toEventView)));
-      }
-      noteSuccess();
+      showStep(await fetchStep());
       return "ok";
     } catch (e) {
-      noteFailure(e);
-      if (e instanceof ApiError && (e.kind === "timeout" || e.kind === "network" || e.kind === "invalid-response")) {
-        // The outcome of the step is unknown (it may or may not have run). Never guess: re-read the committed
-        // state. The failed response itself is never applied, so the displayed time cannot jump ahead on a failure.
-        if (mounted.current) {
-          setActionError(`${e.message}. The step may not have completed; showing the last state the backend reported.`);
-        }
-        try {
-          await enqueue(() => refreshState());
-        } catch {
-          /* the last known state stays on screen and the error above stays visible */
-        }
-      }
+      await handleStepFailure(e);
       return "failed";
     } finally {
       stepPending.current = false;
       if (mounted.current) setStepping(false);
     }
-  }, [client, enqueue, applySim, noteFailure, noteSuccess, refreshState]);
+  }, [fetchStep, showStep, handleStepFailure]);
 
-  // Play loop: strictly sequential steps separated by tickMs. Cleanup on pause/unmount.
+  // Play loop with lookahead: the backend (still the only authority) computes up to LOOKAHEAD_STEPS ahead of what is
+  // shown, and the screen consumes those finished snapshots at a steady tickMs cadence, so network jitter no longer
+  // makes motion stutter. On pause or error the buffer is flushed: the screen jumps to the latest backend state.
   useEffect(() => {
     if (!playing) return;
     let cancelled = false;
+    let failed = false;
+    let fetching = false;
+    let started = false;
+    const buffer: FetchedStep[] = [];
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const tick = async () => {
-      if (cancelled) return;
-      const result = await doStep();
-      if (cancelled) return;
-      if (result === "failed") {
-        setPlaying(false);
+
+    const flush = () => {
+      if (buffer.length === 0) return;
+      if (discardLookahead.current) {
+        buffer.length = 0;
         return;
       }
-      timer = setTimeout(tick, tickMs);
+      const events = buffer.flatMap((b) => b.events);
+      const last = buffer[buffer.length - 1]!;
+      buffer.length = 0;
+      showStep({ view: last.view, events });
     };
-    void tick();
+    const consume = () => {
+      if (cancelled) return;
+      const next = buffer.shift();
+      if (next) showStep(next);
+      timer = setTimeout(consume, tickMs);
+      void fill();
+    };
+    const fill = async () => {
+      if (cancelled || failed || fetching || buffer.length >= LOOKAHEAD_STEPS || stepPending.current) return;
+      fetching = true;
+      stepPending.current = true;
+      if (mounted.current) setStepping(true);
+      try {
+        const step = await fetchStep();
+        buffer.push(step);
+        if (cancelled) flush(); // paused while this step was in flight: its result is still the backend's truth
+      } catch (e) {
+        failed = true;
+        flush();
+        await handleStepFailure(e);
+        setPlaying(false);
+      } finally {
+        fetching = false;
+        stepPending.current = false;
+        if (mounted.current) setStepping(false);
+      }
+      if (cancelled || failed) return;
+      if (!started) {
+        started = true;
+        consume();
+      } else {
+        void fill();
+      }
+    };
+    discardLookahead.current = false;
+    void fill();
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
+      flush();
     };
-  }, [playing, doStep, tickMs]);
+  }, [playing, fetchStep, showStep, handleStepFailure, tickMs]);
 
   const play = useCallback(() => setPlaying(true), []);
   const pause = useCallback(() => setPlaying(false), []);
@@ -280,6 +342,7 @@ export function useSimulation(client: SimulationClient, options: SimulationOptio
   }, [doStep]);
 
   const reset = useCallback(async (): Promise<ActionResult> => {
+    discardLookahead.current = true;
     setPlaying(false);
     return act(async () => {
       applySim(toSimulationView(await client.reset()));
