@@ -44,3 +44,11 @@ def test_browser_spec_does_not_write_tracked_evidence_by_default():
     spec_text = (ROOT / "frontend" / "e2e" / "collision-effects.spec.ts").read_text(encoding="utf-8")
     assert "PG_UPDATE_EVIDENCE" in spec_text and "outputPath(" in spec_text
     assert "page.screenshot({ path: file" not in spec_text
+
+
+def test_node_is_declared_once_and_ci_reads_it():
+    assert rt.pinned_node_major() == 20 and rt.node_major("v20.20.2
+") == 20 and rt.node_major("v24.18.0") == 24
+    for wf in ("ci.yml", "clean-clone.yml"):
+        text = (ROOT / ".github" / "workflows" / wf).read_text(encoding="utf-8")
+        assert "node-version-file: .nvmrc" in text and "node-version: 20" not in text

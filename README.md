@@ -11,7 +11,7 @@ Interactive, browser-based 3D gravitational universe sandbox (inspired by Univer
 **Features:** FastAPI backend with REBOUND/IAS15 physics, two collision modes (legacy merge; provisional outcome models with fragments, spin and materials), diagnostics; React/Three.js frontend with body creation and 3D placement, selection and focus, event history, axes/grid, light/dark theme. **Simulation Lab and Experiment 01** add independent universes you can switch between, Solar System presets (JPL Horizons and DE440, with or without moons, and the Saturn Ring World), a sourced body catalogue, custom stars and planets, snapshots, a recorded-history timeline with replay and path display, and Orbit Lab (an immutable baseline against a velocity-scaled run, compared against an independent Kepler reference).
 
 ## Prerequisites
-Python **3.11** (the only version tested; declared in `.python-version`, which CI also reads), Node.js 20 or newer, npm, Git. Playwright's Chromium (`npx playwright install chromium`) or an installed Chrome/Chromium in `PW_CHROMIUM_PATH`.
+Python **3.11** (the only version tested; declared in `.python-version`, which CI also reads), Node.js **20** (declared in `.nvmrc`, read by CI; `frontend/package.json` `engines` is `>=20 <21`), npm (use `npm ci`, never `npm install`, so `package-lock.json` is honoured), Git. Playwright's Chromium (`npx playwright install chromium`) or an installed Chrome/Chromium in `PW_CHROMIUM_PATH`.
 
 ## Install
 ```bash
@@ -52,7 +52,7 @@ The universe starts empty: press **Add your first body** (or **Add body…** in 
 ```bash
 python scripts/run_tests.py            # add --install to install the pinned dependencies first, --extended for the real-backend journeys
 ```
-Stages: environment check (Python == `.python-version`, installed packages == `backend/constraints.txt`, `frontend/node_modules` present) -> backend pytest -> frontend typecheck -> Vitest -> production build -> Playwright E2E (stubbed API) -> check that no tracked file was modified. A stage that cannot start fails with the fix; nothing is skipped silently. `--extended` adds `npm run e2e:collision` and `npm run e2e` (they start their own backend and Vite). Browser tests write screenshots to `frontend/test-results/`; the committed evidence PNGs under `context/evidence/` are refreshed only on purpose with `PG_UPDATE_EVIDENCE=1`. The individual commands below remain valid.
+Stages: environment check (Python == `.python-version`, Node major == `.nvmrc`, installed packages == `backend/constraints.txt`, `frontend/node_modules` present) -> backend pytest -> frontend typecheck -> Vitest -> production build -> Playwright E2E (stubbed API) -> check that no tracked file was modified. A stage that cannot start fails with the fix; nothing is skipped silently. `--extended` adds `npm run e2e:collision` and `npm run e2e` (they start their own backend and Vite). Browser tests write screenshots to `frontend/test-results/`; the committed evidence PNGs under `context/evidence/` are refreshed only on purpose with `PG_UPDATE_EVIDENCE=1`. The individual commands below remain valid.
 Last full run (2026-10-26, details in `docs/ENGINEERING_STATUS.md`): in a fresh virtualenv built from `backend/requirements.txt` + `backend/constraints.txt` the backend suite is 1422 passed, 0 failed (7.5 min on Windows); frontend typecheck, 583 Vitest tests, build and 16 Playwright tests passed on the preceding baseline.
 ```bash
 python -m pytest                # from repo root, venv active: unit, API, stress, validation, spike, live-server smoke

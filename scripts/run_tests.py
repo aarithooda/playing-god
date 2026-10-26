@@ -13,7 +13,7 @@ stage as PASS / FAIL / NOT RUN, and exit status 0 means every required stage ran
 
 Prerequisites (see README "Test"):
   * Python == .python-version with `pip install -r backend/requirements.txt -c backend/constraints.txt` in the active environment
-  * Node 20 or newer and `npm ci` in frontend/   (`--install` does both installs for you)
+  * Node == .nvmrc (20) and `npm ci` in frontend/   (`--install` does both installs for you)
   * Playwright's Chromium (`npx playwright install chromium`) or an installed Chrome/Chromium in PW_CHROMIUM_PATH
     (the extended journeys read E2E_CHROMIUM instead; this script forwards PW_CHROMIUM_PATH to it when only that is set)
 
@@ -38,6 +38,16 @@ FRONTEND = ROOT / "frontend"
 def pinned_python() -> str:
     """major.minor from .python-version (the single declaration; CI reads the same file)."""
     return (ROOT / ".python-version").read_text(encoding="utf-8").strip()
+
+
+def pinned_node_major() -> int:
+    """Node major from .nvmrc (the single declaration; CI reads the same file)."""
+    return int((ROOT / ".nvmrc").read_text(encoding="utf-8").strip().lstrip("v").split(".")[0])
+
+
+def node_major(output: str) -> int:
+    """`node --version` output ("v20.20.2") -> 20."""
+    return int(output.strip().lstrip("v").split(".")[0])
 
 
 def python_matches(version: str, running: tuple = tuple(sys.version_info[:2])) -> bool:
@@ -115,8 +125,13 @@ def _env_check() -> bool:
         print("FAIL: frontend/node_modules is missing.  fix: (cd frontend && npm ci)")
         ok = False
     if shutil.which("node") is None:
-        print("FAIL: node is not on PATH (Node 20 or newer is required).")
+        print("FAIL: node is not on PATH.")
         ok = False
+    else:
+        have = node_major(subprocess.run(["node", "--version"], capture_output=True, text=True).stdout)
+        if have != pinned_node_major():
+            print(f"FAIL: Node {have} is running, .nvmrc requires {pinned_node_major()}.  fix: nvm use (or fnm/volta use 20)")
+            ok = False
     if ok:
         print(f"environment ok: Python {want}, constrained packages match, frontend dependencies installed")
     return ok
