@@ -25,5 +25,5 @@ test-results/
 .DS_Store
 Thumbs.db
 
-# Playwright MCP session logs and test-regenerated evidence are local artefacts
+# Playwright MCP session logs are local artefacts
 .playwright-mcp/
