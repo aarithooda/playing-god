@@ -97,19 +97,26 @@ def _post_pair(client, material):
         r = client.post(f"/api/v1/universes/{uid}/bodies?activationEpoch={epoch}", json=data)
         assert r.status_code == 201
         assert r.json().get("material") == ({"profileId": material, "layers": None} if material else None)
+    # Step only until the FIRST contact has been resolved: what these tests pin is which resolver the first contact reaches. Stepping
+    # further lets the remnant meet its own debris, a second encounter whose occurrence depends on floating-point detail (it appeared
+    # on one Linux CI run: ['collision', 'collision']) and is not what the tests are about.
     for _ in range(20):
         assert client.post(f"/api/v1/universes/{uid}/step?activationEpoch={epoch}", json={"dtS": 1000.0}).status_code == 200
-    return client.get(f"/api/v1/universes/{uid}/events").json()["events"]
+        events = client.get(f"/api/v1/universes/{uid}/events").json()["events"]
+        if events:
+            return events
+    return []
 
 
 def test_a_sandbox_pair_with_an_explicit_material_reaches_the_outcome_models_through_the_api(client):
     events = _post_pair(client, "silicate-rock")
-    assert [e["type"] for e in events] == ["collision"] and events[0]["outcome"] not in ("legacy_merge", "perfect_merge")
+    assert events and events[0]["type"] == "collision" and events[0]["outcome"] not in ("legacy_merge", "perfect_merge")
 
 
 def test_a_sandbox_pair_without_material_still_merges_and_bodytype_supplies_none(client):
     """DQ-2 and D-029: `bodyType` is display-only, so a typed body without an explicit material keeps the exact legacy merge."""
-    assert [e["type"] for e in _post_pair(client, None)] == ["merger"]
+    events = _post_pair(client, None)
+    assert events and events[0]["type"] == "merger"
 
 
 # ---------------------------------------------------------------------------------------------------------------
