@@ -85,6 +85,33 @@ def test_a_sandbox_with_materials_uses_the_new_engine(registry):
     assert [e.type for e in engine.events()] == ["collision"]
 
 
+def _post_pair(client, material):
+    """The original report ("bodies always merge"): a 30 km/s head-on hit created through the API, as the create form sends it."""
+    uid = client.post("/api/v1/universes", json={"source": {"kind": "empty"}, "activate": True}).json()["id"]
+    epoch = client.get("/api/v1/universes").json()["activationEpoch"]
+    for name, m, r, x, vx in (("target", 6.0e24, 6.4e6, 0.0, 0.0), ("impactor", 6.0e23, 3.4e6, -2.0e8, 3.0e4)):
+        data = {"name": name, "massKg": m, "radiusM": r, "positionM": {"x": x, "y": 0.0, "z": 0.0},
+                "velocityMPerS": {"x": vx, "y": 0.0, "z": 0.0}, "colorHex": "#aaaaaa", "bodyType": "rocky-planet"}
+        if material:
+            data["material"] = {"profileId": material, "layers": None}
+        r = client.post(f"/api/v1/universes/{uid}/bodies?activationEpoch={epoch}", json=data)
+        assert r.status_code == 201
+        assert r.json().get("material") == ({"profileId": material, "layers": None} if material else None)
+    for _ in range(20):
+        assert client.post(f"/api/v1/universes/{uid}/step?activationEpoch={epoch}", json={"dtS": 1000.0}).status_code == 200
+    return client.get(f"/api/v1/universes/{uid}/events").json()["events"]
+
+
+def test_a_sandbox_pair_with_an_explicit_material_reaches_the_outcome_models_through_the_api(client):
+    events = _post_pair(client, "silicate-rock")
+    assert [e["type"] for e in events] == ["collision"] and events[0]["outcome"] not in ("legacy_merge", "perfect_merge")
+
+
+def test_a_sandbox_pair_without_material_still_merges_and_bodytype_supplies_none(client):
+    """DQ-2 and D-029: `bodyType` is display-only, so a typed body without an explicit material keeps the exact legacy merge."""
+    assert [e["type"] for e in _post_pair(client, None)] == ["merger"]
+
+
 # ---------------------------------------------------------------------------------------------------------------
 # Preset and Orbit Lab stay legacy-merge until Stage 11
 # ---------------------------------------------------------------------------------------------------------------
