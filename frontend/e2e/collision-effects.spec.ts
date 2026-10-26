@@ -3,7 +3,8 @@
 // What this spec can show: the effect layers mount and draw without runtime errors, the displayed values of the effect (read from the data-*
 // attributes of the effect label) follow the pause / play / seek rules of DQ-12 (a), the inspector works against the stubbed records, the
 // empty and error states are quiet, and a body-local surface mark follows the body's orientation on screen (pixel centroid check, with
-// screenshots saved under context/evidence/stage9-webgl/).
+// screenshots written to the test's own output directory; set PG_UPDATE_EVIDENCE=1 to refresh the committed
+// copies under context/evidence/stage9-webgl/ on purpose, they are never rewritten by an ordinary run).
 // What it does NOT show: that the physics is right, nor any visual quality beyond these checks.
 // Run: PW_CHROMIUM_PATH=<an installed chromium> npx playwright test e2e/collision-effects.spec.ts   (see context/HANDOFF.md)
 import { expect, test, type Page } from "@playwright/test";
@@ -12,7 +13,10 @@ import path from "node:path";
 import { legacyPath, UNIVERSE_ID, universeLayer } from "./universeLayer";
 import { openTool } from "./tools";
 
+// Committed evidence screenshots. Ordinary runs write to test.info().outputPath() (test-results/, git-ignored); only an explicit
+// PG_UPDATE_EVIDENCE=1 run refreshes these, so a routine test run can never dirty tracked files.
 const EVIDENCE = path.resolve(process.cwd(), "..", "context", "evidence", "stage9-webgl"); // run from frontend/
+const UPDATE_EVIDENCE = process.env.PG_UPDATE_EVIDENCE === "1";
 const diagnostics = {
   version: 1, totalMassKg: 6e24, totalMomentumKgMPerS: { x: 0, y: 0, z: 0 }, kineticEnergyJ: 0, potentialEnergyJ: 0,
   angularMomentumAboutOriginKgM2PerS: { x: 0, y: 0, z: 0 }, bookedSpinKgM2PerS: { x: 0, y: 0, z: 0 },
@@ -287,9 +291,11 @@ async function markCentroid(page: Page, name: string, orientation: [number, numb
   await expect(page.getByRole("button", { name: "Focus selected body" })).toBeEnabled();
   await page.getByRole("button", { name: "Focus selected body" }).click();
   await page.waitForTimeout(3000);
-  fs.mkdirSync(EVIDENCE, { recursive: true });
-  const file = path.join(EVIDENCE, `${name}.png`);
-  const png = await page.screenshot({ path: file });
+  const png = await page.screenshot({ path: test.info().outputPath(`${name}.png`) });
+  if (UPDATE_EVIDENCE) {
+    fs.mkdirSync(EVIDENCE, { recursive: true });
+    fs.writeFileSync(path.join(EVIDENCE, `${name}.png`), png);
+  }
   return pixelCentroids(page, png);
 }
 

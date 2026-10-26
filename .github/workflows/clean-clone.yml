@@ -1,0 +1,38 @@
+name: Clean clone (canonical runner)
+
+# Manual check that a fresh Linux checkout can install the pinned dependencies and pass the canonical runner
+# (scripts/run_tests.py) end to end. The regular CI jobs run the same checks in parallel; this one proves the one-command path.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runner:
+    name: scripts/run_tests.py --extended (ubuntu, fresh checkout)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/constraints.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: python --version && node --version
+      - run: pip install -r backend/requirements.txt -c backend/constraints.txt
+      - run: npm ci
+        working-directory: frontend
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - run: python scripts/run_tests.py --extended
+      - name: Working tree must be clean after the run
+        run: test -z "$(git status --porcelain --untracked-files=no)" || (git status --short; exit 1)
