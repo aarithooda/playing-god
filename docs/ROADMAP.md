@@ -6,7 +6,7 @@ synchronisation, regression and scientific validation, performance, preset fidel
 
 ## The five next tasks
 
-### 1. Make `main` green again (resolve KD-1)
+### 1. ~~Make `main` green again (resolve KD-1)~~ DONE 2026-10-26 (option (a), D-067)
 - **Why:** CI has been red since PR #23; with it red, no regression signal is trustworthy. Cause: presets silently moved to
   `outcome-v1` with default materials (`api_universes.py`, `impact/materials.py`), contradicting D-045/D-060 and five tests.
 - **Decide first (owner):** (a) revert the preset branch of `create_preset_universe` to `LEGACY_MERGE_CONFIG` and drop
@@ -15,7 +15,7 @@ synchronisation, regression and scientific validation, performance, preset fidel
   (`impact/config.py`, `simulation.py` docstring). (a) is the smaller change; (b) is only appropriate if outcome models for presets are intended.
 - **Depends on:** nothing. **Acceptance:** `python -m pytest` and CI Backend job pass with no test weakened; a decision record exists.
 
-### 2. Reproducible environments
+### 2. Reproducible environments (Python part DONE 2026-10-26, D-067; remaining: Python version pin, one-command test script, e2e writing into tracked files, Windows/Linux fresh-clone check)
 - **Why:** local pydantic 2.7 vs CI-latest changes which tests pass (KD-3); Playwright's Chromium pin is a recurring snag.
 - **Do:** split runtime/dev requirements, add upper bounds or a lock file (`pip-compile`/`uv`), pin the Python version, make CI use it, add a one-command
   "run everything" script, make e2e tests not write into tracked files (KD-4).

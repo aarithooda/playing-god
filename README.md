@@ -2,7 +2,7 @@
 
 Interactive, browser-based 3D gravitational universe sandbox (inspired by Universe Sandbox), built for a 36-hour hackathon. The Python backend owns the authoritative physics state; the React/Three.js frontend renders it.
 
-**Maturity (read this first):** a working integrated prototype, post-hackathon. The integrator is [REBOUND](https://github.com/hannorein/rebound) (IAS15); we did not write it. The custom collision engine (`backend/impact/`) is **scientifically provisional and has not been independently reviewed; cratering is unsupported**. Ring World ring grains, reference orbits, the main-belt sample and collision effects are **visual only** (not simulated). Tidal deformation is **not implemented**. All state lives in backend memory and is lost on restart. As of 2026-10-26 `main`'s backend CI job is red (5 tests, see [docs/ENGINEERING_STATUS.md](docs/ENGINEERING_STATUS.md), KD-1).
+**Maturity (read this first):** a working integrated prototype, post-hackathon. The integrator is [REBOUND](https://github.com/hannorein/rebound) (IAS15); we did not write it. The custom collision engine (`backend/impact/`) is **scientifically provisional and has not been independently reviewed; cratering is unsupported**. Ring World ring grains, reference orbits, the main-belt sample and collision effects are **visual only** (not simulated). Tidal deformation is **not implemented**. All state lives in backend memory and is lost on restart. The 2026-10-26 preset regression (KD-1) is fixed; see [docs/ENGINEERING_STATUS.md](docs/ENGINEERING_STATUS.md).
 
 **Where to look:** [docs/ENGINEERING_STATUS.md](docs/ENGINEERING_STATUS.md) (what works, what was tested, defects, validation status), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/ROADMAP.md](docs/ROADMAP.md), [context/DECISIONS.md](context/DECISIONS.md) (decision log).
 
@@ -18,7 +18,7 @@ Node.js 20+, npm, Python 3.11+, Git.
 # Backend (from repo root)
 python -m venv .venv
 source .venv/Scripts/activate   # Windows Git Bash; PowerShell: .venv\Scripts\Activate.ps1; Linux/macOS: source .venv/bin/activate
-pip install -r backend/requirements.txt
+pip install -r backend/requirements.txt -c backend/constraints.txt   # exact tested versions
 
 # Frontend
 cd frontend && npm install
@@ -48,7 +48,7 @@ The universe starts empty: press **Add your first body** (or **Add body…** in 
 - **Orbit Lab:** "Start Experiment 01" creates the baseline (Sun + Earth-Moon barycentre), you choose a speed factor (preview first), create the modified run, advance each run with the normal controls, switch between them, and read the comparison (`context/EXPERIMENT_01_PROTOCOL.md`).
 
 ## Test
-Last full run (2026-10-26, details and failures in `docs/ENGINEERING_STATUS.md`): frontend typecheck, 583 Vitest tests, build and 16 Playwright tests pass; backend 1412 pass and 5 fail on current `main` (also red in CI) plus 3 environment-sensitive failures with older pydantic/FastAPI (the Python requirements are not version-pinned, KD-3). The backend suite takes ~13 minutes on Windows.
+Last full run (2026-10-26, details in `docs/ENGINEERING_STATUS.md`): in a fresh virtualenv built from `backend/requirements.txt` + `backend/constraints.txt` the backend suite is 1422 passed, 0 failed (7.5 min on Windows); frontend typecheck, 583 Vitest tests, build and 16 Playwright tests passed on the preceding baseline.
 ```bash
 python -m pytest                # from repo root, venv active: unit, API, stress, validation, spike, live-server smoke
 cd frontend && npm run typecheck && npm test && npm run build && npm run test:e2e   # tsc, vitest, build, Playwright browser journey

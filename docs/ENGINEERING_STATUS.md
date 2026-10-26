@@ -16,7 +16,7 @@ The detailed architecture is in [ARCHITECTURE.md](ARCHITECTURE.md), priorities i
 | Canonical branch | `main` (GitHub default branch; no branch protection or rulesets are configured, so none were bypassed) |
 | Starting point | local `main` `58f666d` (ahead 1 / behind 5 of `origin/main`) with 13 files of uncommitted work; `origin/main` `8f2dcd6` |
 | Code baseline | `origin/main` `8f2dcd6` + `58f666d` (merged, no conflicts) + two chores + the recovered tests. Documentation commits follow it; the final hash is in the session report and `git log`. |
-| CI on `main` | **Red since `4f862a1` (PR #23)**: last green run was `875f741`. Cause identified in §5, KD-1. |
+| CI on `main` | Was red since `4f862a1` (PR #23; last green `875f741`). Fixed by `b052592` + pinned dependencies; see §11 for the post-fix verification. |
 
 ### Branch inventory and disposition
 
@@ -105,7 +105,7 @@ incomplete; **Partial**; **Defect**; **Absent**; **Unknown**. "Run" = I ran the 
 
 ## 5. Known defects and risks (evidence-based)
 
-- **KD-1 (P0): main's CI is red because presets were moved to `outcome-v1` with default materials, undocumented.** `8396fbd`
+- **KD-1 (P0) — FIXED in `b052592` (2026-10-26, see D-067); original finding: main's CI was red because presets were moved to `outcome-v1` with default materials, undocumented.** `8396fbd`
   ("WIP: uncommitted changes, moved to the cloud") bundled backend changes into the UI redesign: `create_preset_universe` now builds
   `SimulationService()` (sandbox mode) and attaches a default material per body type (`backend/api_universes.py`,
   `backend/impact/materials.py:default_material`, `InitialBody.material`). It reached `main` via PR #23 without a decision record. The
@@ -114,7 +114,7 @@ incomplete; **Partial**; **Defect**; **Absent**; **Unknown**. "Run" = I ran the 
   integrator output is unchanged; what changed is which collision path presets use and the state digest. **Not fixed here**: either
   reverting those lines or updating tests/decisions is a product/science decision (see ROADMAP #1 for the two options).
 - **KD-2: preserved-but-unintegrated work** (`wip/frontend-motion-uncommitted`, `origin/animations`) exists only as branches.
-- **KD-3: dependency reproducibility.** `backend/requirements.txt` has lower bounds only (no upper bounds, no lockfile) except REBOUND
+- **KD-3: dependency reproducibility — FIXED (D-067), original finding:** `backend/requirements.txt` has lower bounds only (no upper bounds, no lockfile) except REBOUND
   (`>=5.2,<5.3`). Local vs CI pydantic/FastAPI differ and change which tests pass. `pytest` and `httpx` are listed as runtime
   requirements. Frontend has `package-lock.json` (good). CI uses Node 20; local Node 24 also works.
 - **KD-4: tests write into tracked files.** Browser specs regenerate `context/evidence/stage9-webgl/*.png`, making clean trees dirty.
@@ -173,3 +173,9 @@ KD-1 and on the motion work; the dirty `collision-implementation` worktree await
 - Local `main` equals `origin/main` (0 ahead / 0 behind); the working tree is clean. `main`'s tip is the commit that contains this section's predecessor; the exact hash is in `git log -1 origin/main`.
 - Local leftovers: branch `collision/stage-11-12` + worktree `Playing God collision-implementation` (dirty: 2 regenerated PNGs; kept, see §1); one `git stash` entry duplicating `wip/frontend-motion-uncommitted` (safe to drop once the owner confirms the branch is enough); four deregistered worktree folders next to the repo (`Playing God collision-materials`, `... ring-world`, `... solar-system-viz`, and possibly others) that Windows could not fully delete (path-length "Invalid argument"). Git no longer tracks them; their content is in commits/tags; delete the folders manually.
 - CI after the push: the Backend job is expected to remain red with the same 5 failures (KD-1) until ROADMAP #1 is done. At the time of writing the run for the consolidation commit had not finished; do not read this document as saying it is green.
+
+## 11. Follow-up: KD-1 and KD-3 fixed (2026-10-26)
+
+- **KD-1:** the backend hunks of `8396fbd` were reverse-applied (`b052592`): `create_preset_universe` again uses `LEGACY_MERGE_CONFIG`, `InitialBody.material` and the backend `default_material` table are gone. D-045 and D-060 explicitly say presets stay `legacy-merge`, un-annotated, with unchanged digests; no later decision supersedes that, and the comment added by `8396fbd` is the only statement of the opposite intent. The five tests were not edited and pass. Trajectory baselines unchanged.
+- **KD-3:** `backend/requirements.txt` now has compatible-release ranges and `backend/constraints.txt` holds the exact versions CI resolved on 2026-10-26 (fastapi 0.162.0, starlette 1.10.0, pydantic 2.14.1, uvicorn 0.54.0, httpx 0.28.1, pytest 9.1.1, rebound 5.2.2). CI installs with `-c backend/constraints.txt`.
+- **Verification:** fresh venv (`python -m venv`, `pip install -r backend/requirements.txt -c backend/constraints.txt`) resolved to exactly those versions; `python -m pytest -q -p no:cacheprovider`: **1422 passed, 0 failed** (450 s). This also cleared the three failures previously seen only with pydantic 2.7. Frontend untouched, so frontend checks were not re-run.
