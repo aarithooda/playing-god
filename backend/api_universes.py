@@ -1,15 +1,13 @@
 """Universe-scoped routes (plan section 12.2). Mutations name their universe in the path and the activation epoch in
 the query; reads take no epoch and work on any universe."""
-import dataclasses
-
 from fastapi import APIRouter, Depends, Query, Response
 
 from backend.history import MAX_PAGE_SAMPLES
 from backend.lab_models import (ActivationResult, CreateUniverseRequest, HistoryPage, SnapshotCreate, SnapshotList,
                                 SnapshotSummary, UniverseList, UniverseProvenance, UniverseState, UniverseStepResponse, UniverseSummary)
-from backend.models import Body, BodyCreate, BodyUpdate, EventList, StepRequest, default_body_type
+from backend.models import Body, BodyCreate, BodyUpdate, EventList, StepRequest
 from backend.presets.loader import PresetDataError, UnknownPresetError, load_preset
-from backend.simulation import SimulationService, default_material
+from backend.simulation import LEGACY_MERGE_CONFIG, SimulationService
 from backend.universes import StoredSnapshot, Universe, UniverseRegistry, get_registry
 from backend.errors import CodedError
 
@@ -37,11 +35,9 @@ def create_preset_universe(reg: UniverseRegistry, preset_id: str, name: str | No
         raise CodedError(f"unknown preset: {preset_id}", code="preset_not_found", status=404) from None
     except PresetDataError as exc:
         raise CodedError(f"preset {preset_id} cannot be loaded: {exc}", code="preset_invalid", status=500) from exc
-    # Presets use the sandbox mode (outcome-v1) and a default material per bodyType, so their contacts reach the outcome models.
-    engine = SimulationService()
-    bodies = [dataclasses.replace(b, material=default_material(b.bodyType or default_body_type(b.kind))) for b in preset.bodies]
+    engine = SimulationService(LEGACY_MERGE_CONFIG)  # presets stay legacy-merge until Stage 11 (D-045)
     try:
-        engine.load_bodies(bodies, history_mode=preset.history_mode, sample_interval_s=preset.sample_interval_s)
+        engine.load_bodies(preset.bodies, history_mode=preset.history_mode, sample_interval_s=preset.sample_interval_s)
     except Exception as exc:  # noqa: BLE001
         raise CodedError(f"preset {preset_id} cannot be initialised: {exc}", code="preset_invalid", status=500) from exc
     data = preset.provenance

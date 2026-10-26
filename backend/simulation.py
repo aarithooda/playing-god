@@ -55,7 +55,7 @@ from backend.impact.applier import ApplyState
 from backend.impact.contracts import CollisionEvent, ContractError, MaterialRef, RotationState
 from backend.impact.contracts import Vec3 as ContractVec3
 from backend.impact.engine import CollisionEngine
-from backend.impact.materials import default_material, moment_of_inertia_factor, resolve_material
+from backend.impact.materials import moment_of_inertia_factor, resolve_material
 from backend.impact.records import trim as trim_collision_records
 from backend.diagnostics import compute_diagnostics
 from backend.errors import CodedError, StepCancelled
@@ -129,7 +129,6 @@ class InitialBody:
     primaryId: str | None = None  # id of the body this one orbits; display/inspection metadata only
     basis: dict | None = None
     sources: tuple = ()
-    material: MaterialRef | None = None  # None: material unspecified (legacy merge for its contacts)
 
 
 @dataclass
@@ -456,9 +455,6 @@ class SimulationService:
                                    vx=b.velocityMPerS[0], vy=b.velocityMPerS[1], vz=b.velocityMPerS[2])
                 self._meta[b.id] = BodyMeta(b.name, b.colorHex, b.kind, None, b.bodyType or default_body_type(b.kind),
                                             b.assetKey, b.primaryId)
-                ref = resolve_material(b.material)
-                if ref is not None:
-                    self._materials[b.id] = ref
             select_ias15(self._sim)
             kwargs = {} if max_history_points is None else {"max_points": max_history_points}
             self._history = HistoryBuffer(history_mode, sample_interval_s, **kwargs)

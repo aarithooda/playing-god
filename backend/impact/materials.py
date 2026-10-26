@@ -95,15 +95,3 @@ def moment_of_inertia_factor(ref: Optional[MaterialRef]) -> Optional[float]:
     if ref is None:
         return None
     return REGISTRY[ref.profile_id].moment_of_inertia_factor
-
-
-# Default profile per display `bodyType` for bodies that would otherwise have no material (presets, and the frontend's
-# twin table in frontend/src/sim/defaultMaterial.ts for bodies the user creates). A coarse class choice, not a sourced
-# composition: without it every such body resolves as `material_unspecified` and every contact is the legacy merge.
-DEFAULT_PROFILE_BY_BODY_TYPE: Mapping[str, str] = MappingProxyType({
-    "star": "gas-envelope-hhe", "gas-giant": "gas-envelope-hhe", "ice-giant": "water-ice", "rocky-planet": "silicate-rock",
-    "moon": "silicate-rock", "asteroid": "rubble-silicate", "default": "silicate-rock"})
-
-
-def default_material(body_type: str) -> MaterialRef:
-    return MaterialRef(profile_id=DEFAULT_PROFILE_BY_BODY_TYPE.get(body_type, DEFAULT_PROFILE_BY_BODY_TYPE["default"]))
