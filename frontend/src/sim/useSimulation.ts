@@ -9,11 +9,22 @@
 // states: the backend can be reachable while the simulation is busy or unresponsive. Play schedules the next step only after
 // the previous one resolved (never an unbounded queue); Pause stops scheduling and lets any
 // in-flight step finish and apply.
+//
+// Smooth motion has two separate halves, each with one job:
+//  - PRODUCING states (below, the Play loop): the backend, the only authority, computes up to LOOKAHEAD_STEPS finished steps ahead
+//    and they are released to the screen at a steady tickMs cadence, so network jitter does not decide when a state is shown;
+//  - DRAWING them (`motion`, sim/motion): every released state is also fed to a MotionBuffer that interpolates BETWEEN the
+//    released states at each animation frame. The renderer never advances physics and never extrapolates past a released state.
+// `sim` is always the latest RELEASED authoritative state (the clock, inspector and diagnostics read it, never the interpolated
+// positions). A step that is not the plain continuation of the previous one (load, edit, create, delete, reset, pause-flush) is a
+// discontinuity: it flushes the buffer, and a lookahead step computed BEFORE such an edit is discarded rather than shown after it.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "../api/errors";
 import type { SimulationClient } from "../api/client";
 import { LIMITS } from "../api/types";
-import type { BodyCreateDto, BodyUpdateDto } from "../api/types";
+import type { BodyCreateDto, BodyUpdateDto, SimulationEventDto } from "../api/types";
+import { toMotionSample } from "./motion/feed";
+import { MotionBuffer } from "./motion/MotionBuffer";
 import {
   mergeEvents,
   toEventView,
@@ -120,10 +131,26 @@ export function useSimulation(client: SimulationClient, options: SimulationOptio
     return run;
   }, []);
 
-  const applySim = useCallback((view: SimulationView) => {
+  const motion = useState(() => new MotionBuffer())[0];
+  const tickMsRef = useRef(tickMs);
+  tickMsRef.current = tickMs;
+  const playingRef = useRef(false);
+  playingRef.current = playing;
+  /** Bumped by every mutation (and reset): a lookahead step fetched under an older value predates it and is never shown after it. */
+  const generation = useRef(0);
+
+  /** Applies an authoritative state. Without `step` it is a discontinuity (the buffer is flushed); with it, the continuation of the previous state. */
+  const applySim = useCallback((view: SimulationView, step?: { events: readonly SimulationEventDto[]; nextStepS: number; intervalS?: number }) => {
     for (const b of view.bodies) names.current.set(b.id, b.name);
-    if (mounted.current) setSim(view);
-  }, []);
+    if (!mounted.current) return;
+    motion.push(toMotionSample(view, step?.events), {
+      wallMs: performance.now(),
+      flush: step === undefined,
+      playing: playingRef.current,
+      ...(step ? { nextStepS: step.nextStepS, ...(step.intervalS === undefined ? {} : { intervalS: step.intervalS }) } : {}),
+    });
+    setSim(view);
+  }, [motion]);
 
   const noteFailure = useCallback((e: unknown): string => {
     const msg = messageOf(e);
@@ -145,6 +172,7 @@ export function useSimulation(client: SimulationClient, options: SimulationOptio
   /** Runs a queued mutation and converts failures to an ActionResult. */
   const act = useCallback(
     async (task: () => Promise<void>): Promise<ActionResult> => {
+      generation.current += 1; // lookahead steps already fetched predate this mutation
       pendingWrites.current += 1;
       if (mounted.current) setWritePending(true);
       onBusyRef.current?.(true);
@@ -225,7 +253,16 @@ export function useSimulation(client: SimulationClient, options: SimulationOptio
     };
   }, [client, healthPollMs]);
 
-  type FetchedStep = { view: SimulationView; events: EventView[]; merged?: boolean };
+  type FetchedStep = {
+    view: SimulationView;
+    events: EventView[];
+    /** The events as the API sent them (the motion buffer needs the body ids). */
+    rawEvents: SimulationEventDto[];
+    stepS: number;
+    /** `generation` when the request was made. */
+    gen: number;
+    merged?: boolean;
+  };
 
   /** Failure path shared by single steps and the Play loop. */
   const handleStepFailure = useCallback(async (e: unknown) => {
@@ -245,16 +282,31 @@ export function useSimulation(client: SimulationClient, options: SimulationOptio
   }, [enqueue, noteFailure, refreshState]);
 
   const fetchStep = useCallback(async (): Promise<FetchedStep> => {
-    const res = await enqueue(() => client.step(stepSecondsForExp(speedRef.current)));
-    return { view: toSimulationView(res), events: res.events.map(toEventView), merged: res.warnings?.includes('collisions_merged_fallback') === true };
+    const gen = generation.current;
+    const stepS = stepSecondsForExp(speedRef.current);
+    const res = await enqueue(() => client.step(stepS));
+    return { view: toSimulationView(res), events: res.events.map(toEventView), rawEvents: res.events, stepS, gen, merged: res.warnings?.includes('collisions_merged_fallback') === true };
   }, [client, enqueue]);
 
-  const showStep = useCallback((step: FetchedStep) => {
-    applySim(step.view);
-    if (mounted.current && step.merged) setNotice(COLLISION_FALLBACK_NOTICE);
-    if (mounted.current && step.events.length) setEvents((prev) => mergeEvents(prev, step.events));
+  /**
+   * Releases steps to the screen. `jump` shows only the last one, as a discontinuity (pause, error). A step whose `gen` is older than
+   * the current generation was computed before a mutation: its events still happened and are recorded, but its state is not
+   * shown (the mutation already put the backend's latest state on screen, and showing this one would resurrect a deleted body
+   * or undo an edit).
+   */
+  const showSteps = useCallback((steps: FetchedStep[], jump: boolean) => {
+    const fresh = steps.filter((s) => s.gen === generation.current);
+    const last = fresh[fresh.length - 1];
+    if (last) {
+      if (jump) applySim(last.view);
+      else applySim(last.view, { events: last.rawEvents, nextStepS: stepSecondsForExp(speedRef.current), intervalS: tickMsRef.current / 1000 });
+    }
+    const events = steps.flatMap((s) => s.events);
+    if (mounted.current && steps.some((s) => s.merged)) setNotice(COLLISION_FALLBACK_NOTICE);
+    if (mounted.current && events.length) setEvents((prev) => mergeEvents(prev, events));
     noteSuccess();
   }, [applySim, noteSuccess]);
+  const showStep = useCallback((step: FetchedStep) => showSteps([step], false), [showSteps]);
 
   /** One bounded backend step; "skipped" when another step is still in flight (never overlaps). */
   const doStep = useCallback(async (): Promise<"ok" | "skipped" | "failed"> => {
@@ -291,11 +343,9 @@ export function useSimulation(client: SimulationClient, options: SimulationOptio
         buffer.length = 0;
         return;
       }
-      const events = buffer.flatMap((b) => b.events);
-      const last = buffer[buffer.length - 1]!;
-      const buffer0 = buffer.slice();
+      const pending = buffer.slice();
       buffer.length = 0;
-      showStep({ view: last.view, events, merged: buffer0.some((b) => b.merged) });
+      showSteps(pending, true);
     };
     const consume = () => {
       if (cancelled) return;
@@ -338,7 +388,7 @@ export function useSimulation(client: SimulationClient, options: SimulationOptio
       if (timer) clearTimeout(timer);
       flush();
     };
-  }, [playing, fetchStep, showStep, handleStepFailure, tickMs]);
+  }, [playing, fetchStep, showStep, showSteps, handleStepFailure, tickMs]);
 
   const play = useCallback(() => setPlaying(true), []);
   const pause = useCallback(() => setPlaying(false), []);
@@ -349,6 +399,7 @@ export function useSimulation(client: SimulationClient, options: SimulationOptio
 
   const reset = useCallback(async (): Promise<ActionResult> => {
     discardLookahead.current = true;
+    generation.current += 1;
     setPlaying(false);
     return act(async () => {
       applySim(toSimulationView(await client.reset()));
@@ -397,6 +448,7 @@ export function useSimulation(client: SimulationClient, options: SimulationOptio
 
   return {
     sim,
+    motion,
     events,
     loadStatus,
     loadError,

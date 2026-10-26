@@ -85,16 +85,28 @@ Roles: `sandbox`, `preset`, `baseline`, `modified` (the baseline is immutable). 
 
 | Physical (backend, REBOUND / collision engine) | Visual only (frontend; never sent to the backend) |
 |---|---|
-| bodies, masses, radii, positions, velocities, merges and collision outcomes, history, diagnostics | Ring World ring grains (massless, shader drift, "swallowed/flung" reactions to intruders); reference orbits, outer-body markers and the 10,000-asteroid main-belt sample (D-064); collision flash/debris/surface marks; starfield and galaxy backdrop; trajectory lines drawn from recorded history; lookahead of up to 3 already-computed steps on screen |
+| bodies, masses, radii, positions, velocities, merges and collision outcomes, history, diagnostics | Ring World ring grains (massless, shader drift, "swallowed/flung" reactions to intruders); reference orbits, outer-body markers and the 10,000-asteroid main-belt sample (D-064); collision flash/debris/surface marks; starfield and galaxy backdrop; trajectory lines drawn from recorded history; per-frame interpolation between released backend states (`sim/motion/`) |
 
 Tidal deformation is **not implemented** anywhere.
 
 ## Frontend data flow
 
-`useSimulation` keeps the latest authoritative snapshot plus transient UI state. All simulation requests go through one FIFO queue
-(one in flight, responses applied in order, every request has a timeout). Play: the backend computes up to `LOOKAHEAD_STEPS = 3`
-steps ahead of what is shown and the screen consumes the finished snapshots at a steady cadence; pause/error flushes to the latest
-backend state; Reset discards the unshown lookahead. `parse.ts` validates every response strictly before it reaches components.
+`useSimulation` keeps the latest released authoritative state plus transient UI state. All simulation requests go through one FIFO
+queue (one in flight, responses applied in order, every request has a timeout). `parse.ts` validates every response strictly before it
+reaches components.
+
+**Smooth motion (D-068)** has two halves with one job each. *Producing*: while Play is on, the backend computes up to
+`LOOKAHEAD_STEPS = 3` steps ahead and the hook releases the finished states at a steady `tickMs` cadence. *Drawing*: every released
+state is fed to a `MotionBuffer` (`sim/motion/`), and a `MotionDriver` inside the canvas evaluates it once per animation frame,
+interpolating between the two released states that bracket the displayed time (Hermite for short arcs, Kepler propagation for long ones,
+satellites relative to their host). Nothing is extrapolated past a released state, no second integrator exists, and drawing never
+requests anything from the backend. `sim` (clock, inspector, diagnostics) is the latest released state, never an interpolated one.
+Invalidation: a load, edit, create, delete, reset or restore is a discontinuity and flushes the buffer; every mutation bumps a
+generation counter, so a lookahead step fetched before it is not shown after it (its events are still recorded); pause or error
+flushes to the latest backend state; bodies named by a step's collision events are not interpolated across that step; the buffer is
+bounded (`MAX_BUFFERED_STATES`). A universe switch builds a new hook instance (keyed by universe and activation epoch), hence a new buffer.
+Recorded history view bypasses the buffer. The orbit-trail smoothing on the `animations` branch is a separate, unmerged graphics
+concern (trails are drawn from recorded history).
 
 ## Key decisions (see `context/DECISIONS.md`)
 

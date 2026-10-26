@@ -482,6 +482,7 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
       {/* 3D scene: full-bleed under every panel, centred in the free area between the drawer and the inspector. */}
       <UniverseCanvas
         bodies={sceneBodies}
+        motion={viewingHistory ? undefined : simulation.motion}
         selectedBodyId={selectedBodyId}
         onSelectBody={selectBody}
         onFocusBody={focusBody}
