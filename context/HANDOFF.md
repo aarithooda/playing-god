@@ -1,4 +1,7 @@
+> **2026-10-26:** superseded as the status authority by [`docs/ENGINEERING_STATUS.md`](../docs/ENGINEERING_STATUS.md). This file is a historical log; several statements below (for example that presets stay `legacy-merge`, or that branches are unpushed) are no longer true.
+
 ## UI-4 / UI-6 handoff (2026-10-24, Codex) — latest
+
 
 ## Integration branch `integration/collision-engine` (2026-10-25, Claude Sonnet 5.5) - latest
 1. Local branch only (nothing pushed/merged): `main` `7148556` + `feature/moons-system` + `collision/stage-11-12` (the entire linear collision stack), merged without conflicts. Read `context/INTEGRATION_BRANCH.md` first: inventory, install/run, how to reproduce a collision, exact test commands and results, limitations, test plan.

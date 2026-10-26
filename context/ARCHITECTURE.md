@@ -1,4 +1,6 @@
 # Architecture
+
+> **2026-10-26:** the current overview is [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md). This file keeps the per-stage detail and rationale; sections marked [Proposed] may be stale.
 Sections are labelled **[Implemented]** or **[Proposed]**. Last rewritten 2026-10-24 (M5, after the UI integration series); extended the same day for Simulation Lab and Experiment 01.
 
 ## Repository structure [Implemented]
