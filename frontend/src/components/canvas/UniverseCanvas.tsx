@@ -11,7 +11,9 @@ import { ReferenceOrbitLayer } from './ReferenceOrbitLayer';
 import { MainBeltLayer } from './MainBeltLayer';
 import { AxesOverlay, GridOverlay } from './ViewOverlays';
 import { bodyDisplayScale } from '../../sim/bodyVisibility';
-import { DEFAULT_CAMERA_POSITION, solarSystemCameraPosition, solarSystemFraming, type RenderTransform, type ScenePosition } from '../../sim/renderTransform';
+import { DEFAULT_CAMERA_POSITION, solarSystemCameraPosition, solarSystemFraming, toScenePosition, type RenderTransform, type ScenePosition } from '../../sim/renderTransform';
+import { DisplayPositions } from '../../sim/motion/displayPositions';
+import type { MotionBuffer } from '../../sim/motion/MotionBuffer';
 import { clampPlacementDepth, rayPlaneIntersection } from '../../sim/placement';
 import { sceneShiftPx } from '../ui/layout';
 import { framingDistanceScale, nearPlaneForDistance } from '../../sim/framing';
@@ -38,6 +40,8 @@ export interface FocusRequest {
 
 interface UniverseCanvasProps {
   bodies: SceneBody[];
+  /** Authoritative states with a display clock (sim/motion). When present the bodies are drawn at their interpolated positions every frame; absent (history view) they are drawn at `bodies[].position`. */
+  motion?: MotionBuffer;
   selectedBodyId?: string;
   onSelectBody: (id: string) => void;
   onFocusBody: (id: string) => void;
@@ -114,21 +118,55 @@ const ViewportInset: React.FC<{ leftInset: number; rightInset: number }> = ({ le
   return null;
 };
 
+/**
+ * Computes, once per frame and before anything else draws, where every body is at the DISPLAYED simulation time (the motion
+ * buffer evaluated at the wall clock) and publishes it for the meshes, the camera and the name tags. Without a buffer (history
+ * view) it publishes nothing and every reader falls back to the committed positions. The only per-frame work is one pass over
+ * the bodies.
+ */
+const MotionDriver: React.FC<{ motion?: MotionBuffer; transform: RenderTransform; displayPositions: DisplayPositions }> = ({ motion, transform, displayPositions }) => {
+  useFrame(() => {
+    const frame = motion?.sample(performance.now());
+    if (!frame) {
+      displayPositions.clear();
+      return;
+    }
+    const next = new Map<string, ScenePosition>();
+    for (const [id, p] of frame.positions) next.set(id, toScenePosition({ x: p[0], y: p[1], z: p[2] }, transform));
+    displayPositions.replace(next);
+  }, -100);
+  return null;
+};
+
+/** A group that follows a body's displayed position every frame (its children are drawn relative to it). */
+const FollowBody: React.FC<{ bodyId: string; fallback: ScenePosition; displayPositions: DisplayPositions; children: React.ReactNode }> = ({ bodyId, fallback, displayPositions, children }) => {
+  const group = useRef<Group>(null);
+  // Runs after the motion driver (-100) and before the tag's own frame update (drei's Html, priority 0), so the tag is projected from
+  // THIS frame's position; the committed `fallback` prop is only what it shows until the first frame.
+  useFrame(() => {
+    const p = displayPositions.get(bodyId) ?? fallback;
+    group.current?.position.set(p[0], p[1], p[2]);
+  }, -50);
+  return <group ref={group} position={fallback}>{children}</group>;
+};
+
 /** Name tags for the bodies the user is looking at (a selected moon system), drawn as DOM next to each body. */
-const BodyLabels: React.FC<{ bodies: SceneBody[]; labeledIds: readonly string[] }> = ({ bodies, labeledIds }) => {
+const BodyLabels: React.FC<{ bodies: SceneBody[]; labeledIds: readonly string[]; displayPositions: DisplayPositions }> = ({ bodies, labeledIds, displayPositions }) => {
   if (labeledIds.length === 0) return null;
   const wanted = new Set(labeledIds);
   return (
     <>
       {bodies.filter((b) => wanted.has(b.id)).map((b) => (
-        <Html key={b.id} position={b.position} zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
-          <div
-            data-testid={`body-label-${b.id}`}
-            style={{ transform: 'translate(8px, -18px)', color: '#e6edf7', fontSize: 11, whiteSpace: 'nowrap', textShadow: '0 0 3px #000, 0 0 3px #000' }}
-          >
-            {b.name}
-          </div>
-        </Html>
+        <FollowBody key={b.id} bodyId={b.id} fallback={b.position} displayPositions={displayPositions}>
+          <Html position={[0, 0, 0]} zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
+            <div
+              data-testid={`body-label-${b.id}`}
+              style={{ transform: 'translate(8px, -18px)', color: '#e6edf7', fontSize: 11, whiteSpace: 'nowrap', textShadow: '0 0 3px #000, 0 0 3px #000' }}
+            >
+              {b.name}
+            </div>
+          </Html>
+        </FollowBody>
       ))}
     </>
   );
@@ -160,12 +198,14 @@ const CameraRig: React.FC<{
   overviewFraming?: { extentUnits: number; maxScale: number };
   focus?: FocusRequest;
   bodies: SceneBody[];
+  /** The positions drawn this frame: the camera follows these, so a followed body does not shake against its own view. */
+  displayPositions: DisplayPositions;
   onFocusRelease?: () => void;
   leftInset: number;
   rightInset: number;
   /** Ring World: the opening camera frames this body (Saturn) and its rings instead of the default overview. */
   ringWorldBodyId?: string;
-}> = ({ frameEpoch, overviewZoom, overviewPosition, overviewFraming, focus, bodies, onFocusRelease, leftInset, rightInset, ringWorldBodyId }) => {
+}> = ({ frameEpoch, overviewZoom, overviewPosition, overviewFraming, focus, bodies, displayPositions, onFocusRelease, leftInset, rightInset, ringWorldBodyId }) => {
   const camera = useThree((s) => s.camera);
   const size = useThree((s) => s.size);
   // Latest layout for the reset effect below, which must only run when the scene is refitted.
@@ -256,7 +296,7 @@ const CameraRig: React.FC<{
       release();
       return;
     }
-    const [bx, by, bz] = body.position;
+    const [bx, by, bz] = displayPositions.get(body.id) ?? body.position;
 
     if (s.animation) {
       const a = s.animation;
@@ -294,7 +334,7 @@ const CameraRig: React.FC<{
       controls.update();
     }
     s.tracking = { lastBodyPosition: [bx, by, bz], expectedTarget: [controls.target.x, controls.target.y, controls.target.z] };
-  });
+  }, -10); // after the bodies (-50) and before drei's tags (0): the camera and the tags see the same frame
 
   return null;
 };
@@ -467,6 +507,7 @@ const PlacementCursor: React.FC<{
 
 export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
   bodies,
+  motion,
   selectedBodyId,
   onSelectBody,
   onFocusBody,
@@ -495,6 +536,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
   presetId = null,
   ringWorldAnimate = false,
 }) => {
+  const displayPositions = useMemo(() => new DisplayPositions(), []);
   const axesVisible = viewControls?.state.axesVisible ?? showAxes;
   const gridEnabled = viewControls?.state.gridEnabled ?? showGrid;
   const hasStar = bodies.some((b) => b.kind === 'star');
@@ -521,6 +563,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
       }}
     >
       <color attach="background" args={['#050505']} />
+      <MotionDriver motion={motion} transform={transform} displayPositions={displayPositions} />
       {ringWorldBody ? <MilkyWayBackdrop /> : <StarfieldShell />}
       {(gridEnabled || placementMode) && <GridOverlay transform={transform} />}
       {axesVisible && <AxesOverlay transform={transform} />}
@@ -579,6 +622,8 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
           moonRoom={body.moonRoom}
           orientation={body.orientation}
           snap={body.snap}
+          bodyId={body.id}
+          displayPositions={displayPositions}
           marks={surfaceMarks.filter((m) => m.bodyId === body.id)}
           ringWorld={ringWorldBody?.id === body.id ? { animate: ringWorldAnimate } : undefined}
           isSelected={selectedBodyId === body.id}
@@ -587,7 +632,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
         />
       ))}
 
-      <BodyLabels bodies={bodies} labeledIds={labeledBodyIds} />
+      <BodyLabels bodies={bodies} labeledIds={labeledBodyIds} displayPositions={displayPositions} />
 
       <PlacementCursor
         active={placementMode}
@@ -607,6 +652,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
         overviewFraming={overviewFraming}
         focus={focus}
         bodies={bodies}
+        displayPositions={displayPositions}
         onFocusRelease={onFocusRelease}
         leftInset={leftInset}
         rightInset={rightInset}

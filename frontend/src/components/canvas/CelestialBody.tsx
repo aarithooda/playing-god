@@ -11,6 +11,7 @@ import { useCelestialMaterial } from './CelestialMaterial';
 import { RingGrains } from './RingGrains';
 import { useRingWorldPlanetMaterial } from './RingWorldPlanet';
 import type { BodyKind, BodyType } from '../../api/types';
+import type { DisplayPositions } from '../../sim/motion/displayPositions';
 
 /** Selected-body silhouette: constant on-screen width (CSS px), whatever the body's size or the zoom. */
 export const SELECTION_OUTLINE_PX = 1.5;
@@ -113,6 +114,9 @@ interface CelestialBodyProps {
   marks?: readonly SurfaceMarkInput[];
   /** Draw at each snapshot without easing. */
   snap?: boolean;
+  /** The body's id and the shared per-frame displayed positions (motion buffer). When one is present for this id it replaces the easing below. */
+  bodyId?: string;
+  displayPositions?: DisplayPositions;
   /** Ring World preset only: draw the cream gas giant and its particle rings (visual grains, not simulated bodies). */
   ringWorld?: { animate: boolean };
 }
@@ -136,6 +140,8 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
   orientation,
   marks,
   snap = false,
+  bodyId,
+  displayPositions,
   ringWorld,
 }) => {
   const root = useRef<Group>(null);
@@ -185,6 +191,13 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({
 
   useFrame((_, delta) => {
     const node = root.current;
+    const live = bodyId !== undefined ? displayPositions?.get(bodyId) : undefined;
+    if (node && live) {
+      // Smooth-motion path: this frame's position comes from the motion buffer (interpolated between authoritative states).
+      node.position.set(live[0], live[1], live[2]);
+      motion.current = null;
+      return;
+    }
     const transition = motion.current;
     if (!node || !transition || transition.duration === 0) return;
     transition.elapsed = Math.min(transition.duration, transition.elapsed + delta);

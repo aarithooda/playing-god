@@ -9,11 +9,18 @@
 // states: the backend can be reachable while the simulation is busy or unresponsive. Play schedules the next step only after
 // the previous one resolved (never an unbounded queue); Pause stops scheduling and lets any
 // in-flight step finish and apply.
+//
+// Smooth motion: every state the backend reports is also fed to `motion` (sim/motion), a buffer of authoritative states with
+// a display clock. A step response is continuous with the previous state; anything else (load, edit, create, delete, reset) is a
+// flush, so a stale past is never replayed. `sim` itself stays the latest authoritative state: the clock, the inspector and the
+// diagnostics read it, never the interpolated positions.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "../api/errors";
 import type { SimulationClient } from "../api/client";
 import { LIMITS } from "../api/types";
-import type { BodyCreateDto, BodyUpdateDto } from "../api/types";
+import type { BodyCreateDto, BodyUpdateDto, SimulationEventDto, StepResponseDto } from "../api/types";
+import { toMotionSample } from "./motion/feed";
+import { MotionBuffer } from "./motion/MotionBuffer";
 import {
   mergeEvents,
   toEventView,
@@ -53,6 +60,18 @@ export function isScopeInvalid(e: unknown): e is ApiError {
   );
 }
 
+/** Wall-clock seconds the backend allows one step (backend/simulation.py DEFAULT_STEP_TIME_LIMIT_S; PG_STEP_TIME_LIMIT_S can change it there). */
+export const STEP_BUDGET_S = 10;
+
+/** The backend refused a step because it would not finish inside its wall-clock budget (HTTP 503; nothing was advanced). */
+export function isStepBudgetExceeded(e: unknown): e is ApiError {
+  return e instanceof ApiError && e.kind === "http" && e.status === 503 && /wall-clock budget/i.test(e.message);
+}
+
+function formatStep(seconds: number): string {
+  return seconds >= 86400 ? `${(seconds / 86400).toPrecision(3)} d` : `${seconds.toPrecision(3)} s`;
+}
+
 export const MIN_SPEED_EXP = 2;
 export const MAX_SPEED_EXP = 7;
 
@@ -66,7 +85,7 @@ function messageOf(e: unknown): string {
 }
 
 export function useSimulation(client: SimulationClient, options: SimulationOptions = {}) {
-  const tickMs = options.tickMs ?? 150;
+  const tickMs = options.tickMs ?? 25;
   const healthPollMs = options.healthPollMs ?? 10_000;
 
   const [sim, setSim] = useState<SimulationView | null>(null);
@@ -77,8 +96,11 @@ export function useSimulation(client: SimulationClient, options: SimulationOptio
   const [health, setHealth] = useState<Health>("unknown");
   const [playing, setPlaying] = useState(false);
   const [stepping, setStepping] = useState(false);
+  /** Largest step (s) the backend has recently completed within its wall-clock budget; null = no limit learned yet. */
+  const stepCapRef = useRef<number | null>(null);
   const [speedExp, setSpeedExpState] = useState(options.initialSpeedExp ?? 5);
   const setSpeedExp = useCallback((exp: number) => {
+    stepCapRef.current = null; // a new choice of step size starts afresh
     setSpeedExpState(exp);
     onSpeedRef.current?.(exp);
   }, []);
@@ -111,10 +133,22 @@ export function useSimulation(client: SimulationClient, options: SimulationOptio
     return run;
   }, []);
 
-  const applySim = useCallback((view: SimulationView) => {
+  const motion = useState(() => new MotionBuffer())[0];
+  const playingRef = useRef(false);
+  playingRef.current = playing;
+
+  /** Applies an authoritative state. Without `step` it is a discontinuity (flush); with it, the continuation of the previous state. */
+  const applySim = useCallback((view: SimulationView, step?: { events: readonly SimulationEventDto[]; nextStepS: number }) => {
     for (const b of view.bodies) names.current.set(b.id, b.name);
-    if (mounted.current) setSim(view);
-  }, []);
+    if (!mounted.current) return;
+    motion.push(toMotionSample(view, step?.events), {
+      wallMs: performance.now(),
+      flush: step === undefined,
+      playing: playingRef.current,
+      ...(step ? { nextStepS: step.nextStepS } : {}),
+    });
+    setSim(view);
+  }, [motion]);
 
   const noteFailure = useCallback((e: unknown): string => {
     const msg = messageOf(e);
@@ -222,12 +256,32 @@ export function useSimulation(client: SimulationClient, options: SimulationOptio
     stepPending.current = true;
     if (mounted.current) setStepping(true);
     try {
-      const res = await enqueue(() => client.step(stepSecondsForExp(speedRef.current)));
-      applySim(toSimulationView(res));
+      // The backend gives a step about STEP_BUDGET_S of wall time and rolls it back whole when it runs over (about 1.5 s per 1e6
+      // simulated s with the moons preset, so the top of the slider cannot be met). Once the cost of a simulated second is known,
+      // a step is limited to half the budget; a step that still runs over is not retried (a stuck backend must not be hammered:
+      // D-021), Play stops as before, and the next step starts from a quarter of the size that failed.
+      const asked = stepSecondsForExp(speedRef.current);
+      // The cost is extrapolated only from steps that took long enough (>= 1 s) for the fixed cost of a request to be negligible.
+      const cost = motion.lastMeasuredIntervalS >= 1 ? motion.costPerSimulatedSecond : null;
+      const affordable = cost !== null && cost > 0 ? (STEP_BUDGET_S * 0.5) / cost : Infinity;
+      const dt = Math.max(LIMITS.minStepS, Math.min(asked, stepCapRef.current ?? Infinity, affordable));
+      const limited = affordable < Math.min(asked, stepCapRef.current ?? Infinity) * 0.999 ? `Step limited to ${formatStep(dt)} (you chose ${formatStep(asked)}): the backend needs about ${formatStep(Math.max(dt, 1) * (cost ?? 0))} of wall time for it and must answer within ${STEP_BUDGET_S} s.` : null;
+      let res: StepResponseDto;
+      try {
+        res = await enqueue(() => client.step(dt));
+      } catch (e) {
+        if (isStepBudgetExceeded(e) && dt > LIMITS.minStepS) {
+          stepCapRef.current = dt / 4;
+          throw new ApiError("http", `${e.message}. The next step will be ${formatStep(dt / 4)}.`, e.status, e.code);
+        }
+        throw e;
+      }
+      applySim(toSimulationView(res), { events: res.events, nextStepS: dt });
       if (mounted.current && res.events.length) {
         setEvents((prev) => mergeEvents(prev, res.events.map(toEventView)));
       }
       noteSuccess();
+      if (limited && mounted.current) setActionError(limited);
       return "ok";
     } catch (e) {
       noteFailure(e);
@@ -328,6 +382,7 @@ export function useSimulation(client: SimulationClient, options: SimulationOptio
 
   return {
     sim,
+    motion,
     events,
     loadStatus,
     loadError,
