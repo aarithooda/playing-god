@@ -24,3 +24,6 @@ test-results/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Playwright MCP session logs and test-regenerated evidence are local artefacts
+.playwright-mcp/
