@@ -23,7 +23,7 @@ import {
   type TrackingState,
 } from '../../sim/focusTracking';
 import type { SceneBody } from '../../sim/viewModel';
-import { isRingWorldBody, ringWorldCameraOffset, SUN_DIRECTION } from '../../sim/ringWorld';
+import { isRingWorldBody, ringWorldCameraOffset, RING_WORLD_PRESET_BODY_IDS, SUN_DIRECTION } from '../../sim/ringWorld';
 import type { ViewControlContract } from '../../sim/viewControlContract';
 import type { CollisionEffectInput, ReferenceOrbitsInput, SurfaceMarkInput, TrajectoryInput } from '../../render/contract';
 
@@ -509,6 +509,10 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
     [solarOverview, transform],
   );
   const ringWorldBody = bodies.find((b) => isRingWorldBody(presetId, b));
+  const ringIntruders = React.useMemo(
+    () => (ringWorldBody ? bodies.filter((b) => !RING_WORLD_PRESET_BODY_IDS.includes(b.id)).map((b) => ({ id: b.id, position: b.position, radius: b.radius })) : []),
+    [bodies, ringWorldBody],
+  );
   return (
     <Canvas
       camera={{ position: DEFAULT_CAMERA_POSITION, fov: 50, far: 2000 }}
@@ -580,7 +584,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
           orientation={body.orientation}
           snap={body.snap}
           marks={surfaceMarks.filter((m) => m.bodyId === body.id)}
-          ringWorld={ringWorldBody?.id === body.id ? { animate: ringWorldAnimate } : undefined}
+          ringWorld={ringWorldBody?.id === body.id ? { animate: ringWorldAnimate, intruders: ringIntruders } : undefined}
           isSelected={selectedBodyId === body.id}
           onClick={placementMode ? undefined : () => onSelectBody(body.id)}
           onDoubleClick={placementMode ? undefined : () => onFocusBody(body.id)}

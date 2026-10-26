@@ -8,6 +8,61 @@ import type { SceneBody } from "./viewModel";
 
 export const RING_WORLD_PRESET_ID = "saturn-particle-rings";
 export const RING_WORLD_ASSET_KEY = "saturn";
+/** The preset's own bodies. Anything else in a Ring World universe is an intruder that disturbs the ring grains. */
+export const RING_WORLD_PRESET_BODY_IDS: readonly string[] = ["body-saturn", "body-titan", "body-rhea", "body-iapetus", "body-dione", "body-tethys"];
+
+/** A body that is not part of the preset, as seen by the ring layer (scene units). */
+export interface RingIntruder { id: string; position: readonly [number, number, number]; radius: number }
+
+/** Grains closer than this (planet radii) to an intruder are swallowed. Never smaller than a visible speck. */
+export function intruderCaptureRadius(intruderRadius: number, unit: number): number {
+  return Math.max(0.15, 2.5 * intruderRadius / Math.max(unit, 1e-12));
+}
+/** Grains inside this distance are flung outward; the push falls off as the inverse square of distance. */
+export const INTRUDER_INFLUENCE_FACTOR = 6;
+export const INTRUDER_KICK_RADII_PER_S = 6;
+/** A grain thrown beyond these limits (planet radii) is gone for good. */
+export const GRAIN_EJECT_RADIUS = 6;
+export const GRAIN_EJECT_HEIGHT = 2;
+
+/**
+ * Disturbs ring grains in place. `ringPos` are the intruders in the un-tilted ring frame (planet radii), `capture` their
+ * capture radii. Returns whether any grain changed. Pure and deterministic, so it is unit-tested.
+ */
+export function disturbGrains(orbit: Float32Array, alive: Float32Array, time: number, intruders: readonly (readonly [number, number, number])[], capture: readonly number[], dt: number): boolean {
+  let changed = false;
+  const n = alive.length;
+  for (let i = 0; i < n; i += 1) {
+    if (alive[i] === 0) continue;
+    const o = i * 4;
+    const r = orbit[o]!;
+    const a = orbit[o + 1]! + orbit[o + 2]! * time;
+    const cx = Math.cos(a);
+    const sz = Math.sin(a);
+    const x = cx * r;
+    const z = sz * r;
+    const y = orbit[o + 3]!;
+    for (let k = 0; k < intruders.length; k += 1) {
+      const P = intruders[k]!;
+      const dx = x - P[0];
+      const dy = y - P[1];
+      const dz = z - P[2];
+      const d = Math.hypot(dx, dy, dz);
+      const cap = capture[k]!;
+      if (d < cap) { alive[i] = 0; changed = true; break; }
+      if (d < cap * INTRUDER_INFLUENCE_FACTOR && dt > 0) {
+        const push = INTRUDER_KICK_RADII_PER_S * (cap / d) ** 2 * dt;
+        const inPlane = Math.hypot(dx, dz) || 1;
+        // radial component of "away from the intruder", and a deterministic up/down sign per grain
+        orbit[o] = r + push * ((dx * cx + dz * sz) / inPlane);
+        orbit[o + 3] = y + push * 0.5 * (i % 2 === 0 ? 1 : -1) * (dy >= 0 ? 1 : -1);
+        changed = true;
+        if (orbit[o]! > GRAIN_EJECT_RADIUS || orbit[o]! < 0.9 || Math.abs(orbit[o + 3]!) > GRAIN_EJECT_HEIGHT) { alive[i] = 0; break; }
+      }
+    }
+  }
+  return changed;
+}
 
 /** Default number of grains. One instanced draw call; a few hundred thousand triangles at most. */
 export const RING_GRAIN_COUNT = 12000;

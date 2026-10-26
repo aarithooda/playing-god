@@ -64,8 +64,8 @@ export const CollisionInspector: React.FC<CollisionInspectorProps> = ({
       </div>
       {status === 'loading' && <p style={small}>Loading the record…</p>}
       {status === 'error' && (
-        <p role="alert" style={{ ...small, color: theme.danger }}>
-          {error ?? 'The record could not be loaded.'}
+        <p role="status" style={small}>
+          {error ?? 'Could not simulate this collision in detail, so the bodies were merged.'}
         </p>
       )}
       {status === 'ready' &&

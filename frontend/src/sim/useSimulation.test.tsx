@@ -129,7 +129,7 @@ describe("useSimulation: step / play / pause", () => {
     expect(result.current.stepSeconds).toBe(1e8);
   });
 
-  it("Play never overlaps requests: the next step waits for the previous response plus the tick delay", async () => {
+  it("Play never overlaps requests: the next step is requested right after the previous response (lookahead), shown at the tick cadence", async () => {
     const pending: Array<ReturnType<typeof deferred<StepResponseDto>>> = [];
     const step = vi.fn((_dt: number) => {
       const d = deferred<StepResponseDto>();
@@ -149,13 +149,13 @@ describe("useSimulation: step / play / pause", () => {
     await act(async () => {
       pending[0].resolve(stepResponse([sun, earth], 100));
     });
-    expect(result.current.sim?.simulationTimeS).toBe(100);
-    expect(step).toHaveBeenCalledTimes(1); // tick delay not elapsed yet
-    await advance(100);
-    expect(step).toHaveBeenCalledTimes(2);
+    expect(result.current.sim?.simulationTimeS).toBe(100); // the first finished step is shown immediately
+    expect(step).toHaveBeenCalledTimes(2); // the backend computes ahead; still one request in flight at a time
     await act(async () => {
       pending[1].resolve(stepResponse([sun, earth], 200));
     });
+    expect(result.current.sim?.simulationTimeS).toBe(100); // shown on the next tick, not on arrival
+    await advance(100);
     expect(result.current.sim?.simulationTimeS).toBe(200);
   });
 

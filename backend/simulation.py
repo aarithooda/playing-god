@@ -200,6 +200,9 @@ LEGACY_MERGE_CONFIG = CollisionConfig(mode="legacy-merge")
 
 
 class SimulationService:
+    # A collision-engine failure inside a step is retried once with merge-only collisions instead of failing the step.
+    FALLBACK_TO_MERGE = True
+
     def __init__(self, collision_config: CollisionConfig | None = None) -> None:
         # The mode is fixed when the engine is created (D-033). The default is the sandbox mode (outcome-v1 since 4b, D-045).
         self.collision_config = collision_config or CollisionConfig()
@@ -821,35 +824,49 @@ class SimulationService:
             self._pending = []
             self.last_detection = dict(EMPTY_DETECTION)
             t0 = self._sim.t
-            try:
-                self._timed_out = False
-                self._step_resolutions = 0
-                self._budget_hit = False
-                self._deadline = self._clock() + self.step_time_limit_s
-                self._advance(t0 + dt_s)
-                if self._deferred:
-                    self._remove_escaped()
-                self._verify_finite()
-                if guard is not None:
-                    try:
-                        guard()  # commit point: refuse (and roll back) if the universe was deactivated meanwhile
-                    except CodedError as refused:
-                        raise StepCancelled() from refused
-                if self._history.mode == "step":
-                    self._record_history()  # one sample per committed step
-            except Exception as exc:  # noqa: BLE001 - restore, then report as one failure type
-                self._restore(before)
-                self._history.rollback()
-                if isinstance(exc, StepTimeoutError):
-                    logger.warning("%s", exc)
-                    self._fail("step_timeout", str(exc))
-                    raise
-                if isinstance(exc, StepCancelled):
-                    self._fail(exc.code, exc.detail)
-                    raise
-                logger.exception("simulation step failed; state restored")
-                self._fail("step_failed", str(exc))
-                raise SimulationFailure(f"simulation step failed and was rolled back: {exc}") from exc
+            fell_back = False
+            for _attempt in (0, 1):
+                try:
+                    self._timed_out = False
+                    self._step_resolutions = 0
+                    self._budget_hit = False
+                    self._deadline = self._clock() + self.step_time_limit_s
+                    self._advance(t0 + dt_s)
+                    if self._deferred:
+                        self._remove_escaped()
+                    self._verify_finite()
+                    if guard is not None:
+                        try:
+                            guard()  # commit point: refuse (and roll back) if the universe was deactivated meanwhile
+                        except CodedError as refused:
+                            raise StepCancelled() from refused
+                    if self._history.mode == "step":
+                        self._record_history()  # one sample per committed step
+                except Exception as exc:  # noqa: BLE001 - restore, then report as one failure type
+                    self._restore(before)
+                    self._history.rollback()
+                    if isinstance(exc, StepTimeoutError):
+                        logger.warning("%s", exc)
+                        self._fail("step_timeout", str(exc))
+                        raise
+                    if isinstance(exc, StepCancelled):
+                        self._fail(exc.code, exc.detail)
+                        raise
+                    if self.FALLBACK_TO_MERGE and self._deferred and _attempt == 0 and not isinstance(exc, (StepTimeoutError, StepCancelled)):
+                        # The collision engine failed: never surface that. Redo this step from the restored state with the
+                        # plain merge resolver (every contact merges) and tell the caller through a warning.
+                        logger.exception("collision engine failed; retrying the step with merge-only collisions")
+                        self._deferred = False
+                        self._sim.collision_resolve = self._resolver.resolve
+                        fell_back = True
+                        continue
+                    if fell_back:  # the merge-only retry failed too: this was not the collision engine's fault
+                        self._deferred = True
+                        self._sim.collision_resolve = self._collision_callback()
+                    logger.exception("simulation step failed; state restored")
+                    self._fail("step_failed", str(exc))
+                    raise SimulationFailure(f"simulation step failed and was rolled back: {exc}") from exc
+                break
             events = self._pending
             self._pending = []
             self._events.extend(events)
@@ -857,6 +874,8 @@ class SimulationService:
             self._publish()
             state = self._snapshot()
             warnings = ["collision_budget_reached"] if self._budget_hit else []
+            if fell_back:
+                warnings.append("collisions_merged_fallback")
             return StepResponse(**state.model_dump(), advancedS=self._sim.t - t0, events=events, warnings=warnings)
 
     def _heartbeat(self, sim_ptr) -> None:

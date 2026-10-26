@@ -553,6 +553,12 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
             showGrid={gridVisible}
             cellMeters={gridCell(transform.metersPerUnit).cellMeters}
           />
+          {simulation.notice && (
+            <p role="status" style={{ ...panelStyle, background: theme.glass, margin: 0, padding: "6px 10px", fontSize: 12, maxWidth: 520 }}>
+              {simulation.notice}{" "}
+              <button onClick={simulation.dismissNotice} style={{ ...btnStyle, fontSize: 11, padding: "2px 8px" }}>Dismiss</button>
+            </p>
+          )}
           {simulation.actionError && (
             <p role="alert" style={{ ...panelStyle, background: theme.glass, margin: 0, padding: "6px 10px", fontSize: 12, borderColor: theme.danger, maxWidth: 520 }}>
               {simulation.actionError}{" "}
