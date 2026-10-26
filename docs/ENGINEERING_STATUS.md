@@ -166,6 +166,10 @@ Created: `docs/ENGINEERING_STATUS.md`, `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`
 Next recommended task: resolve KD-1 (ROADMAP #1), then pin Python dependencies (ROADMAP #2). Remaining blockers: owner decision on
 KD-1 and on the motion work; the dirty `collision-implementation` worktree awaits confirmation.
 
-## 10. Final remote state
+## 10. Final state check (2026-10-26, after push)
 
-Recorded below after the push (see section "Final state check" at the end of this file).
+- GitHub default branch: `main`. Remote heads: `main`, `animations` (retained: unintegrated graphics work), `wip/frontend-motion-uncommitted` (retained: preserved uncommitted work). So **three** remote branches exist: one canonical, two intentional recovery references.
+- Remote tags: `archive/animations-2026-10-24`, `archive/collision-default-materials-8cf6ad6`, `archive/ui-redesign-pr24-c07c27a`, `archive/local-main-pre-consolidation`, `archive/frontend-close-body-inspector` (pre-existing), `verified/main-plus-collision-engine-2026-10-25` (pre-existing).
+- Local `main` equals `origin/main` (0 ahead / 0 behind); the working tree is clean. `main`'s tip is the commit that contains this section's predecessor; the exact hash is in `git log -1 origin/main`.
+- Local leftovers: branch `collision/stage-11-12` + worktree `Playing God collision-implementation` (dirty: 2 regenerated PNGs; kept, see §1); one `git stash` entry duplicating `wip/frontend-motion-uncommitted` (safe to drop once the owner confirms the branch is enough); four deregistered worktree folders next to the repo (`Playing God collision-materials`, `... ring-world`, `... solar-system-viz`, and possibly others) that Windows could not fully delete (path-length "Invalid argument"). Git no longer tracks them; their content is in commits/tags; delete the folders manually.
+- CI after the push: the Backend job is expected to remain red with the same 5 failures (KD-1) until ROADMAP #1 is done. At the time of writing the run for the consolidation commit had not finished; do not read this document as saying it is green.
