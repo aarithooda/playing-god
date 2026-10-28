@@ -119,6 +119,61 @@ describe("SimulationBar", () => {
     expect(h.onPause).toHaveBeenCalledTimes(1);
   });
 
+  it("BUG 2: Pause acts when the button is PRESSED, not when it is released (the picture kept moving while the mouse button was down)", () => {
+    // Measured in a browser: with a human-length press (50-170 ms between mouse down and up) the planet kept moving until the release in
+    // 20 of 20 Pause presses, up to a third of a revolution at high speed, because Pause ran on `click`, which fires on release.
+    const h = { onPlay: vi.fn(), onPause: vi.fn() };
+    const { rerender } = render(<SimulationBar {...bar} {...h} playing />);
+    const pause = screen.getByRole("button", { name: "Pause" });
+    fireEvent.pointerDown(pause, { button: 0, pointerType: "mouse" });
+    expect(h.onPause).toHaveBeenCalledTimes(1); // at the press
+    rerender(<SimulationBar {...bar} {...h} playing={false} />); // the control now shows Play, in the same place
+    const play = screen.getByRole("button", { name: "Play" });
+    // the release and its click land on the Play control that replaced Pause: that must not start playback again
+    fireEvent.pointerUp(play, { button: 0, pointerType: "mouse" });
+    fireEvent.click(play, { detail: 1 });
+    expect(h.onPlay).not.toHaveBeenCalled();
+    expect(h.onPause).toHaveBeenCalledTimes(1);
+  });
+
+  it("after a press-pause released elsewhere (no click follows), the next real Play click plays", async () => {
+    // (jsdom drops PointerEvent's `button`, so the primary-button check cannot be exercised here; it is covered in the browser run)
+    const h = { onPlay: vi.fn(), onPause: vi.fn() };
+    const { rerender } = render(<SimulationBar {...bar} {...h} playing />);
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Pause" }), { button: 0, pointerType: "touch" });
+    expect(h.onPause).toHaveBeenCalledTimes(1);
+    rerender(<SimulationBar {...bar} {...h} playing={false} />);
+    fireEvent.pointerUp(window, { button: 0, pointerType: "touch" }); // released somewhere else: no click follows
+    await new Promise((r) => setTimeout(r, 0));
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Play" }), { button: 0, pointerType: "mouse" });
+    fireEvent.click(screen.getByRole("button", { name: "Play" }), { detail: 1 });
+    expect(h.onPlay).toHaveBeenCalledTimes(1); // a fresh press-and-click plays
+  });
+
+  it("keyboard activation of Pause (Enter / Space make a click without a pointer press) still pauses, once", () => {
+    const h = { onPause: vi.fn() };
+    render(<SimulationBar {...bar} {...h} playing />);
+    fireEvent.click(screen.getByRole("button", { name: "Pause" }), { detail: 0 });
+    expect(h.onPause).toHaveBeenCalledTimes(1);
+  });
+
+  it("Pause reports WHEN the button went down (the event's timestamp), so it can freeze what was on screen then", () => {
+    // The browser dispatches the press after the frame it was computing; that frame was not yet on screen when the button went down.
+    const h = { onPause: vi.fn() };
+    const stamps: number[] = [];
+    const note = (e: Event) => stamps.push(e.timeStamp);
+    window.addEventListener("pointerdown", note, true);
+    window.addEventListener("click", note, true);
+    const { rerender } = render(<SimulationBar {...bar} {...h} playing />);
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Pause" }), { button: 0, pointerType: "mouse" });
+    rerender(<SimulationBar {...bar} {...h} playing />);
+    fireEvent.click(screen.getByRole("button", { name: "Pause" }), { detail: 0 }); // a later keyboard activation (after the press was released)
+    window.removeEventListener("pointerdown", note, true);
+    window.removeEventListener("click", note, true);
+    expect(h.onPause.mock.calls[0]).toEqual([stamps[0]]);
+    expect(typeof stamps[0]).toBe("number");
+  });
+
   it("disables Play and Step when there is nothing to simulate", () => {
     render(<SimulationBar {...bar} canRun={false} />);
     expect((screen.getByRole("button", { name: "Play" }) as HTMLButtonElement).disabled).toBe(true);

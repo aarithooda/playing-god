@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { formatDuration } from '../../sim/format';
 import { MAX_SPEED_EXP, MIN_SPEED_EXP } from '../../sim/useSimulation';
 import { useObservedRate } from '../../sim/useObservedRate';
@@ -22,7 +22,8 @@ export interface SimulationBarProps {
   stepSeconds: number;
   onSpeedChange: (exp: number) => void;
   onPlay: () => void;
-  onPause: () => void;
+  /** `pressedAtMs`: the timestamp of the event that paused (when the button went down), so the picture freezes as it was then. */
+  onPause: (pressedAtMs?: number) => void;
   onStep: () => void;
   onReset: () => void;
   /** A recorded state is on screen: stepping and resetting are off; Play returns to live first. */
@@ -63,12 +64,40 @@ export const SimulationBar: React.FC<SimulationBarProps> = ({
   const time = simulationTimeS === null ? '—' : formatDuration(simulationTimeS);
   const exact = simulationTimeS === null ? '' : `${simulationTimeS.toExponential(3)} s`;
 
+  // Pause acts on the PRESS. A `click` fires on release, and while the mouse button was held down (tens of milliseconds for a human
+  // press) the simulation kept moving: measured in a browser, the planet moved after the press in every Pause, up to a third of a
+  // revolution at high speed. Pausing at the press swaps this control to Play in the same place, so the click that ends the press would
+  // land on Play: that one click is swallowed (it is cleared after the release whether or not a click follows). Keyboard activation
+  // (Enter / Space) produces a click without a press and still pauses through onClick. Both pass the event's timestamp: the browser runs the
+  // handler only after the frame it was drawing when the button went down, and the frame to freeze is the one on screen at that moment.
+  const swallowClick = useRef(false);
+  const pauseOnPress = (e: React.PointerEvent) => {
+    if ((e.button ?? 0) > 0) return; // the primary button only (touch and pen presses report 0 too)
+    swallowClick.current = true;
+    const release = () => {
+      window.removeEventListener('pointerup', release, true);
+      window.removeEventListener('pointercancel', release, true);
+      setTimeout(() => { swallowClick.current = false; }, 0); // after the click that this release may produce
+    };
+    window.addEventListener('pointerup', release, true);
+    window.addEventListener('pointercancel', release, true);
+    onPause(e.timeStamp);
+  };
+  const pauseOnClick = (e: React.MouseEvent) => {
+    if (swallowClick.current) return; // already paused by the press
+    onPause(e.timeStamp);
+  };
+  const playOnClick = () => {
+    if (swallowClick.current) { swallowClick.current = false; return; } // the release of the press that paused
+    onPlay();
+  };
+
   return (
     <footer className="pg-bar" aria-label="Simulation">
       <h2 className="sr-only">Simulation</h2>
       <div className="pg-bar__group">
         {playing ? (
-          <button type="button" className="pg-icon-btn pg-icon-btn--primary" data-playing="true" aria-label="Pause" title="Pause (the current step finishes first)" onClick={onPause}>
+          <button type="button" className="pg-icon-btn pg-icon-btn--primary" data-playing="true" aria-label="Pause" title="Pause (the current step finishes first)" onPointerDown={pauseOnPress} onClick={pauseOnClick}>
             <Icon name="pause" />
           </button>
         ) : (
@@ -78,7 +107,7 @@ export const SimulationBar: React.FC<SimulationBarProps> = ({
             aria-label="Play"
             title={historyView ? 'Return to live and play' : canRun ? 'Play: run backend steps back to back' : 'Add a body to run the simulation'}
             disabled={disabled || !canRun}
-            onClick={onPlay}
+            onClick={playOnClick}
           >
             <Icon name="play" />
           </button>

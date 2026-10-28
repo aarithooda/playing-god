@@ -85,16 +85,61 @@ Roles: `sandbox`, `preset`, `baseline`, `modified` (the baseline is immutable). 
 
 | Physical (backend, REBOUND / collision engine) | Visual only (frontend; never sent to the backend) |
 |---|---|
-| bodies, masses, radii, positions, velocities, merges and collision outcomes, history, diagnostics | Ring World ring grains (massless, shader drift, "swallowed/flung" reactions to intruders); reference orbits, outer-body markers and the 10,000-asteroid main-belt sample (D-064); collision flash/debris/surface marks; starfield and galaxy backdrop; trajectory lines drawn from recorded history; lookahead of up to 3 already-computed steps on screen |
+| bodies, masses, radii, positions, velocities, merges and collision outcomes, history, diagnostics | Ring World ring grains (massless, shader drift, "swallowed/flung" reactions to intruders); reference orbits, outer-body markers and the 10,000-asteroid main-belt sample (D-064); collision flash/debris/surface marks; starfield and galaxy backdrop; trajectory lines drawn from recorded history; per-frame interpolation between released backend states (`sim/motion/`) |
 
 Tidal deformation is **not implemented** anywhere.
 
 ## Frontend data flow
 
-`useSimulation` keeps the latest authoritative snapshot plus transient UI state. All simulation requests go through one FIFO queue
-(one in flight, responses applied in order, every request has a timeout). Play: the backend computes up to `LOOKAHEAD_STEPS = 3`
-steps ahead of what is shown and the screen consumes the finished snapshots at a steady cadence; pause/error flushes to the latest
-backend state; Reset discards the unshown lookahead. `parse.ts` validates every response strictly before it reaches components.
+`useSimulation` keeps the latest released authoritative state plus transient UI state. All simulation requests go through one FIFO
+queue (one in flight, responses applied in order, every request has a timeout). `parse.ts` validates every response strictly before it
+reaches components.
+
+**Smooth motion (D-068)** has two halves with one job each. *Producing*: while Play is on, the backend computes up to
+`LOOKAHEAD_STEPS = 3` steps ahead and the hook releases the finished states at a steady `tickMs` cadence. *Drawing*: every released
+state is fed to a `MotionBuffer` (`sim/motion/`), and a `MotionDriver` inside the canvas evaluates it once per animation frame,
+interpolating between the two released states that bracket the displayed time (Hermite for short arcs, Kepler propagation for long ones,
+satellites relative to their host). Nothing is extrapolated past a released state, no second integrator exists, and drawing never
+requests anything from the backend. `sim` (clock, inspector, diagnostics) is the latest released state, never an interpolated one.
+
+*Sources of truth.* **Displayed time** is owned by `MotionBuffer` (`displayTime`, anchored per push, frozen by `hold`). **The planet** is
+drawn from `MotionBuffer.sample(wall)` (the driver, priority -100); that call also records the frame's wall time (`drawWallMs`) and the
+simulation time shown (`lastShownS`). **The orbit trail** has two parts that must meet: the *recorded line*, built by React from the trail
+recorder's points (`trail.ts`, dense along the same interpolation, one piece per at most `TRAIL_PIECE_RAD`, only for bodies whose trail is
+drawn) up to a cut time (`segmentStartS`, held in React state), plus the *head*, rebuilt every frame by `trailHead` at `drawWallMs` (so
+at the planet's instant). React re-renders a few frames after the displayed segment changes, so the drawn recorded line can be stale;
+the head therefore starts at the recorded line's LAST DRAWN point (`drawnCutRef`, the cut of the last committed render) and carries the
+recorder points up to the displayed segment's start, then the interpolated path to the planet. The head's last point is the planet's
+drawn position by construction (same instant, same interpolation). The recorder records every released segment from its START for each
+drawn body that is present at both ends: a body with no trail ending at that start (not drawn when the recorder last started, e.g. created
+a moment before its trajectory existed, or just added to the drawn set) starts there, so its first segment is never left out; only a body
+new in the step or cut by a collision starts at the step's end.
+
+*Pause.* The PRESS of the Pause control freezes the picture (`SimulationBar` calls `onPause(event.timeStamp)` on `pointerdown`; the click
+that ends the press, which lands on the Play control now in the same place, is swallowed; keyboard activation still pauses through
+`onClick`). The browser runs the handler only after the frame it was drawing when the button went down, so the freeze is defined by the
+press time, not the handler time: `pause(pressedAtMs)` calls `motion.hold(now, pressedAtMs)`, which freezes the last frame whose drawing
+finished before the press (`MotionBuffer.frameDrawn` is called after every render; the last `FRAME_MEMORY` frames and the segments they show
+are kept), and takes back a Play-loop release committed after the press (the clock keeps the time on screen then). A frame finished after
+the press but before the handler is replaced on the next frame. While held, `heldFrameWallMs` is the frozen frame's draw time:
+`TrajectoryLayer` keeps the last few builds of the recorded line mounted and shows, per frame, the newest (playing) or exactly the build the
+frozen frame showed, chosen once per pause, so a rebuild while paused, or one computed just before the press, is not shown. A hold while already held (Resume pressed, no
+state yet; the loop's effect cleanup) changes nothing. `stepOnce()` also holds synchronously, and a `pausedRef` stops the loop's tick and
+fetches at once. Steps already
+computed (look-ahead) and the one in flight are still pushed into the buffer, flagged `hold`, which buffers and records their trail points
+without touching the displayed time, `sim` or the pace, and trim no trail point (outside a pause the recorder drops only points before the
+oldest segment that may still be drawn). The buffer drops only segments the displayed time has completely passed (never the one on screen),
+and at a state's exact time it stays in the segment ending there, so held states cannot change the frame or the trail's cut, however many arrive. *Resume* pushes the next state normally: the display
+starts from the frozen time (no jump, no crawl: the pause is not measured as an arrival gap) and moves at the normal pace through the held
+states (`MAX_BACKLOG_STEPS` leaves room for them; the paced speed does not race to catch up).
+
+*Invalidation.* A load, edit, create, delete, reset or restore is a discontinuity: the buffer flushes and the trail recorder restarts from
+the new state, so no point from before it is drawn (a stale cut newer than the new segment start contributes nothing); every mutation bumps
+a generation counter, so a look-ahead step fetched before it is not shown after it (its events are still recorded); bodies named by a
+step's collision events are not interpolated across that step and restart their trail; a removed body loses its trail. The buffer is
+bounded (`MAX_BUFFERED_STATES`, trimmed only behind the displayed time). A universe switch builds a new hook instance (keyed by universe
+and activation epoch), hence a new buffer and recorder. The recorded history view bypasses the buffer and the head. The orbit-trail
+smoothing on the `animations` branch is a separate, unmerged graphics concern.
 
 ## Key decisions (see `context/DECISIONS.md`)
 

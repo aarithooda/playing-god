@@ -21,7 +21,7 @@ synchronisation, regression and scientific validation, performance, preset fidel
   "run everything" script, make e2e tests not write into tracked files (KD-4).
 - **Depends on:** #1 (a green baseline to lock). **Acceptance:** a fresh clone on Windows and Linux runs the documented commands with identical results.
 
-### 3. Decide the motion model and integrate or retire the preserved work
+### 3. ~~Decide the motion model~~ DONE on branch `motion/integration` (D-068; PR open). Remaining: eyes/GPU check, then merge. `origin/animations` stays separate.
 - **Why:** `wip/frontend-motion-uncommitted` (interpolation) and `origin/animations` (graphics) hold unreviewed work that conflicts with the lookahead buffer; leaving
   them rots them.
 - **Acceptance:** a decision record; either a rebased branch with tests passing and a browser check, or the branches archived with a reason.

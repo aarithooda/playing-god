@@ -238,9 +238,11 @@ describe("Show paths", () => {
     const t = canvas().trajectories.find((x: any) => x.bodyId === earth.id);
     expect(t.key).toBe("uni-default:1:" + earth.id);
     expect(t.role).toBe("active");
-    expect(t.samples).toHaveLength(6); // five recorded samples plus the authoritative live body position
+    // Exactly the recorded history. The committed live position is NOT appended any more: it runs ahead of the interpolated drawing, so a
+    // trail ending there led the planet. In live playback the layer clips these to the displayed segment and draws the head to the drawn body.
+    expect(t.samples).toHaveLength(5);
     expect(t.samples[4].positionM).toEqual({ x: 4e9, y: 0, z: 0 });
-    expect(t.samples[5].positionM).toEqual(earth.positionM);
+    expect(t.samples.map((x: any) => x.positionM)).not.toContainEqual(earth.positionM);
     act(() => canvas().onSelectBody(earth.id));
     expect(canvas().trajectories.map((x: any) => x.bodyId)).toEqual([earth.id]);
     fireEvent.click(screen.getByRole("button", { name: "Show paths" }));
@@ -252,6 +254,6 @@ describe("Show paths", () => {
     await openTimeline();
     const before = canvas().trajectories.find((x: any) => x.bodyId === earth.id).samples.length;
     fireEvent.change(screen.getByLabelText("History position"), { target: { value: "1" } });
-    expect(canvas().trajectories.find((x: any) => x.bodyId === earth.id).samples.length).toBe(before - 1); // history view hides the live-only endpoint
+    expect(canvas().trajectories.find((x: any) => x.bodyId === earth.id).samples.length).toBe(before); // the same recorded samples, whatever the viewed position
   });
 });
