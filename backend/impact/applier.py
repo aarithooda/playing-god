@@ -19,6 +19,7 @@ Geometry of the products (all in the pair's centre-of-mass frame at the contact 
   conserved exactly and the removed normal kinetic energy is dissipated. The target remnant keeps its spin angular momentum, the
   projectile is unchanged (its erosion is not modelled, warning from the model), the target's lost mass is a parcel.
 """
+import dataclasses
 import math
 import random
 from dataclasses import dataclass
@@ -103,6 +104,8 @@ def _spin_vector(body: BodyImpactState) -> Vec:
 
 
 def _state_before(body: BodyImpactState) -> cons.State:
+    # A parcel TAKING PART in a contact is accounted for like a body: a uniform sphere of its collision radius, before and after (H3). Only a
+    # parcel CREATED by an event has no self-gravity term (creating it must not credit binding energy, see conservation.State).
     return cons.State(body.mass_kg, body.position_m.as_tuple(), body.velocity_m_per_s.as_tuple(), body.radius_m, _spin_vector(body),
                       _inertia(body) if body.spin_rad_per_s is not None else None)
 
@@ -190,6 +193,16 @@ def realise(data: CollisionInput, spec: OutcomeSpec, g: float, parcel_allowed: b
     material_t, material_p = ref_from_profile(tgt.material_profile), ref_from_profile(prj.material_profile)
     kept_profile = tgt.material_profile if (material_t == material_p) else None
     k_kept = None if kept_profile is None else kept_profile.moment_of_inertia_factor
+    parcel_target = tgt.representation == "debris-parcel"
+    if any(b.representation == "debris-parcel" for b in (tgt, prj)):
+        warnings.append("debris_parcel_contact")  # a statistical population took part as a body (H3; plan 3.10 ordinary pipeline)
+    if outcome != "hit_and_run" and material_t != material_p:
+        # D-035 composition rule, unchanged: a product of two different materials has no material (no mixing model exists). It is now
+        # stated: such products, and anything they later hit, resolve with the material-unspecified legacy merge (H2).
+        warnings.append("product_material_unspecified")
+    # the material of this event's debris parcels: the same rule as for its fragments; hit-and-run debris comes from the target alone
+    parcel_material_id = (None if tgt.material_profile is None else tgt.material_profile.id) if outcome == "hit_and_run" else (
+        None if kept_profile is None else kept_profile.id)
 
     recoil_report = 0.0
     transformed: list[BodyPost] = []
@@ -203,7 +216,7 @@ def realise(data: CollisionInput, spec: OutcomeSpec, g: float, parcel_allowed: b
 
     def parcel_post(mass: float, radius: float, pos: Vec, vel: Vec) -> ParcelPost:
         desc = DebrisDescriptor(total_mass_kg=mass, size_distribution=None, velocity_dispersion_m_per_s=0.0,
-                                material_profile_id=None if tgt.material_profile is None else tgt.material_profile.id, sample_seed=descriptor_seed)
+                                material_profile_id=parcel_material_id, sample_seed=descriptor_seed)
         return ParcelPost(id=f"debris-{seq}-0", mass_kg=mass, radius_m=radius, position_m=Vec3.of(pos), velocity_m_per_s=Vec3.of(vel),
                           debris=desc, origin_event_id=data.event_id)
 
@@ -217,9 +230,10 @@ def realise(data: CollisionInput, spec: OutcomeSpec, g: float, parcel_allowed: b
         m_g = m_t  # the target group (remnant + parcel) keeps the target's total mass
         rem1_mass = m1
         r1 = _sphere_radius(rem1_mass, rho_target)
-        i1 = None if tgt.material_profile is None or tgt.material_profile.moment_of_inertia_factor is None or not represent_spin else tgt.material_profile.moment_of_inertia_factor * rem1_mass * r1 * r1
+        i1 = None if (tgt.material_profile is None or tgt.material_profile.moment_of_inertia_factor is None or not represent_spin
+                      or parcel_target) else tgt.material_profile.moment_of_inertia_factor * rem1_mass * r1 * r1
         s_t, s_p = _spin_vector(tgt), _spin_vector(prj)
-        i2 = _inertia(prj) if represent_spin else None
+        i2 = _inertia(prj) if represent_spin and prj.representation != "debris-parcel" else None
         if not represent_spin:
             if _norm(_add(s_t, s_p)) > 0.0:
                 unmodelled = "rotation states are not represented in this fallback: the spin angular momentum is booked in the spin ledger"
@@ -292,7 +306,8 @@ def realise(data: CollisionInput, spec: OutcomeSpec, g: float, parcel_allowed: b
         else:
             have_parcel = debris > 0.0
         rem_radius = _sphere_radius(m1, rho_bulk)
-        i1 = None if (k_kept is None or not represent_spin) else k_kept * m1 * rem_radius ** 2
+        # a parcel that stays the target is still a population: no rotation state (its angular momentum is booked, reported unmodelled)
+        i1 = None if (k_kept is None or not represent_spin or parcel_target) else k_kept * m1 * rem_radius ** 2
         e_hat = _unit(u) if speed > 0.0 else n_hat
         products_after: list[cons.State] = []
         recoil = 0.0
@@ -315,7 +330,7 @@ def realise(data: CollisionInput, spec: OutcomeSpec, g: float, parcel_allowed: b
                     desc = DebrisDescriptor(
                         total_mass_kg=mass, size_distribution=frag_size_distribution(BETA, 2.0 * radius),
                         velocity_dispersion_m_per_s=(frag.EJECTION_FACTOR_RANGE[1] - frag.EJECTION_FACTOR_RANGE[0]) * v_esc,
-                        material_profile_id=None if tgt.material_profile is None else tgt.material_profile.id, sample_seed=descriptor_seed)
+                        material_profile_id=parcel_material_id, sample_seed=descriptor_seed)
                     parcels.append(ParcelPost(id=f"debris-{seq}-{index}", mass_kg=mass, radius_m=radius, position_m=Vec3.of(_add(x_c_td, pos)),
                                               velocity_m_per_s=Vec3.of(abs_vel), debris=desc, origin_event_id=data.event_id))
                     products_after.append(cons.State(mass, _add(x_c, pos), abs_vel, radius, self_bound=False))
@@ -354,7 +369,7 @@ def realise(data: CollisionInput, spec: OutcomeSpec, g: float, parcel_allowed: b
                 unmodelled = "the remnant has no sourced moment of inertia: the angular momentum is booked in the spin ledger, not in a spin state"
         keeps = outcome in SINGLE_REMNANT or outcome in KEEPS_TARGET_ID
         remnant_id = tgt.id if keeps else f"rem-{seq}-0"
-        post = BodyPost(id=remnant_id, mass_kg=m1, radius_m=rem_radius, position_m=Vec3.of(_add(x_c_td, pos1)), velocity_m_per_s=Vec3.of(vel1),
+        post = BodyPost(id=remnant_id, mass_kg=m1, representation="debris-parcel" if (keeps and parcel_target) else "body", radius_m=rem_radius, position_m=Vec3.of(_add(x_c_td, pos1)), velocity_m_per_s=Vec3.of(vel1),
                         material=None if kept_profile is None else ref_from_profile(kept_profile), rotation=_rotation_post(spin1, i1, q_td, t_td, tgt.spin_rad_per_s is not None or prj.spin_rad_per_s is not None),
                         origin_event_id=None if keeps else data.event_id)
         (transformed if keeps else created).append(post)
@@ -374,8 +389,9 @@ def realise(data: CollisionInput, spec: OutcomeSpec, g: float, parcel_allowed: b
                         fragments_kg=math.fsum(p.mass_kg for p in created if p.representation == "fragment"),
                         parcels_kg=math.fsum(p.mass_kg for p in parcels), escaped_kg=0.0, returned_to_remnant_kg=returned)
     surviving = {p.id for p in (*transformed, *created)}
-    sites, site_warnings = damage.build_sites(data, outcome, tgt.material_profile, prj.material_profile,
-                                              tgt.id in surviving, prj.id in surviving)
+    sites, site_warnings = damage.build_sites(data, outcome, tgt.material_profile, prj.material_profile,  # a parcel has no surface (H3)
+                                              tgt.id in surviving and tgt.representation != "debris-parcel",
+                                              prj.id in surviving and prj.representation != "debris-parcel")
     warnings.extend(site_warnings)
     if sites:
         fidelity["siteCraterSize"] = Fidelity.UNSUPPORTED
@@ -467,6 +483,11 @@ def apply_result(result: CollisionResult, state: ApplyState) -> None:
         p.vx, p.vy, p.vz = vel.x, vel.y, vel.z
         p.m, p.r = post.mass_kg, post.radius_m
         _set_tables(state, post)
+        product = state.products.get(post.id)
+        if product is not None and product[0] == "debris-parcel" and product[2] is not None:
+            # a parcel that keeps its identity: its population descriptor follows its mass and material (H3)
+            state.products[post.id] = (product[0], product[1], dataclasses.replace(
+                product[2], total_mass_kg=post.mass_kg, material_profile_id=None if post.material is None else post.material.profile_id))
     for pid in result.removed_body_ids:
         sim.remove(next(q.index for q in sim.particles if q.name == pid))
         state.meta.pop(pid, None)
@@ -482,6 +503,9 @@ def apply_result(result: CollisionResult, state: ApplyState) -> None:
                            z=parcel.position_m.z, vx=parcel.velocity_m_per_s.x, vy=parcel.velocity_m_per_s.y, vz=parcel.velocity_m_per_s.z)
         state.meta[parcel.id] = state.make_meta(parent_meta, parcel.id, "parcel")
         state.products[parcel.id] = ("debris-parcel", parcel.origin_event_id, parcel.debris)
+        material = _parcel_material(result, parcel)
+        if material is not None:  # H3: the parcel carries the material its descriptor names (D-035 rule, decided in `realise`)
+            state.materials[parcel.id] = material
     if state.sites is not None:
         for site in result.impact_sites:
             kept = list(state.sites.get(site.body_id, ()))
@@ -499,6 +523,18 @@ def apply_result(result: CollisionResult, state: ApplyState) -> None:
         old = spin_ledger.get(target_id, [0.0, 0.0, 0.0])
         spin_ledger[target_id] = [old[0] + booked[0], old[1] + booked[1], old[2] + booked[2]]
     state.bump_segment()
+
+
+def _parcel_material(result: CollisionResult, parcel: ParcelPost) -> Optional[MaterialRef]:
+    """The MaterialRef of a new parcel: the one of the event's product with the descriptor's profile (layer overrides kept), else the plain
+    registry profile; None when the descriptor names no material."""
+    profile_id = parcel.debris.material_profile_id
+    if profile_id is None:
+        return None
+    for post in (*result.transformed, *result.created):
+        if post.material is not None and post.material.profile_id == profile_id:
+            return post.material
+    return MaterialRef(profile_id, None)
 
 
 def _set_tables(state: ApplyState, post: BodyPost) -> None:

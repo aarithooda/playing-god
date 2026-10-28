@@ -540,3 +540,58 @@ Entry format: Date · Decision · Context/reason · Alternatives · Consequences
   5. *Pause on press.* After item 2 the picture froze exactly when the Pause handler ran, but the handler ran on `click`, i.e. on the RELEASE of the mouse button: with human-length presses (50-170 ms) the rendered planet kept moving after the press in 20 of 20 presses (measured on the rendered three.js objects after each render). Pause now acts on `pointerdown`; the click ending the press (which lands on the Play control that replaces Pause) is swallowed; keyboard activation still pauses on click: 0 of 90 presses moved afterwards.
   6. *Pause at the physical press (2026-10-28).* Item 5 was still measured from when the handler ran. Measured in headed Chrome with the GPU against the press's hardware timestamp (`event.timeStamp`) at the maximum speed: the browser dispatched the press 1-45 ms after it, behind the frame it was computing, and that frame (not on screen at the press) was the one frozen: the planet ended one frame further on than the user saw (7 of 12 presses, 1-6 orbits); a step released by the play-loop timer in that window moved the clock after the handler; the held look-ahead steps made the trail recorder drop the oldest points (the drawn ones), and the trail was redrawn 25-180 ms after the handler; a display stalled at the newest state moved its trail cut when a held state arrived; a recorded-line rebuild computed just before the press reached the screen after it. Fixed at the source of each: `SimulationBar` passes the event's timestamp; `MotionBuffer.hold(now, pressedAtMs)` freezes the last frame whose drawing FINISHED before the press (`frameDrawn`, called after each render; the last `FRAME_MEMORY` frames and their segments are kept), exposes `heldFrameWallMs`, and a hold while already held changes nothing; `pause()` takes back a release committed after the press (only Play-loop releases); a held push records trail points without trimming, and trimming never drops points the display may still draw; at a state's exact time the buffer stays in the segment ending there; `TrajectoryLayer` keeps the last few builds of the recorded line mounted and picks, per frame, the newest one (playing) or exactly the build the frozen frame showed, chosen once per pause (paused). Verified by pixel comparison of every frame drawn in the 2.5 s after the handler with the frame on screen at the press (starfield twinkle, a display-only clock effect, stopped for the measurement): 0 differing frames in 216 presses (normal speed 20, maximum 40, maximum at 4x CPU throttle 16, rapid Pause/Resume with 0-600 ms late step responses 140). Unavoidable: a frame the browser finished drawing after the press but before the handler can run is shown for one frame (up to ~100 ms on a loaded page) before the frozen frame replaces it.
   Source of truth for display time: `MotionBuffer` (see `docs/ARCHITECTURE.md`). Remaining: not seen on a GPU or by eye; a newly selected body's trail is dense only from the next release on (the older part is the recorded history).
+
+## D-069 — Collision-engine repair phase after the 2026-10-28 audit (preserved on a checkpoint branch, not merged)
+- Date: 2026-10-28. Author: Claude Opus 5.5, owner-requested repair session working from the audit in the same session. Not
+  independently reviewed. Preserved on branch `checkpoint/collision-engine-repair-2026-10-28` (from `main` `df7c435`), NOT merged into
+  `main`. Collision-engine development is PAUSED here by the owner: the items below are a documented milestone, not a completed or
+  scientifically validated engine (see `docs/ENGINEERING_STATUS.md` §14).
+- **H1 repaired.** The merge-only retry of D-065 / `c779415` left `_deferred = False` after a successful retry, so one failure turned a
+  universe into a plain merger for good (also after reset) while `collision_config.mode` still said `outcome-v1`; and ANY step exception
+  was retried as a collision failure. Now only an exception raised by contact detection/resolution (`_resolve_contacts`) is retried,
+  the retry lasts one step, and the configured mode is restored afterwards. `tests/test_stall_resilience.py::
+  test_a_valid_step_succeeds_after_a_transient_failure` had encoded the misclassification (a non-collision `_advance` failure expected to
+  produce `collisions_merged_fallback`); it now expects the rollback in both modes. Tests: `tests/impact/test_engine_failure_policy.py`.
+- **H2 — OWNER DECISION (2026-10-28): keep D-035, no mixing model.** A product keeps a material only when both colliding bodies have
+  the same material reference; otherwise it has none (and therefore no rotation state: its angular momentum is booked and reported
+  unmodelled). This is INTENTIONAL POLICY, not a pending repair; a mixing/composition model (plan 3.9 "layered stripping") remains
+  unimplemented SCIENTIFIC functionality. The loss is never silent: `product_material_unspecified` is on the `collision` event and its
+  record for every outcome-v1 path that loses it (remnant, fragments, parcels; the parcel descriptor's `materialProfileId` is null too),
+  and on the STEP response when a legacy `merger` of two different materials loses it (mode `legacy-merge`, e.g. a user adds bodies
+  with materials to a preset, and the H1 merge-only retry), because the `merger` event itself stays byte-exact (D-033). Hit-and-run
+  loses nothing (each remnant keeps its own material; the debris is the target's). A later contact of a material-less product is the
+  `material_unspecified` legacy merge, as D-033 DQ-2 requires. Consequence, stated: a system of mixed materials drops out of the outcome
+  models after its first mixed impact. Tests: `tests/impact/test_product_materials.py`.
+- **H3 repaired.** Parcels now carry a material under the same rule (their descriptor's `materialProfileId` follows it too: before it
+  named the target's profile even for mixed events); the impact state records each body's representation; two parcels aggregate into
+  one parcel (plan 3.9 explicit rule; descriptor mass follows the parcel, no rotation state, no impact site); a parcel-body contact goes
+  through the ordinary pipeline (plan 3.10) with `debris_parcel_contact`; a parcel taking part in a contact is accounted for like a
+  body in the energy partition (uniform sphere of its collision radius, before and after: approximation; excluding it made merges into a
+  parcel appear to create energy and fail validation), and it never gets a rotation state. Effect: debris falling back on its same-material parent no longer strips the
+  parent's material and spin. **Open:** whether rigid-body models (LS12, cratering) should apply to a statistical parcel at all; the
+  plan routes it through the ordinary pipeline, and the warning says so. Tests: `tests/impact/test_product_materials.py`.
+- **H4 — OWNER DECISION (2026-10-28): D-036 stands; NOT repaired, outstanding defect.** The legacy resolver still merges
+  non-touching bodies when one detection pass reports three or more contacts (pinned by
+  `test_legacy_resolver_merges_bodies_that_do_not_touch_in_a_ring_of_six`, golden values unchanged). It affects presets, Orbit Lab, any
+  `legacy-merge` universe and the one-step merge-only retry of H1. `backend/collisions.py` is unchanged by D-069; the retry is pinned to
+  give exactly the legacy-mode result and to restore the configured mode (`tests/impact/test_engine_failure_policy.py`).
+- **M1 repaired.** The create-body form inferred a material from the display `bodyType` (stars as `gas-envelope-hhe`, ice giants as solid
+  `water-ice`), against D-033 DQ-2 (a) and D-029. The default is now "Not specified" and sends no material; an explicit choice is sent as
+  chosen. Test: `frontend/src/components/ui/createBodyMaterial.test.tsx`.
+- **M3 repaired.** Degraded detection is in the step response (warning `collision_detection_degraded`, `detection` summary; absent
+  otherwise), in both modes; the rest of a chunk after a resolution is judged (diagnostic only, integration unchanged). Frontend parses
+  it; no UI notice is shown yet. Tests: `tests/impact/test_detection_visibility.py`, `frontend/src/api/parse.test.ts`.
+- **M2 — OWNER DECISION (2026-10-28): deferred; renderer and motion buffer unchanged (CP-3 / D-053).** Confirmed discrepancy:
+  `MotionBuffer` (D-068) draws bodies at a displayed time about one step interval BEHIND the newest state by design, while
+  `useCollisionEffects` (`UniverseWorkspace.tsx`) is fed the newest state's time (`sim.simulationTimeS`) and positions. User-visible while
+  playing: the flash and cloud start about one step before the drawn bodies touch; debris samples are drawn around each parcel's
+  newest position, ahead of the parcel's own sphere; the cloud is centred on the fixed contact point and grows with that time without
+  an end; on pause the bodies freeze at the last drawn frame and the effects at the newest state, so they stay apart. History view
+  (no buffer) is consistent. Not fixable without the decision: `CollisionEffectInput` carries points and a cloud/flash state already
+  evaluated at one time, so the layer cannot re-evaluate them per frame. Smallest future change (needs a CP-3 boundary amendment):
+  give `CollisionEffectInput` the event time, the cloud's initial radius and speed, the flash lifetime and per-parcel sample offsets
+  with parcel ids (all already in the `VisualEventDescription`), and let `CollisionEffectsLayer` evaluate them in `useFrame` at the
+  buffer's displayed time with the canvas's `DisplayPositions` (no new time source, no new canvas prop; `canvasBoundary.test.ts`
+  pins the contract type, so the amendment is visible). Decision needed: approve that input-shape change (or another) under CP-3.
+- Scientific gaps unchanged and NOT addressed (no sourced model or constants): cratering/ejecta, propagation, iron/ice LS12 targets,
+  projectile erosion, fragment rotation/composition, cross-platform replay tolerance, CP-SCI-1/CP-5. Science remains PROVISIONAL (D-059).

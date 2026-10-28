@@ -166,10 +166,8 @@ def test_a_valid_step_succeeds_after_a_transient_failure(svc, monkeypatch):
         real(target)
 
     monkeypatch.setattr(svc, "_advance", flaky)
-    if svc._deferred:  # a collision-engine failure is retried once with merge-only collisions and reported as a warning
-        r = svc.step(10.0)
-        assert "collisions_merged_fallback" in r.warnings
-        return
+    # This failure is not a collision-engine failure, so it is never retried as merge-only in either mode (H1, 2026-10-28; the
+    # merge-only retry of a real collision-engine failure is tested in tests/impact/test_engine_failure_policy.py).
     with pytest.raises(Exception):
         svc.step(10.0)
     assert svc.snapshot().simulationTimeS == 0.0

@@ -60,7 +60,7 @@ from backend.impact.records import trim as trim_collision_records
 from backend.diagnostics import compute_diagnostics
 from backend.errors import CodedError, StepCancelled
 from backend.history import HistoryBuffer
-from backend.models import (MAX_BODIES, Body, BodyCreate, BodyUpdate, CollisionEventOut, DebrisSpec, Event, MaterialSpec,
+from backend.models import (MAX_BODIES, Body, BodyCreate, BodyUpdate, CollisionEventOut, DebrisSpec, DetectionSummary, Event, MaterialSpec,
                             OrientationSpec, Position3, SimulationState, StepResponse, Vec3, check_kind_body_type, default_body_type)
 
 logger = logging.getLogger(__name__)
@@ -239,6 +239,8 @@ class SimulationService:
         self._sites: dict[str, tuple] = {}  # body id -> body-local ImpactSites (Stage 6); absent = no recorded impact
         self._escaped: dict = {}  # escaped-material ledger (Stage 7): massKg, momentum, angularMomentum, bodies [(id, massKg)]
         self._step_resolutions = 0  # collision resolutions of the current step (DQ-10)
+        self._collision_engine_failed = False  # set when contact detection/resolution raised during the current step attempt (H1)
+        self._step_material_dropped = False  # a legacy merger of two different materials happened in the current step attempt (H2)
         self._budget_hit = False
         self._chunk_satisfied = True  # did the internal steps of the chunk just integrated respect the curvature criterion?
         self._chunk_max_dt = 0.0  # longest internal IAS15 step of the chunk being integrated (heartbeat)
@@ -822,6 +824,8 @@ class SimulationService:
             t0 = self._sim.t
             fell_back = False
             for _attempt in (0, 1):
+                self._collision_engine_failed = False
+                self._step_material_dropped = False
                 try:
                     self._timed_out = False
                     self._step_resolutions = 0
@@ -848,9 +852,10 @@ class SimulationService:
                     if isinstance(exc, StepCancelled):
                         self._fail(exc.code, exc.detail)
                         raise
-                    if self.FALLBACK_TO_MERGE and self._deferred and _attempt == 0 and not isinstance(exc, (StepTimeoutError, StepCancelled)):
-                        # The collision engine failed: never surface that. Redo this step from the restored state with the
-                        # plain merge resolver (every contact merges) and tell the caller through a warning.
+                    if self.FALLBACK_TO_MERGE and self._deferred and _attempt == 0 and self._collision_engine_failed:
+                        # The collision engine failed: never surface that. Redo THIS step from the restored state with the
+                        # plain merge resolver (every contact merges) and tell the caller through a warning. The configured
+                        # mode is restored when the step ends (H1): the retry never outlives the step it repairs.
                         logger.exception("collision engine failed; retrying the step with merge-only collisions")
                         self._deferred = False
                         self._sim.collision_resolve = self._resolver.resolve
@@ -863,6 +868,9 @@ class SimulationService:
                     self._fail("step_failed", str(exc))
                     raise SimulationFailure(f"simulation step failed and was rolled back: {exc}") from exc
                 break
+            if fell_back:  # the merge-only retry succeeded: later steps resolve contacts in the configured mode again (H1)
+                self._deferred = True
+                self._sim.collision_resolve = self._collision_callback()
             events = self._pending
             self._pending = []
             self._events.extend(events)
@@ -872,7 +880,13 @@ class SimulationService:
             warnings = ["collision_budget_reached"] if self._budget_hit else []
             if fell_back:
                 warnings.append("collisions_merged_fallback")
-            return StepResponse(**state.model_dump(), advancedS=self._sim.t - t0, events=events, warnings=warnings)
+            if self._step_material_dropped:
+                warnings.append("product_material_unspecified")
+            detection = None
+            if self.last_detection["degradedChunks"] > 0:  # M3: a possible missed contact is reported, never silent
+                warnings.append("collision_detection_degraded")
+                detection = DetectionSummary(**self.last_detection)
+            return StepResponse(**state.model_dump(), advancedS=self._sim.t - t0, events=events, warnings=warnings, detection=detection)
 
     def _heartbeat(self, sim_ptr) -> None:
         """REBOUND calls this after every internal step. Past the deadline it stops `integrate`, which is the only
@@ -964,21 +978,26 @@ class SimulationService:
         sim = self._sim
         passes = 0
         while True:
-            if self._recorder.errors:
-                raise RuntimeError("contact detection failed:\n" + self._recorder.errors[-1])
-            pending = self._recorder.take()
-            if not pending:
-                return
-            passes += 1
-            if passes > MAX_BODIES + 8:
-                raise RuntimeError("collision resolution did not converge")
-            report = self._collision_engine.resolve_batch(
-                sim, pending, ledger=self._resolver, on_merge=self._record_merge, event_seq=lambda: self._event_seq,
-                chunk_criterion_satisfied=self._chunk_satisfied,
-                extras=lambda body_id: (self._materials.get(body_id), self._rotations.get(body_id)),
-                emit_collision=self._emit_collision, apply_state=self._apply_state,
-                parcel_count=lambda: sum(1 for v in self._products.values() if v[0] == "debris-parcel"),
-                lineage=self._event_lineage)
+            try:
+                if self._recorder.errors:
+                    raise RuntimeError("contact detection failed:\n" + self._recorder.errors[-1])
+                pending = self._recorder.take()
+                if not pending:
+                    return
+                passes += 1
+                if passes > MAX_BODIES + 8:
+                    raise RuntimeError("collision resolution did not converge")
+                report = self._collision_engine.resolve_batch(
+                    sim, pending, ledger=self._resolver, on_merge=self._record_merge, event_seq=lambda: self._event_seq,
+                    chunk_criterion_satisfied=self._chunk_satisfied,
+                    extras=lambda body_id: (self._materials.get(body_id), self._rotations.get(body_id)),
+                    emit_collision=self._emit_collision, apply_state=self._apply_state,
+                    parcel_count=lambda: sum(1 for v in self._products.values() if v[0] == "debris-parcel"),
+                    lineage=self._event_lineage, representation=lambda body_id: self._products.get(body_id, ("body",))[0])
+            except Exception:
+                # H1: only a failure of contact detection/resolution may be retried with merge-only collisions (step())
+                self._collision_engine_failed = True
+                raise
             self._collision_records.extend(report.records)
             trim_collision_records(self._collision_records)
             self._step_resolutions += report.resolved
@@ -987,8 +1006,13 @@ class SimulationService:
                 return
             if sim.N < 2 or sim.t >= nxt:
                 return
+            # M3: the rest of this chunk is integrated after a structural change; judge its internal steps against the curvature limit
+            # of the changed system (diagnostic only: the integration itself is unchanged)
+            limit, start = self._chunk_limit(), sim.t
+            self._chunk_max_dt = 0.0
             sim.integrate(nxt)
             self._check_deadline()
+            self._note_chunk(limit, sim.t - start)
 
     def _emit_collision(self, event: CollisionEvent) -> None:
         """Called by the engine while the step lock is held: number and queue a `collision` event (ids share the counter with `evt-`)."""
@@ -1113,6 +1137,10 @@ class SimulationService:
         kept, gone = self._materials.pop(survivor_id, None), self._materials.pop(absorbed_id, None)
         if kept is not None and kept == gone:
             self._materials[survivor_id] = kept
+        elif kept is not None and gone is not None:
+            # D-035 applied to two DIFFERENT materials: the remnant has none. The `merger` event stays byte-exact (D-033), so the loss is
+            # reported on the step (warning `product_material_unspecified`, D-069 H2 decision)
+            self._step_material_dropped = True
 
     # ---------- transactional capture / restore ----------
     def _capture(self) -> dict:

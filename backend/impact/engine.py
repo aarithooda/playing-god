@@ -71,11 +71,13 @@ class CollisionEngine:
                       event_seq: Callable[[], int], chunk_criterion_satisfied: bool, extras: "BodyExtras | None" = None,
                       emit_collision: "Callable[[CollisionEvent], None] | None" = None,
                       apply_state: "Callable[[], ApplyState] | None" = None, parcel_count: "Callable[[], int] | None" = None,
-                      lineage: "Callable[[str], Optional[tuple[str, int]]] | None" = None) -> BatchReport:
+                      lineage: "Callable[[str], Optional[tuple[str, int]]] | None" = None,
+                      representation: "Callable[[str], str] | None" = None) -> BatchReport:
         """Resolve one detection pass. `ledger` holds `heat_J` and `spin` (the booked-energy and booked-spin ledgers); `on_merge(fields)`
         creates the legacy `merger` event; `emit_collision(event)` creates a `collision` event (and advances the event counter);
         `apply_state()` gives the tables the applier may change; `event_seq()` returns the engine's event counter;
-        `lineage(event_id)` gives (root event id, generation) of an earlier event (None = unknown/trimmed: treated as generation 0)."""
+        `lineage(event_id)` gives (root event id, generation) of an earlier event (None = unknown/trimmed: treated as generation 0);
+        `representation(body_id)` gives a body's representation (H3: debris parcels are populations)."""
         report = BatchReport()
         live = {p.name: p for p in sim.particles}
         ordered = []
@@ -110,7 +112,8 @@ class CollisionEngine:
             if c.first_id in changed or c.second_id in changed:
                 contact = None  # integrated before an earlier pair changed this body: stale, so the linear rewind is used (labelled)
             impact, geometry_warnings = capture_impact(first, second, c.time_s, c.dt_last_done, others,
-                                                       chunk_criterion_satisfied, contact_time_estimate, self.g, extras, contact)
+                                                       chunk_criterion_satisfied, contact_time_estimate, self.g, extras, contact,
+                                                       representation)
             if impact.contact_state_method == "linear_rewind" and impact.contact_time_estimated:
                 geometry_warnings.append("contact_state_linear_rewind")  # integrated refinement unavailable: velocities are those at detection
             seq = event_seq() + 1

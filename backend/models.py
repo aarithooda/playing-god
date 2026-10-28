@@ -1,5 +1,5 @@
 """Pydantic models for the API contract (see context/API_CONTRACT.md). SI units throughout."""
-from typing import Annotated, Literal, Union
+from typing import Annotated, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_serializer, model_validator
 
@@ -322,16 +322,32 @@ class Event(BaseModel):
 AnyEvent = Annotated[Union[Event, CollisionEventOut], Field(discriminator="type")]
 
 
+class DetectionSummary(BaseModel):
+    """How reliable collision detection was during one step (plan 3.4; repair M3). `degradedChunks` counts chunks whose INTERNAL
+    integrator steps exceeded the curvature criterion `line` detection relies on (a contact may have been missed in them);
+    `worstCurvatureRatio` is the worst achieved (step / limit)^2; `chunksAboveLimit` counts chunks the per-step chunk floor made longer
+    than the limit, whatever the internal steps did."""
+    degradedChunks: int
+    worstCurvatureRatio: float
+    chunksAboveLimit: int
+
+
 class StepResponse(SimulationState):
     advancedS: float  # simulation time actually advanced (== dtS up to rounding, unless `collision_budget_reached` is in `warnings`, DQ-10)
     events: list[AnyEvent]  # events that occurred during this step only
-    warnings: list[str] = []  # present only when non-empty: "collision_budget_reached" = the step ended early, advancedS < dtS
+    # present only when non-empty: "collision_budget_reached" = the step ended early, advancedS < dtS; "collisions_merged_fallback" = a
+    # collision-engine failure was repaired by merging (this step only); "collision_detection_degraded" = see `detection`;
+    # "product_material_unspecified" = a legacy merger of two different materials left its remnant without one (D-035, D-069)
+    warnings: list[str] = []
+    detection: Optional[DetectionSummary] = None  # present only when detection was degraded during the step (M3)
 
     @model_serializer(mode="wrap")
     def _omit_empty_warnings(self, handler):
         data = handler(self)
         if not data.get("warnings"):
             data.pop("warnings", None)
+        if data.get("detection") is None:
+            data.pop("detection", None)
         return data
 
 

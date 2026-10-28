@@ -156,6 +156,15 @@ describe("state and step responses with diagnostics", () => {
     expect(r.diagnostics).toEqual(diagnostics);
   });
 
+  it("parseStepResponse keeps the degraded-detection summary and leaves it absent otherwise (M3)", () => {
+    const detection = { degradedChunks: 2, worstCurvatureRatio: 3.5, chunksAboveLimit: 4 };
+    const r = parseStepResponse({ ...stepResponse([sun], 100), warnings: ["collision_detection_degraded"], detection });
+    expect(r.detection).toEqual(detection);
+    expect(r.warnings).toEqual(["collision_detection_degraded"]);
+    expect(parseStepResponse(stepResponse([sun], 100))).not.toHaveProperty("detection");
+    rejects(() => parseStepResponse({ ...stepResponse([sun], 100), detection: { ...detection, degradedChunks: "2" } }), "step.detection.degradedChunks");
+  });
+
   it("a response without diagnostics still parses, with diagnostics null and a reason (never a default)", () => {
     const { diagnostics: _d, diagnosticsIssue: _i, ...legacy } = state([sun]);
     const s = parseStateDto(legacy);

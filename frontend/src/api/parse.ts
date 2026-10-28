@@ -501,11 +501,21 @@ export function parseStepResponse(v: unknown): StepResponseDto {
     if (!Array.isArray(o.warnings)) bad("step.warnings");
     warnings = (o.warnings as unknown[]).map((w) => str(w, "step.warnings[]"));
   }
+  let detection: StepResponseDto["detection"];
+  if (o.detection !== undefined && o.detection !== null) {
+    const d = obj(o.detection, "step.detection");
+    detection = {
+      degradedChunks: num(d.degradedChunks, "step.detection.degradedChunks"),
+      worstCurvatureRatio: num(d.worstCurvatureRatio, "step.detection.worstCurvatureRatio"),
+      chunksAboveLimit: num(d.chunksAboveLimit, "step.detection.chunksAboveLimit"),
+    };
+  }
   return {
     ...state,
     advancedS: num(o.advancedS, "step.advancedS"),
     events: (o.events as unknown[]).map(parseEventDto),
     ...(warnings && warnings.length ? { warnings } : {}),
+    ...(detection ? { detection } : {}),
   };
 }
 

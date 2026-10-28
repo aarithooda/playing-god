@@ -112,10 +112,13 @@ def environment(pair: tuple[PairBody, PairBody], others: Sequence[PairBody], g: 
 
 def capture_impact(first: PairBody, second: PairBody, t_detect: float, dt_last_done: float, others: Sequence[PairBody],
                    chunk_criterion_satisfied: bool, contact_time: ContactTimeFn, g: float,
-                   extras: Optional[BodyExtras] = None, contact_state: Optional[ContactState] = None) -> tuple[ImpactState, list[str]]:
+                   extras: Optional[BodyExtras] = None, contact_state: Optional[ContactState] = None,
+                   representation_of: Optional[Callable[[str], str]] = None) -> tuple[ImpactState, list[str]]:
     """Freeze the pair `first`/`second` (states at the detection time) into an `ImpactState`. Returns it with the
     warnings raised while computing it. Raises ValueError for a non-physical pair (non-positive mass or radius).
-    `contact_state`: the integrated state at contact (module docstring); None uses the linear rewind."""
+    `contact_state`: the integrated state at contact (module docstring); None uses the linear rewind. `representation_of(id)` gives a
+    body's representation ("body" | "fragment" | "debris-parcel"; H3): a debris parcel is a statistical population, which the models and
+    the accounting must know."""
     tgt, prj = assign_roles(first, second)
     contact_dist = tgt.radius + prj.radius
     warnings: list[str] = []
@@ -178,6 +181,7 @@ def capture_impact(first: PairBody, second: PairBody, t_detect: float, dt_last_d
     def state(body: PairBody, position: Vec, velocity: Vec, ref: Optional[MaterialRef], rotation: Optional[RotationState]) -> BodyImpactState:
         return BodyImpactState(
             id=body.id, mass_kg=body.mass, radius_m=body.radius, position_m=Vec3.of(position), velocity_m_per_s=Vec3.of(velocity),
+            representation="body" if representation_of is None else representation_of(body.id),
             spin_rad_per_s=None if rotation is None else rotation.omega_rad_per_s,
             orientation=None if rotation is None else Orientation(rot.orientation_at(rotation, t_contact), t_contact),
             material_profile=resolved_profile(ref))

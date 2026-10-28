@@ -5,7 +5,7 @@ running commands in this session; where something was **not** run or **not** ver
 `context/STATUS.md`, `context/HANDOFF.md` and `context/INTEGRATION_BRANCH.md` are historical logs: where they disagree with this file,
 this file wins (it is newer and was checked against the code).
 
-The detailed architecture is in [ARCHITECTURE.md](ARCHITECTURE.md), priorities in [ROADMAP.md](ROADMAP.md), decisions (D-001 .. D-066) in
+The detailed architecture is in [ARCHITECTURE.md](ARCHITECTURE.md), priorities in [ROADMAP.md](ROADMAP.md), decisions (D-001 .. D-069) in
 [`context/DECISIONS.md`](../context/DECISIONS.md) (kept there; it is the canonical decision history, not duplicated under `docs/`).
 
 ## 1. Repository state
@@ -86,7 +86,7 @@ incomplete; **Partial**; **Defect**; **Absent**; **Unknown**. "Run" = I ran the 
 | Multi-universe registry, activation epoch, snapshots, history | `universes.py`, `history.py`, `api_universes.py` | **Verified** (automated); persistence **Absent** | `test_universe_registry`, `test_snapshots`, `test_history`, `test_api_universes` pass | State lost on restart; max 8 universes, 10 snapshots each; history capped (200k positions). Bit-identical restore holds within one process only. |
 | Legacy merge collisions | `collisions.py` | **Verified** (automated) | tests pass | Conserves mass/momentum only; energy not conserved. Single merged body, no fragments. |
 | Outcome-v1 collision engine (detection, contact refinement, selector, outcome models in `impact/models/`, fragments, conservation, spin, materials, replay, serialisation) | `backend/impact/` | **Partial / Impl-unverified** | ~all `tests/impact/` pass except KD-1/KD-3 items; real-backend e2e passed one scenario | Scientific content **provisional** (D-038, D-059): owner-accepted, **not** independently reviewed; CP-SCI-1/CP-5 unsigned. **Cratering is Unsupported** for every shipped profile (crater size/depth = 0, `applier.py:381`). Most material quantities are unsourced except 8 cited moment-of-inertia annotations (D-060). Replay is same-platform only. Convergence studies for grazing, near-miss, high-speed and multi-body cases not done (D-063). |
-| Collision mode per universe (preset vs sandbox default) | `api_universes.py`, `impact/config.py` | **Defect** | 5 failing tests (KD-1) | Presets silently moved to `outcome-v1`; docs/comments/tests still say `legacy-merge`. |
+| Collision mode per universe (preset vs sandbox default) | `api_universes.py`, `impact/config.py` | **Verified** (automated) since `b052592` (KD-1 fixed, D-067) | `tests/impact/test_mode_defaults.py` | Presets and Orbit Lab `legacy-merge`; sandboxes `outcome-v1`. A merge-only retry after an engine failure lasts one step (D-069, H1). |
 | Collision effects / surface marks / inspector (frontend) | `frontend/src/components/canvas/CollisionEffectsLayer.tsx`, `ui/CollisionInspector.tsx`, `sim/collision/` | **Impl/unverified** (visual) | vitest + Playwright + real-backend e2e pass | Effects are **visual only**, labelled provisional; no GPU run; frame pacing with effects unmeasured (STAGE12_DOD_AUDIT). |
 | Solar System presets (J2000, with/without moons), archived JPL Horizons data | `backend/presets/`, `backend/presets/sources/` | **Verified** (pipeline) | `tests/validation/test_preset_solar_system.py`, `test_preset_moons.py`, `test_reference_orbits.py` (SHA-256 of archives) pass | Pipeline check only; not an ephemeris accuracy claim. Material annotations are coarse class choices. |
 | Ring World / `saturn-particle-rings` | `backend/presets/data/saturn-particle-rings.json`, `frontend/src/sim/ringWorld.ts`, `ringDisturb.ts`, `canvas/RingGrains.tsx` | **Verified** (statement accurate) | `tests/test_preset_saturn_particle_rings.py` (no grains in backend state, zero total momentum) and vitest pass | Backend simulates Saturn + 5 moons as point masses. **Ring grains are frontend-only, massless visual particles, never integrated by REBOUND.** "Intruder" reactions (swallowed/flung out) are also cosmetic. |
@@ -126,8 +126,8 @@ incomplete; **Partial**; **Defect**; **Absent**; **Unknown**. "Run" = I ran the 
 - **KD-8: `.playwright-mcp` console log was tracked** (generated clutter); untracked and ignored in this consolidation.
 
 Technical debt and scientific limitations beyond the above: collision science is provisional and unreviewed; `simulation.py` is
-1,159 lines carrying engine, history and collision orchestration; frontend/backend material tables are twins that must be kept in
-sync by hand (`frontend/src/sim/defaultMaterial.ts` vs `backend/impact/materials.py`); everything is in-memory and single-process;
+1,159 lines carrying engine, history and collision orchestration; the frontend's list of selectable material profiles (`frontend/src/sim/defaultMaterial.ts`) is kept in
+sync with the backend registry by hand (no material is inferred from a body type since D-069, M1); everything is in-memory and single-process;
 performance beyond the existing 64-body frame profile and 200-body step-latency test is unmeasured.
 
 State consistency and concurrency: one lock per engine serialises writes; reads return the last committed state; activation epoch
@@ -192,3 +192,51 @@ KD-1 and on the motion work; the dirty `collision-implementation` worktree await
 ## 13. Motion milestone (2026-10-26, branch `motion/integration`)
 
 See D-068 in `context/DECISIONS.md` and the data-flow section of `docs/ARCHITECTURE.md`. Node 20 is pinned (`.nvmrc`, CI, runner check, `engines`); repository write access was reduced to the owner (3 collaborators removed; they keep public read access only). Motion verification and CI state are in the PR for the branch. The extended Experiment 01 journey (`npm run e2e`) fails at the same step ("timed out waiting for the reference path to add pixels") on Windows as on Linux, and it fails identically on the baseline `main` checkout without any motion change, so it is **not caused by the motion work**; it is a regression on current `main` (the journey passed 11/11 on 2026-10-25 per `context/WORKLOG.md`) whose cause is not established. Practical note: orphaned dev servers/backends from earlier runs on ports 5183/8011 make this journey fail earlier and misleadingly (stale processes were found and stopped).
+
+## 14. Collision-engine repair milestone — development paused (2026-10-28)
+
+Branch `checkpoint/collision-engine-repair-2026-10-28`, cut from `main` `df7c435` and pushed; **not merged into `main`**. It holds the
+repairs and owner decisions recorded in D-069 (`context/DECISIONS.md`) after the 2026-10-28 collision-engine audit. Collision-physics
+development is **intentionally deferred** at this point: the engine is neither complete nor scientifically validated.
+
+What the milestone contains:
+- **H1** the merge-only retry after a collision-engine failure lasts one step and only follows real engine failures
+  (`tests/impact/test_engine_failure_policy.py`, `tests/test_stall_resilience.py`).
+- **H3** debris parcels carry their material; two parcels aggregate; parcel-body contacts use the ordinary pipeline
+  (`tests/impact/test_product_materials.py`).
+- **M1** the create-body form no longer infers a material from the display body type; "Not specified" sends none
+  (`frontend/src/components/ui/createBodyMaterial.test.tsx`).
+- **M3** degraded collision detection is reported in the step response (`collision_detection_degraded`, `detection`)
+  (`tests/impact/test_detection_visibility.py`, `frontend/src/api/parse.test.ts`).
+- **H2 / H4 / M2** owner decisions, documented in D-069 (below).
+
+Validation on the branch content (Windows, Python 3.11.7, Node 24.18.0 — the project pins Node 20; see README):
+backend `pytest` 1453 passed (1 deprecation warning from starlette); vitest 699 passed (70 files); `tsc --noEmit` clean; `npm run build` OK; Playwright
+(`npm run test:e2e`, stubbed API, software WebGL) 17 passed; real-backend collision journey (`npm run e2e:collision`) 10/10 passed.
+The Experiment 01 journey (`npm run e2e`) still fails at "timed out waiting for the reference path to add pixels", the pre-existing
+failure recorded in §13; no file of this milestone touches Orbit Lab or reference-path rendering. Playwright 1.64 expects Chromium
+build 1248; with only 1243 installed, point `PW_CHROMIUM_PATH` (Playwright test) / `E2E_CHROMIUM` (the journeys) at its
+`chrome-headless-shell.exe`.
+
+Known limitations (unchanged by design, owner decisions D-069):
+- **Mixed-material outcomes (H2).** D-035 is kept: a product of two different materials has no material, so a mixed system drops out
+  of the outcome models after its first mixed impact (later contacts are the labelled legacy merge). No mixing/composition model
+  exists; the loss is reported as `product_material_unspecified`.
+- **Legacy multi-contact merge (H4, D-036).** In `legacy-merge` (presets, Orbit Lab, the one-step retry) a detection pass with three or
+  more contacts can still merge bodies that do not touch. Outstanding defect, not repaired.
+- **Collision-effect timing (M2).** While playing, flash/cloud/debris effects lead the drawn bodies by about one step and stay apart
+  from them on pause; fixing it needs a CP-3 amendment of `CollisionEffectInput` (smallest change described in D-069).
+- **Science.** All collision outcome models and material quantities are **provisional**: owner-accepted for development, not
+  independently reviewed; CP-SCI-1 and CP-5 are waived (D-059), not signed. Cratering is unsupported; the other gaps listed in D-069
+  remain.
+
+Resuming locally (commands as in README "Install" / "Run"):
+```bash
+git fetch origin
+git switch checkpoint/collision-engine-repair-2026-10-28
+source .venv/Scripts/activate            # PowerShell: .venv\Scripts\Activate.ps1
+uvicorn backend.main:app --reload --port 8000     # terminal 1, GET /health
+cd frontend && npm ci && npm run dev              # terminal 2, open http://localhost:5173
+```
+Checks: `python -m pytest -q`; in `frontend/`: `npx vitest run`, `npx tsc --noEmit`, `npm run build`, `npm run test:e2e`,
+`npm run e2e:collision`.

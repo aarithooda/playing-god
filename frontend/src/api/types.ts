@@ -339,9 +339,19 @@ export type SimulationEventDto = MergerEventDto | CollisionEventDto;
 
 export interface StepResponseDto extends SimulationStateDto {
   advancedS: number;
-  /** Present only when non-empty: "collision_budget_reached" = the step ended early (advancedS < dtS), by design (DQ-10). */
+  /** Present only when non-empty: "collision_budget_reached" = the step ended early (advancedS < dtS), by design (DQ-10);
+   *  "collisions_merged_fallback" = a collision-engine failure was repaired by merging (this step only); "collision_detection_degraded";
+   *  "product_material_unspecified" = a legacy merger of two different materials left its remnant without a material (D-035, D-069). */
   warnings?: string[];
+  /** Present only when collision detection was degraded during the step (a contact may have been missed). */
+  detection?: DetectionSummaryDto;
   events: SimulationEventDto[];
+}
+
+export interface DetectionSummaryDto {
+  degradedChunks: number;
+  worstCurvatureRatio: number;
+  chunksAboveLimit: number;
 }
 
 export interface EventListDto {
