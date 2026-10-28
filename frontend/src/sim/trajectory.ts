@@ -91,21 +91,34 @@ export function trimToLatestOrbit(line: TrajectoryPolyline): TrajectoryPolyline 
   const currentBefore = points[points.length - 2]!;
   const currentDirection = [current[0] - currentBefore[0], current[1] - currentBefore[1], current[2] - currentBefore[2]];
   const currentDirectionLength = Math.hypot(...currentDirection);
+  // The trail has returned to the current point when the current point lies on an EARLIER SEGMENT of it (not merely near an earlier
+  // vertex): recorded samples can be a large part of an orbit apart (a big step at high speed, a fast inner orbit), and then no vertex
+  // comes within the tolerance of the current point although the path has plainly closed, so every earlier revolution stayed drawn
+  // as a dense web of overlapping chords.
   let traveled = 0;
   for (let i = points.length - 2; i >= 0; i -= 1) {
-    const point = points[i]!;
+    const a = points[i]!;
     const next = points[i + 1]!;
-    traveled += Math.hypot(point[0] - next[0], point[1] - next[1], point[2] - next[2]);
-    const direction = [next[0] - point[0], next[1] - point[1], next[2] - point[2]];
-    const directionLength = Math.hypot(...direction);
-    const sameDirection = currentDirectionLength > 0 && directionLength > 0
-      && (direction[0]! * currentDirection[0]! + direction[1]! * currentDirection[1]! + direction[2]! * currentDirection[2]!)
-        / (directionLength * currentDirectionLength) > 0.5;
-    if (traveled >= minLoopDistance && sameDirection && Math.hypot(
-      point[0] - current[0], point[1] - current[1], point[2] - current[2],
-    ) <= returnTolerance) {
-      return { points: points.slice(i), simulationTimesS: simulationTimesS.slice(i) };
+    const segment = [next[0] - a[0], next[1] - a[1], next[2] - a[2]];
+    const segmentLength = Math.hypot(...segment);
+    if (segmentLength > 0) {
+      // The closest point to the current position on this segment (clamped), and how far along it that is.
+      const u = Math.min(1, Math.max(0, ((current[0] - a[0]) * segment[0]! + (current[1] - a[1]) * segment[1]! + (current[2] - a[2]) * segment[2]!) / (segmentLength * segmentLength)));
+      const hit: ScenePosition = [a[0] + segment[0]! * u, a[1] + segment[1]! * u, a[2] + segment[2]! * u];
+      const distance = Math.hypot(hit[0] - current[0], hit[1] - current[1], hit[2] - current[2]);
+      const alongPath = traveled + segmentLength * (1 - u);
+      const sameDirection = currentDirectionLength > 0
+        && (segment[0]! * currentDirection[0]! + segment[1]! * currentDirection[1]! + segment[2]! * currentDirection[2]!)
+          / (segmentLength * currentDirectionLength) > 0.5;
+      if (alongPath >= minLoopDistance && sameDirection && distance <= returnTolerance) {
+        // Start the kept trail at the crossing itself (its time interpolated), so no orbit's worth of path is lost or invented.
+        const t0 = simulationTimesS[i]!;
+        const t1 = simulationTimesS[i + 1]!;
+        if (u >= 1) return { points: points.slice(i + 1), simulationTimesS: simulationTimesS.slice(i + 1) };
+        return { points: [hit, ...points.slice(i + 1)], simulationTimesS: [t0 + (t1 - t0) * u, ...simulationTimesS.slice(i + 1)] };
+      }
     }
+    traveled += segmentLength;
   }
   return line;
 }
@@ -160,6 +173,37 @@ export function smoothTimedPolyline(line: TrajectoryPolyline): TrajectoryPolylin
   smoothPoints.push(points[points.length - 1]!);
   smoothTimes.push(simulationTimesS[simulationTimesS.length - 1]!);
   return { points: smoothPoints, simulationTimesS: smoothTimes };
+}
+
+/**
+ * The recorded samples at or before `cutS`. Live playback draws the active trail from these plus a per-frame head that ends at the
+ * drawn body (TrajectoryLayer); samples after the cut are committed history that is ahead of what the screen shows and must not be drawn.
+ */
+export function clipSamplesTo(samples: readonly PositionSample[], cutS: number): PositionSample[] {
+  return samples.filter((s) => s.simulationTimeS <= cutS);
+}
+
+/**
+ * The samples a LIVE active trail is drawn from, up to `cutS`: the backend's recorded history before the motion buffer's own trail begins,
+ * then that trail (dense along the interpolated path, see sim/motion/trail.ts). Recorded history alone can be a large part of an orbit
+ * apart per sample at high speed, which draws as chords; the dense points follow the real path. The recorded samples are never altered,
+ * only joined to the points that continue them (same `segment` as the history sample of that moment, so an edit still breaks the line).
+ */
+export function liveTrailSamples(
+  history: readonly PositionSample[],
+  trail: readonly { t: number; p: readonly [number, number, number] }[],
+  cutS: number,
+): PositionSample[] {
+  if (trail.length === 0) return clipSamplesTo(history, cutS);
+  const t0 = trail[0]!.t;
+  const kept = history.filter((s) => s.simulationTimeS < t0 && s.simulationTimeS <= cutS);
+  const segment = (history.find((s) => s.simulationTimeS >= t0) ?? history[history.length - 1])?.segment ?? 0;
+  const dense: PositionSample[] = [];
+  for (const pt of trail) {
+    if (pt.t > cutS) break;
+    dense.push({ simulationTimeS: pt.t, positionM: { x: pt.p[0], y: pt.p[1], z: pt.p[2] }, segment });
+  }
+  return [...kept, ...dense];
 }
 
 /** SI samples -> scene positions, using the same transform as the bodies. */

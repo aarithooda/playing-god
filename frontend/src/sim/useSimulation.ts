@@ -18,7 +18,7 @@
 // `sim` is always the latest RELEASED authoritative state (the clock, inspector and diagnostics read it, never the interpolated
 // positions). A step that is not the plain continuation of the previous one (load, edit, create, delete, reset, pause-flush) is a
 // discontinuity: it flushes the buffer, and a lookahead step computed BEFORE such an edit is discarded rather than shown after it.
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ApiError } from "../api/errors";
 import type { SimulationClient } from "../api/client";
 import { LIMITS } from "../api/types";
@@ -117,6 +117,14 @@ export function useSimulation(client: SimulationClient, options: SimulationOptio
   const stepPending = useRef(false);
   /** Set by Reset: the Play loop's unshown lookahead belongs to the old state and must not be flushed over it. */
   const discardLookahead = useRef(false);
+  /**
+   * True from the Pause click until Play. Pausing used to take effect only when React re-rendered and ran the play-loop effect's cleanup,
+   * tens of milliseconds after the click (more on a busy page), and until then the picture kept moving and the loop's timer could still
+   * release a step. The click itself now freezes the picture and this flag stops the loop at once.
+   */
+  const pausedRef = useRef(false);
+  /** The newest state handed to `setSim` (it may not be on screen yet). */
+  const latestSim = useRef<SimulationView | null>(null);
   const speedRef = useRef(speedExp);
   speedRef.current = speedExp;
   /** Every body name ever seen, so events can name bodies that no longer exist. */
@@ -138,18 +146,33 @@ export function useSimulation(client: SimulationClient, options: SimulationOptio
   playingRef.current = playing;
   /** Bumped by every mutation (and reset): a lookahead step fetched under an older value predates it and is never shown after it. */
   const generation = useRef(0);
+  /** The states put on screen (React committed them), newest last, with when: Pause keeps the one that was on screen at the press. */
+  const shownSims = useRef<{ view: SimulationView | null; atMs: number }[]>([]);
+  /** The states applied as a Play-loop release (not a load, edit or reset): only those may be taken back by a Pause. */
+  const releasedViews = useRef(new WeakSet<SimulationView>());
+  useLayoutEffect(() => {
+    const shown = shownSims.current;
+    if (shown.length && shown[shown.length - 1]!.view === sim) return;
+    shown.push({ view: sim, atMs: performance.now() });
+    if (shown.length > 8) shown.shift();
+  });
 
   /** Applies an authoritative state. Without `step` it is a discontinuity (the buffer is flushed); with it, the continuation of the previous state. */
-  const applySim = useCallback((view: SimulationView, step?: { events: readonly SimulationEventDto[]; nextStepS: number; intervalS?: number }) => {
+  const applySim = useCallback((view: SimulationView, step?: { events: readonly SimulationEventDto[]; nextStepS: number; intervalS?: number }, commit = true) => {
     for (const b of view.bodies) names.current.set(b.id, b.name);
     if (!mounted.current) return;
     motion.push(toMotionSample(view, step?.events), {
       wallMs: performance.now(),
       flush: step === undefined,
+      hold: !commit,
       playing: playingRef.current,
       ...(step ? { nextStepS: step.nextStepS, ...(step.intervalS === undefined ? {} : { intervalS: step.intervalS }) } : {}),
     });
-    setSim(view);
+    if (commit) {
+      if (step) releasedViews.current.add(view);
+      latestSim.current = view;
+      setSim(view);
+    }
   }, [motion]);
 
   const noteFailure = useCallback((e: unknown): string => {
@@ -289,24 +312,28 @@ export function useSimulation(client: SimulationClient, options: SimulationOptio
   }, [client, enqueue]);
 
   /**
-   * Releases steps to the screen. `jump` shows only the last one, as a discontinuity (pause, error). A step whose `gen` is older than
-   * the current generation was computed before a mutation: its events still happened and are recorded, but its state is not
-   * shown (the mutation already put the backend's latest state on screen, and showing this one would resurrect a deleted body
-   * or undo an edit).
+   * Releases steps to the screen, in order, each as the continuation of the previous one (so the motion buffer interpolates through them
+   * and the dense orbit trail is kept, never restarted). A step whose `gen` is older than the current generation was computed before a
+   * mutation: its events still happened and are recorded, but its state is not shown (the mutation already put the backend's latest state
+   * on screen, and showing this one would resurrect a deleted body or undo an edit).
+   *
+   * `hold` is for Pause and errors: the already-computed steps go into the motion buffer WITHOUT being played or committed to `sim`, and
+   * the displayed time is frozen where it is at that instant. Playing them out (what this did first) kept the planet moving for up to
+   * a second after Pause was pressed. They stay buffered, so Resume carries on through them from the frozen time with no jump.
    */
-  const showSteps = useCallback((steps: FetchedStep[], jump: boolean) => {
-    const fresh = steps.filter((s) => s.gen === generation.current);
-    const last = fresh[fresh.length - 1];
-    if (last) {
-      if (jump) applySim(last.view);
-      else applySim(last.view, { events: last.rawEvents, nextStepS: stepSecondsForExp(speedRef.current), intervalS: tickMsRef.current / 1000 });
+  const showSteps = useCallback((steps: FetchedStep[], hold = false) => {
+    for (const s of steps) {
+      if (s.gen !== generation.current) continue;
+      // `hold` (pause, error): the steps are computed and the backend is already there, but the screen is not: they go into the motion
+      // buffer (so Resume carries on through them from where the picture stopped) without committing `sim` or playing them.
+      applySim(s.view, { events: s.rawEvents, nextStepS: s.stepS, intervalS: tickMsRef.current / 1000 }, !hold);
     }
     const events = steps.flatMap((s) => s.events);
     if (mounted.current && steps.some((s) => s.merged)) setNotice(COLLISION_FALLBACK_NOTICE);
     if (mounted.current && events.length) setEvents((prev) => mergeEvents(prev, events));
     noteSuccess();
-  }, [applySim, noteSuccess]);
-  const showStep = useCallback((step: FetchedStep) => showSteps([step], false), [showSteps]);
+  }, [applySim, motion, noteSuccess]);
+  const showStep = useCallback((step: FetchedStep) => showSteps([step]), [showSteps]);
 
   /** One bounded backend step; "skipped" when another step is still in flight (never overlaps). */
   const doStep = useCallback(async (): Promise<"ok" | "skipped" | "failed"> => {
@@ -327,7 +354,8 @@ export function useSimulation(client: SimulationClient, options: SimulationOptio
 
   // Play loop with lookahead: the backend (still the only authority) computes up to LOOKAHEAD_STEPS ahead of what is
   // shown, and the screen consumes those finished snapshots at a steady tickMs cadence, so network jitter no longer
-  // makes motion stutter. On pause or error the buffer is flushed: the screen jumps to the latest backend state.
+  // makes motion stutter. On pause or error the already-computed steps are held in the motion buffer and the picture freezes where it is
+  // (see showSteps); Resume carries on from there.
   useEffect(() => {
     if (!playing) return;
     let cancelled = false;
@@ -348,21 +376,21 @@ export function useSimulation(client: SimulationClient, options: SimulationOptio
       showSteps(pending, true);
     };
     const consume = () => {
-      if (cancelled) return;
+      if (cancelled || pausedRef.current) return;
       const next = buffer.shift();
       if (next) showStep(next);
       timer = setTimeout(consume, tickMs);
       void fill();
     };
     const fill = async () => {
-      if (cancelled || failed || fetching || buffer.length >= LOOKAHEAD_STEPS || stepPending.current) return;
+      if (cancelled || pausedRef.current || failed || fetching || buffer.length >= LOOKAHEAD_STEPS || stepPending.current) return;
       fetching = true;
       stepPending.current = true;
       if (mounted.current) setStepping(true);
       try {
         const step = await fetchStep();
         buffer.push(step);
-        if (cancelled) flush(); // paused while this step was in flight: its result is still the backend's truth
+        if (cancelled || pausedRef.current) flush(); // paused while this step was in flight: its result is still the backend's truth (held, not played)
       } catch (e) {
         failed = true;
         flush();
@@ -373,7 +401,7 @@ export function useSimulation(client: SimulationClient, options: SimulationOptio
         stepPending.current = false;
         if (mounted.current) setStepping(false);
       }
-      if (cancelled || failed) return;
+      if (cancelled || pausedRef.current || failed) return;
       if (!started) {
         started = true;
         consume();
@@ -382,20 +410,52 @@ export function useSimulation(client: SimulationClient, options: SimulationOptio
       }
     };
     discardLookahead.current = false;
+    pausedRef.current = false;
     void fill();
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
       flush();
+      motion.hold(performance.now()); // freeze at once, also when nothing was buffered
     };
-  }, [playing, fetchStep, showStep, showSteps, handleStepFailure, tickMs]);
+  }, [playing, fetchStep, showStep, showSteps, handleStepFailure, tickMs, motion]);
 
-  const play = useCallback(() => setPlaying(true), []);
-  const pause = useCallback(() => setPlaying(false), []);
+  const play = useCallback(() => {
+    pausedRef.current = false;
+    setPlaying(true);
+  }, []);
+  /**
+   * `pressedAtMs`: when the Pause button physically went down (the event's timestamp). The browser runs this handler only after the frame
+   * and the tasks that were due at the press (a frame being drawn, the release timer), so the picture freezes at the frame on screen at
+   * the press, and a state released after the press is taken back: the clock and the inspector keep the state that was on screen then (it
+   * stays in the motion buffer, held like the look-ahead, so Resume carries on through it).
+   */
+  const pause = useCallback((pressedAtMs?: number) => {
+    pausedRef.current = true;
+    motion.hold(performance.now(), pressedAtMs); // the picture stops now, not when React gets round to the effect cleanup
+    if (pressedAtMs !== undefined) {
+      const shown = shownSims.current;
+      let i = shown.length - 1;
+      while (i > 0 && shown[i]!.atMs > pressedAtMs) i--;
+      const onScreen = shown[i];
+      if (onScreen?.view && onScreen.view !== latestSim.current) {
+        // only Play-loop releases may be taken back (never a load, an edit or a reset that came in meanwhile)
+        const later = shown.slice(i + 1).map((s) => s.view);
+        if (latestSim.current && !later.includes(latestSim.current)) later.push(latestSim.current);
+        if (later.every((v) => v !== null && releasedViews.current.has(v))) {
+          latestSim.current = onScreen.view;
+          setSim(onScreen.view);
+        }
+      }
+    }
+    setPlaying(false);
+  }, [motion]);
   const stepOnce = useCallback(() => {
+    pausedRef.current = true;
+    motion.hold(performance.now());
     setPlaying(false);
     return doStep();
-  }, [doStep]);
+  }, [doStep, motion]);
 
   const reset = useCallback(async (): Promise<ActionResult> => {
     discardLookahead.current = true;

@@ -267,37 +267,13 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
         if (history.cache && !out.some((t) => t.bodyId === comparisonBody)) out.push(trajectoryOf(history.cache, comparisonBody, "active"));
         if (referenceHistory.cache && referenceHistory.cache.universeId === otherRunId) out.push(trajectoryOf(referenceHistory.cache, comparisonBody, "reference"));
       }
-      const livePositions = new Map(displayBodies.map((body) => [body.id, body.positionM]));
       return out.map((recorded) => {
-        let trajectory = recorded;
-        // History is sampled discretely, but the active body is already moving between samples.
-        // A history fetch can see a newly committed step before its state response reaches this component. Keep the
-        // active path at or behind the displayed state, then extend it to that exact live position; otherwise the
-        // trail can jump ahead and appear detached at high simulation speeds.
         // A planet's recorded path takes its reference-orbit colour, so the path and its guide read as one.
-        const guideColor = hasReferenceOrbits ? orbitColorForBody(trajectory.bodyId) : undefined;
-        if (guideColor) trajectory = { ...trajectory, colorHex: guideColor };
-        if (trajectory.role !== "active" || viewingHistory) return trajectory;
-        const currentTimeS = sim?.simulationTimeS;
-        const visibleSamples = currentTimeS === undefined
-          ? trajectory.samples
-          : trajectory.samples.filter((sample) => sample.simulationTimeS <= currentTimeS);
-        const visibleTrajectory = visibleSamples.length === trajectory.samples.length
-          ? trajectory
-          : { ...trajectory, samples: visibleSamples };
-        const positionM = livePositions.get(trajectory.bodyId);
-        const latest = visibleSamples[visibleSamples.length - 1];
-        if (!positionM || !latest || (
-          latest.positionM.x === positionM.x && latest.positionM.y === positionM.y && latest.positionM.z === positionM.z
-        )) return visibleTrajectory;
-        return {
-          ...visibleTrajectory,
-          samples: [...visibleSamples, {
-            simulationTimeS: currentTimeS ?? latest.simulationTimeS,
-            positionM: { ...positionM },
-            segment: latest.segment,
-          }],
-        };
+        const guideColor = hasReferenceOrbits ? orbitColorForBody(recorded.bodyId) : undefined;
+        // These are the recorded (committed) samples, unclipped. In live playback TrajectoryLayer clips the active trail to the start of
+        // the segment being displayed and draws its head along the displayed interpolation, so the trail ends exactly at the drawn planet
+        // (the committed history runs ahead of the interpolated drawing, which is what made the trail lead the planet).
+        return guideColor ? { ...recorded, colorHex: guideColor } : recorded;
       }).filter((trajectory) => trajectory.samples.length > 0);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps

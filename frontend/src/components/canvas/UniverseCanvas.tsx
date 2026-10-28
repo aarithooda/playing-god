@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { addAfterEffect, Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Html, OrbitControls } from '@react-three/drei';
 import { BufferAttribute, BufferGeometry, Group, Line, LineBasicMaterial, PerspectiveCamera, Raycaster, Vector2, Vector3 } from 'three';
 import { CelestialBody } from './CelestialBody';
@@ -135,6 +135,8 @@ const MotionDriver: React.FC<{ motion?: MotionBuffer; transform: RenderTransform
     for (const [id, p] of frame.positions) next.set(id, toScenePosition({ x: p[0], y: p[1], z: p[2] }, transform));
     displayPositions.replace(next);
   }, -100);
+  // When the frame has been drawn (after every root rendered it): a Pause pressed before this froze the previous frame (MotionBuffer.hold).
+  useEffect(() => (motion ? addAfterEffect(() => motion.frameDrawn(performance.now())) : undefined), [motion]);
   return null;
 };
 
@@ -571,7 +573,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
       {ringWorldBody ? <MilkyWayBackdrop /> : <StarfieldShell />}
       {(gridEnabled || placementMode) && <GridOverlay transform={transform} />}
       {axesVisible && <AxesOverlay transform={transform} />}
-      {trajectories.length > 0 && <TrajectoryLayer trajectories={trajectories} transform={transform} selectedBodyId={selectedBodyId} />}
+      {trajectories.length > 0 && <TrajectoryLayer trajectories={trajectories} transform={transform} selectedBodyId={selectedBodyId} motion={motion} />}
       {collisionEffects.length > 0 && <CollisionEffectsLayer effects={collisionEffects} transform={transform} />}
       {referenceOrbits && (
         <ReferenceOrbitLayer

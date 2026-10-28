@@ -343,3 +343,409 @@ describe("MotionBuffer with a paced release (the Play loop's steady cadence)", (
     expect(frame.timeS).toBeGreaterThan(499 * 1e5 - 1e5);
   });
 });
+
+// ---- the trail head: recorded history up to the displayed segment's start + the displayed interpolation up to the body ----------
+describe("MotionBuffer.samplePath (the trail head): the trail ends exactly at the drawn body, at any playback speed", () => {
+  // 3.19 h and 10.2 d of simulated time per real second, released every 150 ms (one Play-loop tick), plus a much faster one.
+  const cases = [["3.19 h/s", 3.19 * 3600], ["10.2 d/s", 10.2 * 86400], ["60 d/s", 60 * 86400]] as const;
+  for (const [label, simPerWallS] of cases) {
+    it(`${label}: head starts where the recorded history ends, ends at the displayed position, and never passes the displayed time`, () => {
+      const tickS = 0.15;
+      const stepS = simPerWallS * tickS;
+      const buf = new MotionBuffer();
+      const history: { t: number; p: V3 }[] = [{ t: 0, p: truth("earth", 0).p }];
+      buf.push(sampleAt(0), { wallMs: 0, flush: true });
+      for (let k = 1; k <= 40; k++) {
+        const wall = k * tickS * 1000;
+        buf.push(sampleAt(k * stepS), { wallMs: wall, playing: true, intervalS: tickS });
+        history.push({ t: k * stepS, p: truth("earth", k * stepS).p });
+        for (const frac of [0.1, 0.5, 0.9, 1.0]) {
+          const at = wall + frac * tickS * 1000;
+          const path = buf.samplePath(at, 16)!;
+          const frame = buf.sample(at)!;
+          const earthPath = path.paths.get("earth")!;
+          // the head ends exactly where the body is drawn
+          expect(dist(earthPath[earthPath.length - 1]!, frame.positions.get("earth")!)).toBe(0);
+          // time order: history cut <= displayed time <= newest released state
+          expect(path.startS).toBeLessThanOrEqual(path.timeS);
+          expect(path.timeS).toBeLessThanOrEqual(k * stepS + 1e-6);
+          // the recorded history clipped to the segment start meets the head's first point
+          const recorded = history.filter((h) => h.t <= path.startS);
+          expect(dist(recorded[recorded.length - 1]!.p, earthPath[0]!)).toBeLessThan(1e-3 * 1.496e11 * 1e-6 + 1);
+          // every head point is on the interpolated path, close to the true orbit
+          for (const p of earthPath) expect(Math.hypot(p[0], p[1])).toBeGreaterThan(0.99 * 1.496e11);
+          if (frac < 1) {
+            // ending the trail at the newest RELEASED state (the old behaviour) would lead the drawn body
+            const released = history[history.length - 1]!.p;
+            expect(dist(released, frame.positions.get("earth")!)).toBeGreaterThan(0);
+          }
+        }
+      }
+    });
+  }
+
+  it("is a single point while only one state is buffered (nothing to interpolate) and null when empty", () => {
+    const buf = new MotionBuffer();
+    expect(buf.samplePath(0, 16)).toBeNull();
+    buf.push(sampleAt(5), { wallMs: 0, flush: true });
+    const path = buf.samplePath(10, 16)!;
+    expect(path.startS).toBe(5);
+    expect(path.paths.get("earth")).toHaveLength(1);
+  });
+
+  it("a flush (edit, reset) leaves no head from before it", () => {
+    const buf = new MotionBuffer();
+    buf.push(sampleAt(0), { wallMs: 0, flush: true });
+    buf.push(sampleAt(1e6), { wallMs: 100, playing: true, intervalS: 0.1 });
+    buf.push(sampleAt(3e6), { wallMs: 5000, flush: true });
+    const path = buf.samplePath(5001, 16)!;
+    expect(path.startS).toBe(3e6);
+    expect(path.timeS).toBe(3e6);
+  });
+});
+
+describe("MotionBuffer when the states arrive slower than the release pace (a backend that cannot keep up, e.g. the maximum speed)", () => {
+  it("spreads the motion over the measured gap instead of racing to the newest state and standing still", () => {
+    const buf = new MotionBuffer();
+    buf.push(sampleAt(0), { wallMs: 0, flush: true });
+    // states arrive 1 s apart although the caller paces at 0.15 s
+    for (let k = 1; k <= 5; k++) buf.push(sampleAt(k * 1e6), { wallMs: k * 1000, playing: true, intervalS: 0.15 });
+    const wall = 5 * 1000;
+    // half a second after the last arrival the display is about half way through the newest segment, not already at its end
+    const t = buf.displayTime(wall + 500);
+    expect(t).toBeGreaterThan(4e6 + 0.3e6);
+    expect(t).toBeLessThan(4e6 + 0.7e6);
+    // and it keeps moving smoothly: strictly increasing over the gap
+    let previous = buf.displayTime(wall);
+    for (let ms = 100; ms <= 900; ms += 100) {
+      const now = buf.displayTime(wall + ms);
+      expect(now).toBeGreaterThan(previous);
+      previous = now;
+    }
+  });
+});
+
+describe("MotionBuffer.hold (Pause): the picture stops at once and Resume carries on from where it stopped", () => {
+  const stepS = 1e5;
+  function playing(steps: number) {
+    const buf = new MotionBuffer();
+    buf.push(sampleAt(0), { wallMs: 0, flush: true });
+    for (let k = 1; k <= steps; k++) buf.push(sampleAt(k * stepS), { wallMs: k * 150, playing: true, intervalS: 0.15 });
+    return buf;
+  }
+
+  it("freezes the displayed time and the drawn positions at the instant of the hold, however long it is left", () => {
+    const buf = playing(6);
+    const at = 6 * 150 + 80;
+    const before = buf.sample(at)!;
+    buf.hold(at);
+    for (const later of [0, 1, 150, 5000, 600000]) {
+      const frame = buf.sample(at + later)!;
+      expect(frame.timeS).toBe(before.timeS);
+      expect(frame.positions.get("earth")).toEqual(before.positions.get("earth"));
+    }
+  });
+
+  it("states pushed while held (look-ahead released at Pause) do not move the picture; they are kept for Resume", () => {
+    const buf = playing(4);
+    const at = 4 * 150 + 60;
+    const frozen = buf.sample(at)!.timeS;
+    // Pause: three more computed states are buffered, then the picture is frozen
+    for (let k = 5; k <= 7; k++) buf.push(sampleAt(k * stepS), { wallMs: at, flush: false, playing: false });
+    buf.hold(at);
+    expect(buf.sample(at + 10000)!.timeS).toBe(frozen);
+    expect(buf.latestTimeS).toBe(7 * stepS);
+    // the trail has the dense points of the held states too
+    const trail = buf.trail.pointsFor("earth");
+    expect(trail[trail.length - 1]!.t).toBe(7 * stepS);
+  });
+
+  it("Resume: the first state pushed after a hold starts from the frozen time (no jump) and moves at the normal pace, not racing through the held states", () => {
+    const buf = playing(4);
+    const at = 4 * 150 + 60;
+    const frozen = buf.sample(at)!.timeS;
+    for (let k = 5; k <= 7; k++) buf.push(sampleAt(k * stepS), { wallMs: at, flush: false, playing: false });
+    buf.hold(at);
+    const resume = at + 5000;
+    buf.push(sampleAt(8 * stepS), { wallMs: resume, playing: true, intervalS: 0.15 });
+    expect(buf.displayTime(resume)).toBe(frozen);
+    // one interval later it has advanced by one step (the paced speed), not by the whole backlog
+    expect(buf.displayTime(resume + 150)).toBeCloseTo(frozen + stepS, -2);
+    let previous = frozen;
+    for (let ms = 10; ms <= 1500; ms += 10) {
+      const t = buf.displayTime(resume + ms);
+      expect(t).toBeGreaterThanOrEqual(previous);
+      previous = t;
+    }
+    expect(previous).toBeLessThanOrEqual(8 * stepS);
+  });
+});
+
+describe("MotionBuffer.hold freezes what the user last SAW, and held pushes cannot move it", () => {
+  const stepS = 1e5;
+  function playing(steps: number) {
+    const buf = new MotionBuffer();
+    buf.push(sampleAt(0), { wallMs: 0, flush: true });
+    for (let k = 1; k <= steps; k++) buf.push(sampleAt(k * stepS), { wallMs: k * 150, playing: true, intervalS: 0.15 });
+    return buf;
+  }
+
+  it("a hold placed a frame (or several) after the last drawn frame freezes at that frame's time, not at the click's time", () => {
+    const buf = playing(5);
+    const lastFrameWall = 5 * 150 + 40;
+    const drawn = buf.sample(lastFrameWall)!; // the last frame the user saw
+    const click = lastFrameWall + 90; // the click, one slow frame period later
+    expect(buf.displayTime(click)).toBeGreaterThan(drawn.timeS); // the clock had moved on since that frame
+    buf.hold(click);
+    const frozen = buf.sample(click + 1)!;
+    expect(frozen.timeS).toBe(drawn.timeS);
+    expect(frozen.positions.get("earth")).toEqual(drawn.positions.get("earth"));
+    expect(buf.sample(click + 60000)!.timeS).toBe(drawn.timeS);
+  });
+
+  it("states pushed with hold: true change nothing the user sees: not the time, the positions, nor the pace of a later resume", () => {
+    const buf = playing(5);
+    const at = 5 * 150 + 40;
+    const shown = buf.sample(at)!;
+    buf.hold(at + 10);
+    for (let k = 6; k <= 9; k++) buf.push(sampleAt(k * stepS), { wallMs: at + 20 + k, playing: false, hold: true }); // 3 look-ahead + 1 in flight
+    for (const later of [0, 100, 5000]) {
+      const f = buf.sample(at + 100 + later)!;
+      expect(f.timeS).toBe(shown.timeS);
+      expect(f.positions.get("earth")).toEqual(shown.positions.get("earth"));
+    }
+    expect(buf.latestTimeS).toBe(9 * stepS);
+    // resuming after a long pause carries on from the same time at the normal pace
+    const resume = at + 600000;
+    buf.push(sampleAt(10 * stepS), { wallMs: resume, playing: true, intervalS: 0.15 });
+    expect(buf.displayTime(resume)).toBe(shown.timeS);
+    expect(buf.displayTime(resume + 150)).toBeCloseTo(shown.timeS + stepS, -2);
+  });
+});
+
+describe("Pause stress: once held, nothing may move the picture until an explicit resume (randomised sequences)", () => {
+  // The real failure (seen in a browser as the planet jumping forward after a Pause click, about one click in ten): the buffer's size cap
+  // dropped its OLDEST segment while held look-ahead states were being added, and when that segment was the one on screen the next frame was
+  // evaluated from a later segment: the same displayed TIME, a different (later) position.
+  function rng(seed: number) {
+    let x = seed >>> 0;
+    return () => ((x = (Math.imul(x, 1664525) + 1013904223) >>> 0) / 4294967296);
+  }
+
+  it("a held buffer reaching its size cap keeps showing the segment it was frozen in", () => {
+    const stepS = 1e5;
+    const buf = new MotionBuffer();
+    buf.push(sampleAt(0), { wallMs: 0, flush: true });
+    // a backlog: states released faster than the display has moved
+    for (let k = 1; k <= MAX_BUFFERED_STATES - 1; k++) buf.push(sampleAt(k * stepS), { wallMs: k * 10, playing: true, intervalS: 0.15 });
+    const at = 120;
+    const shown = buf.sample(at)!;
+    const segmentStart = buf.segmentStartS;
+    buf.hold(at);
+    // three look-ahead steps computed before the click arrive afterwards
+    for (let k = MAX_BUFFERED_STATES; k < MAX_BUFFERED_STATES + 3; k++) buf.push(sampleAt(k * stepS), { wallMs: at + 5 * k, playing: false, hold: true });
+    for (const later of [0, 50, 1000, 100000]) {
+      const f = buf.sample(at + later)!;
+      expect(f.timeS).toBe(shown.timeS);
+      expect(f.positions.get("earth")).toEqual(shown.positions.get("earth"));
+      expect(f.positions.get("moon")).toEqual(shown.positions.get("moon"));
+    }
+    expect(buf.segmentStartS).toBe(segmentStart);
+  });
+
+  it("1500 random Play / Pause / late-response / Resume sequences: the frame never changes while held", () => {
+    for (let seed = 1; seed <= 1500; seed++) {
+      const r = rng(seed);
+      const stepS = [1e3, 1e5, 3e5, 1e7][Math.floor(r() * 4)]!;
+      const buf = new MotionBuffer();
+      buf.trail.setWanted(new Set()); // this test is about the displayed frame; recording trails for 9 bodies would only make it slow
+      let wall = 0;
+      let k = 0;
+      let held: { timeS: number; earth: V3 | undefined; moon: V3 | undefined } | null = null;
+      buf.push(sampleAt(0), { wallMs: wall, flush: true });
+      for (let op = 0; op < 60; op++) {
+        const roll = r();
+        wall += Math.floor(r() * (r() < 0.1 ? 4000 : 160));
+        if (roll < 0.35) {
+          // a state is released while playing (this is a resume if the buffer was held)
+          k++;
+          buf.push(sampleAt(k * stepS), { wallMs: wall, playing: true, intervalS: 0.15 });
+          held = null;
+        } else if (roll < 0.6) {
+          const f = buf.sample(wall)!; // a frame is drawn
+          if (held) {
+            expect(f.timeS).toBe(held.timeS);
+            expect(f.positions.get("earth")).toEqual(held.earth);
+            expect(f.positions.get("moon")).toEqual(held.moon);
+          }
+        } else if (roll < 0.8) {
+          // Pause: the click freezes the picture at the last drawn frame, then the already-computed (and in-flight) steps arrive
+          buf.sample(wall); // a frame is drawn just before
+          wall += Math.floor(r() * 120);
+          const alreadyHeld: boolean = held !== null;
+          buf.hold(wall);
+          const f = buf.sample(wall)!;
+          held = alreadyHeld ? held : { timeS: f.timeS, earth: f.positions.get("earth"), moon: f.positions.get("moon") };
+          // only a pause that stops a RUNNING loop has computed/in-flight steps still to arrive (3 look-ahead + 1 in flight)
+          const late = alreadyHeld ? 0 : Math.floor(r() * 5);
+          for (let i = 0; i < late; i++) {
+            k++;
+            wall += Math.floor(r() * 300);
+            buf.push(sampleAt(k * stepS), { wallMs: wall, playing: false, hold: true });
+          }
+        } else if (held) {
+          const f = buf.sample(wall)!;
+          expect(f.timeS).toBe(held.timeS);
+          expect(f.positions.get("earth")).toEqual(held.earth);
+        }
+      }
+      expect(buf.size).toBeLessThanOrEqual(MAX_BUFFERED_STATES + 4); // the cap, plus the look-ahead and in-flight steps held at a pause
+    }
+  });
+});
+
+describe("Pause at the PHYSICAL press: the frozen picture is the last frame finished before the press", () => {
+  // Measured in headed Chrome with the GPU at the maximum speed: the browser dispatched the pointerdown 1-17 ms after the press, behind the
+  // frame that was being computed, and that frame (sampled before or even just after the press, not yet on screen when the button went down)
+  // was the one Pause froze: the picture ended up one frame further on than what the user saw, 1-6 orbits at that speed. `frameDrawn` marks
+  // when a frame's drawing finished; `hold(now, pressedAtMs)` freezes at the last frame finished before the press.
+  const stepS = 1e5;
+  function playing(steps: number) {
+    const buf = new MotionBuffer();
+    buf.push(sampleAt(0), { wallMs: 0, flush: true });
+    for (let k = 1; k <= steps; k++) buf.push(sampleAt(k * stepS), { wallMs: k * 150, playing: true, intervalS: 0.15 });
+    return buf;
+  }
+
+  it("a frame still being drawn when the button went down is not the frozen one: the frame before it is", () => {
+    const buf = playing(5);
+    const seen = buf.sample(790)!; // on screen when the button goes down
+    buf.frameDrawn(797);
+    const press = 801;
+    const inProgress = buf.sample(806)!; // the next frame: the press waits behind it
+    buf.frameDrawn(815);
+    expect(inProgress.timeS).toBeGreaterThan(seen.timeS);
+    buf.hold(816, press); // the handler runs after that frame
+    for (const later of [817, 900, 60000]) {
+      const f = buf.sample(later)!;
+      expect(f.timeS).toBe(seen.timeS);
+      expect(f.positions.get("earth")).toEqual(seen.positions.get("earth"));
+      expect(f.positions.get("moon")).toEqual(seen.positions.get("moon"));
+    }
+  });
+
+  it("the same when that frame crossed into the next segment (the segment the user saw is kept for it)", () => {
+    // states released faster than the display moves, so it then crosses several segment boundaries at the paced speed
+    const buf = new MotionBuffer();
+    buf.push(sampleAt(0), { wallMs: 0, flush: true });
+    for (let k = 1; k <= 5; k++) buf.push(sampleAt(k * stepS), { wallMs: k * 10, playing: true, intervalS: 0.15 });
+    const seg = (x: number) => Math.floor(buf.displayTime(x) / stepS);
+    let w = 50;
+    const inside = (x: number) => buf.displayTime(x) % stepS !== 0; // strictly inside a segment, not on a state's time
+    while (w < 5000 && (seg(w + 16) === seg(w) || !inside(w) || !inside(w + 16) || buf.displayTime(w + 16) >= buf.latestTimeS!)) w++; // the last frame before a boundary
+    expect(w).toBeLessThan(5000);
+    const seen = buf.sample(w)!;
+    buf.frameDrawn(w + 6);
+    const startSeen = buf.segmentStartS;
+    const inProgress = buf.sample(w + 16)!;
+    buf.frameDrawn(w + 28);
+    expect(buf.segmentStartS).toBeGreaterThan(startSeen!); // the in-progress frame is in the next segment
+    buf.hold(w + 29, w + 20);
+    const f = buf.sample(w + 40)!;
+    expect(inProgress.timeS).toBeGreaterThan(seen.timeS);
+    expect(f.timeS).toBe(seen.timeS);
+    expect(f.positions.get("earth")).toEqual(seen.positions.get("earth"));
+    expect(f.positions.get("moon")).toEqual(seen.positions.get("moon"));
+    expect(buf.segmentStartS).toBe(startSeen);
+    // Resume carries on from that frame
+    buf.push(sampleAt(6 * stepS), { wallMs: 5000, playing: true, intervalS: 0.15 });
+    expect(buf.displayTime(5000)).toBe(seen.timeS);
+    expect(buf.displayTime(5100)).toBeGreaterThan(seen.timeS);
+  });
+
+  it("a press while the page was idle (the last frame finished before it) freezes that last frame, as before", () => {
+    const buf = playing(5);
+    buf.sample(780);
+    buf.frameDrawn(784);
+    const last = buf.sample(796)!;
+    buf.frameDrawn(800);
+    buf.hold(806, 803);
+    expect(buf.sample(820)!.timeS).toBe(last.timeS);
+  });
+
+  it("without a press time (entering history, a restore) it freezes the last drawn frame, as before", () => {
+    const buf = playing(5);
+    const last = buf.sample(796)!;
+    buf.hold(880);
+    expect(buf.sample(900)!.timeS).toBe(last.timeS);
+  });
+});
+
+describe("a display stalled at the newest state keeps its segment when a held state arrives (the trail's cut must not move after Pause)", () => {
+  // At the maximum speed the backend is often slower than the display, which then stands at the newest state: its time is a segment's END.
+  // The next state (held at a pause) made that same time count as the START of the new segment, so the trail's cut moved forward and the
+  // recorded line was rebuilt and redrawn (measured: about 5,500 pixels changed 100 ms after the Pause handler).
+  it("the same frozen time stays in the segment ending there: same cut, same head", () => {
+    const stepS = 1e5;
+    const buf = new MotionBuffer();
+    buf.push(sampleAt(0), { wallMs: 0, flush: true });
+    for (let k = 1; k <= 3; k++) buf.push(sampleAt(k * stepS), { wallMs: k * 150, playing: true, intervalS: 0.15 });
+    const stalled = buf.samplePath(10000, 16)!; // long after the newest state: standing at it
+    expect(stalled.timeS).toBe(3 * stepS);
+    const cut = buf.segmentStartS;
+    buf.hold(10010);
+    buf.push(sampleAt(4 * stepS), { wallMs: 10020, playing: false, hold: true });
+    const after = buf.samplePath(10030, 16)!;
+    expect(after.timeS).toBe(stalled.timeS);
+    expect(buf.segmentStartS).toBe(cut);
+    expect(after.startS).toBe(stalled.startS);
+    expect(after.paths.get("earth")).toEqual(stalled.paths.get("earth"));
+  });
+});
+
+describe("MotionBuffer.heldFrameWallMs: when the frozen frame was drawn (what everything drawn while paused must match)", () => {
+  it("is the frozen frame's draw time after a press, survives the effect cleanup's second hold, and clears on Resume or a flush", () => {
+    const buf = new MotionBuffer();
+    buf.push(sampleAt(0), { wallMs: 0, flush: true });
+    for (let k = 1; k <= 5; k++) buf.push(sampleAt(k * 1e5), { wallMs: k * 150, playing: true, intervalS: 0.15 });
+    expect(buf.heldFrameWallMs).toBeNull();
+    buf.sample(790);
+    buf.frameDrawn(797);
+    buf.sample(806); // still being drawn at the press
+    buf.frameDrawn(815);
+    buf.hold(816, 801);
+    expect(buf.heldFrameWallMs).toBe(790);
+    buf.sample(830);
+    buf.hold(840); // the play loop's effect cleanup
+    expect(buf.heldFrameWallMs).toBe(790);
+    buf.push(sampleAt(6e5), { wallMs: 850, playing: false, hold: true }); // a held state
+    expect(buf.heldFrameWallMs).toBe(790);
+    buf.push(sampleAt(7e5), { wallMs: 5000, playing: true, intervalS: 0.15 }); // Resume
+    expect(buf.heldFrameWallMs).toBeNull();
+    buf.hold(5010);
+    expect(buf.heldFrameWallMs).not.toBeNull();
+    buf.push(sampleAt(0), { wallMs: 5020, flush: true });
+    expect(buf.heldFrameWallMs).toBeNull();
+  });
+});
+
+describe("a Pause while still held (Resume pressed, no state arrived yet) changes nothing", () => {
+  // Measured with rapid Pause / Resume and late backend responses: after Resume the picture stays frozen until the first state arrives; a
+  // second Pause in that window chose a NEW frozen frame, so the trail switched to a version rebuilt while paused (never shown): about
+  // 1,400-3,300 pixels of the trail changed after the second Pause handler, though nothing had moved.
+  it("keeps the frozen frame (time, positions and heldFrameWallMs) of the first Pause", () => {
+    const buf = new MotionBuffer();
+    buf.push(sampleAt(0), { wallMs: 0, flush: true });
+    for (let k = 1; k <= 5; k++) buf.push(sampleAt(k * 1e5), { wallMs: k * 150, playing: true, intervalS: 0.15 });
+    const shown = buf.sample(790)!;
+    buf.frameDrawn(797);
+    buf.hold(800, 799);
+    const wall = buf.heldFrameWallMs;
+    for (let w = 816; w <= 900; w += 16) { buf.sample(w); buf.frameDrawn(w + 5); } // frozen frames; Resume is pressed, no state yet
+    buf.hold(905, 903); // Pause again
+    expect(buf.heldFrameWallMs).toBe(wall);
+    const f = buf.sample(920)!;
+    expect(f.timeS).toBe(shown.timeS);
+    expect(f.positions.get("earth")).toEqual(shown.positions.get("earth"));
+  });
+});

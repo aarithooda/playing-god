@@ -159,7 +159,7 @@ describe("useSimulation: step / play / pause", () => {
     expect(result.current.sim?.simulationTimeS).toBe(200);
   });
 
-  it("Pause stops scheduling but lets the in-flight step finish and apply", async () => {
+  it("Pause stops scheduling; the in-flight step still finishes (the backend did it) but the picture stays frozen where it was", async () => {
     const pending: Array<ReturnType<typeof deferred<StepResponseDto>>> = [];
     const step = vi.fn((_dt: number) => {
       const d = deferred<StepResponseDto>();
@@ -174,7 +174,10 @@ describe("useSimulation: step / play / pause", () => {
     await act(async () => {
       pending[0].resolve(stepResponse([sun, earth], 100));
     });
-    expect(result.current.sim?.simulationTimeS).toBe(100); // in-flight response still applied
+    // The response is the backend's truth and is kept (the motion buffer holds it for Resume), but it is not played or shown after
+    // Pause: the displayed state stays the one on screen when Pause was pressed.
+    expect(result.current.sim?.simulationTimeS).toBe(0);
+    expect(result.current.motion.latestTimeS).toBe(100);
     await advance(10_000);
     expect(step).toHaveBeenCalledTimes(1); // nothing further scheduled
     expect(result.current.playing).toBe(false);

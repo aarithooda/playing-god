@@ -159,15 +159,26 @@ function hermite(p0: V3, v0: V3, p1: V3, v1: V3, dt: number, u: number): V3 {
   return [0, 1, 2].map((k) => h00 * p0[k]! + h10 * dt * v0[k]! + h01 * p1[k]! + h11 * dt * v1[k]!) as V3;
 }
 
-/** Displayed positions (SI) of every body present in both samples at simulation time `t` (clamped to [A, B]). */
-export function evaluateSegment(plan: SegmentPlan, t: number): Map<string, V3> {
+/**
+ * Displayed positions (SI) of every body present in both samples at simulation time `t` (clamped to [A, B]). With `wanted`, only those
+ * bodies and the hosts they ride on are computed (a hosted body is placed relative to its host's DISPLAYED position, so the chain is
+ * needed); the others are absent from the result. The values are identical to a full evaluation.
+ */
+export function evaluateSegment(plan: SegmentPlan, t: number, wanted?: ReadonlySet<string>): Map<string, V3> {
   const { a, b, order } = plan;
+  // A host is always heavier than the body riding on it, so it comes earlier in `order`: one backwards pass closes the set.
+  let need: boolean[] | null = null;
+  if (wanted) {
+    need = order.map((body) => wanted.has(body.id));
+    for (let i = order.length - 1; i >= 0; i--) if (need[i] && order[i]!.host >= 0) need[order[i]!.host] = true;
+  }
   const dt = b.t - a.t;
   const out = new Map<string, V3>();
   const shown: V3[] = new Array(order.length);
   const clamped = Math.min(b.t, Math.max(a.t, t));
   const u = dt > 0 ? (clamped - a.t) / dt : 1;
   order.forEach((body, i) => {
+    if (need && !need[i]) return;
     let p: V3;
     if (body.mode === "cut" || u >= 1) {
       p = body.b.p;

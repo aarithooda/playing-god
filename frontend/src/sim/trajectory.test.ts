@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { PositionSample } from "../render/contract";
 import { toScenePosition } from "./renderTransform";
-import { buildPolylines, buildTimedPolylines, decimate, smoothTimedPolyline, spatialTrailProgress, toSceneSamples } from "./trajectory";
+import { buildPolylines, buildTimedPolylines, clipSamplesTo, decimate, smoothTimedPolyline, spatialTrailProgress, toSceneSamples } from "./trajectory";
 
 const sample = (i: number, segment = 0, x = i): PositionSample => ({ simulationTimeS: i * 100, positionM: { x: x * 1e9, y: 2e9, z: 3e9 }, segment });
 const run = (n: number, segmentAt: number[] = []): PositionSample[] =>
@@ -97,5 +97,21 @@ describe("trajectory.ts", () => {
   it("an empty or single-sample trajectory yields no drawable line", () => {
     expect(buildPolylines([], { metersPerUnit: 1 })).toEqual([]);
     expect(buildPolylines([sample(0)], { metersPerUnit: 1 }).filter((l) => l.length >= 2)).toEqual([]);
+  });
+});
+
+describe("clipSamplesTo (the live trail never shows committed history the screen has not reached)", () => {
+  it("keeps samples at or before the cut, in order, and drops later ones", () => {
+    const samples = [0, 1, 2, 3, 4].map((i) => sample(i));
+    expect(clipSamplesTo(samples, 250).map((s) => s.simulationTimeS)).toEqual([0, 100, 200]);
+    expect(clipSamplesTo(samples, 300).map((s) => s.simulationTimeS)).toEqual([0, 100, 200, 300]);
+    expect(clipSamplesTo(samples, -1)).toEqual([]);
+  });
+  it("does not change the recorded path itself: the kept samples are the same objects (history is preserved)", () => {
+    const samples = [0, 1, 2].map((i) => sample(i));
+    const kept = clipSamplesTo(samples, 100);
+    expect(kept[0]).toBe(samples[0]);
+    expect(kept[1]).toBe(samples[1]);
+    expect(samples).toHaveLength(3);
   });
 });
