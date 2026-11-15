@@ -35,6 +35,18 @@ export function describeEvent(event: EventView, bodyName: (id: string) => string
     return `${OUTCOME_LABEL[event.outcome] ?? event.outcome}: ${bodyName(projectile ?? '?')} hit ${bodyName(target ?? '?')} ` +
       `at ${event.impactSpeedMPerS.toPrecision(3)} m/s ${impactSpeedBasis(event.warnings)}, ${event.impactAngleDeg.toFixed(1)}° from the normal`;
   }
+  if (event.type === 'maneuver') {
+    const craft = bodyName(event.bodyIds[0] ?? '?');
+    const about = event.referenceBodyId ? ` (frame of ${bodyName(event.referenceBodyId)})` : '';
+    if (event.phase === 'ignition') return `${craft} ignited its engine for a ${event.commandedDeltaVMPerS.toPrecision(4)} m/s burn${about}`;
+    const what = event.phase === 'cutoff' ? 'engine cutoff' : 'impulsive burn';
+    return `${craft}: ${what}, ${event.deliveredDeltaVMPerS.toPrecision(4)} m/s delivered of ${event.commandedDeltaVMPerS.toPrecision(4)} m/s commanded${about}`;
+  }
+  if (event.type === 'contact') {
+    const [a, b] = event.bodyIds;
+    return `${bodyName(a ?? '?')} and ${bodyName(b ?? '?')} came into contact at ${event.relativeSpeedMPerS.toPrecision(3)} m/s relative speed. ` +
+      'The simulation stopped there; nothing was merged or broken';
+  }
   const [survivor, absorbed] = event.bodyIds;
   return `${bodyName(absorbed ?? '?')} merged into ${bodyName(survivor ?? event.resultBodyId)} ` +
     `at ${event.relativeSpeedMPerS.toPrecision(3)} m/s relative speed at detection`;
@@ -68,7 +80,7 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({
               borderRadius: '8px',
               fontSize: '12px',
               lineHeight: 1.5,
-              borderLeft: `2px solid ${event.type === 'collision' ? theme.warn : theme.danger}`,
+              borderLeft: `2px solid ${event.type === 'collision' ? theme.warn : event.type === 'maneuver' ? theme.info : theme.danger}`,
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
                 <strong>{event.type.toUpperCase()} · {event.id}</strong>
@@ -76,19 +88,19 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({
                   title={`${event.simulationTimeS} seconds as reported by the backend`}
                   style={{ color: theme.textMuted }}
                 >
-                  detected at t = {formatDuration(event.simulationTimeS)}
+                  {event.type === 'maneuver' ? 'at' : 'detected at'} t = {formatDuration(event.simulationTimeS)}
                 </span>
               </div>
               <div>{describeEvent(event, bodyName)}</div>
               {onSelectBody && focusId !== undefined && activeBodyIds?.has(focusId) && (
                 <button
                   type="button"
-                  aria-label={`Highlight surviving body ${bodyName(focusId)}`}
+                  aria-label={`${event.type === 'maneuver' || event.type === 'contact' ? 'Select' : 'Highlight surviving body'} ${bodyName(focusId)}`}
                   aria-pressed={selectedBodyId === focusId}
                   onClick={() => onSelectBody(focusId)}
                   style={{ ...btnStyle, marginTop: '6px', marginRight: '6px', fontSize: '11px', padding: '3px 9px' }}
                 >
-                  Highlight surviving body: {bodyName(focusId)}
+                  {event.type === 'maneuver' || event.type === 'contact' ? 'Select' : 'Highlight surviving body:'} {bodyName(focusId)}
                 </button>
               )}
               {event.type === 'collision' ? (
@@ -113,6 +125,18 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({
                     <div style={{ color: theme.textMuted, marginTop: '3px' }} data-testid="event-warnings">warnings: {event.warnings.join(', ')}</div>
                   )}
                 </>
+              ) : event.type === 'maneuver' ? (
+                <div style={{ color: theme.textMuted, marginTop: '3px' }}>
+                  {event.label ? `${event.label} · ` : ''}{event.mode} burn · propellant used {event.propellantUsedKg.toPrecision(4)} kg
+                  {event.missionId ? ' · part of a mission' : ''}
+                </div>
+              ) : event.type === 'contact' ? (
+                <div style={{ color: theme.textMuted, marginTop: '3px' }}>
+                  {event.refined
+                    ? 'state put back to the instant of first contact (integrated, not extrapolated)'
+                    : 'state at detection (the bodies overlap slightly)'}
+                  {' · '}reset, restore a snapshot, or move or delete one of the bodies to continue
+                </div>
               ) : (
               <>
               <div style={{ color: theme.textMuted, marginTop: '3px' }}>

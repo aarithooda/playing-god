@@ -40,7 +40,7 @@ interface BodyInspectorProps {
   catalogueEntry?: CatalogueEntryDto;
 }
 
-const KIND_LABEL: Record<BodyKind, string> = { star: 'Star', planet: 'Planet' };
+const KIND_LABEL: Record<BodyKind, string> = { star: 'Star', planet: 'Planet', spacecraft: 'Spacecraft' };
 
 /**
  * Dismissal on an empty-space click is owned by the canvas (UniverseCanvas onPointerMissed), not by

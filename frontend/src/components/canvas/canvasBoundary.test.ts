@@ -21,7 +21,10 @@ describe("UI-0 renderer boundary", () => {
     ];
     // D-064 adds the display-only Solar System reference orbits; Ring World adds presetId and ringWorldAnimate; smooth motion adds `motion`,
     // the buffer of authoritative backend states the canvas evaluates at the displayed time (display only: it reads, never writes, and has no simulation API).
-    expect(propNames(canvasSource).sort()).toEqual([...before, "trajectories", "labeledBodyIds", "overviewZoom", "collisionEffects", "surfaceMarks", "referenceOrbits", "presetId", "ringWorldAnimate", "placementAnchor", "motion"].sort());
+    // D-070 (Space Mission Design) adds `spaceflight`: orbits, flown paths and planned trajectories of spacecraft, as body-relative points.
+    expect(propNames(canvasSource).sort()).toEqual([...before, "trajectories", "labeledBodyIds", "overviewZoom", "collisionEffects", "surfaceMarks", "referenceOrbits", "presetId", "ringWorldAnimate", "placementAnchor", "motion", "spaceflight"].sort());
+    expect(canvasSource).toMatch(/spaceflight\?: SpaceflightSceneInput/);
+    expect(canvasSource).toMatch(/spaceflight && \(\s*<SpaceflightLayer/);
     expect(canvasSource).toMatch(/referenceOrbits\?: ReferenceOrbitsInput/);
     expect(canvasSource).toMatch(/referenceOrbits && \(\s*<ReferenceOrbitLayer/);
     expect(canvasSource).toMatch(/trajectories\?: readonly TrajectoryInput\[\]/);
@@ -37,7 +40,9 @@ describe("UI-0 renderer boundary", () => {
     expect(effectTypes).not.toMatch(/mass\w*\??\s*:/i); // no mass property on either input type
     const referenceTypes = contract.slice(contract.indexOf("export interface ReferenceOrbitsInput"), contract.indexOf("export interface PositionSample"));
     expect(referenceTypes).not.toMatch(/mass\w*\??\s*:/i);
-    for (const file of ["CollisionEffectsLayer", "DebrisParticles", "SurfaceMarks", "ReferenceOrbitLayer", "MainBeltLayer"]) {
+    const flightTypes = contract.slice(contract.indexOf("export interface SpaceflightSceneInput"));
+    expect(flightTypes).not.toMatch(/mass\w*\??\s*:/i);
+    for (const file of ["CollisionEffectsLayer", "DebrisParticles", "SurfaceMarks", "ReferenceOrbitLayer", "MainBeltLayer", "SpaceflightLayer", "SpacecraftMarker"]) {
       const text = sources.get(`components/canvas/${file}.tsx`)!;
       expect(text).not.toMatch(/api\/client|useSimulation|backend/);
     }

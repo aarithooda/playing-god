@@ -31,6 +31,20 @@ import type {
   HistoryPageDto,
   PresetSummaryDto,
   CollisionEventDto,
+  ContactEventDto,
+  HaltDto,
+  ManeuverDto,
+  ManeuverEventDto,
+  ManeuverPreviewDto,
+  MissionAgreementDto,
+  MissionCheckDto,
+  MissionDto,
+  MissionPlanDto,
+  MissionTrajectoryDto,
+  OrbitDto,
+  OrbitPreviewDto,
+  SpacecraftDto,
+  SpaceflightDto,
   SimulationEventDto,
   SimulationStateDto,
   SnapshotSummaryDto,
@@ -40,7 +54,7 @@ import type {
   Vec3,
 } from "./types";
 
-const BODY_TYPES: BodyType[] = ["star", "rocky-planet", "gas-giant", "ice-giant", "moon", "asteroid", "default"];
+const BODY_TYPES: BodyType[] = ["star", "rocky-planet", "gas-giant", "ice-giant", "moon", "asteroid", "default", "spacecraft"];
 
 function bad(what: string): never {
   throw new ApiError("invalid-response", `Unexpected response shape: ${what}`);
@@ -214,10 +228,12 @@ export function parseBodyDto(v: unknown): BodyDto {
     velocityMPerS: vec3(o.velocityMPerS, "body.velocityMPerS"),
     colorHex: str(o.colorHex, "body.colorHex"),
     // Older backends send neither field: a body without a kind is a planet.
-    kind: o.kind === "star" ? "star" : "planet",
+    kind: o.kind === "star" ? "star" : o.kind === "spacecraft" ? "spacecraft" : "planet",
     catalogueEntryId: typeof o.catalogueEntryId === "string" ? o.catalogueEntryId : null,
     ...parseRenderMeta(o, "body"),
     ...parseCollisionBodyFields(o),
+    // a spacecraft without its block cannot be shown as one: the block is required for that kind, and ignored on any other
+    ...(o.kind === "spacecraft" ? { spacecraft: parseSpacecraft(o.spacecraft) } : {}),
   };
 }
 
@@ -233,6 +249,325 @@ export function parseStateDto(v: unknown): SimulationStateDto {
     ...parseDiagnosticsLenient(o.diagnostics),
     ...(typeof o.universeId === "string" ? { universeId: o.universeId } : {}),
     ...(typeof o.revision === "number" && Number.isFinite(o.revision) ? { revision: o.revision } : {}),
+    ...(o.spaceflight === undefined || o.spaceflight === null ? {} : { spaceflight: parseSpaceflight(o.spaceflight) }),
+    ...(o.halt === undefined || o.halt === null ? {} : { halt: parseHalt(o.halt) }),
+  };
+}
+
+// ---------- Space Mission Design ----------
+const ORBIT_REGIMES = ["bound", "suborbital", "escape", "degenerate"] as const;
+
+/** A finite number, or null when the key is null or absent (the backend omits nothing here, but an escape orbit has null fields). */
+function optNum(v: unknown, what: string): number | null {
+  return v === null || v === undefined ? null : num(v, what);
+}
+
+function optStr(v: unknown, what: string): string | null {
+  return v === null || v === undefined ? null : str(v, what);
+}
+
+export function parseOrbit(v: unknown, what = "orbit"): OrbitDto {
+  const o = obj(v, what);
+  const regime = ORBIT_REGIMES.find((r) => r === o.regime);
+  if (!regime) bad(`${what}.regime`);
+  return {
+    referenceBodyId: str(o.referenceBodyId, `${what}.referenceBodyId`),
+    referenceBodyName: str(o.referenceBodyName, `${what}.referenceBodyName`),
+    regime,
+    radiusM: num(o.radiusM, `${what}.radiusM`),
+    altitudeM: num(o.altitudeM, `${what}.altitudeM`),
+    speedMPerS: num(o.speedMPerS, `${what}.speedMPerS`),
+    semiMajorAxisM: optNum(o.semiMajorAxisM, `${what}.semiMajorAxisM`),
+    eccentricity: optNum(o.eccentricity, `${what}.eccentricity`),
+    inclinationDeg: optNum(o.inclinationDeg, `${what}.inclinationDeg`),
+    raanDeg: optNum(o.raanDeg, `${what}.raanDeg`),
+    argPeriapsisDeg: optNum(o.argPeriapsisDeg, `${what}.argPeriapsisDeg`),
+    trueAnomalyDeg: optNum(o.trueAnomalyDeg, `${what}.trueAnomalyDeg`),
+    periapsisRadiusM: optNum(o.periapsisRadiusM, `${what}.periapsisRadiusM`),
+    apoapsisRadiusM: optNum(o.apoapsisRadiusM, `${what}.apoapsisRadiusM`),
+    periapsisAltitudeM: optNum(o.periapsisAltitudeM, `${what}.periapsisAltitudeM`),
+    apoapsisAltitudeM: optNum(o.apoapsisAltitudeM, `${what}.apoapsisAltitudeM`),
+    periodS: optNum(o.periodS, `${what}.periodS`),
+    timeToPeriapsisS: optNum(o.timeToPeriapsisS, `${what}.timeToPeriapsisS`),
+    timeToApoapsisS: optNum(o.timeToApoapsisS, `${what}.timeToApoapsisS`),
+    specificEnergyJPerKg: num(o.specificEnergyJPerKg, `${what}.specificEnergyJPerKg`),
+    circularSpeedMPerS: num(o.circularSpeedMPerS, `${what}.circularSpeedMPerS`),
+    escapeSpeedMPerS: num(o.escapeSpeedMPerS, `${what}.escapeSpeedMPerS`),
+    sphereOfInfluenceM: optNum(o.sphereOfInfluenceM, `${what}.sphereOfInfluenceM`),
+    gravitationalParameterM3PerS2: num(o.gravitationalParameterM3PerS2, `${what}.gravitationalParameterM3PerS2`),
+  };
+}
+
+function parseSpacecraft(v: unknown): SpacecraftDto {
+  const o = obj(v, "body.spacecraft");
+  return {
+    dryMassKg: num(o.dryMassKg, "spacecraft.dryMassKg"),
+    propellantKg: num(o.propellantKg, "spacecraft.propellantKg"),
+    propellantCapacityKg: num(o.propellantCapacityKg, "spacecraft.propellantCapacityKg"),
+    thrustN: num(o.thrustN, "spacecraft.thrustN"),
+    ispS: num(o.ispS, "spacecraft.ispS"),
+    massFlowKgPerS: num(o.massFlowKgPerS, "spacecraft.massFlowKgPerS"),
+    deltaVRemainingMPerS: num(o.deltaVRemainingMPerS, "spacecraft.deltaVRemainingMPerS"),
+    thrusting: bool(o.thrusting, "spacecraft.thrusting"),
+    homeBodyId: optStr(o.homeBodyId, "spacecraft.homeBodyId"),
+    orbit: o.orbit === null || o.orbit === undefined ? null : parseOrbit(o.orbit, "spacecraft.orbit"),
+  };
+}
+
+const MANEUVER_STATUSES = ["planned", "executing", "executed", "failed"] as const;
+
+export function parseManeuver(v: unknown): ManeuverDto {
+  const o = obj(v, "maneuver");
+  const status = MANEUVER_STATUSES.find((s) => s === o.status);
+  if (!status) bad("maneuver.status");
+  if (o.mode !== "impulsive" && o.mode !== "finite") bad("maneuver.mode");
+  if (o.frame !== "vnb" && o.frame !== "inertial") bad("maneuver.frame");
+  return {
+    id: str(o.id, "maneuver.id"),
+    spacecraftId: str(o.spacecraftId, "maneuver.spacecraftId"),
+    epochS: num(o.epochS, "maneuver.epochS"),
+    mode: o.mode,
+    frame: o.frame,
+    referenceBodyId: optStr(o.referenceBodyId, "maneuver.referenceBodyId"),
+    progradeMPerS: optNum(o.progradeMPerS, "maneuver.progradeMPerS"),
+    normalMPerS: optNum(o.normalMPerS, "maneuver.normalMPerS"),
+    radialMPerS: optNum(o.radialMPerS, "maneuver.radialMPerS"),
+    deltaVMPerS: o.deltaVMPerS === null || o.deltaVMPerS === undefined ? null : vec3(o.deltaVMPerS, "maneuver.deltaVMPerS"),
+    deltaVMagnitudeMPerS: num(o.deltaVMagnitudeMPerS, "maneuver.deltaVMagnitudeMPerS"),
+    label: str(o.label, "maneuver.label"),
+    centered: bool(o.centered, "maneuver.centered"),
+    missionId: optStr(o.missionId, "maneuver.missionId"),
+    role: optStr(o.role, "maneuver.role"),
+    status,
+    startS: num(o.startS, "maneuver.startS"),
+    endS: num(o.endS, "maneuver.endS"),
+    plannedPropellantKg: num(o.plannedPropellantKg, "maneuver.plannedPropellantKg"),
+    feasible: bool(o.feasible, "maneuver.feasible"),
+    startedAtS: optNum(o.startedAtS, "maneuver.startedAtS"),
+    endedAtS: optNum(o.endedAtS, "maneuver.endedAtS"),
+    deliveredDeltaVMPerS: optNum(o.deliveredDeltaVMPerS, "maneuver.deliveredDeltaVMPerS"),
+    propellantUsedKg: optNum(o.propellantUsedKg, "maneuver.propellantUsedKg"),
+    failure: optStr(o.failure, "maneuver.failure"),
+  };
+}
+
+/** Copies the named numeric fields of a plan block; a missing or non-finite one is a malformed plan. */
+function nums<K extends string>(v: unknown, what: string, keys: readonly K[]): Record<K, number> {
+  const o = obj(v, what);
+  const out = {} as Record<K, number>;
+  for (const k of keys) out[k] = num(o[k], `${what}.${k}`);
+  return out;
+}
+
+function parseMissionPlan(v: unknown): MissionPlanDto {
+  const o = obj(v, "mission.plan");
+  const model = obj(o.model, "plan.model");
+  const pc = obj(o.patchedConic, "plan.patchedConic");
+  const dep = obj(o.departure, "plan.departure");
+  const arr = obj(o.arrival, "plan.arrival");
+  const totals = obj(o.totals, "plan.totals");
+  let insertion: MissionPlanDto["insertion"] = null;
+  if (o.insertion !== null && o.insertion !== undefined) {
+    const i = obj(o.insertion, "plan.insertion");
+    insertion = { ...nums(i, "plan.insertion", ["epochS", "deltaVMPerS", "ignitionS", "cutoffS", "propellantKg"] as const), mode: str(i.mode, "plan.insertion.mode") };
+  }
+  let predictedOrbit: MissionPlanDto["predictedOrbit"] = null;
+  if (o.predictedOrbit !== null && o.predictedOrbit !== undefined) {
+    const p = obj(o.predictedOrbit, "plan.predictedOrbit");
+    predictedOrbit = {
+      bound: bool(p.bound, "plan.predictedOrbit.bound"),
+      semiMajorAxisM: optNum(p.semiMajorAxisM, "plan.predictedOrbit.semiMajorAxisM"),
+      eccentricity: optNum(p.eccentricity, "plan.predictedOrbit.eccentricity"),
+      periodS: optNum(p.periodS, "plan.predictedOrbit.periodS"),
+      ...nums(p, "plan.predictedOrbit", ["minAltitudeM", "maxAltitudeM"] as const),
+    };
+  }
+  return {
+    originBodyId: str(o.originBodyId, "plan.originBodyId"),
+    destinationBodyId: str(o.destinationBodyId, "plan.destinationBodyId"),
+    designedAtS: num(o.designedAtS, "plan.designedAtS"),
+    model: {
+      method: str(model.method, "plan.model.method"),
+      reducedModelForBracketing: bool(model.reducedModelForBracketing, "plan.model.reducedModelForBracketing"),
+      burnModel: str(model.burnModel, "plan.model.burnModel"),
+      ...nums(model, "plan.model", ["bodiesInFinalFlight", "trialFlights", "periapsisResidualM", "planningWallTimeS"] as const),
+    },
+    parkingOrbit: nums(o.parkingOrbit, "plan.parkingOrbit", ["radiusM", "eccentricity", "periodS", "speedMPerS", "planeMismatchDeg"] as const),
+    patchedConic: {
+      note: str(pc.note, "plan.patchedConic.note"),
+      ...nums(pc, "plan.patchedConic", ["departureDeltaVMPerS", "transferTimeS", "hohmannDepartureDeltaVMPerS", "hohmannTransferTimeS"] as const),
+    },
+    departure: { ...nums(dep, "plan.departure", ["epochS", "ignitionS", "cutoffS", "deltaVMPerS", "propellantKg"] as const), mode: str(dep.mode, "plan.departure.mode") },
+    arrival: {
+      ...nums(arr, "plan.arrival", ["epochS", "transferTimeS", "periapsisRadiusM", "periapsisAltitudeM", "periapsisSpeedMPerS",
+        "inclinationToDestinationOrbitDeg", "hyperbolicExcessSpeedMPerS", "sphereOfInfluenceM"] as const),
+      direction: str(arr.direction, "plan.arrival.direction"),
+    },
+    insertion,
+    predictedOrbit,
+    totals: {
+      ...nums(totals, "plan.totals", ["deltaVMPerS", "propellantRequiredKg", "propellantAvailableKg", "deltaVAvailableMPerS"] as const),
+      feasible: bool(totals.feasible, "plan.totals.feasible"),
+    },
+    trajectoryEndS: num(o.trajectoryEndS, "plan.trajectoryEndS"),
+  };
+}
+
+const MISSION_STATUSES = ["draft", "planned", "in_progress", "completed", "failed", "unsupported"] as const;
+
+export function parseMission(v: unknown): MissionDto {
+  const o = obj(v, "mission");
+  const status = MISSION_STATUSES.find((s) => s === o.status);
+  if (!status) bad("mission.status");
+  const objective = obj(o.objective, "mission.objective");
+  if (objective.type !== "orbit" && objective.type !== "flyby") bad("mission.objective.type");
+  if (!Array.isArray(o.checks)) bad("mission.checks");
+  if (!Array.isArray(o.agreement)) bad("mission.agreement");
+  const checks: MissionCheckDto[] = (o.checks as unknown[]).map((c, i) => {
+    const k = obj(c, `mission.checks[${i}]`);
+    return {
+      id: str(k.id, "check.id"), label: str(k.label, "check.label"), ok: bool(k.ok, "check.ok"), actual: optNum(k.actual, "check.actual"),
+      target: typeof k.target === "string" ? k.target : optNum(k.target, "check.target"), tolerance: optNum(k.tolerance, "check.tolerance"),
+      unit: str(k.unit, "check.unit"),
+    };
+  });
+  const agreement: MissionAgreementDto[] = (o.agreement as unknown[]).map((a, i) => {
+    const k = obj(a, `mission.agreement[${i}]`);
+    return {
+      maneuverId: str(k.maneuverId, "agreement.maneuverId"), role: optStr(k.role, "agreement.role"), ok: bool(k.ok, "agreement.ok"),
+      ...nums(k, "agreement", ["positionDifferenceM", "velocityDifferenceMPerS", "positionToleranceM", "velocityToleranceMPerS"] as const),
+    };
+  });
+  let outcome: MissionDto["outcome"] = null;
+  if (o.outcome !== null && o.outcome !== undefined) {
+    outcome = {};
+    for (const [k, val] of Object.entries(obj(o.outcome, "mission.outcome"))) {
+      if (val === null || typeof val === "boolean") outcome[k] = val;
+      else outcome[k] = num(val, `mission.outcome.${k}`);
+    }
+  }
+  return {
+    id: str(o.id, "mission.id"),
+    name: str(o.name, "mission.name"),
+    spacecraftId: str(o.spacecraftId, "mission.spacecraftId"),
+    originBodyId: optStr(o.originBodyId, "mission.originBodyId"),
+    destinationBodyId: str(o.destinationBodyId, "mission.destinationBodyId"),
+    objective: {
+      type: objective.type,
+      periapsisAltitudeM: num(objective.periapsisAltitudeM, "mission.objective.periapsisAltitudeM"),
+      apoapsisAltitudeM: optNum(objective.apoapsisAltitudeM, "mission.objective.apoapsisAltitudeM"),
+      direction: objective.direction === "retrograde" ? "retrograde" : "prograde",
+      toleranceM: num(objective.toleranceM, "mission.objective.toleranceM"),
+    },
+    status,
+    phase: str(o.phase, "mission.phase"),
+    reasons: strArray(o.reasons, "mission.reasons"),
+    committed: bool(o.committed, "mission.committed"),
+    planRevision: num(o.planRevision, "mission.planRevision"),
+    planStale: bool(o.planStale, "mission.planStale"),
+    plan: o.plan === null || o.plan === undefined ? null : parseMissionPlan(o.plan),
+    maneuverIds: strArray(o.maneuverIds, "mission.maneuverIds"),
+    checks,
+    agreement,
+    outcome,
+    createdAtS: num(o.createdAtS, "mission.createdAtS"),
+    updatedAtS: num(o.updatedAtS, "mission.updatedAtS"),
+  };
+}
+
+function parseSpaceflight(v: unknown): SpaceflightDto {
+  const o = obj(v, "state.spaceflight");
+  if (!Array.isArray(o.maneuvers)) bad("spaceflight.maneuvers");
+  if (!Array.isArray(o.missions)) bad("spaceflight.missions");
+  return { maneuvers: (o.maneuvers as unknown[]).map(parseManeuver), missions: (o.missions as unknown[]).map(parseMission) };
+}
+
+function parseHalt(v: unknown): HaltDto {
+  const o = obj(v, "state.halt");
+  return {
+    eventId: str(o.eventId, "halt.eventId"),
+    reason: "collision",
+    bodyIds: strArray(o.bodyIds, "halt.bodyIds"),
+    simulationTimeS: num(o.simulationTimeS, "halt.simulationTimeS"),
+    relativeSpeedMPerS: num(o.relativeSpeedMPerS, "halt.relativeSpeedMPerS"),
+    refined: bool(o.refined, "halt.refined"),
+    message: str(o.message, "halt.message"),
+  };
+}
+
+function tuples(v: unknown, what: string, length: number): [number, number, number][] {
+  if (!Array.isArray(v) || v.length !== length) bad(what);
+  return (v as unknown[]).map((p, i) => {
+    if (!Array.isArray(p) || p.length !== 3) bad(`${what}[${i}]`);
+    return [num(p[0], `${what}[${i}][0]`), num(p[1], `${what}[${i}][1]`), num(p[2], `${what}[${i}][2]`)];
+  });
+}
+
+export function parseMissionTrajectory(v: unknown): MissionTrajectoryDto {
+  const o = obj(v, "trajectory");
+  if (!Array.isArray(o.timesS)) bad("trajectory.timesS");
+  const timesS = (o.timesS as unknown[]).map((t, i) => num(t, `trajectory.timesS[${i}]`));
+  return {
+    missionId: str(o.missionId, "trajectory.missionId"),
+    planRevision: num(o.planRevision, "trajectory.planRevision"),
+    timesS,
+    spacecraftM: tuples(o.spacecraftM, "trajectory.spacecraftM", timesS.length),
+    originM: tuples(o.originM, "trajectory.originM", timesS.length),
+    destinationM: tuples(o.destinationM, "trajectory.destinationM", timesS.length),
+  };
+}
+
+export function parseOrbitPreview(v: unknown): OrbitPreviewDto {
+  const o = obj(v, "orbit preview");
+  return { orbit: parseOrbit(o.orbit, "preview.orbit"), warnings: strArray(o.warnings, "preview.warnings") };
+}
+
+export function parseManeuverPreview(v: unknown): ManeuverPreviewDto {
+  const o = obj(v, "maneuver preview");
+  return {
+    ...nums(o, "preview", ["epochS", "deltaVMagnitudeMPerS", "propellantKg", "burnDurationS"] as const),
+    basis: str(o.basis, "preview.basis"),
+    feasible: bool(o.feasible, "preview.feasible"),
+    before: parseOrbit(o.before, "preview.before"),
+    after: parseOrbit(o.after, "preview.after"),
+  };
+}
+
+/** POST .../spacecraft answers `{ body, warnings }`. */
+export function parseSpacecraftCreated(v: unknown): { body: BodyDto; warnings: string[] } {
+  const o = obj(v, "spacecraft created");
+  return { body: parseBodyDto(o.body), warnings: strArray(o.warnings, "created.warnings") };
+}
+
+function parseManeuverEvent(o: Record<string, unknown>): ManeuverEventDto {
+  if (o.phase !== "impulse" && o.phase !== "ignition" && o.phase !== "cutoff") bad("event.phase");
+  return {
+    id: str(o.id, "event.id"),
+    type: "maneuver",
+    simulationTimeS: num(o.simulationTimeS, "event.simulationTimeS"),
+    bodyIds: strArray(o.bodyIds, "event.bodyIds"),
+    maneuverId: str(o.maneuverId, "event.maneuverId"),
+    phase: o.phase,
+    mode: o.mode === "finite" ? "finite" : "impulsive",
+    referenceBodyId: optStr(o.referenceBodyId, "event.referenceBodyId"),
+    commandedDeltaVMPerS: num(o.commandedDeltaVMPerS, "event.commandedDeltaVMPerS"),
+    deliveredDeltaVMPerS: num(o.deliveredDeltaVMPerS, "event.deliveredDeltaVMPerS"),
+    propellantUsedKg: num(o.propellantUsedKg, "event.propellantUsedKg"),
+    missionId: optStr(o.missionId, "event.missionId"),
+    label: typeof o.label === "string" ? o.label : "",
+  };
+}
+
+function parseContactEvent(o: Record<string, unknown>): ContactEventDto {
+  return {
+    id: str(o.id, "event.id"),
+    type: "contact",
+    simulationTimeS: num(o.simulationTimeS, "event.simulationTimeS"),
+    estimatedContactTimeS: optNum(o.estimatedContactTimeS, "event.estimatedContactTimeS"),
+    bodyIds: strArray(o.bodyIds, "event.bodyIds"),
+    relativeSpeedMPerS: num(o.relativeSpeedMPerS, "event.relativeSpeedMPerS"),
+    refined: o.refined === true,
+    involvesSpacecraft: o.involvesSpacecraft === true,
   };
 }
 
@@ -278,6 +613,8 @@ function parseCollisionEvent(o: Record<string, unknown>): CollisionEventDto {
 export function parseEventDto(v: unknown): SimulationEventDto {
   const o = obj(v, "event");
   if (o.type === "collision") return parseCollisionEvent(o);
+  if (o.type === "maneuver") return parseManeuverEvent(o);
+  if (o.type === "contact") return parseContactEvent(o);
   if (o.type !== "merger") bad(`event.type (${String(o.type)})`);
   if (!Array.isArray(o.bodyIds)) bad("event.bodyIds");
   return {
@@ -560,6 +897,9 @@ export function parseUniverseSummary(v: unknown): UniverseSummaryDto {
     createdAtIso: str(o.createdAtIso, "universe.createdAtIso"),
     epochLabel: strOrNull(o.epochLabel, "universe.epochLabel"),
     historyMode: o.historyMode === "grid" ? "grid" : "step",
+    ...(o.collisionMode === "legacy-merge" || o.collisionMode === "outcome-v1" || o.collisionMode === "stop-on-contact"
+      ? { collisionMode: o.collisionMode }
+      : {}),
   };
 }
 

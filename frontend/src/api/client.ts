@@ -15,6 +15,12 @@ import {
   parseReplayReport,
   parseVisualEvent,
   parseHistoryPage,
+  parseManeuver,
+  parseManeuverPreview,
+  parseMission,
+  parseMissionTrajectory,
+  parseOrbitPreview,
+  parseSpacecraftCreated,
   parsePresetList,
   parseSnapshotList,
   parseSnapshotSummary,
@@ -40,6 +46,17 @@ import type {
   OrbitLabSystemDto,
   UniverseProvenanceDto,
   HistoryPageDto,
+  ManeuverCreateDto,
+  ManeuverDto,
+  ManeuverPreviewDto,
+  MissionCreateDto,
+  MissionDto,
+  MissionPlanRequestDto,
+  MissionTrajectoryDto,
+  OrbitPreviewDto,
+  OrbitSpecDto,
+  SpacecraftCreateDto,
+  SpacecraftUpdateDto,
   PresetSummaryDto,
   SimulationEventDto,
   SimulationStateDto,
@@ -87,6 +104,23 @@ export interface ScopedClient extends SimulationClient {
   replayCollision(eventId: string): Promise<ReplayReportDto>;
   /** The visual description of an event (404 for a legacy merge): the renderer's only input about the event beyond body states. */
   getCollisionVisual(eventId: string): Promise<VisualEventDto>;
+  // ---- Space Mission Design: spacecraft are bodies (state, step, delete as usual); these add what is specific to them ----
+  createSpacecraft(request: SpacecraftCreateDto): Promise<{ body: BodyDto; warnings: string[] }>;
+  updateSpacecraft(id: string, patch: SpacecraftUpdateDto): Promise<BodyDto>;
+  /** What an orbit request would give; creates nothing. */
+  previewOrbit(orbit: OrbitSpecDto, massKg: number): Promise<OrbitPreviewDto>;
+  createManeuver(spacecraftId: string, request: ManeuverCreateDto): Promise<ManeuverDto>;
+  /** The orbit a node would give (two-body estimate for a future node); changes nothing. */
+  previewManeuver(spacecraftId: string, request: ManeuverCreateDto): Promise<ManeuverPreviewDto>;
+  deleteManeuver(maneuverId: string): Promise<void>;
+  createMission(request: MissionCreateDto): Promise<MissionDto>;
+  /** Designs the transfer (a prediction; nothing is scheduled). Can take several seconds. */
+  planMission(missionId: string, request?: MissionPlanRequestDto): Promise<MissionDto>;
+  commitMission(missionId: string): Promise<MissionDto>;
+  abortMission(missionId: string): Promise<MissionDto>;
+  deleteMission(missionId: string): Promise<void>;
+  /** The planned trajectory of a mission (a prediction). */
+  getMissionTrajectory(missionId: string): Promise<MissionTrajectoryDto>;
 }
 
 export interface ModifiedRunRequest {
@@ -266,6 +300,42 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
       },
       async replayCollision(eventId) {
         return parseReplayReport(await call("POST", `${root}/collisions/${encodeURIComponent(eventId)}/replay`, readTimeoutMs));
+      },
+      async createSpacecraft(request) {
+        return parseSpacecraftCreated(await call("POST", `${root}/spacecraft?${epoch}`, writeTimeoutMs, request));
+      },
+      async updateSpacecraft(id, patch) {
+        return parseBodyDto(await call("PATCH", `${root}/spacecraft/${encodeURIComponent(id)}?${epoch}`, writeTimeoutMs, patch));
+      },
+      async previewOrbit(orbit, massKg) {
+        return parseOrbitPreview(await call("POST", `${root}/spacecraft/orbit-preview`, writeTimeoutMs, { orbit, massKg }));
+      },
+      async createManeuver(spacecraftId, request) {
+        return parseManeuver(await call("POST", `${root}/spacecraft/${encodeURIComponent(spacecraftId)}/maneuvers?${epoch}`, writeTimeoutMs, request));
+      },
+      async previewManeuver(spacecraftId, request) {
+        return parseManeuverPreview(await call("POST", `${root}/spacecraft/${encodeURIComponent(spacecraftId)}/maneuvers/preview`, writeTimeoutMs, request));
+      },
+      async deleteManeuver(maneuverId) {
+        await call("DELETE", `${root}/maneuvers/${encodeURIComponent(maneuverId)}?${epoch}`, writeTimeoutMs, undefined, false);
+      },
+      async createMission(request) {
+        return parseMission(await call("POST", `${root}/missions?${epoch}`, writeTimeoutMs, request));
+      },
+      async planMission(missionId, request = {}) {
+        return parseMission(await call("POST", `${root}/missions/${encodeURIComponent(missionId)}/plan?${epoch}`, writeTimeoutMs, request));
+      },
+      async commitMission(missionId) {
+        return parseMission(await call("POST", `${root}/missions/${encodeURIComponent(missionId)}/commit?${epoch}`, writeTimeoutMs));
+      },
+      async abortMission(missionId) {
+        return parseMission(await call("POST", `${root}/missions/${encodeURIComponent(missionId)}/abort?${epoch}`, writeTimeoutMs));
+      },
+      async deleteMission(missionId) {
+        await call("DELETE", `${root}/missions/${encodeURIComponent(missionId)}?${epoch}`, writeTimeoutMs, undefined, false);
+      },
+      async getMissionTrajectory(missionId) {
+        return parseMissionTrajectory(await call("GET", `${root}/missions/${encodeURIComponent(missionId)}/trajectory`, readTimeoutMs));
       },
     };
   }

@@ -3,6 +3,8 @@ import { addAfterEffect, Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Html, OrbitControls } from '@react-three/drei';
 import { BufferAttribute, BufferGeometry, Group, Line, LineBasicMaterial, PerspectiveCamera, Raycaster, Vector2, Vector3 } from 'three';
 import { CelestialBody } from './CelestialBody';
+import { SpacecraftMarker } from './SpacecraftMarker';
+import { SpaceflightLayer } from './SpaceflightLayer';
 import { StarfieldShell } from './StarfieldShell';
 import { MilkyWayBackdrop } from './MilkyWayBackdrop';
 import { CollisionEffectsLayer } from './CollisionEffectsLayer';
@@ -27,7 +29,7 @@ import {
 import type { SceneBody } from '../../sim/viewModel';
 import { isRingWorldBody, ringWorldCameraOffset, RING_WORLD_PRESET_BODY_IDS, SUN_DIRECTION } from '../../sim/ringWorld';
 import type { ViewControlContract } from '../../sim/viewControlContract';
-import type { CollisionEffectInput, ReferenceOrbitsInput, SurfaceMarkInput, TrajectoryInput } from '../../render/contract';
+import type { CollisionEffectInput, ReferenceOrbitsInput, SpaceflightSceneInput, SurfaceMarkInput, TrajectoryInput } from '../../render/contract';
 
 export interface FocusRequest {
   nonce: number;
@@ -86,6 +88,8 @@ interface UniverseCanvasProps {
   presetId?: string | null;
   /** Ring World: whether the ring grains drift (the simulation is playing). */
   ringWorldAnimate?: boolean;
+  /** Space Mission Design (D-070): orbits, flown paths and planned trajectories of spacecraft. Display only; absent = drawn as before. */
+  spaceflight?: SpaceflightSceneInput;
 }
 
 interface OrbitTarget {
@@ -537,6 +541,7 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
   referenceOrbits,
   presetId = null,
   ringWorldAnimate = false,
+  spaceflight,
 }) => {
   const displayPositions = useMemo(() => new DisplayPositions(), []);
   const axesVisible = viewControls?.state.axesVisible ?? showAxes;
@@ -575,6 +580,10 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
       {axesVisible && <AxesOverlay transform={transform} />}
       {trajectories.length > 0 && <TrajectoryLayer trajectories={trajectories} transform={transform} selectedBodyId={selectedBodyId} motion={motion} />}
       {collisionEffects.length > 0 && <CollisionEffectsLayer effects={collisionEffects} transform={transform} />}
+      {spaceflight && (
+        <SpaceflightLayer input={spaceflight} bodies={bodies} transform={transform} displayPositions={displayPositions}
+          selectedBodyId={selectedBodyId} live={motion !== undefined} />
+      )}
       {referenceOrbits && (
         <ReferenceOrbitLayer
           input={referenceOrbits}
@@ -611,7 +620,21 @@ export const UniverseCanvas: React.FC<UniverseCanvasProps> = ({
         </>
       )}
 
-      {bodies.map((body) => (
+      {bodies.filter((body) => body.kind === 'spacecraft').map((body) => (
+        <SpacecraftMarker
+          key={body.id}
+          bodyId={body.id}
+          name={body.name}
+          color={body.color}
+          position={body.position}
+          displayPositions={displayPositions}
+          thrusting={body.thrusting}
+          isSelected={selectedBodyId === body.id}
+          onClick={placementMode ? undefined : () => onSelectBody(body.id)}
+          onDoubleClick={placementMode ? undefined : () => onFocusBody(body.id)}
+        />
+      ))}
+      {bodies.filter((body) => body.kind !== 'spacecraft').map((body) => (
         <CelestialBody
           key={body.id}
           position={body.position}
