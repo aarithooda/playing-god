@@ -970,6 +970,8 @@ class SimulationService(SpaceflightMixin):
         """Advance to `target`. In grid-history mode every k * interval inside the step is an integration target, so
         the engine lands exactly on it and the state there is recorded."""
         history = self._history
+        if self._flight_touching():
+            return  # stop-on-contact: a pair is already in contact and closing; nothing advances
         while True:
             grid = history.next_grid_time()
             sub = grid if (grid is not None and grid <= target) else target

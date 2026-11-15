@@ -41,13 +41,15 @@ SPACECRAFT_NAME_PREFIX = "craft-"
 def has_satellites(sim) -> bool:
     """True when some body is dominated by an attractor that is not the system's main mass: a moon bound to its planet
     rather than to the star. Such a system has two very different dynamical timescales."""
+    if any((q.name or "").startswith(SPACECRAFT_NAME_PREFIX) for q in sim.particles):
+        return True  # also for a single body and its spacecraft: one rule for every universe that holds one
     ps = [(q.m, q.x, q.y, q.z) for q in sim.particles]
     if len(ps) < 3:
         return False
     # Collision debris (Stage 5/7: fragments `frag-*` and parcels `debris-*`) orbits or leaves its remnant on a timescale far shorter than
     # the system's: the same two-timescale structure as a moon. With GLOBAL the step collapsed erratically on such systems (3 of 10 runs
     # of the same scenario took 10-44 s instead of 1.5 s, seeded differently); PRS23 took 1.1-1.7 s in all 12 (D-051).
-    if any((q.name or "").startswith(DEBRIS_NAME_PREFIXES + (SPACECRAFT_NAME_PREFIX,)) for q in sim.particles):
+    if any((q.name or "").startswith(DEBRIS_NAME_PREFIXES) for q in sim.particles):
         return True
     heaviest = max(m for m, *_ in ps)
     for i, (mi, xi, yi, zi) in enumerate(ps):

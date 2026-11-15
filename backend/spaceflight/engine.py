@@ -38,6 +38,7 @@ MAX_SPACECRAFT = 32
 MAX_PENDING_MANEUVERS = 64
 MAX_MISSIONS = 16
 MAX_MANEUVER_RECORDS = 256  # executed / failed nodes kept for inspection
+TOUCHING_REL = 4.0e-9  # centre distance within this fraction of the contact distance counts as touching (contact refinement: 1e-9)
 
 
 class SpaceflightError(Exception):
@@ -52,6 +53,11 @@ class SpaceflightError(Exception):
 
 def _due(when: float, now: float) -> bool:
     return when <= now or math.isclose(when, now, rel_tol=1.0e-14, abs_tol=1.0e-9)
+
+
+def _before(when: float, now: float) -> bool:
+    """Strictly earlier than `now` (beyond round-off)."""
+    return when < now and not math.isclose(when, now, rel_tol=1.0e-14, abs_tol=1.0e-9)
 
 
 def _deg(x: float) -> float:
@@ -363,11 +369,11 @@ class SpaceflightMixin:
                 impulse = plan_impulse((dv, 0.0, 0.0), mass, propellant, craft.isp_s)
                 start = end = m.epoch_s
                 used, feasible = impulse.propellant_used_kg, impulse.shortfall <= dv * mission_rules.SHORTFALL_REL
-            if start < now and not _due(start, now):
+            if _before(start, now):
                 raise self._flight_refuse(
                     f"the burn of node {m.label or m.id} would have to start at t = {start:.3f} s, before the present time {now:.3f} s "
                     "(a centred finite burn starts half its duration before the node)", "maneuver_in_past", 422)
-            if start < busy_until and not _due(busy_until, start):
+            if _before(start, busy_until):
                 raise self._flight_refuse(f"the burn of node {m.label or m.id} overlaps another burn of the same spacecraft", "maneuver_overlap", 422)
             book.amend(m, start_s=start, end_s=end, planned_propellant_kg=used, feasible=feasible)
             mass, propellant, busy_until = mass - used, propellant - used, end
@@ -418,7 +424,7 @@ class SpaceflightMixin:
                 reference_id = ref.id
             self._flight_body_particle(reference_id, "the reference body")
         epoch = self._flight_node_epoch(craft_id, data, reference_id)
-        if epoch < self._sim.t and not _due(epoch, self._sim.t):
+        if _before(epoch, self._sim.t):
             raise self._flight_refuse(f"the node time {epoch:.3f} s is before the present time {self._sim.t:.3f} s", "maneuver_in_past", 422)
         if len(self._flight.pending_maneuvers()) >= MAX_PENDING_MANEUVERS:
             raise self._flight_refuse(f"too many pending manoeuvre nodes ({MAX_PENDING_MANEUVERS})", "maneuver_limit")
@@ -734,6 +740,36 @@ class SpaceflightMixin:
             return False
         self._recorder.pending = []  # anything else recorded in this pass is still touching: it is detected again after the halt is cleared
         return self._flight_halt_on(pairs)
+
+    def _flight_touching(self) -> bool:
+        """Before a step integrates anything: a pair that must stop the simulation and is ALREADY in contact and closing (a halt
+        that was cleared without separating the bodies) stops it at once, with the state exactly as it is. Without this the swept
+        test would report the pair only at the end of the first internal step, well inside the other body."""
+        if not self._flight_stops():
+            return False
+        ps = list(self._sim.particles)
+        craft = self._flight.craft
+        for i, a in enumerate(ps):
+            for b in ps[i + 1:]:
+                if not (self._stop_mode or a.name in craft or b.name in craft):
+                    continue
+                r = (b.x - a.x, b.y - a.y, b.z - a.z)
+                contact = a.r + b.r
+                if orbits.dot(r, r) > (contact * (1.0 + TOUCHING_REL)) ** 2:
+                    continue
+                v = (b.vx - a.vx, b.vy - a.vy, b.vz - a.vz)
+                if orbits.dot(r, v) >= 0.0:
+                    continue  # touching but separating: let it go
+                speed = orbits.norm(v)
+                ids = tuple(sorted((a.name, b.name), key=lambda k: (k not in craft, k)))
+                event = ContactEvent(id=self._flight_event_id("halt"), type="contact", simulationTimeS=self._sim.t,
+                                     estimatedContactTimeS=self._sim.t, bodyIds=list(ids), relativeSpeedMPerS=speed, refined=True,
+                                     involvesSpacecraft=ids[0] in craft or ids[1] in craft)
+                self._pending.append(event)
+                self._flight.halt = Halt(event_id=event.id, body_ids=ids, time_s=self._sim.t, relative_speed_m_per_s=speed, refined=True)
+                self._halted_now = True
+                return True
+        return False
 
     def _flight_halt_on(self, pairs: list) -> bool:
         # the contact helpers belong to the collision package, which only the wired modules import (tests/impact/test_contracts.py)

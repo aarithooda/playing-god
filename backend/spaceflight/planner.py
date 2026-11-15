@@ -460,28 +460,35 @@ def design_transfer(sim, craft_id: str, craft: Spacecraft, craft_ids: set, reque
         """Departure time whose signed periapsis radius equals the target: (t_d, flight, iterations) or (None, closest flight, n)."""
         dt_scan = SCAN_STEP_RAD / n_park
         steps = int(round(SCAN_HALF_WIDTH_RAD / SCAN_STEP_RAD))
-        scan = []
-        for k in range(-steps, steps + 1):
+        flights: dict = {}
+        target_bracket = [None, None]  # [both ends on the wanted side, the pass sweeps through the body between the ends]
+
+        def look(k: int) -> None:
+            if k not in flights or k + 1 not in flights:
+                return
+            (ta, fa), (tb, fb) = flights[k], flights[k + 1]
+            if not (fa.reached and fb.reached):
+                return
+            ga, gb = fa.signed - target_signed, fb.signed - target_signed
+            if ga * gb > 0.0:
+                return
+            if fa.signed * want > 0.0 and fb.signed * want > 0.0:
+                target_bracket[0] = target_bracket[0] or (ta, ga, tb, gb)  # the function is smooth here: preferred
+            elif fa.signed * fb.signed < 0.0:
+                target_bracket[1] = target_bracket[1] or (ta, ga, tb, gb)
+
+        # outwards from the estimate, so a good estimate needs only a handful of trial flights
+        for k in sorted(range(-steps, steps + 1), key=lambda j: (abs(j), j)):
             t_d = centre + k * dt_scan
             if t_d < t_min:
                 continue
-            scan.append((t_d, fly(screen, t_d, dv, tof_hint)))
-        bracket = None
-        for (ta, fa), (tb, fb) in zip(scan, scan[1:]):
-            if not (fa.reached and fb.reached):
-                continue
-            ga, gb = fa.signed - target_signed, fb.signed - target_signed
-            if ga * gb > 0.0:
-                continue
-            # a crossing of the target: both ends on the wanted side of the body (preferred: the function is smooth there), or one end
-            # on the far side (the pass sweeps through the body between the two samples)
-            same_side = fa.signed * want > 0.0 and fb.signed * want > 0.0
-            if same_side:
-                bracket = (ta, ga, tb, gb)
+            flights[k] = (t_d, fly(screen, t_d, dv, tof_hint))
+            look(k - 1)
+            look(k)
+            if target_bracket[0] is not None:
                 break
-            if bracket is None and fa.signed * fb.signed < 0.0:
-                bracket = (ta, ga, tb, gb)
-        closest = min((f for _, f in scan), key=lambda f: f.periapsis_radius, default=None)
+        bracket = target_bracket[0] or target_bracket[1]
+        closest = min((f for _, f in flights.values()), key=lambda f: f.periapsis_radius, default=None)
         if bracket is None:
             return None, closest, 0
         ta, ga, tb, gb = bracket
