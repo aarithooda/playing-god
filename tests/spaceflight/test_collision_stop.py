@@ -155,4 +155,4 @@ def test_a_spacecraft_hitting_the_moon_in_a_mission_universe_fails_its_mission_a
             break
     assert step.halt is not None and step.halt.bodyIds == [craft.id, "body-moon"]
     mission = step.spaceflight.missions[0]
-    assert mission.status == "failed" and "collided with body-moon" in mission.reasons[0]
+    assert mission.status == "failed" and "collided with Moon" in mission.reasons[0]

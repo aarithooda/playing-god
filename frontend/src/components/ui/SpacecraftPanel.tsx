@@ -125,7 +125,7 @@ export const SpacecraftPanel: React.FC<SpacecraftPanelProps> = ({ api, bodies, s
               <button type="button" data-testid="spacecraft-row" aria-pressed={craft.id === selectedBodyId} onClick={() => onSelect(craft.id)}
                 style={{
                   ...btnStyle, width: '100%', display: 'flex', alignItems: 'center', gap: 9, textAlign: 'left', padding: '8px 10px',
-                  borderColor: craft.id === selectedBodyId ? theme.accentLine : theme.border, background: craft.id === selectedBodyId ? theme.accentSoft : theme.tint,
+                  border: `1px solid ${craft.id === selectedBodyId ? theme.accentLine : theme.border}`, background: craft.id === selectedBodyId ? theme.accentSoft : theme.tint,
                 }}>
                 <CraftGlyph color={craft.colorHex} />
                 <span style={{ minWidth: 0, flex: 1 }}>
@@ -144,7 +144,7 @@ export const SpacecraftPanel: React.FC<SpacecraftPanelProps> = ({ api, bodies, s
       {blockedReason ? (
         <p role="status" style={noteTextStyle}>{blockedReason}</p>
       ) : !open ? (
-        <button type="button" style={api.spacecraft.length === 0 ? primaryBtnStyle : btnStyle} disabled={disabled || centralOptions.length === 0}
+        <button key={api.spacecraft.length === 0 ? 'first' : 'more'} type="button" style={api.spacecraft.length === 0 ? primaryBtnStyle : btnStyle} disabled={disabled || centralOptions.length === 0}
           onClick={() => { setOpen(true); setError(null); }}>
           New spacecraft…
         </button>

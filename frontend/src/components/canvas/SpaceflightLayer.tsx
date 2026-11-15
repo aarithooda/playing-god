@@ -1,7 +1,7 @@
 import React, { useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import { Html, Line } from '@react-three/drei';
-import type { Group } from 'three';
+import { Vector3, type Group, type PerspectiveCamera } from 'three';
 import type { PlannedTrajectoryInput, RelativePoint, SpaceflightSceneInput, SpacecraftPathInput } from '../../render/contract';
 import type { DisplayPositions } from '../../sim/motion/displayPositions';
 import { toScenePosition, type RenderTransform, type ScenePosition } from '../../sim/renderTransform';
@@ -29,12 +29,6 @@ function scenePoints(points: readonly RelativePoint[], transform: RenderTransfor
   const last = points[points.length - 1];
   if (last && (points.length - 1) % stride !== 0) out.push(toScenePosition({ x: last[0], y: last[1], z: last[2] }, transform));
   return out;
-}
-
-function pathLength(points: readonly ScenePosition[]): number {
-  let total = 0;
-  for (let k = 1; k < points.length; k += 1) total += Math.hypot(points[k]![0] - points[k - 1]![0], points[k]![1] - points[k - 1]![1], points[k]![2] - points[k - 1]![2]);
-  return total;
 }
 
 /** A group carried with a body's displayed position every frame. */
@@ -72,21 +66,30 @@ const PathHead: React.FC<{ craftId: string; frameId: string; from: ScenePosition
 
 const CraftPaths: React.FC<{ craft: SpacecraftPathInput; selected: boolean; bodies: readonly SceneBody[]; transform: RenderTransform; displayPositions: DisplayPositions; live: boolean }> = ({ craft, selected, bodies, transform, displayPositions, live }) => {
   const orbit = useMemo(() => scenePoints(craft.orbit, transform), [craft.orbit, transform]);
-  const recorded = useMemo(() => craft.recorded.map((piece) => scenePoints(piece, transform)).filter((piece) => piece.length >= 2), [craft.recorded, transform]);
-  const lastPiece = recorded[recorded.length - 1];
+  const recorded = useMemo(
+    () => craft.recorded.map((piece) => ({ frameBodyId: piece.frameBodyId, points: scenePoints(piece.points, transform) })).filter((piece) => piece.points.length >= 2),
+    [craft.recorded, transform],
+  );
+  const frames = [...new Set([craft.frameBodyId, ...recorded.map((piece) => piece.frameBodyId)])];
+  // the path ends at the craft: the head continues the newest piece flown about the body the craft orbits now
+  const lastPiece = [...recorded].reverse().find((piece) => piece.frameBodyId === craft.frameBodyId);
   const color = selected ? '#f0bd70' : craft.colorHex;
   return (
-    <Anchored bodyId={craft.frameBodyId} bodies={bodies} displayPositions={displayPositions}>
-      {orbit.length >= 2 && (
-        <Line points={orbit} color={color} lineWidth={selected ? 1.4 : ORBIT_WIDTH} transparent opacity={selected ? 0.75 : 0.42} depthWrite={false} />
-      )}
-      {recorded.map((piece, i) => (
-        <Line key={i} points={piece} color={color} lineWidth={selected ? 2.1 : RECORDED_WIDTH} transparent opacity={0.95} depthWrite={false} />
+    <>
+      {frames.map((frameId) => (
+        <Anchored key={frameId} bodyId={frameId} bodies={bodies} displayPositions={displayPositions}>
+          {frameId === craft.frameBodyId && orbit.length >= 2 && (
+            <Line points={orbit} color={color} lineWidth={selected ? 1.4 : ORBIT_WIDTH} transparent opacity={selected ? 0.75 : 0.42} depthWrite={false} />
+          )}
+          {recorded.filter((piece) => piece.frameBodyId === frameId).map((piece, i) => (
+            <Line key={i} points={piece.points} color={color} lineWidth={selected ? 2.1 : RECORDED_WIDTH} transparent opacity={0.95} depthWrite={false} />
+          ))}
+          {live && frameId === craft.frameBodyId && lastPiece && (
+            <PathHead craftId={craft.bodyId} frameId={craft.frameBodyId} from={lastPiece.points[lastPiece.points.length - 1]!} color={color} bodies={bodies} displayPositions={displayPositions} />
+          )}
+        </Anchored>
       ))}
-      {live && lastPiece && (
-        <PathHead craftId={craft.bodyId} frameId={craft.frameBodyId} from={lastPiece[lastPiece.length - 1]!} color={color} bodies={bodies} displayPositions={displayPositions} />
-      )}
-    </Anchored>
+    </>
   );
 };
 
@@ -95,13 +98,30 @@ const tagStyle: React.CSSProperties = {
   textShadow: '0 0 3px #000, 0 0 3px #000, 0 0 6px #000', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
 };
 
+/** Length of a dash of a planned path on screen (CSS px), whatever the zoom. */
+const DASH_PX = 7;
+
+/**
+ * A dashed line whose dashes keep one size ON SCREEN. Line dashes are measured in scene units, so a fixed dash would vanish into
+ * a solid line when zoomed out and turn into a few long strokes when zoomed in; the dash scale is therefore set every frame from
+ * the camera's distance to the middle of the path.
+ */
 const Dashed: React.FC<{ points: ScenePosition[]; faint: boolean }> = ({ points, faint }) => {
+  const line = useRef<{ material: { dashScale: number }; getWorldPosition: (v: Vector3) => Vector3 } | null>(null);
+  const size = useThree((s) => s.size);
+  const middle = useMemo(() => points[Math.floor(points.length / 2)] ?? ([0, 0, 0] as ScenePosition), [points]);
+  const origin = useMemo(() => new Vector3(), []);
+  useFrame(({ camera }) => {
+    if (!line.current || !(camera as PerspectiveCamera).isPerspectiveCamera) return;
+    line.current.getWorldPosition(origin);
+    const distance = Math.hypot(camera.position.x - origin.x - middle[0], camera.position.y - origin.y - middle[1], camera.position.z - origin.z - middle[2]);
+    const unitsPerPx = (2 * distance * Math.tan(((camera as PerspectiveCamera).fov * Math.PI) / 360)) / Math.max(1, size.height);
+    if (unitsPerPx > 0) line.current.material.dashScale = 1 / (DASH_PX * unitsPerPx);
+  });
   if (points.length < 2) return null;
-  // dashes sized to the path, so a small orbit about the destination and the long transfer both read as dashed
-  const dash = Math.max(pathLength(points) / 110, 1e-9);
   return (
-    <Line points={points} color={PLANNED_COLOR} lineWidth={PLANNED_WIDTH} dashed dashSize={dash} gapSize={dash * 0.75}
-      transparent opacity={faint ? 0.55 : 0.9} depthWrite={false} />
+    <Line ref={line as never} points={points} color={PLANNED_COLOR} lineWidth={PLANNED_WIDTH} dashed dashSize={1} gapSize={0.8}
+      transparent opacity={faint ? 0.6 : 0.92} depthWrite={false} />
   );
 };
 
@@ -109,9 +129,10 @@ const PlannedPath: React.FC<{ plan: PlannedTrajectoryInput; bodies: readonly Sce
   const aboutOrigin = useMemo(() => scenePoints(plan.aboutOrigin, transform), [plan.aboutOrigin, transform]);
   const aboutDestination = useMemo(() => scenePoints(plan.aboutDestination, transform), [plan.aboutDestination, transform]);
   const ghost = plan.destinationAtArrival ? toScenePosition({ x: plan.destinationAtArrival[0], y: plan.destinationAtArrival[1], z: plan.destinationAtArrival[2] }, transform) : null;
+  // node tags sit to the LEFT of their point: the spacecraft's own name tag is on the right of the same spot before departure
   const nodes = (frameId: string) => plan.nodes.filter((n) => n.frameBodyId === frameId).map((n) => (
     <Html key={n.label} position={toScenePosition({ x: n.position[0], y: n.position[1], z: n.position[2] }, transform)} zIndexRange={[18, 0]} style={{ pointerEvents: 'none' }}>
-      <div data-testid="planned-node-label" style={tagStyle}>◆ {n.label}</div>
+      <div data-testid="planned-node-label" style={{ ...tagStyle, transform: 'translate(calc(-100% - 9px), 4px)' }}>{n.label} ◆</div>
     </Html>
   ));
   return (

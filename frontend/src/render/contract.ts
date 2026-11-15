@@ -116,8 +116,9 @@ export interface SpacecraftPathInput {
   frameBodyId: string;
   /** The osculating conic about the frame body (an instantaneous two-body description of the present state). Empty: none. */
   orbit: readonly RelativePoint[];
-  /** The recorded (actual) path about the frame body, in pieces that must not be joined. */
-  recorded: readonly (readonly RelativePoint[])[];
+  /** The recorded (actual) path, in pieces that must not be joined. Each piece is relative to its own frame body: the leg flown
+   *  about one body and the leg flown inside another's sphere of influence are each drawn about the body they belong to. */
+  recorded: readonly { frameBodyId: string; points: readonly RelativePoint[] }[];
 }
 
 export interface PlannedTrajectoryInput {

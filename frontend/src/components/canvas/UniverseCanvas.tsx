@@ -38,6 +38,9 @@ export interface FocusRequest {
   position: ScenePosition;
   /** Displayed (scene) radius of the focused body. */
   radius: number;
+  /** View the body from this direction (scene axes, any length) instead of keeping the present one. Used for a spacecraft, so the
+   *  camera looks at it from outside its orbit and not through the planet. */
+  from?: ScenePosition;
 }
 
 interface UniverseCanvasProps {
@@ -259,6 +262,7 @@ const CameraRig: React.FC<{
     let offsetX = camera.position.x - controls.target.x;
     let offsetY = camera.position.y - controls.target.y;
     let offsetZ = camera.position.z - controls.target.z;
+    if (focus.from && Math.hypot(...focus.from) > 0) [offsetX, offsetY, offsetZ] = focus.from;
     let distance = Math.hypot(offsetX, offsetY, offsetZ);
     if (distance < 1e-9) {
       [offsetX, offsetY, offsetZ] = DEFAULT_CAMERA_POSITION;

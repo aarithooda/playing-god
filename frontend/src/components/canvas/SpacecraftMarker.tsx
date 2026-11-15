@@ -45,7 +45,6 @@ export const SpacecraftMarker: React.FC<SpacecraftMarkerProps> = ({ bodyId, name
     // scene units per CSS pixel at this distance
     const unitsPerPx = (2 * distance * Math.tan(halfFov)) / Math.max(1, size.height);
     glyph.current.scale.setScalar((isSelected ? SELECTED_MARKER_PX : SPACECRAFT_MARKER_PX) * unitsPerPx);
-    glyph.current.rotation.y = clock.elapsedTime * 0.6; // a slow turn makes the facets catch the eye; purely decorative
     ring.current?.quaternion.copy(camera.quaternion); // the ring always faces the viewer
     if (plume.current) plume.current.scale.setScalar(1.6 + 0.35 * Math.sin(clock.elapsedTime * 14));
   }, -40); // after the motion driver (-100) and before the camera follows (-10)
@@ -57,23 +56,25 @@ export const SpacecraftMarker: React.FC<SpacecraftMarkerProps> = ({ bodyId, name
       onClick={(e) => { e.stopPropagation(); onClick?.(); }}
       onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick?.(); }}
     >
+      {/* Drawn over everything (no depth test): a spacecraft is a few metres across and spends half of every orbit behind its
+          planet, where a depth-tested marker would simply vanish. The marker says where it is; the orbit line shows what hides it. */}
       <group ref={glyph}>
-        <mesh>
+        <mesh renderOrder={30}>
           <octahedronGeometry args={[1, 0]} />
-          <meshBasicMaterial color={isSelected ? '#f2f7ff' : color} />
+          <meshBasicMaterial color={isSelected ? '#f2f7ff' : color} depthTest={false} depthWrite={false} transparent />
         </mesh>
-        <mesh scale={1.06}>
+        <mesh scale={1.06} renderOrder={31}>
           <octahedronGeometry args={[1, 0]} />
-          <meshBasicMaterial color="#05070c" wireframe transparent opacity={0.55} />
+          <meshBasicMaterial color="#05070c" wireframe transparent opacity={0.55} depthTest={false} depthWrite={false} />
         </mesh>
-        <mesh ref={ring} raycast={() => undefined}>
+        <mesh ref={ring} raycast={() => undefined} renderOrder={31}>
           <ringGeometry args={[1.75, 1.95, 40]} />
-          <meshBasicMaterial color={isSelected ? '#f0bd70' : color} transparent opacity={isSelected ? 0.95 : 0.6} depthWrite={false} />
+          <meshBasicMaterial color={isSelected ? '#f0bd70' : color} transparent opacity={isSelected ? 0.95 : 0.6} depthTest={false} depthWrite={false} />
         </mesh>
         {thrusting && (
-          <mesh ref={plume} raycast={() => undefined}>
+          <mesh ref={plume} raycast={() => undefined} renderOrder={29}>
             <sphereGeometry args={[1, 16, 12]} />
-            <meshBasicMaterial color="#ffb347" transparent opacity={0.35} depthWrite={false} />
+            <meshBasicMaterial color="#ffb347" transparent opacity={0.35} depthTest={false} depthWrite={false} />
           </mesh>
         )}
         {/* Invisible, larger pick target (ray-cast like any mesh, never drawn). */}

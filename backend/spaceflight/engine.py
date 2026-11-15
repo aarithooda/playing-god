@@ -821,10 +821,11 @@ class SpaceflightMixin:
             return
         hierarchy = self._flight_hierarchy()
         by_id = self._particles_by_id()
+        names = self._flight_names()
         for mission in list(book.missions.values()):
             p = by_id.get(mission.craft_id) if mission.craft_id in self._meta else None
             state = None if p is None else ((p.x, p.y, p.z), (p.vx, p.vy, p.vz))
-            updated = mission_rules.evaluate(mission, book, self._sim.t, hierarchy, state, self._sim.G)
+            updated = mission_rules.evaluate(mission, book, self._sim.t, hierarchy, state, self._sim.G, names)
             if updated is not mission:
                 book.put(updated)
 
@@ -875,6 +876,7 @@ class SpaceflightMixin:
             pending = len(self._flight.pending_maneuvers(mission.craft_id))
             objective = mission.objective
             stamp = (mission_rules.fingerprint(self._flight, self._flight_hierarchy()), craft, mission.plan_revision)
+            names = self._flight_names()
             halted = self._flight.halt is not None
         if halted:
             raise self._flight_refuse("the simulation is stopped at a collision", "simulation_halted")
@@ -883,7 +885,8 @@ class SpaceflightMixin:
             capture="none" if objective["type"] == "flyby" else ("elliptical" if objective.get("apoapsisAltitudeM") else "circular"),
             apoapsis_altitude_m=objective.get("apoapsisAltitudeM"), direction=objective["direction"], transfer_time_s=request.transferTimeS,
             burn_mode=request.burnMode, earliest_departure_s=request.earliestDepartureS)
-        result = design_transfer(sim, mission.craft_id, craft, craft_ids, transfer, pending_nodes=pending, time_budget_s=self.plan_time_limit_s)
+        result = design_transfer(sim, mission.craft_id, craft, craft_ids, transfer, pending_nodes=pending, time_budget_s=self.plan_time_limit_s,
+                                 names=names)
         with self._mutation(guard):
             mission = self._flight_mission(mission_id)
             now = (mission_rules.fingerprint(self._flight, self._flight_hierarchy()), self._flight.craft.get(mission.craft_id), mission.plan_revision)

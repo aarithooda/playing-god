@@ -95,8 +95,11 @@ export interface UniverseWorkspaceProps {
 }
 
 const BASELINE_LOCK = "The Orbit Lab baseline is an immutable reference: its bodies cannot be added, edited or deleted.";
+/** The Earth-Moon mission-design preset: framed whole (both bodies in view) and opened at a step size that suits a parking orbit. */
+const MISSION_PRESET_ID = "earth-moon-j2000";
+const MISSION_PRESET_SPEED_EXP = 3;
 /** A spacecraft is framed by its orbit, not by its few metres of hull: this fraction of its distance to the body it orbits. */
-const SPACECRAFT_FOCUS_FRACTION = 0.3;
+const SPACECRAFT_FOCUS_FRACTION = 0.45;
 
 type CrudOperation = "add" | "edit" | "delete";
 interface CrudFeedbackState {
@@ -172,6 +175,16 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
     autoPlayedUniverseId.current = universe.id;
     simulation.play();
   }, [loadStatus, universe?.id, universe?.presetId, bodies.length, simulation.play]);
+
+  // The mission-design preset opens at 1,000 s per step: a parking orbit takes 90 minutes, and the default (a day per step) would
+  // jump over sixteen revolutions at a time. Applied once per universe; the user's later choice is kept.
+  const tunedUniverseId = useRef<string | null>(null);
+  useEffect(() => {
+    if (loadStatus !== "ready" || !universe || universe.presetId !== MISSION_PRESET_ID || tunedUniverseId.current === universe.id) return;
+    tunedUniverseId.current = universe.id;
+    if ((sim?.simulationTimeS ?? 0) === 0) simulation.setSpeedExp(MISSION_PRESET_SPEED_EXP);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadStatus, universe?.id, universe?.presetId]);
 
   // Refit the display scale when the set of bodies changes through a user action (load, create,
   // delete, reset). The scale is then held fixed while the simulation runs.
@@ -261,7 +274,15 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
   );
 
   // A selected moon or moon-bearing planet gets name tags for its whole system, so the moons can be told apart.
-  const labeledBodyIds = useMemo(() => systemIds(sceneBodies, selectedBodyId), [sceneBodies, selectedBodyId]);
+  // So do the bodies a spacecraft or an open mission is about (the body it orbits, the origin and the destination).
+  const flightBodyKey = [
+    ...bodies.map((b) => b.spacecraft?.orbit?.referenceBodyId ?? ""),
+    ...(sim?.missions ?? []).filter((m) => m.status === "planned" || m.status === "in_progress").flatMap((m) => [m.originBodyId ?? "", m.destinationBodyId]),
+  ].filter(Boolean).join("|");
+  const labeledBodyIds = useMemo(
+    () => [...new Set([...systemIds(sceneBodies, selectedBodyId), ...(viewingHistory || !flightBodyKey ? [] : flightBodyKey.split("|"))])],
+    [sceneBodies, selectedBodyId, flightBodyKey, viewingHistory],
+  );
 
   // "Show paths" defaults on; moon systems keep every body's recorded path visible together.
   const moonIds = new Set(displayBodies.filter((b) => b.primaryId !== undefined && displayBodies.some((p) => p.id === b.primaryId)).map((b) => b.id));
@@ -295,6 +316,10 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
     const sceneBody = sceneBodies.find((b) => b.id === id);
     if (sceneBody) {
       const orbit = bodies.find((b) => b.id === id)?.spacecraft?.orbit;
+      // A spacecraft is looked at from outside its orbit (away from the body it orbits, raised a little), not through the planet.
+      const centre = orbit ? sceneBodies.find((b) => b.id === orbit.referenceBodyId)?.position : undefined;
+      const away = centre ? [sceneBody.position[0] - centre[0], sceneBody.position[1] - centre[1], sceneBody.position[2] - centre[2]] : undefined;
+      const reach = away ? Math.hypot(away[0]!, away[1]!, away[2]!) : 0;
       setFocus((f) => ({
         nonce: (f?.nonce ?? 0) + 1,
         bodyId: id,
@@ -302,6 +327,7 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
         radius: orbit
           ? Math.max(sceneBody.radius, (SPACECRAFT_FOCUS_FRACTION * orbit.radiusM) / transform.metersPerUnit)
           : focusRadiusFor(sceneBodies, id) ?? sceneBody.radius,
+        ...(away && reach > 0 ? { from: [away[0]! / reach, away[1]! / reach + 0.45, away[2]! / reach] as [number, number, number] } : {}),
       }));
       setFocusedBodyId(id);
     }
@@ -401,19 +427,18 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
     () => buildSpaceflightScene(viewingHistory ? [] : bodies, viewingHistory ? [] : flight.missions, flight.trajectories, history.cache, showPaths, sim?.simulationTimeS ?? 0),
     [viewingHistory, bodies, flight.missions, flight.trajectories, history.cache, showPaths, sim?.simulationTimeS],
   );
-  const pendingFocusRef = useRef<string | null>(null);
+  const [pendingFocusId, setPendingFocusId] = useState<string | null>(null);
   const spacecraftCreated = useCallback((id: string) => {
     setSelectedBodyId(id);
     setSidebars((s) => (s.right ? s : toggleSidebar(s, "right", true, windowWidth)));
-    pendingFocusRef.current = id; // focused once the new spacecraft is in the scene (next render)
+    setPendingFocusId(id); // the camera flies to its orbit once the new spacecraft is in the scene
   }, [setSidebars, windowWidth]);
   useEffect(() => {
-    const id = pendingFocusRef.current;
-    if (id && sceneBodies.some((b) => b.id === id)) {
-      pendingFocusRef.current = null;
-      focusBody(id);
+    if (pendingFocusId && sceneBodies.some((b) => b.id === pendingFocusId)) {
+      setPendingFocusId(null);
+      focusBody(pendingFocusId);
     }
-  }, [sceneBodies, focusBody]);
+  }, [pendingFocusId, sceneBodies, focusBody]);
   const halt = sim?.halt ?? null;
   const activeBodyIds = useMemo(() => new Set(bodies.map((body) => body.id)), [bodies]);
 
@@ -496,7 +521,7 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
         onFocusBody={focusBody}
         onClearSelection={closeInspector}
         frameEpoch={frameEpoch}
-        overviewZoom={hasReferenceOrbits ? 1 : universe?.presetId === "solar-system-moons-j2000" ? 1.2 : 1.8}
+        overviewZoom={hasReferenceOrbits || universe?.presetId === MISSION_PRESET_ID ? 1 : universe?.presetId === "solar-system-moons-j2000" ? 1.2 : 1.8}
         focus={focus}
         onFocusRelease={() => setFocusedBodyId(undefined)}
         placementMode={placementMode}

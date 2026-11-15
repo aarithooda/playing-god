@@ -91,7 +91,7 @@ const MissionCard: React.FC<{
               options={[{ value: 'impulsive', label: 'Impulsive' }, { value: 'finite', label: 'Finite (engine thrust)' }]} />}
           </div>
           <div>
-            <button type="button" style={plan ? btnStyle : primaryBtnStyle} disabled={disabled || halted || busy !== null || (transfer === 'fixed' && (fixedDays === null || fixedDays <= 0))} onClick={() => void design()}>
+            <button key={plan ? 'again' : 'first'} type="button" style={plan ? btnStyle : primaryBtnStyle} disabled={disabled || halted || busy !== null || (transfer === 'fixed' && (fixedDays === null || fixedDays <= 0))} onClick={() => void design()}>
               {busy === 'design' ? 'Designing the transfer…' : plan ? 'Design again' : 'Design transfer'}
             </button>
           </div>
@@ -245,7 +245,7 @@ export const MissionPanel: React.FC<MissionPanelProps> = ({ api, bodies, nowS, s
       )}
 
       {!open ? (
-        <button type="button" style={api.missions.length === 0 && api.spacecraft.length > 0 ? primaryBtnStyle : btnStyle} disabled={disabled || freeCraft.length === 0 || destinations.length === 0}
+        <button key={api.missions.length === 0 && api.spacecraft.length > 0 ? 'first' : 'more'} type="button" style={api.missions.length === 0 && api.spacecraft.length > 0 ? primaryBtnStyle : btnStyle} disabled={disabled || freeCraft.length === 0 || destinations.length === 0}
           title={api.spacecraft.length === 0 ? 'Create a spacecraft first' : freeCraft.length === 0 ? 'Every spacecraft already has an open mission' : undefined}
           onClick={() => { setOpen(true); setError(null); }}>
           New mission…

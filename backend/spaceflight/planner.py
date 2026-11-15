@@ -187,10 +187,15 @@ def _transfer_semi_major_axis(mu: float, r0: float, d: float, tof: float) -> Opt
 
 
 def design_transfer(sim, craft_id: str, craft: Spacecraft, craft_ids: set, request: TransferRequest, *, pending_nodes: int = 0,
-                    time_budget_s: float = DEFAULT_TIME_BUDGET_S, clock=time.monotonic) -> PlanResult:
+                    time_budget_s: float = DEFAULT_TIME_BUDGET_S, clock=time.monotonic, names: Optional[dict] = None) -> PlanResult:
     """Design the transfer on copies of `sim` (which is not modified). `craft_ids`: every spacecraft of the universe (they are not
-    gravitating reference bodies)."""
+    gravitating reference bodies). `names`: body id -> display name, for the texts a person reads (ids are used when absent)."""
     started = clock()
+    names = names or {}
+
+    def name(body_id) -> str:
+        return names.get(body_id, body_id) if body_id is not None else "nothing"
+
     g = sim.G
     t0 = sim.t
     hierarchy = build_hierarchy(gravitators(sim, craft_ids))
@@ -206,12 +211,12 @@ def design_transfer(sim, craft_id: str, craft: Spacecraft, craft_ids: set, reque
     if origin is None:
         return _unsupported("the spacecraft is not near any body")
     if dest.id == origin.id:
-        return _unsupported(f"the spacecraft already orbits {dest.id}: use manoeuvre nodes to change its orbit there")
+        return _unsupported(f"the spacecraft already orbits {name(dest.id)}: use manoeuvre nodes to change its orbit there")
     if hierarchy.parent.get(dest.id) != origin.id:
         parent = hierarchy.parent.get(dest.id)
         return _unsupported(
             "only transfers from a parking orbit about a body to one of that body's satellites are implemented "
-            f"(the spacecraft orbits {origin.id}; the destination {dest.id} orbits {parent or 'nothing'}). "
+            f"(the spacecraft orbits {name(origin.id)}; the destination {name(dest.id)} orbits {name(parent)}). "
             "Interplanetary transfers (escape, heliocentric cruise, arrival) are not implemented.")
     if pending_nodes:
         return _unsupported("the spacecraft has pending manoeuvre nodes: remove them (or let them execute) before designing a transfer")
@@ -225,7 +230,7 @@ def design_transfer(sim, craft_id: str, craft: Spacecraft, craft_ids: set, reque
     try:
         parking = orbits.state_to_elements(r_c, v_c, mu)
     except orbits.OrbitError as exc:
-        return _unsupported(f"the spacecraft's orbit about {origin.id} is degenerate: {exc}")
+        return _unsupported(f"the spacecraft's orbit about {name(origin.id)} is degenerate: {exc}")
     if not parking.e < MAX_PARKING_ECCENTRICITY:
         return _unsupported(f"a near-circular parking orbit is needed (eccentricity {parking.e:.4f} >= {MAX_PARKING_ECCENTRICITY}); "
                             "circularise first")
@@ -552,18 +557,18 @@ def design_transfer(sim, craft_id: str, craft: Spacecraft, craft_ids: set, reque
 
     # ---- insertion and the final flight on the full universe ----
     r_p, v_p = flight.state
-    nodes = [{"role": "departure", "label": f"Departure burn to {dest.id}", "epochS": t_dep, "mode": request.burn_mode, "referenceBodyId": origin.id,
+    nodes = [{"role": "departure", "label": f"Departure burn to {name(dest.id)}", "epochS": t_dep, "mode": request.burn_mode, "referenceBodyId": origin.id,
               "progradeMPerS": dv_dep, "predictedState": flight.departure_state}]
     insertion = None
     if request.capture != "none":
         a_capture = 0.5 * (rp_target + ra_target)
         v_capture = orbits.vis_viva_speed(mu_dest, flight.periapsis_radius, a_capture)
         dv_ins = flight.speed - v_capture
-        insertion = {"role": "insertion", "label": f"Orbit insertion at {dest.id}", "epochS": flight.periapsis_time, "mode": request.burn_mode,
+        insertion = {"role": "insertion", "label": f"Orbit insertion at {name(dest.id)}", "epochS": flight.periapsis_time, "mode": request.burn_mode,
                      "referenceBodyId": dest.id, "progradeMPerS": -dv_ins, "predictedState": (r_p, v_p)}
         nodes.append(insertion)
     else:
-        nodes.append({"role": "observation", "label": f"Closest approach to {dest.id}", "epochS": flight.periapsis_time, "mode": "impulsive",
+        nodes.append({"role": "observation", "label": f"Closest approach to {name(dest.id)}", "epochS": flight.periapsis_time, "mode": "impulsive",
                       "referenceBodyId": dest.id, "progradeMPerS": 0.0, "predictedState": (r_p, v_p)})
 
     try:

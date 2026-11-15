@@ -84,9 +84,12 @@ def _orbit_outcome(el, mu: float, body_radius: float, t: float) -> dict:
             "bound": bound}
 
 
-def evaluate(mission: Mission, book: SpaceflightBook, t: float, hierarchy: Hierarchy, craft_state, g: float) -> Mission:
+def evaluate(mission: Mission, book: SpaceflightBook, t: float, hierarchy: Hierarchy, craft_state, g: float,
+             names: Optional[dict] = None) -> Mission:
     """The mission as the present simulation state says it is. `craft_state`: (position, velocity) of its spacecraft, or None when
-    the spacecraft no longer exists. Pure: returns the same record when nothing changed."""
+    the spacecraft no longer exists. `names`: body id -> display name for the texts. Pure: returns the same record when nothing
+    changed."""
+    names = names or {}
     if mission.status in ("completed", "failed", "unsupported"):
         return mission
     craft = book.craft.get(mission.craft_id)
@@ -96,7 +99,7 @@ def evaluate(mission: Mission, book: SpaceflightBook, t: float, hierarchy: Hiera
     if dest is None:
         return _fail(mission, t, "the destination body no longer exists (removed or merged)")
     if book.halt is not None and mission.craft_id in book.halt.body_ids:
-        other = next((i for i in book.halt.body_ids if i != mission.craft_id), "another body")
+        other = next((names.get(i, i) for i in book.halt.body_ids if i != mission.craft_id), "another body")
         return _fail(mission, t, f"the spacecraft collided with {other} at t = {book.halt.time_s:.0f} s "
                                  f"(relative speed {book.halt.relative_speed_m_per_s:.0f} m/s); the simulation stopped there")
     if not mission.committed:
@@ -132,7 +135,7 @@ def evaluate(mission: Mission, book: SpaceflightBook, t: float, hierarchy: Hiera
         if current.status == "executing":
             phase = "departure burn" if current.role == "departure" else "insertion burn"
         else:
-            phase = f"coasting to {dest.id}"
+            phase = f"coasting to {names.get(dest.id, dest.id)}"
         return replace(mission, status="in_progress", phase=phase, agreement=agreement, reasons=notes, updated_at_s=t)
 
     # every node has executed: judge the actual state

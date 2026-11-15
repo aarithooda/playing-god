@@ -118,11 +118,20 @@ export function buildSpaceflightScene(
     if (b.kind !== "spacecraft" || !orbit) continue;
     // an escape trajectory is drawn out to the edge of the reference body's sphere of influence (or 40 periapsis radii)
     const reach = orbit.sphereOfInfluenceM ?? (orbit.periapsisRadiusM !== null ? orbit.periapsisRadiusM * 40 : undefined);
-    craft.push({
-      bodyId: b.id, colorHex: b.colorHex, frameBodyId: orbit.referenceBodyId,
-      orbit: conicPoints(orbit, 180, reach),
-      recorded: showRecorded && history ? relativeRecordedPath(history, b.id, orbit.referenceBodyId).map((piece) => piece.points) : [],
-    });
+    // The flown path is drawn about the body the craft orbits now; if that body has a bounded sphere of influence and the craft
+    // came from elsewhere (the body it was placed around), the leg flown outside that sphere stays drawn about where it came from.
+    const recorded: { frameBodyId: string; points: RelativePoint[] }[] = [];
+    if (showRecorded && history) {
+      const frame = orbit.referenceBodyId;
+      const soi = orbit.sphereOfInfluenceM;
+      const home = b.spacecraft?.homeBodyId;
+      const inside = soi === null ? undefined : { bodyId: frame, radiusM: soi, side: "inside" as const };
+      for (const piece of relativeRecordedPath(history, b.id, frame, inside)) recorded.push({ frameBodyId: frame, points: piece.points });
+      if (soi !== null && home && home !== frame && names.has(home)) {
+        for (const piece of relativeRecordedPath(history, b.id, home, { bodyId: frame, radiusM: soi, side: "outside" })) recorded.push({ frameBodyId: home, points: piece.points });
+      }
+    }
+    craft.push({ bodyId: b.id, colorHex: b.colorHex, frameBodyId: orbit.referenceBodyId, orbit: conicPoints(orbit, 180, reach), recorded });
   }
   const plans: PlannedTrajectoryInput[] = [];
   for (const m of missions) {

@@ -93,7 +93,7 @@ def test_committing_schedules_the_nodes_and_flying_completes_the_mission_on_the_
     assert nodes[0].referenceBodyId == "body-earth" and nodes[1].referenceBodyId == "body-moon" and nodes[1].progradeMPerS < 0.0
     result, phases = fly(svc, mission.id)
     # the first one-hour step already contains the departure burn
-    assert phases == [("in_progress", "coasting to body-moon"), ("in_progress", "verifying the orbit"), ("completed", "orbit verified")]
+    assert phases == [("in_progress", "coasting to Moon"), ("in_progress", "verifying the orbit"), ("completed", "orbit verified")]
     # the outcome is the ACTUAL orbit about the Moon, recomputed here from the state
     state = svc.snapshot()
     r, v = rel(state, craft, "body-moon")

@@ -38,7 +38,14 @@ export function conicPoints(orbit: OrbitDto, segments = 180, maxRadiusM?: number
   };
   const out: P3[] = [];
   if (e < 1) {
-    for (let k = 0; k <= segments; k += 1) out.push(at((2 * Math.PI * k) / segments));
+    // uniform in ECCENTRIC anomaly: points spread evenly along the ellipse (uniform true anomaly would bunch them at periapsis
+    // and leave a visibly polygonal apoapsis on a long transfer orbit)
+    const b = a * Math.sqrt(1 - e * e);
+    for (let k = 0; k <= segments; k += 1) {
+      const E = (2 * Math.PI * k) / segments;
+      const x = a * (Math.cos(E) - e), y = b * Math.sin(E);
+      out.push([p[0] * x + q[0] * y, p[1] * x + q[1] * y, p[2] * x + q[2] * y]);
+    }
     return out;
   }
   // hyperbola: true anomaly limited by the asymptote and by the radius worth drawing
@@ -58,23 +65,30 @@ export interface RelativePath {
 /** Largest angle (seen from the frame body) two consecutive samples may be apart and still be joined by a line. */
 export const MAX_SAMPLE_ANGLE_RAD = Math.PI / 5;
 
+/** Keep only the samples taken inside (or outside) a sphere about a body: the part of a flight spent in a sphere of influence. */
+export interface SphereFilter {
+  bodyId: string;
+  radiusM: number;
+  side: "inside" | "outside";
+}
+
 /**
  * The recorded path of `bodyId` relative to `frameId`, as separate pieces. A piece ends wherever the backend marked a
- * discontinuity, a sample is missing, or two consecutive samples are too far apart around the frame body to be joined
- * honestly (a coarse recording of a fast orbit would otherwise be drawn as a polygon of chords through the planet).
- * `sinceS`: only samples at or after this time.
+ * discontinuity, a sample is missing or filtered out, or two consecutive samples are too far apart around the frame body to be
+ * joined honestly (a coarse recording of a fast orbit would otherwise be drawn as a polygon of chords through the planet).
  */
-export function relativeRecordedPath(cache: HistoryCache, bodyId: string, frameId: string, sinceS = -Infinity, maxPoints = 6000): RelativePath[] {
+export function relativeRecordedPath(cache: HistoryCache, bodyId: string, frameId: string, filter?: SphereFilter, maxPoints = 6000): RelativePath[] {
   const pieces: RelativePath[] = [];
   let current: RelativePath | null = null;
   let last: { index: number; segment: number; p: P3 } | null = null;
   const first = Math.max(0, cache.samples.length - maxPoints);
   for (let k = first; k < cache.samples.length; k += 1) {
     const s = cache.samples[k]!;
-    if (s.simulationTimeS < sinceS) continue;
     const b = s.positionsM[bodyId];
     const f = s.positionsM[frameId];
-    if (!b || !f) {
+    const c = filter ? s.positionsM[filter.bodyId] : undefined;
+    const kept = !filter || (b && c && (Math.hypot(b[0] - c[0], b[1] - c[1], b[2] - c[2]) <= filter.radiusM) === (filter.side === "inside"));
+    if (!b || !f || !kept) {
       current = null;
       last = null;
       continue;
