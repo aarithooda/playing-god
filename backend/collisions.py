@@ -32,6 +32,10 @@ SATELLITE_MASS_FRACTION = 0.1  # a body is a satellite when its strongest attrac
 
 
 DEBRIS_NAME_PREFIXES = ("frag-", "debris-")  # ids given by backend/impact/applier.py
+# Spacecraft ids (backend/spaceflight/engine.py). A spacecraft orbits a body on a timescale far shorter than the system's, exactly the
+# two-timescale structure of a moon; with GLOBAL the step collapses (measured: Earth + Moon + a 300 km parking orbit, 1 day = 1,019,955
+# steps of ~0.01 s with GLOBAL against 1,725 steps for THREE days with PRS23), so a universe with a spacecraft uses PRS23.
+SPACECRAFT_NAME_PREFIX = "craft-"
 
 
 def has_satellites(sim) -> bool:
@@ -43,7 +47,7 @@ def has_satellites(sim) -> bool:
     # Collision debris (Stage 5/7: fragments `frag-*` and parcels `debris-*`) orbits or leaves its remnant on a timescale far shorter than
     # the system's: the same two-timescale structure as a moon. With GLOBAL the step collapsed erratically on such systems (3 of 10 runs
     # of the same scenario took 10-44 s instead of 1.5 s, seeded differently); PRS23 took 1.1-1.7 s in all 12 (D-051).
-    if any((q.name or "").startswith(DEBRIS_NAME_PREFIXES) for q in sim.particles):
+    if any((q.name or "").startswith(DEBRIS_NAME_PREFIXES + (SPACECRAFT_NAME_PREFIX,)) for q in sim.particles):
         return True
     heaviest = max(m for m, *_ in ps)
     for i, (mi, xi, yi, zi) in enumerate(ps):

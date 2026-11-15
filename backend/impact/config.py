@@ -24,11 +24,15 @@ class CollisionTolerances(Contract):
                   replay_cross_platform_rel=self.replay_cross_platform_rel)
 
 
-CollisionMode = Literal["legacy-merge", "outcome-v1"]
+# "stop-on-contact" (Space Mission Design phase, D-070): nothing is resolved; a contact stops the simulation at the instant of first
+# contact and is reported (backend/spaceflight/engine.py). Universes get it only when they ask for it (the mission presets); the
+# defaults below are unchanged.
+CollisionMode = Literal["legacy-merge", "outcome-v1", "stop-on-contact"]
 # The mode of a newly created sandbox universe, including the startup `uni-default` (flipped at Stage 4 step 4b, D-045).
 # Presets and Orbit Lab runs stay "legacy-merge" until Stage 11 regardless of it: they construct their engines with LEGACY_MERGE_MODE.
 DEFAULT_SANDBOX_MODE: CollisionMode = "outcome-v1"
 LEGACY_MERGE_MODE: CollisionMode = "legacy-merge"  # backend.simulation.LEGACY_MERGE_CONFIG is the importable config
+STOP_ON_CONTACT_MODE: CollisionMode = "stop-on-contact"  # backend.simulation.STOP_ON_CONTACT_CONFIG is the importable config
 DEFAULT_SEED = 12345  # == backend.simulation.RAND_SEED (not imported: backend.impact must not depend on the service)
 MAX_SEED = 2**63 - 1
 

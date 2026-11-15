@@ -4,6 +4,7 @@ from typing import Annotated, Literal, Optional, Union
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_serializer, model_validator
 
 from backend.catalogue import catalogue_ids
+from backend.spaceflight.schemas import ContactEvent, HaltOut, ManeuverEvent, SpaceflightOut, SpacecraftOut
 
 # Request bounds (documented in the contract). Finite floats only: NaN and +/-Infinity are rejected.
 MAX_MASS_KG = 1.0e45  # ~5e14 solar masses
@@ -15,22 +16,26 @@ MAX_STEP_S = 1.0e8  # ~3.2 years per request; Play = many bounded requests
 MAX_BODIES = 200
 MAX_SPIN_RAD_PER_S = 1.0e5  # sanity bound on a requested spin rate (a request limit like the others, not a physical claim)
 
-BodyKind = Literal["star", "planet"]
+BodyKind = Literal["star", "planet"]  # what a body request may ask for
+# What a response may report: a spacecraft is its own kind of entity (created through the spaceflight routes, never as a body).
+BodyKindOut = Literal["star", "planet", "spacecraft"]
 
 # Renderer metadata (display only; never read by the physics). `kind` is the coarse role, `bodyType` the visual class.
-BodyType = Literal["star", "rocky-planet", "gas-giant", "ice-giant", "moon", "asteroid", "default"]
+BodyType = Literal["star", "rocky-planet", "gas-giant", "ice-giant", "moon", "asteroid", "default", "spacecraft"]
 ASSET_KEY_PATTERN = r"^[a-z0-9]+(-[a-z0-9]+)*$"  # stable lowercase-kebab identifier, e.g. "earth", "proxima-centauri"
 ASSET_KEY_MAX_LENGTH = 64
 
 
 def default_body_type(kind: str) -> str:
     """bodyType of a body created without one. Derived from `kind` only, never from the display name."""
-    return "star" if kind == "star" else "default"
+    return "star" if kind == "star" else "spacecraft" if kind == "spacecraft" else "default"
 
 
 def check_kind_body_type(kind: str, body_type: str) -> None:
     """A star is a "star" and only a star is: "default" is the neutral type and fits either kind."""
     if (kind == "star") != (body_type == "star") and body_type != "default":
+        raise ValueError(f'bodyType "{body_type}" is inconsistent with kind "{kind}"')
+    if (kind == "spacecraft") != (body_type == "spacecraft"):
         raise ValueError(f'bodyType "{body_type}" is inconsistent with kind "{kind}"')
 
 
@@ -114,6 +119,8 @@ class OrientationSpec(BaseModel):
 # Optional collision-engine fields of a body. They are OMITTED from responses when null, so a body without a material looks
 # exactly as before (D-033 DQ-2: no new body fields, no spin state).
 COLLISION_BODY_FIELDS = ("material", "spinRadPerS", "orientation", "representation", "originEventId", "debris", "fragmentClass")
+# Likewise the spaceflight block: present only on a spacecraft, so every other body looks exactly as before.
+OPTIONAL_BODY_FIELDS = COLLISION_BODY_FIELDS + ("spacecraft",)
 
 
 class SizeDistributionSpec(BaseModel):
@@ -176,7 +183,7 @@ class Body(BaseModel):
     positionM: Vec3
     velocityMPerS: Vec3
     colorHex: str
-    kind: BodyKind = "planet"
+    kind: BodyKindOut = "planet"
     catalogueEntryId: str | None = None
     bodyType: BodyType = "default"  # always present
     assetKey: str | None = None  # always present; null = no specific asset, use the bodyType fallback
@@ -188,11 +195,12 @@ class Body(BaseModel):
     originEventId: str | None = None  # the collision event that created this body
     debris: DebrisSpec | None = None  # parcels only
     fragmentClass: Literal["bound_to_remnant", "orbiting_system", "escaping"] | None = None  # fragments/parcels: dynamical class (Stage 7)
+    spacecraft: SpacecraftOut | None = None  # present only for kind "spacecraft": propulsion state and the osculating orbit
 
     @model_serializer(mode="wrap")
     def _omit_unset_collision_fields(self, handler):
         data = handler(self)
-        for key in COLLISION_BODY_FIELDS:
+        for key in OPTIONAL_BODY_FIELDS:
             if data.get(key) is None:
                 data.pop(key, None)
         return data
@@ -260,11 +268,25 @@ class Diagnostics(BaseModel):
         return data
 
 
+# Optional spaceflight keys of a state: OMITTED when null, so a universe without spacecraft answers exactly as before.
+OPTIONAL_STATE_FIELDS = ("spaceflight", "halt")
+
+
 class SimulationState(BaseModel):
     status: Literal["paused", "running"]
     simulationTimeS: float
     bodies: list[Body]
     diagnostics: Diagnostics
+    spaceflight: SpaceflightOut | None = None  # manoeuvre nodes and missions; present only when there are any
+    halt: HaltOut | None = None  # present only while the simulation is stopped at a contact (stepping is refused)
+
+    @model_serializer(mode="wrap")
+    def _omit_absent_spaceflight(self, handler):
+        data = handler(self)
+        for key in OPTIONAL_STATE_FIELDS:
+            if data.get(key) is None:
+                data.pop(key, None)
+        return data
 
 
 class StepRequest(BaseModel):
@@ -319,7 +341,7 @@ class Event(BaseModel):
     spinAddedKgM2PerS: Vec3  # orbital angular momentum booked as remnant spin (bookkeeping only)
 
 
-AnyEvent = Annotated[Union[Event, CollisionEventOut], Field(discriminator="type")]
+AnyEvent = Annotated[Union[Event, CollisionEventOut, ManeuverEvent, ContactEvent], Field(discriminator="type")]
 
 
 class DetectionSummary(BaseModel):
@@ -337,7 +359,8 @@ class StepResponse(SimulationState):
     events: list[AnyEvent]  # events that occurred during this step only
     # present only when non-empty: "collision_budget_reached" = the step ended early, advancedS < dtS; "collisions_merged_fallback" = a
     # collision-engine failure was repaired by merging (this step only); "collision_detection_degraded" = see `detection`;
-    # "product_material_unspecified" = a legacy merger of two different materials left its remnant without one (D-035, D-069)
+    # "product_material_unspecified" = a legacy merger of two different materials left its remnant without one (D-035, D-069);
+    # "collision_stopped" = a contact stopped the simulation during this step (advancedS < dtS; see `halt` and the `contact` event)
     warnings: list[str] = []
     detection: Optional[DetectionSummary] = None  # present only when detection was degraded during the step (M3)
 
@@ -348,6 +371,9 @@ class StepResponse(SimulationState):
             data.pop("warnings", None)
         if data.get("detection") is None:
             data.pop("detection", None)
+        for key in OPTIONAL_STATE_FIELDS:
+            if data.get(key) is None:
+                data.pop(key, None)
         return data
 
 

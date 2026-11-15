@@ -27,7 +27,9 @@ MATERIAL_QUANTITIES = ("composition", "structureClass", "momentOfInertiaFactor",
 ANNOTATABLE = ("momentOfInertiaFactor",)  # the only quantity with sourced values today; others need a new source
 PRESET_FILES = {"solar-system-moons-j2000": "solar-system-moons-j2000.json",
                 "solar-system-j2000": "solar-system-j2000.json",
-                "saturn-particle-rings": "saturn-particle-rings.json"}
+                "saturn-particle-rings": "saturn-particle-rings.json",
+                "earth-moon-j2000": "earth-moon-j2000.json"}
+COLLISION_MODES = ("legacy-merge", "stop-on-contact")  # what a preset may ask for; absent = legacy-merge (D-045)
 BASES = ("measured", "nominal", "derived", "assumed")
 
 
@@ -49,6 +51,7 @@ class LoadedPreset:
     sample_interval_s: float
     # Stage 11 (D-058, D-059): body id -> sourced annotation. Descriptive only: never read by the integrator.
     material_annotations: dict | None = None
+    collision_mode: str = "legacy-merge"  # "stop-on-contact" for the mission-design presets (D-070)
 
 
 def _finite(x) -> bool:
@@ -125,6 +128,9 @@ def load_preset(preset_id: str) -> LoadedPreset:
 def _build(data: dict) -> LoadedPreset:
     if data.get("gSI") != G_SI:
         raise PresetDataError(f"preset G {data.get('gSI')} differs from the engine's G {G_SI}")
+    collision_mode = data.get("collisionMode", "legacy-merge")
+    if collision_mode not in COLLISION_MODES:
+        raise PresetDataError(f"unknown collisionMode {collision_mode!r}")
     hist = data["history"]
     interval = hist["sampleIntervalS"]
     if hist["mode"] != "grid" or not (_finite(interval) and interval > 0):
@@ -186,7 +192,7 @@ def _build(data: dict) -> LoadedPreset:
     summary = {"id": data["id"], "name": data["name"], "description": data["description"], "available": True,
                "unavailableReason": None, "bodyCount": len(bodies), "epochLabel": data["epoch"]["label"],
                "dataVersion": data["dataVersion"], "historyMode": hist["mode"], "sampleIntervalS": float(interval)}
-    return LoadedPreset(summary, data, bodies, raw_bodies, hist["mode"], float(interval), _annotations(data, bodies))
+    return LoadedPreset(summary, data, bodies, raw_bodies, hist["mode"], float(interval), _annotations(data, bodies), collision_mode)
 
 
 def list_presets() -> list[dict]:
