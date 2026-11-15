@@ -17,7 +17,7 @@ interface SpacecraftMarkerProps {
   position: [number, number, number];
   displayPositions?: DisplayPositions;
   isSelected?: boolean;
-  /** The engine is burning right now (backend state). */
+  /** The engine is burning right now (reported state). */
   thrusting?: boolean;
   onClick?: () => void;
   onDoubleClick?: () => void;

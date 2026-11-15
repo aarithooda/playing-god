@@ -9,6 +9,11 @@ import type { ApiClient, ScopedClient } from "./api/client";
 import type { CatalogueDto, CatalogueEntryDto, UniverseSummaryDto } from "./api/types";
 import { UniverseCanvas, type FocusRequest } from "./components/canvas/UniverseCanvas";
 import { BodyInspector } from "./components/ui/BodyInspector";
+import { SpacecraftInspector } from "./components/ui/SpacecraftInspector";
+import { SpacecraftPanel } from "./components/ui/SpacecraftPanel";
+import { ManeuverPanel } from "./components/ui/ManeuverPanel";
+import { MissionPanel } from "./components/ui/MissionPanel";
+import { buildSpaceflightScene, useSpaceflight } from "./sim/spaceflight/useSpaceflight";
 import { CataloguePanel } from "./components/ui/CataloguePanel";
 import { ComparisonPanel } from "./components/ui/ComparisonPanel";
 import { OrbitLabPanel } from "./components/ui/OrbitLabPanel";
@@ -90,6 +95,8 @@ export interface UniverseWorkspaceProps {
 }
 
 const BASELINE_LOCK = "The Orbit Lab baseline is an immutable reference: its bodies cannot be added, edited or deleted.";
+/** A spacecraft is framed by its orbit, not by its few metres of hull: this fraction of its distance to the body it orbits. */
+const SPACECRAFT_FOCUS_FRACTION = 0.3;
 
 type CrudOperation = "add" | "edit" | "delete";
 interface CrudFeedbackState {
@@ -213,7 +220,7 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
     () =>
       frame
         ? frame.bodies.map((b) => ({
-            id: b.id, name: b.meta.name, colorHex: b.meta.colorHex, kind: b.meta.kind === "star" ? "star" : "planet",
+            id: b.id, name: b.meta.name, colorHex: b.meta.colorHex, kind: b.meta.kind === "star" ? "star" : b.meta.kind === "spacecraft" ? "spacecraft" : "planet",
             positionM: b.positionM, radiusM: b.meta.radiusM,
             ...(b.meta.bodyType === undefined ? {} : { bodyType: b.meta.bodyType }),
             ...(b.meta.assetKey === undefined ? {} : { assetKey: b.meta.assetKey }),
@@ -258,7 +265,8 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
 
   // "Show paths" defaults on; moon systems keep every body's recorded path visible together.
   const moonIds = new Set(displayBodies.filter((b) => b.primaryId !== undefined && displayBodies.some((p) => p.id === b.primaryId)).map((b) => b.id));
-  const pathIds = pathTargets(displayBodies.map((b) => b.id), selectedBodyId, moonIds);
+  // Spacecraft paths are drawn by the mission layer (relative to the body they orbit), never as inertial trails here.
+  const pathIds = pathTargets(displayBodies.filter((b) => b.kind !== "spacecraft").map((b) => b.id), selectedBody?.kind === "spacecraft" ? undefined : selectedBodyId, moonIds);
   const trajectories = useMemo(
     () => {
       const out = showPaths && history.cache ? pathIds.map((id) => trajectoryOf(history.cache!, id, "active")) : [];
@@ -286,15 +294,18 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
   const focusBody = useCallback((id: string) => {
     const sceneBody = sceneBodies.find((b) => b.id === id);
     if (sceneBody) {
+      const orbit = bodies.find((b) => b.id === id)?.spacecraft?.orbit;
       setFocus((f) => ({
         nonce: (f?.nonce ?? 0) + 1,
         bodyId: id,
         position: sceneBody.position,
-        radius: focusRadiusFor(sceneBodies, id) ?? sceneBody.radius,
+        radius: orbit
+          ? Math.max(sceneBody.radius, (SPACECRAFT_FOCUS_FRACTION * orbit.radiusM) / transform.metersPerUnit)
+          : focusRadiusFor(sceneBodies, id) ?? sceneBody.radius,
       }));
       setFocusedBodyId(id);
     }
-  }, [sceneBodies]);
+  }, [sceneBodies, bodies, transform.metersPerUnit]);
 
   const confirmPlacement = useCallback((scenePosition: [number, number, number]) => {
     preserveSceneScaleRef.current = { expectedBodyCount: bodies.length + 1, layoutEpoch };
@@ -383,6 +394,27 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
     return result;
   }, [created.undo, created.undoable, simulation.dismissError]);
   const dismissCrudFeedback = useCallback(() => setCrudFeedback(null), []);
+
+  // Space Mission Design: spacecraft, manoeuvre nodes, missions (all backend state) and what the scene draws for them.
+  const flight = useSpaceflight(client, simulation);
+  const spaceflightScene = useMemo(
+    () => buildSpaceflightScene(viewingHistory ? [] : bodies, viewingHistory ? [] : flight.missions, flight.trajectories, history.cache, showPaths, sim?.simulationTimeS ?? 0),
+    [viewingHistory, bodies, flight.missions, flight.trajectories, history.cache, showPaths, sim?.simulationTimeS],
+  );
+  const pendingFocusRef = useRef<string | null>(null);
+  const spacecraftCreated = useCallback((id: string) => {
+    setSelectedBodyId(id);
+    setSidebars((s) => (s.right ? s : toggleSidebar(s, "right", true, windowWidth)));
+    pendingFocusRef.current = id; // focused once the new spacecraft is in the scene (next render)
+  }, [setSidebars, windowWidth]);
+  useEffect(() => {
+    const id = pendingFocusRef.current;
+    if (id && sceneBodies.some((b) => b.id === id)) {
+      pendingFocusRef.current = null;
+      focusBody(id);
+    }
+  }, [sceneBodies, focusBody]);
+  const halt = sim?.halt ?? null;
   const activeBodyIds = useMemo(() => new Set(bodies.map((body) => body.id)), [bodies]);
 
   // A switch is blocked while any non-step write of this universe is in flight (steps are rolled back by the backend).
@@ -488,6 +520,7 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
         referenceOrbits={referenceOrbits}
         presetId={universe?.presetId}
         ringWorldAnimate={simulation.playing}
+        spaceflight={spaceflightScene}
       />
 
       {/* Free area: everything that floats over the scene is laid out between the panels and above the bar. */}
@@ -530,6 +563,15 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
             showGrid={gridVisible}
             cellMeters={gridCell(transform.metersPerUnit).cellMeters}
           />
+          {halt && !viewingHistory && (
+            <div role="alert" data-testid="halt-banner" style={{ ...panelStyle, background: theme.glass, margin: 0, padding: "8px 11px", fontSize: 12, borderColor: theme.danger, maxWidth: 520 }}>
+              <strong style={{ display: "block", marginBottom: 2 }}>Simulation stopped: collision</strong>
+              {halt.message}
+              {halt.bodyIds[0] && activeBodyIds.has(halt.bodyIds[0]) && (
+                <>{" "}<button onClick={() => { selectBody(halt.bodyIds[0]!); focusBody(halt.bodyIds[0]!); }} style={{ ...btnStyle, fontSize: 11, padding: "2px 8px" }}>Show it</button></>
+              )}
+            </div>
+          )}
           {simulation.notice && (
             <p role="status" style={{ ...panelStyle, background: theme.glass, margin: 0, padding: "6px 10px", fontSize: 12, maxWidth: 520 }}>
               {simulation.notice}{" "}
@@ -586,7 +628,7 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
         activeTool={tool}
         drawerOpen={sidebars.left}
         onSelect={selectTool}
-        badges={{ events: simulation.events.length }}
+        badges={{ events: simulation.events.length, missions: flight.missions.filter((m) => m.status === "planned" || m.status === "in_progress").length }}
       />
       <ToolDrawer
         open={sidebars.left}
@@ -631,6 +673,38 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
                 onError={(e) => isScopeInvalid(e) && props.onScopeInvalid(e)}
               />
               <BodyList bodies={bodies} selectedBodyId={selectedBodyId} onSelect={selectBody} onFocus={focusBody} />
+            </>
+          ),
+          missions: (
+            <>
+              <SpacecraftPanel
+                api={flight}
+                bodies={bodies}
+                selectedBodyId={selectedBodyId}
+                onSelect={selectBody}
+                onCreated={spacecraftCreated}
+                disabled={!ready || viewingHistory}
+                blockedReason={universe?.role === "baseline" ? BASELINE_LOCK : viewingHistory ? "Return to the live state to add a spacecraft." : undefined}
+              />
+              <ManeuverPanel
+                api={flight}
+                craft={selectedBody?.kind === "spacecraft" ? selectedBody : null}
+                nowS={sim?.simulationTimeS ?? 0}
+                bodyName={simulation.bodyName}
+                disabled={!ready || viewingHistory || universe?.role === "baseline"}
+                halted={halt !== null}
+              />
+              <MissionPanel
+                api={flight}
+                bodies={bodies}
+                nowS={sim?.simulationTimeS ?? 0}
+                selectedBodyId={selectedBodyId}
+                bodyName={simulation.bodyName}
+                disabled={!ready || viewingHistory || universe?.role === "baseline"}
+                halted={halt !== null}
+                onPlay={simulation.play}
+                playing={simulation.playing}
+              />
             </>
           ),
           orbitlab: (
@@ -698,8 +772,24 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
       />
 
       <aside className="pg-inspector" aria-label="Body inspector" data-testid="sidebar-right" data-open={inspectorVisible}>
+        {!viewingHistory && selectedBody?.kind === "spacecraft" && selectedBody.spacecraft && (
+          <SpacecraftInspector
+            craft={selectedBody}
+            mission={[...flight.missions].reverse().find((m) => m.spacecraftId === selectedBody.id)}
+            focused={selectedBody.id === focusedBodyId}
+            editBlockedReason={universe?.role === "baseline" ? BASELINE_LOCK : simulation.playing ? "Pause to edit: changes are applied between steps." : undefined}
+            onUpdate={async (id, patch) => {
+              const result = await flight.updateSpacecraft(id, patch);
+              return result.ok ? { ok: true } : result;
+            }}
+            onDelete={deleteWithFeedback}
+            onFocus={focusBody}
+            onOpenMissions={() => openTool("missions")}
+            onClose={closeInspector}
+          />
+        )}
         <BodyInspector
-          body={viewingHistory ? null : selectedBody}
+          body={viewingHistory || selectedBody?.kind === "spacecraft" ? null : selectedBody}
           focused={selectedBody !== null && selectedBody.id === focusedBodyId}
           drawnRadiusUnits={sceneBodies.find((b) => b.id === selectedBodyId)?.radius}
           sizeMode={sizeMode}
@@ -716,7 +806,7 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
       <SimulationBar
         playing={simulation.playing}
         stepping={simulation.stepping}
-        canRun={bodies.length > 0}
+        canRun={bodies.length > 0 && halt === null}
         disabled={!ready}
         simulationTimeS={sim ? sim.simulationTimeS : null}
         speedExp={simulation.speedExp}

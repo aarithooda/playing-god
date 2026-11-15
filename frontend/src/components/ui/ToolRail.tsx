@@ -2,7 +2,7 @@ import React from 'react';
 import { Icon, type IconName } from './Icon';
 import { useTheme } from '../../sim/useTheme';
 
-export type ToolId = 'create' | 'universes' | 'orbitlab' | 'events' | 'history' | 'diagnostics';
+export type ToolId = 'create' | 'universes' | 'missions' | 'orbitlab' | 'events' | 'history' | 'diagnostics';
 
 export interface ToolDef {
   id: ToolId;
@@ -18,8 +18,9 @@ export interface ToolDef {
 export const TOOLS: readonly ToolDef[] = [
   { id: 'create', label: 'Add', icon: 'create', title: 'Add bodies', description: 'Pick a catalogue body or define your own, then place it.' },
   { id: 'universes', label: 'Universes', icon: 'universes', title: 'Universes', description: 'Switch universes, load a preset, save snapshots.' },
+  { id: 'missions', label: 'Missions', icon: 'mission', title: 'Mission design', description: 'Spacecraft, manoeuvres and missions to other bodies.' },
   { id: 'orbitlab', label: 'Orbit Lab', icon: 'orbitlab', title: 'Orbit Lab', description: 'Compare a baseline orbit with a modified run.' },
-  { id: 'events', label: 'Events', icon: 'events', title: 'Events', description: 'Collisions and mergers, newest first.' },
+  { id: 'events', label: 'Events', icon: 'events', title: 'Events', description: 'Collisions, mergers and burns, newest first.' },
   { id: 'history', label: 'History', icon: 'history', title: 'History', description: 'Scrub and replay what the backend recorded.' },
   { id: 'diagnostics', label: 'Diagnostics', icon: 'diagnostics', title: 'Diagnostics', description: 'Whole-system totals computed by the backend.' },
 ];

@@ -8,8 +8,8 @@ import { toScenePosition, type RenderTransform, type ScenePosition } from '../..
 import type { SceneBody } from '../../sim/viewModel';
 
 // Space Mission Design lines (D-070). Three things, never to be confused:
-//   thin solid   the osculating orbit of a spacecraft about its reference body (the backend's elements of the present state)
-//   solid        the recorded path actually flown (the backend's history), about the same body
+//   thin solid   the osculating orbit of a spacecraft about its reference body (the reported elements of the present state)
+//   solid        the recorded path actually flown (the recorded history), about the same body
 //   dashed       a mission's PLANNED trajectory (the planner's prediction), in its own colour
 // Every line is drawn relative to a body and carried with that body's displayed position each frame, so an orbit about a moving
 // body reads as an orbit. Nothing here has a pointer handler: it can never get in the way of selecting a body.
