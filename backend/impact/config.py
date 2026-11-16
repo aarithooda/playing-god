@@ -24,14 +24,18 @@ class CollisionTolerances(Contract):
                   replay_cross_platform_rel=self.replay_cross_platform_rel)
 
 
-# "stop-on-contact" (Space Mission Design phase, D-070): nothing is resolved; a contact stops the simulation at the instant of first
-# contact and is reported (backend/spaceflight/engine.py). Universes get it only when they ask for it (the mission presets); the
-# defaults below are unchanged.
+# "stop-on-contact" (D-070, made the policy of EVERY universe by owner decision D-071): nothing is resolved; a contact stops the
+# simulation at the instant of first contact and is reported (backend/spaceflight/engine.py). No merge, no fragments, no debris.
+# The two older modes are DORMANT: no universe the application creates (sandbox, preset, Orbit Lab, API) uses them and no API can
+# select them. Their code and its tests are kept, constructed explicitly (backend.simulation.LEGACY_MERGE_CONFIG /
+# OUTCOME_V1_CONFIG), so the paused collision engine does not rot; they are not part of the active collision path.
 CollisionMode = Literal["legacy-merge", "outcome-v1", "stop-on-contact"]
-# The mode of a newly created sandbox universe, including the startup `uni-default` (flipped at Stage 4 step 4b, D-045).
-# Presets and Orbit Lab runs stay "legacy-merge" until Stage 11 regardless of it: they construct their engines with LEGACY_MERGE_MODE.
-DEFAULT_SANDBOX_MODE: CollisionMode = "outcome-v1"
-LEGACY_MERGE_MODE: CollisionMode = "legacy-merge"  # backend.simulation.LEGACY_MERGE_CONFIG is the importable config
+# The mode of every universe the application creates, and of `CollisionConfig()` / `SimulationService()` (D-071; it was
+# "outcome-v1" for sandboxes from D-045 and "legacy-merge" for presets and Orbit Lab until then).
+DEFAULT_MODE: CollisionMode = "stop-on-contact"
+DEFAULT_SANDBOX_MODE: CollisionMode = DEFAULT_MODE  # older name, kept for its importers
+LEGACY_MERGE_MODE: CollisionMode = "legacy-merge"  # dormant; backend.simulation.LEGACY_MERGE_CONFIG is the importable config
+OUTCOME_V1_MODE: CollisionMode = "outcome-v1"  # dormant; backend.simulation.OUTCOME_V1_CONFIG is the importable config
 STOP_ON_CONTACT_MODE: CollisionMode = "stop-on-contact"  # backend.simulation.STOP_ON_CONTACT_CONFIG is the importable config
 DEFAULT_SEED = 12345  # == backend.simulation.RAND_SEED (not imported: backend.impact must not depend on the service)
 MAX_SEED = 2**63 - 1
@@ -41,7 +45,7 @@ MAX_SEED = 2**63 - 1
 class CollisionConfig(Contract):
     """Per-universe collision configuration (plan 4.1). Part of snapshots from Stage 2/10 on."""
 
-    mode: CollisionMode = DEFAULT_SANDBOX_MODE
+    mode: CollisionMode = DEFAULT_MODE
     seed: int = DEFAULT_SEED
     max_tracked_fragments_per_event: int = 16
     max_tracked_fragments_total: int = 64

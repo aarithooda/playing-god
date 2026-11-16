@@ -51,7 +51,7 @@ from typing import Any, Callable, NamedTuple
 
 import rebound
 
-from backend.collisions import MergeResolver, add_named_particle, select_ias15
+from backend.collisions import MergeResolver, StepCollapseGuard, add_named_particle, select_ias15
 from backend.impact import lifecycle
 from backend.impact.config import CollisionConfig
 from backend.impact.contact import refine_contact  # noqa: F401 - used by the stop-on-contact halt (backend/spaceflight/engine.py)
@@ -209,19 +209,25 @@ def _digest(sim: rebound.Simulation, meta: dict, history_mode: str, sample_inter
     return hashlib.sha256(json.dumps(doc, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
-# Presets and Orbit Lab runs keep the legacy resolver until Stage 11 whatever the sandbox default is (D-045).
-LEGACY_MERGE_CONFIG = CollisionConfig(mode="legacy-merge")
-# Mission-design universes: every contact stops the simulation and is reported; nothing is merged or broken (D-070).
+# Every universe: a contact stops the simulation and is reported; nothing is merged or broken (D-070, D-071). This is what
+# `SimulationService()` uses, and the only mode the application creates.
 STOP_ON_CONTACT_CONFIG = CollisionConfig(mode="stop-on-contact")
+# DORMANT modes (D-071): the legacy merge resolver and the collision-outcome engine. Not reachable from any route, preset or
+# Orbit Lab run; constructed explicitly only by the tests that keep the paused collision engine from rotting.
+LEGACY_MERGE_CONFIG = CollisionConfig(mode="legacy-merge")
+OUTCOME_V1_CONFIG = CollisionConfig(mode="outcome-v1")
 
 
 class SimulationService(SpaceflightMixin):
     # A collision-engine failure inside a step is retried once with merge-only collisions instead of failing the step.
     FALLBACK_TO_MERGE = True
+    # The collision configuration of an engine created without one: every universe the application creates (D-071).
+    DEFAULT_CONFIG = STOP_ON_CONTACT_CONFIG
 
     def __init__(self, collision_config: CollisionConfig | None = None) -> None:
-        # The mode is fixed when the engine is created (D-033). The default is the sandbox mode (outcome-v1 since 4b, D-045).
-        self.collision_config = collision_config or CollisionConfig()
+        # The mode is fixed when the engine is created (D-033). The default, and the mode of every universe the application
+        # creates, is stop-on-contact (D-071).
+        self.collision_config = collision_config or self.DEFAULT_CONFIG
         self._deferred = self.collision_config.mode == "outcome-v1"
         self._stop_mode = self.collision_config.mode == "stop-on-contact"
         self.plan_time_limit_s = float(os.getenv("PG_PLAN_TIME_LIMIT_S", DEFAULT_PLAN_TIME_LIMIT_S))
@@ -264,6 +270,7 @@ class SimulationService(SpaceflightMixin):
         self._flight = SpaceflightBook()  # spacecraft, manoeuvre nodes, missions, collision halt (backend/spaceflight)
         self._thrust = ThrustForce()  # the additional force while an engine burns
         self._plan_slot = threading.Lock()  # held while a transfer is being designed (outside the simulation lock)
+        self._step_guard = StepCollapseGuard()  # hands a collapsed PRS23 step to GLOBAL (backend/collisions.py)
         self._halted_now = False  # a contact stopped the simulation during the current step attempt
         self._chunk_satisfied = True  # did the internal steps of the chunk just integrated respect the curvature criterion?
         self._chunk_max_dt = 0.0  # longest internal IAS15 step of the chunk being integrated (heartbeat)
@@ -957,6 +964,7 @@ class SimulationService(SpaceflightMixin):
         dt = abs(sim_ptr.contents.dt_last_done)
         if dt > self._chunk_max_dt:
             self._chunk_max_dt = dt  # the detection criterion is judged on internal steps (_note_chunk)
+        self._step_guard.beat(sim_ptr.contents)
         if self._cancel.is_set():
             sim_ptr.contents.stop()
         elif self._clock() > self._deadline:

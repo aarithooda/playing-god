@@ -20,7 +20,7 @@ export const TOOLS: readonly ToolDef[] = [
   { id: 'universes', label: 'Universes', icon: 'universes', title: 'Universes', description: 'Switch universes, load a preset, save snapshots.' },
   { id: 'missions', label: 'Missions', icon: 'mission', title: 'Mission design', description: 'Spacecraft, manoeuvres and missions to other bodies.' },
   { id: 'orbitlab', label: 'Orbit Lab', icon: 'orbitlab', title: 'Orbit Lab', description: 'Compare a baseline orbit with a modified run.' },
-  { id: 'events', label: 'Events', icon: 'events', title: 'Events', description: 'Collisions, mergers and burns, newest first.' },
+  { id: 'events', label: 'Events', icon: 'events', title: 'Events', description: 'Collisions (the simulation stops at a contact) and burns, newest first.' },
   { id: 'history', label: 'History', icon: 'history', title: 'History', description: 'Scrub and replay what the backend recorded.' },
   { id: 'diagnostics', label: 'Diagnostics', icon: 'diagnostics', title: 'Diagnostics', description: 'Whole-system totals computed by the backend.' },
 ];

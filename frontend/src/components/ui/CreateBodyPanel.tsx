@@ -64,8 +64,8 @@ export const CreateBodyPanel: React.FC<CreateBodyPanelProps> = ({
   // The type is not a text field; it is sent only when it is not the backend default (planet) or came from the catalogue.
   const [kind, setKind] = useState<BodyKind>('planet');
   const [catalogueEntry, setCatalogueEntry] = useState<{ id: string; name: string; bodyType?: BodyType; assetKey?: string } | null>(null);
-  // '' = not specified: no material is sent (D-033 DQ-2 (a): never assigned silently; the body's contacts then merge exactly as before).
-  // Anything else is a backend material profile id the user chose, sent to the collision engine.
+  // '' = not specified: no material is sent (D-033 DQ-2 (a): never assigned silently). Anything else is a backend material
+  // profile id the user chose. A material is a property of the body only: every collision stops the simulation (D-071).
   const [materialId, setMaterialId] = useState('');
   // Offered when the universe has a star and the new body is a planet: start it on a circular orbit around that star.
   const [orbitStar, setOrbitStar] = useState(true);
@@ -270,7 +270,7 @@ export const CreateBodyPanel: React.FC<CreateBodyPanelProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 10px' }}>
             <label style={{ ...labelStyle, flex: '0 0 auto' }} htmlFor="create-material">Material</label>
             <select id="create-material" style={inputStyle} value={materialId} onChange={(e) => setMaterialId(e.target.value)}>
-              <option value="">Not specified (collisions merge, no material)</option>
+              <option value="">Not specified</option>
               {MATERIAL_OPTIONS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
             </select>
           </div>

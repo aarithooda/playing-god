@@ -68,6 +68,7 @@ def test_events_endpoint_rejects_other_methods(client):
         assert getattr(client, method)("/api/v1/events").status_code == 405
 
 
+@pytest.mark.dormant_collisions
 def test_merger_event_fields_values_and_agreement_with_the_step_response(client):
     a, b = head_on(client)
     out = step(client, 130.0)
@@ -91,6 +92,7 @@ def test_merger_event_fields_values_and_agreement_with_the_step_response(client)
     assert a["id"] in ids and b["id"] not in ids
 
 
+@pytest.mark.dormant_collisions
 def test_grazing_merger_reports_orbital_angular_momentum_as_spin(client):
     """Impact parameter 0.5 m (< 1.8 m): spin = mu * (r_rel x v_rel) = mu * b * v_rel about +/-z."""
     create(client, name="A", m=2000.0, r=1.0, x=-100.0, y=0.25, vx=1.0)
@@ -111,6 +113,7 @@ def test_tangent_contact_serialises_a_null_contact_time(client):
     assert events(client)[0]["estimatedContactTimeS"] is None
 
 
+@pytest.mark.dormant_collisions
 def test_events_survive_quiet_steps_edits_and_deletes_in_order(client):
     a, b = head_on(client, tag="1")
     c, d = head_on(client, y=1000.0, tag="2")
@@ -127,6 +130,7 @@ def test_events_survive_quiet_steps_edits_and_deletes_in_order(client):
     assert events(client) == first  # editing or deleting the survivors does not rewrite history
 
 
+@pytest.mark.dormant_collisions
 def test_log_accumulates_across_requests_with_increasing_ids(client):
     head_on(client, tag="1")
     step(client, 130.0)
@@ -135,6 +139,7 @@ def test_log_accumulates_across_requests_with_increasing_ids(client):
     assert [e["id"] for e in events(client)] == ["evt-1", "evt-2"]
 
 
+@pytest.mark.dormant_collisions
 def test_reset_clears_the_log_but_ids_are_never_reused(client):
     head_on(client, tag="1")
     step(client, 130.0)
@@ -150,6 +155,7 @@ def test_reset_clears_the_log_but_ids_are_never_reused(client):
     assert events(client) == []
 
 
+@pytest.mark.dormant_collisions
 def test_failed_step_records_no_event_and_does_not_burn_an_id(client, service, monkeypatch):
     head_on(client)
     monkeypatch.setattr(service, "_verify_finite", lambda: (_ for _ in ()).throw(ArithmeticError("injected")))
@@ -168,6 +174,7 @@ def test_timed_out_step_records_no_event(client, service):
     assert events(client) == []
 
 
+@pytest.mark.dormant_collisions
 def test_log_is_capped_to_the_newest_events(client, monkeypatch):
     """MAX_EVENTS_KEPT bounds memory and payload size; the oldest events go first, ids stay unique."""
     monkeypatch.setattr(simulation, "MAX_EVENTS_KEPT", 3)
@@ -177,6 +184,7 @@ def test_log_is_capped_to_the_newest_events(client, monkeypatch):
     assert [e["id"] for e in events(client)] == ["evt-3", "evt-4", "evt-5"]
 
 
+@pytest.mark.dormant_collisions
 def test_chain_of_mergers_logs_one_event_per_merge(client):
     for i, (x, vx, m) in enumerate([(-40.0, 8.0, 3e6), (0.0, 0.0, 1e6), (12.0, 0.0, 2e6), (24.0, -6.0, 4e6)]):
         create(client, name=f"c{i}", m=m, r=5.0, x=x, vx=vx)

@@ -52,13 +52,13 @@ describe("DiagnosticsPanel", () => {
     expect(screen.getByText(/about the origin/i)).toBeTruthy();
     expect(screen.getByText(/fixed simulation origin \(0, 0, 0\), not the centre of mass/)).toBeTruthy();
     expect(screen.getByText(/bookkeeping only/i)).toBeTruthy();
-    expect(screen.getByText(/No rotation is simulated and it carries no energy/)).toBeTruthy();
+    expect(screen.getByText(/Collisions now stop the simulation and merge nothing, so this stays zero/)).toBeTruthy();
     expect(screen.getByText(/Point-mass approximation/)).toBeTruthy();
   });
 
   it("does not imply K+U is conserved across mergers and labels derived sums as such", () => {
     open(panel(diagnostics));
-    expect(screen.getByText(/Not conserved across mergers/)).toBeTruthy();
+    expect(screen.getByText(/Conserved under gravity alone: a collision stops the simulation/)).toBeTruthy();
     expect(screen.getByText(/Derived here by adding backend values \(not backend diagnostics\)/)).toBeTruthy();
     expect(value("k-plus-u")).toBe("-2.700e33 J");
     expect(value("l-plus-spin")).toBe("(0, 0, 2.660e40) kg·m²/s");

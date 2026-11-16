@@ -122,6 +122,7 @@ def test_circular_binary_after_one_period_against_kepler_solution():
     assert len(initial) == 2 and not out.events
 
 
+@pytest.mark.dormant_collisions
 def test_head_on_inelastic_merge_matches_momentum_and_reduced_mass_energy():
     m1, m2, v1, v2 = 2.0e6, 3.0e6, 500.0, -500.0
     mu = m1 * m2 / (m1 + m2)
@@ -163,6 +164,7 @@ def test_head_on_inelastic_merge_matches_momentum_and_reduced_mass_energy():
     assert abs(event.kineticEnergyLostJ - (ke_at_contact + detection_shift)) < 0.02
 
 
+@pytest.mark.dormant_collisions
 def test_grazing_merge_books_orbital_angular_momentum_as_spin():
     m1, m2, bimpact, vrel = 2.0e6, 3.0e6, 15.0, 1000.0
     mu = m1 * m2 / (m1 + m2)
@@ -189,6 +191,7 @@ def test_grazing_merge_books_orbital_angular_momentum_as_spin():
     assert abs(out.events[0].kineticEnergyLostJ - ke_at_contact) < 1.0
 
 
+@pytest.mark.dormant_collisions
 def test_near_relativistic_straight_through_collision_is_detected():
     """Numerical stress only: Newtonian merger physics is not physically valid at 0.49c per body."""
     speed = 0.49 * C
@@ -215,6 +218,7 @@ def test_fast_near_miss_remains_two_bodies():
     assert min_separation > 2.0
 
 
+@pytest.mark.dormant_collisions
 def test_exact_tangency_merges_but_has_no_contact_time_estimate():
     """The swept path is tangent at exactly R1+R2; current REBOUND reports merge, estimator returns null."""
     impact_parameter = 2.0  # exactly the sum of two unit radii
@@ -228,6 +232,7 @@ def test_exact_tangency_merges_but_has_no_contact_time_estimate():
     assert out.events[0].estimatedContactTimeS is None
 
 
+@pytest.mark.dormant_collisions
 def test_near_simultaneous_three_body_contacts_conserve_total_mass_and_momentum():
     """Both outer bodies reach the central sphere at t≈1 s; event order may be engine-defined."""
     svc = SimulationService()
@@ -249,6 +254,7 @@ def test_near_simultaneous_three_body_contacts_conserve_total_mass_and_momentum(
     assert svc._resolver.stale == 0
 
 
+@pytest.mark.dormant_collisions
 def test_two_separated_collisions_in_one_request_preserve_global_totals():
     """Two independent pairs reach contact in the same long, straight-line sweep."""
     svc = SimulationService()
@@ -270,6 +276,7 @@ def test_two_separated_collisions_in_one_request_preserve_global_totals():
     assert all(abs(e.estimatedContactTimeS - 0.99) < 2e-6 for e in out.events)
 
 
+@pytest.mark.dormant_collisions
 def test_extreme_mass_ratio_exposes_binary64_mass_rounding():
     """At 1e16:1, adding 1 kg to the remnant mass rounds away in IEEE-754 binary64."""
     heavy_mass, probe_mass = 1.0e16, 1.0
@@ -285,6 +292,7 @@ def test_extreme_mass_ratio_exposes_binary64_mass_rounding():
     assert (exact_integer_mass - out.bodies[0].massKg) / exact_integer_mass < 2.0e-16
 
 
+@pytest.mark.dormant_collisions
 def test_radial_free_fall_contact_time_matches_closed_form():
     """Two-body radial fall from rest, with finite contact radius rather than point collision."""
     central_mass, probe_mass = 1.0e24, 1.0

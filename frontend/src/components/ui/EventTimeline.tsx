@@ -70,7 +70,7 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({
       {events.length === 0 ? (
         <p style={{ fontSize: '12px', color: theme.textMuted, margin: 0 }}>No events yet.</p>
       ) : (
-        <ol aria-label="Merger events" style={{ display: 'flex', flexDirection: 'column', gap: '10px', listStyle: 'none', margin: 0, padding: 0 }}>
+        <ol aria-label="Simulation events" style={{ display: 'flex', flexDirection: 'column', gap: '10px', listStyle: 'none', margin: 0, padding: 0 }}>
           {newestFirst.map((event) => {
             const focusId = eventFocusBodyId(event);
             return (

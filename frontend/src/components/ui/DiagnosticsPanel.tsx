@@ -94,7 +94,7 @@ export const DiagnosticsPanel: React.FC<DiagnosticsPanelProps> = ({ loadStatus, 
           id="spin"
           label="Booked spin, bookkeeping only (bookedSpinKgM2PerS)"
           value={formatVector(diagnostics.bookedSpinKgM2PerS, 'kg·m²/s')}
-          note="Orbital angular momentum booked by mergers. No rotation is simulated and it carries no energy."
+          note="Bookkeeping of merged bodies. Collisions now stop the simulation and merge nothing, so this stays zero."
         />
         <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: '8px', marginTop: '4px' }}>
           <div style={{ ...labelStyle, marginBottom: '6px' }}>
@@ -104,7 +104,7 @@ export const DiagnosticsPanel: React.FC<DiagnosticsPanelProps> = ({ loadStatus, 
             id="k-plus-u"
             label="Kinetic + potential energy"
             value={formatScalar(kPlusU, 'J')}
-            note="Not conserved across mergers: a merger removes translational kinetic energy."
+            note="Conserved under gravity alone: a collision stops the simulation and dissipates nothing. A spacecraft burn changes it."
           />
           <Row
             id="l-plus-spin"

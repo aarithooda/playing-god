@@ -39,15 +39,17 @@ def test_the_mission_preset_is_listed_and_creates_a_stop_on_contact_universe(cli
     assert max(abs(p[k]) for k in "xyz") < 1e-6 * 7.3e22 * 1000.0
 
 
-def test_existing_universes_report_their_collision_mode_and_an_empty_one_can_ask_for_stop_on_contact(client):
+def test_every_universe_reports_stop_on_contact_and_no_other_mode_can_be_asked_for(client):
+    """D-071: the startup universe, a new sandbox and a preset all stop on contact; `collisionMode` accepts only that value."""
     listed = client.get("/api/v1/universes").json()["universes"]
-    assert listed[0]["collisionMode"] == "outcome-v1"
+    assert listed[0]["collisionMode"] == "stop-on-contact"
     r = client.post("/api/v1/universes", json={"source": {"kind": "empty"}, "collisionMode": "stop-on-contact"})
     assert r.status_code == 201 and r.json()["collisionMode"] == "stop-on-contact" and r.json()["role"] == "sandbox"
-    assert client.post("/api/v1/universes", json={"source": {"kind": "empty"}}).json()["collisionMode"] == "outcome-v1"
-    assert client.post("/api/v1/universes", json={"source": {"kind": "empty"}, "collisionMode": "legacy-merge"}).status_code == 422
+    assert client.post("/api/v1/universes", json={"source": {"kind": "empty"}}).json()["collisionMode"] == "stop-on-contact"
+    for dormant in ("legacy-merge", "outcome-v1"):
+        assert client.post("/api/v1/universes", json={"source": {"kind": "empty"}, "collisionMode": dormant}).status_code == 422
     solar = client.post("/api/v1/universes", json={"source": {"kind": "preset", "presetId": "solar-system-j2000"}}).json()
-    assert solar["collisionMode"] == "legacy-merge"
+    assert solar["collisionMode"] == "stop-on-contact"
 
 
 def test_create_inspect_and_delete_a_spacecraft(client):

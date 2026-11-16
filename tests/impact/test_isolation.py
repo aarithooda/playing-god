@@ -76,6 +76,7 @@ def test_a_snapshot_belongs_to_the_universe_that_made_it():
     assert b.collision_records() == [] and b._materials == {}
 
 
+@pytest.mark.dormant_collisions
 def test_registry_universes_list_only_their_own_collisions():
     client = TestClient(app)
     registry = universes.get_registry()

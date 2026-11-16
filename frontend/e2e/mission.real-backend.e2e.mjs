@@ -194,7 +194,7 @@ try {
     const state = await until(async () => { const s = await stateOf("uni-default"); return s.bodies.length === 1 && s; }, "Earth in the backend state");
     assert.equal(state.bodies[0].name, "Earth");
     assert.equal(state.bodies[0].kind, "planet");
-    assert.equal((await active()).universes[0].collisionMode, "outcome-v1", "the sandbox keeps its own collision mode");
+    assert.equal((await active()).universes[0].collisionMode, "stop-on-contact", "the sandbox stops on contact like every universe (D-071)");
   });
 
   // ------------------------------------------------------------------ 3-5: a spacecraft in Earth orbit, inspected

@@ -337,6 +337,7 @@ def test_the_materials_route_states_support_per_profile(client):
     assert all(v["supported"] is False and v["waveSpeedMPerS"] is None and "static" in v["reason"] for v in j["propagation"].values())
 
 
+@pytest.mark.dormant_collisions
 def test_the_surface_route_returns_static_sites_with_the_limitation_stated(client):
     uid = universes.DEFAULT_UNIVERSE_ID
     eng = universes.get_registry().get(uid).engine

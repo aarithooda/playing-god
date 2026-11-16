@@ -740,6 +740,13 @@ class SpaceflightMixin:
 
     def _flight_integrate(self, target: float) -> None:
         """`sim.integrate(target)` with the thrust of every burning engine."""
+        self._step_guard.arm(self._sim)  # a collapsed PRS23 step is handed to GLOBAL from the heartbeat (backend/collisions.py)
+        try:
+            self._flight_integrate_guarded(target)
+        finally:
+            self._step_guard.release(self._sim)
+
+    def _flight_integrate_guarded(self, target: float) -> None:
         sim = self._sim
         if not (self._flight.maneuvers and self._flight.executing()):
             sim.integrate(target)

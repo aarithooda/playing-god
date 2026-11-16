@@ -84,6 +84,87 @@ def select_ias15(sim) -> None:
     sim.integrator.adaptive_mode = "prs23" if has_satellites(sim) else "global"
 
 
+# ---------- PRS23 step collapse (D-071) ----------
+# PRS23 (Pham, Rein & Spiegel 2023; REBOUND src/integrator_ias15.c) takes, for every particle, the timescale
+#     tau^2 = 2 |a|^2 / (|j|^2 + |a| |s|)        (a acceleration, j jerk, s snap, at the end of the step)
+# and steps with the smallest one. tau is "how long until the acceleration has changed by its own size", which is a sound
+# measure of orbital curvature EXCEPT where a particle's acceleration vector passes through zero while its jerk does not: there
+# tau = sqrt(2) |a| / |j| is simply the time left until the zero, so every step covers a fixed fraction (about a quarter) of the
+# remaining time and the zero is never reached. The step shrinks geometrically without bound (measured: to 1e-25 s, far below
+# the resolution of the time variable) and `integrate` never returns. The acceleration of a body passes exactly through zero only
+# when the pulls on it cancel as vectors, i.e. on exactly collinear configurations: two bodies closing head-on along the line
+# through a third (the pull of the near small body grows past the planet's), or three masses on a line.
+# The GLOBAL criterion (the error estimate of the whole system over its largest acceleration) has no such singularity and walks
+# through these points in a handful of steps; it is unusable as the standing criterion next to a low orbit (see has_satellites).
+# So: when PRS23 has driven the step below any physically meaningful time (`collapse_threshold`), the next few steps are chosen
+# by GLOBAL, then PRS23 resumes. Every step taken is one a valid IAS15 error criterion asked for, so accuracy is not traded:
+# only the choice between two valid criteria changes, and only where one of them is singular. Above the threshold nothing changes.
+COLLAPSE_SAFETY = 1.0e-3  # the step counts as collapsed below this fraction of the fastest possible contact-crossing time
+COLLAPSE_TIME_ULPS = 64.0  # ... or below this many units of resolution of the time variable
+GLOBAL_STEPS_AFTER_COLLAPSE = 32  # steps chosen by GLOBAL before PRS23 resumes (the step can recover by 4x per step)
+G_FALLBACK = 6.67430e-11
+
+
+def collapse_threshold(sim) -> float:
+    """A step length [s] no healthy step of this system can be below.
+
+    The shortest physical timescale of point masses with radii is a contact: tau ~ |a| / |j| ~ d / v for two bodies a contact
+    distance d apart closing at v, and PRS23 then steps about tau / 4. `d` is bounded below by the two smallest radii; `v` is
+    bounded above by twice the largest present speed (about the system's centre of mass) plus the speed gained falling to the
+    deepest reachable point of the potential, sqrt(2 G M_total / r_min). The threshold is COLLAPSE_SAFETY times that crossing time
+    (250 times below a step PRS23 could legitimately ask for), and never less than a few units of resolution of `sim.t`."""
+    ps = list(sim.particles)
+    resolution = COLLAPSE_TIME_ULPS * math.ulp(max(abs(sim.t), 1.0))
+    if len(ps) < 2:
+        return resolution
+    total = sum(p.m for p in ps)
+    radii = sorted(p.r for p in ps)
+    if not (total > 0.0 and radii[0] > 0.0):
+        return resolution
+    cx, cy, cz = (sum(p.m * getattr(p, k) for p in ps) / total for k in ("vx", "vy", "vz"))
+    fastest = max(math.sqrt((p.vx - cx) ** 2 + (p.vy - cy) ** 2 + (p.vz - cz) ** 2) for p in ps)
+    bound = 2.0 * fastest + math.sqrt(2.0 * (sim.G or G_FALLBACK) * total / radii[0])
+    return max(COLLAPSE_SAFETY * (radii[0] + radii[1]) / bound, resolution)
+
+
+class StepCollapseGuard:
+    """Watches the internal steps of one `integrate` call (from the heartbeat) and hands a collapsed PRS23 step to GLOBAL.
+
+    `arm` before the integration, `beat` after every internal step, `release` after it (PRS23 is always restored). Does nothing
+    for a simulation whose criterion is not PRS23."""
+
+    def __init__(self) -> None:
+        self.fallbacks = 0  # how often a collapse was handed over (diagnostics and tests)
+        self._threshold = 0.0
+        self._left = 0
+        self._armed = False
+
+    def arm(self, sim) -> None:
+        self._armed = str(sim.integrator.adaptive_mode).upper() == "PRS23"
+        self._left = 0
+        if self._armed:
+            self._threshold = collapse_threshold(sim)
+
+    def beat(self, sim) -> None:
+        if not self._armed:
+            return
+        if self._left > 0:
+            self._left -= 1
+            if self._left == 0:
+                sim.integrator.adaptive_mode = "prs23"
+            return
+        if 0.0 < abs(sim.dt_last_done) < self._threshold:
+            sim.integrator.adaptive_mode = "global"
+            self._left = GLOBAL_STEPS_AFTER_COLLAPSE
+            self.fallbacks += 1
+
+    def release(self, sim) -> None:
+        if self._armed and self._left > 0:
+            sim.integrator.adaptive_mode = "prs23"
+        self._left = 0
+        self._armed = False
+
+
 def add_named_particle(sim, name: str, **fields) -> None:
     """Add a particle and give it its name through the particle's name SETTER (the name memory is then owned by the simulation).
 

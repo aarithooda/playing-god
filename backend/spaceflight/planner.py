@@ -22,12 +22,13 @@ silently. Large universes: bracketing uses a reduced copy (craft, origin, destin
 root-finding iterations and the final flight use the full copy.
 """
 import math
+import threading
 import time
 import warnings
 from dataclasses import dataclass
 from typing import Optional
 
-from backend.collisions import select_ias15
+from backend.collisions import StepCollapseGuard, select_ias15
 from backend.spaceflight import orbits
 from backend.spaceflight.craft import Spacecraft
 from backend.spaceflight.dynamics import (ActiveBurn, ThrustForce, build_hierarchy, burn_window, gravitators, particle_index, plan_impulse,
@@ -91,16 +92,55 @@ class _Flight:
     departure_delivered: float
 
 
-def _copy(sim):
+class _Watch:
+    """What every copy the planner flies is watched for, from REBOUND's heartbeat (once per internal step): a collapsed PRS23 step
+    is handed to GLOBAL exactly as in the live engine (backend/collisions.py), and an integration that outlives the planning budget
+    is stopped (`expired`; `_integrate` then raises PlannerTimeout). Without it one stalled copy would hold a worker forever."""
+
+    def __init__(self, clock, started: float, budget_s: float):
+        self.clock, self.started, self.budget_s = clock, started, budget_s
+        self.expired = False
+
+    def attach(self, sim) -> None:
+        guard = StepCollapseGuard()
+        guard.arm(sim)
+
+        def beat(sim_ptr) -> None:
+            try:
+                guard.beat(sim_ptr.contents)
+                if self.clock() - self.started > self.budget_s:
+                    self.expired = True
+                    sim_ptr.contents.stop()
+            except Exception:  # noqa: BLE001 - a ctypes callback must not raise; stop instead of flying blind
+                self.expired = True
+                sim_ptr.contents.stop()
+
+        sim.heartbeat = beat
+
+
+_DESIGN = threading.local()  # .watch: the watch of the design running in this thread (one design, many copies)
+
+
+def _integrate(sim, t: float) -> None:
+    """`sim.integrate(t)` on a planner copy; an integration the watch stopped is a timeout, never a silently shorter flight."""
+    sim.integrate(t)
+    watch = getattr(_DESIGN, "watch", None)
+    if watch is not None and watch.expired:
+        raise PlannerTimeout()
+
+
+def _copy(sim, watch: Optional[_Watch] = None):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", RuntimeWarning)
         c = sim.copy()
     c.collision = "none"  # the planner decides about an impact from the periapsis radius; nothing may bounce or merge here
+    if watch is not None:
+        watch.attach(c)
     return c
 
 
-def _reduced(sim, keep: set):
-    c = _copy(sim)
+def _reduced(sim, keep: set, watch: Optional[_Watch] = None):
+    c = _copy(sim, watch)
     for k in range(c.N - 1, -1, -1):
         if c.particles[k].name not in keep:
             c.remove(k)
@@ -125,7 +165,7 @@ class _Flyer:
         sign = 1.0 if prograde >= 0.0 else -1.0
         dv = abs(prograde)
         if mode == "impulsive":
-            sim.integrate(node_s)
+            _integrate(sim, node_s)
             p, q = sim.particles[i], sim.particles[particle_index(sim, reference_id)]
             r, v = relative_state(p, q)
             res = plan_impulse(orbits.vnb_to_inertial(r, v, prograde, 0.0, 0.0), mass, propellant, self.isp)
@@ -136,7 +176,7 @@ class _Flyer:
             select_ias15(sim)
             return propellant - res.propellant_used_kg, (r, v), (node_s, node_s), res.delivered
         window = burn_window(dv, node_s, True, mass, propellant, self.thrust, self.isp)
-        sim.integrate(window.start_s)
+        _integrate(sim, window.start_s)
         p, q = sim.particles[i], sim.particles[particle_index(sim, reference_id)]
         pre = relative_state(p, q)
         if window.end_s > window.start_s:
@@ -144,7 +184,7 @@ class _Flyer:
             select_ias15(sim)
             force.bind(sim, [ActiveBurn(self.craft_id, reference_id, (sign, 0.0, 0.0), self.thrust, self.thrust / exhaust_velocity(self.isp),
                                         mass, window.start_s)])
-            sim.integrate(window.end_s)
+            _integrate(sim, window.end_s)
             force.release(sim)
             if force.errors:
                 raise RuntimeError("thrust force failed in the planner:\n" + force.errors[-1])
@@ -198,6 +238,8 @@ def design_transfer(sim, craft_id: str, craft: Spacecraft, craft_ids: set, reque
         return _design_transfer(sim, craft_id, craft, craft_ids, request, pending_nodes, time_budget_s, clock, names)
     except PlannerTimeout:
         return PlanResult("no_solution", (f"planning exceeded its {time_budget_s:g} s time budget before a transfer was found",))
+    finally:
+        _DESIGN.watch = None
 
 
 def _design_transfer(sim, craft_id: str, craft: Spacecraft, craft_ids: set, request: TransferRequest, pending_nodes: int,
@@ -278,8 +320,10 @@ def _design_transfer(sim, craft_id: str, craft: Spacecraft, craft_ids: set, requ
         return _unsupported(f"the requested transfer time is longer than the minimum-energy transfer ({hohmann.transfer_time:.0f} s); "
                             "leave it empty for the minimum-energy transfer")
 
+    watch = _DESIGN.watch = _Watch(clock, started, time_budget_s)
+
     def check_budget() -> None:
-        if clock() - started > time_budget_s:
+        if watch.expired or clock() - started > time_budget_s:
             raise PlannerTimeout()
 
     n_dest = orbits.norm(h_dest) / (distance * distance)  # present angular rate of the destination about the origin
@@ -326,8 +370,8 @@ def _design_transfer(sim, craft_id: str, craft: Spacecraft, craft_ids: set, requ
     while ancestor is not None:
         keep.add(ancestor)
         ancestor = hierarchy.parent.get(ancestor)
-    full = _copy(sim)
-    screen = _reduced(sim, keep) if sim.N > REDUCED_MODEL_ABOVE else full
+    full = _copy(sim, watch)
+    screen = _reduced(sim, keep, watch) if sim.N > REDUCED_MODEL_ABOVE else full
     reduced_model = screen is not full
 
     # A finite departure burn loses to gravity and turns the apse line: find the delta-v that still reaches the aimed apoapsis and
@@ -343,7 +387,7 @@ def _design_transfer(sim, craft_id: str, craft: Spacecraft, craft_ids: set, requ
 
         def after_burn(dv: float) -> tuple:
             check_budget()
-            c = _copy(screen)
+            c = _copy(screen, watch)
             flyer.burn(c, craft.propellant_kg, node, "finite", origin.id, dv)
             r, v = relative_state(c.particles[particle_index(c, craft_id)], c.particles[particle_index(c, origin.id)])
             el = orbits.state_to_elements(r, v, g * (origin.mass_kg + c.particles[particle_index(c, craft_id)].m))
@@ -389,12 +433,12 @@ def _design_transfer(sim, craft_id: str, craft: Spacecraft, craft_ids: set, requ
 
     span = (t_min - t0) + 2.25 * period_park + 1.15 * orbits.hohmann(mu, r0, 1.1 * distance).transfer_time
     samples = 400
-    eph_sim = _copy(screen)
+    eph_sim = _copy(screen, watch)
     oi, di = particle_index(eph_sim, origin.id), particle_index(eph_sim, dest.id)
     eph = []
     for k in range(samples + 1):
         check_budget()
-        eph_sim.integrate(t0 + span * k / samples)
+        _integrate(eph_sim, t0 + span * k / samples)
         eph.append(orbits.sub((eph_sim.particles[di].x, eph_sim.particles[di].y, eph_sim.particles[di].z),
                               (eph_sim.particles[oi].x, eph_sim.particles[oi].y, eph_sim.particles[oi].z)))
 
@@ -437,7 +481,7 @@ def _design_transfer(sim, craft_id: str, craft: Spacecraft, craft_ids: set, requ
     def fly(model, t_d: float, dv: float, tof_hint: float) -> _Flight:
         check_budget()
         evaluations["full" if model is full else "screen"] += 1
-        s = _copy(model)
+        s = _copy(model, watch)
         propellant, dep_state, window, delivered = flyer.burn(s, craft.propellant_kg, t_d, request.burn_mode, origin.id, dv)
         ci_, di_ = particle_index(s, craft_id), particle_index(s, dest.id)
 
@@ -458,7 +502,7 @@ def _design_transfer(sim, craft_id: str, craft: Spacecraft, craft_ids: set, requ
         while t < end:
             near = prev_range < 4.0 * soi
             t = min(end, t + (coarse / 12.0 if near else coarse))
-            s.integrate(t)
+            _integrate(s, t)
             r, v = rel()
             rng = orbits.norm(r)
             if rng < best[0]:
@@ -476,12 +520,12 @@ def _design_transfer(sim, craft_id: str, craft: Spacecraft, craft_ids: set, requ
                         tau = tau if tau <= 0.5 * period else tau - period
                     if abs(tau) < 1.0e-6:
                         break
-                    s.integrate(s.t - tau)
+                    _integrate(s, s.t - tau)
                     r, v = rel()
                 return result(r, v, True)
             prev_range = rng
         r, v, t_best = best[1]
-        s.integrate(t_best)
+        _integrate(s, t_best)
         return result(*rel(), False)
 
     want = 1.0 if request.direction != "retrograde" else -1.0
@@ -606,7 +650,7 @@ def _design_transfer(sim, craft_id: str, craft: Spacecraft, craft_ids: set, requ
                       "referenceBodyId": dest.id, "progradeMPerS": 0.0, "predictedState": (r_p, v_p)})
 
     try:
-        final = _final_flight(full, flyer, craft, craft_id, origin.id, dest.id, nodes, t0, tof, mu_dest, check_budget)
+        final = _final_flight(full, flyer, craft, craft_id, origin.id, dest.id, nodes, t0, tof, mu_dest, check_budget, watch)
     except PlannerTimeout:
         return PlanResult("no_solution", (f"planning exceeded its {time_budget_s:g} s time budget during the final flight",))
 
@@ -674,10 +718,10 @@ def _design_transfer(sim, craft_id: str, craft: Spacecraft, craft_ids: set, requ
 
 
 def _final_flight(full, flyer: _Flyer, craft: Spacecraft, craft_id: str, origin_id: str, dest_id: str, nodes: list, t0: float, tof: float,
-                  mu_dest: float, check_budget) -> dict:
+                  mu_dest: float, check_budget, watch: Optional[_Watch] = None) -> dict:
     """Fly the whole plan once on the full copy: the state just before every node, the predicted orbit after the last burn and the
     sampled planned trajectory (t, craft, origin, destination positions; inertial frame of the universe)."""
-    s = _copy(full)
+    s = _copy(full, watch)
     ci, oi, di = particle_index(s, craft_id), particle_index(s, origin_id), particle_index(s, dest_id)
     trajectory = []
 
@@ -689,7 +733,7 @@ def _final_flight(full, flyer: _Flyer, craft: Spacecraft, craft_id: str, origin_
         start = s.t
         for k in range(1, points + 1):
             check_budget()
-            s.integrate(start + (until - start) * k / points)
+            _integrate(s, start + (until - start) * k / points)
             sample()
 
     propellant = craft.propellant_kg
@@ -743,7 +787,7 @@ def _final_flight(full, flyer: _Flyer, craft: Spacecraft, craft_id: str, origin_
             points = int(TRAJECTORY_POINTS_PER_REV * VERIFY_REVOLUTIONS)
             for k in range(1, points + 1):
                 check_budget()
-                s.integrate(start + VERIFY_REVOLUTIONS * period * k / points)
+                _integrate(s, start + VERIFY_REVOLUTIONS * period * k / points)
                 sample()
                 rng = orbits.norm(relative_state(s.particles[ci], s.particles[di])[0])
                 r_min, r_max = min(r_min, rng), max(r_max, rng)

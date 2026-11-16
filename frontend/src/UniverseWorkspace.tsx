@@ -832,6 +832,7 @@ export function UniverseWorkspace(props: UniverseWorkspaceProps) {
         playing={simulation.playing}
         stepping={simulation.stepping}
         canRun={bodies.length > 0 && halt === null}
+        runBlockedReason={halt ? 'Stopped at a collision: remove or move one of the two bodies, restore a snapshot or reset to continue' : undefined}
         disabled={!ready}
         simulationTimeS={sim ? sim.simulationTimeS : null}
         speedExp={simulation.speedExp}

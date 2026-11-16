@@ -8,7 +8,7 @@ import math
 import pytest
 
 from backend.models import BodyUpdate
-from backend.simulation import LEGACY_MERGE_CONFIG, STOP_ON_CONTACT_CONFIG, SimulationService
+from backend.simulation import LEGACY_MERGE_CONFIG, OUTCOME_V1_CONFIG, STOP_ON_CONTACT_CONFIG, SimulationService
 from backend.spaceflight import orbits as o
 from backend.spaceflight.engine import SpaceflightError
 from tests.spaceflight.helpers import M_EARTH, R_EARTH, add_craft, body, craft_of, earth_moon_service, earth_service, node, rel
@@ -114,13 +114,28 @@ def test_two_bodies_colliding_in_a_stop_on_contact_universe_are_stopped_not_merg
         svc.step(1.0)
 
 
-def test_body_body_contacts_keep_their_own_handling_in_other_universes_even_with_a_spacecraft_present():
-    for config, kind in ((LEGACY_MERGE_CONFIG, "merger"), (None, "merger")):
+def test_a_contact_between_two_celestial_bodies_stops_the_simulation_too():
+    """D-071: not only spacecraft. A rock falling on the Earth is reported and stops the simulation; both bodies are kept."""
+    svc, earth = earth_service()  # the default engine, as every universe the application creates
+    craft = add_craft(svc, earth, 2.0e7)  # far away, never involved
+    rock = svc.add_body(body("rock", 1.0e20, 1.0e5, x=(R_EARTH + 2.0e6, 0.0, 0.0), v=(-3.0e3, 0.0, 0.0)))
+    step = svc.step(2000.0)
+    assert [e.type for e in step.events] == ["contact"] and step.events[0].involvesSpacecraft is False
+    assert set(step.halt.bodyIds) == {earth, rock.id} and step.warnings == ["collision_stopped"]
+    assert [b.id for b in step.bodies] == [earth, craft.id, rock.id]
+    assert [b.massKg for b in step.bodies if b.id in (earth, rock.id)] == [M_EARTH, 1.0e20]  # nothing merged
+
+
+def test_the_dormant_modes_still_leave_spacecraft_contacts_to_the_halt_when_named_explicitly():
+    """The merge resolver and the outcome engine are dormant (no universe uses them), but while their code is kept its coexistence
+    with spacecraft is pinned: in an engine built with a dormant configuration a body-body contact is theirs, and the spacecraft
+    far away is untouched."""
+    for config in (LEGACY_MERGE_CONFIG, OUTCOME_V1_CONFIG):
         svc, earth = earth_service(config)
         add_craft(svc, earth, 2.0e7)  # far away, never involved
         svc.add_body(body("rock", 1.0e20, 1.0e5, x=(R_EARTH + 2.0e6, 0.0, 0.0), v=(-3.0e3, 0.0, 0.0)))
         step = svc.step(2000.0)
-        assert [e.type for e in step.events] == [kind] and step.halt is None and len(step.bodies) == 2
+        assert [e.type for e in step.events] == ["merger"] and step.halt is None and len(step.bodies) == 2
         assert "collision_stopped" not in step.warnings
 
 

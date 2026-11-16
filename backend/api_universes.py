@@ -7,7 +7,7 @@ from backend.lab_models import (ActivationResult, CreateUniverseRequest, History
                                 SnapshotSummary, UniverseList, UniverseProvenance, UniverseState, UniverseStepResponse, UniverseSummary)
 from backend.models import Body, BodyCreate, BodyUpdate, EventList, StepRequest
 from backend.presets.loader import PresetDataError, UnknownPresetError, load_preset
-from backend.simulation import LEGACY_MERGE_CONFIG, STOP_ON_CONTACT_CONFIG, SimulationService
+from backend.simulation import STOP_ON_CONTACT_CONFIG, SimulationService
 from backend.universes import StoredSnapshot, Universe, UniverseRegistry, get_registry
 from backend.errors import CodedError
 
@@ -36,8 +36,7 @@ def create_preset_universe(reg: UniverseRegistry, preset_id: str, name: str | No
         raise CodedError(f"unknown preset: {preset_id}", code="preset_not_found", status=404) from None
     except PresetDataError as exc:
         raise CodedError(f"preset {preset_id} cannot be loaded: {exc}", code="preset_invalid", status=500) from exc
-    # presets stay legacy-merge until Stage 11 (D-045); a mission-design preset asks for stop-on-contact in its data (D-070)
-    engine = SimulationService(STOP_ON_CONTACT_CONFIG if preset.collision_mode == "stop-on-contact" else LEGACY_MERGE_CONFIG)
+    engine = SimulationService(STOP_ON_CONTACT_CONFIG)  # every universe stops on contact (D-071), whatever the preset's data says
     try:
         engine.load_bodies(preset.bodies, history_mode=preset.history_mode, sample_interval_s=preset.sample_interval_s)
     except Exception as exc:  # noqa: BLE001
@@ -62,8 +61,7 @@ def list_universes(reg: UniverseRegistry = Depends(get_registry)) -> UniverseLis
 def create_universe(req: CreateUniverseRequest, reg: UniverseRegistry = Depends(get_registry)) -> UniverseSummary:
     if req.source.kind == "preset":
         return summary(reg, create_preset_universe(reg, req.source.presetId, req.name, req.activate))
-    engine = SimulationService(STOP_ON_CONTACT_CONFIG) if req.collisionMode == "stop-on-contact" else None  # None: the sandbox default
-    u = reg.create(req.name, role="sandbox", engine=engine, activate=req.activate)
+    u = reg.create(req.name, role="sandbox", activate=req.activate)  # the default engine: stop-on-contact (D-071)
     return summary(reg, u)
 
 

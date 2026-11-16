@@ -12,8 +12,10 @@ import { ViewToolbar, type SolarSystemGuides } from './ViewToolbar';
 export interface SimulationBarProps {
   playing: boolean;
   stepping: boolean;
-  /** There is something to simulate (at least one body). */
+  /** There is something to simulate (at least one body) and nothing holds the simulation. */
   canRun: boolean;
+  /** Why the simulation cannot run although it has bodies (it is stopped at a collision); shown on the Play button. */
+  runBlockedReason?: string;
   /** The simulation is not loaded: every simulation action is off. */
   disabled: boolean;
   /** Confirmed backend simulation time; null until the first state arrives. */
@@ -55,7 +57,7 @@ const STATE_LABEL: Record<ClockState, string> = {
  * the measured rate is observed, never predicted from the step size.
  */
 export const SimulationBar: React.FC<SimulationBarProps> = ({
-  playing, stepping, canRun, disabled, simulationTimeS, speedExp, stepSeconds, onSpeedChange, onPlay, onPause, onStep,
+  playing, stepping, canRun, runBlockedReason, disabled, simulationTimeS, speedExp, stepSeconds, onSpeedChange, onPlay, onPause, onStep,
   onReset, historyView = false, onReturnToLive, viewControls, paths, onPathsChange, pathsNote, sizeMode, onSizeModeChange, guides, sound,
 }) => {
   const rate = useObservedRate(simulationTimeS, playing && !historyView);
@@ -105,7 +107,7 @@ export const SimulationBar: React.FC<SimulationBarProps> = ({
             type="button"
             className="pg-icon-btn pg-icon-btn--primary"
             aria-label="Play"
-            title={historyView ? 'Return to live and play' : canRun ? 'Play: run backend steps back to back' : 'Add a body to run the simulation'}
+            title={historyView ? 'Return to live and play' : canRun ? 'Play: run backend steps back to back' : runBlockedReason ?? 'Add a body to run the simulation'}
             disabled={disabled || !canRun}
             onClick={playOnClick}
           >
