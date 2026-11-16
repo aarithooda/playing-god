@@ -1,3 +1,5 @@
+> **2026-11-16:** the current, complete handoff for a new engineer or AI agent is [`docs/AI_HANDOFF.md`](../docs/AI_HANDOFF.md). Everything below is a historical log.
+
 > **2026-10-26:** superseded as the status authority by [`docs/ENGINEERING_STATUS.md`](../docs/ENGINEERING_STATUS.md). This file is a historical log; several statements below (for example that presets stay `legacy-merge`, or that branches are unpushed) are no longer true.
 
 ## UI-4 / UI-6 handoff (2026-10-24, Codex) — latest
