@@ -254,7 +254,10 @@ def eccentric_from_true(nu: float, e: float) -> float:
     if e < 1.0:
         return math.atan2(math.sqrt(1.0 - e * e) * math.sin(nu), e + math.cos(nu))
     nu = math.atan2(math.sin(nu), math.cos(nu))
-    return 2.0 * math.atanh(math.sqrt((e - 1.0) / (e + 1.0)) * math.tan(0.5 * nu))
+    x = math.sqrt((e - 1.0) / (e + 1.0)) * math.tan(0.5 * nu)
+    if not abs(x) < 1.0:
+        raise OrbitError("the true anomaly lies on or beyond the asymptote of this hyperbola")
+    return 2.0 * math.atanh(x)
 
 
 def mean_from_true(nu: float, e: float) -> float:
@@ -282,15 +285,25 @@ def true_from_mean(m: float, e: float) -> float:
             step = ea - f / (1.0 - e * math.cos(ea))
             ea = step if lo < step < hi else 0.5 * (lo + hi)
         return wrap(2.0 * math.atan2(math.sqrt(1.0 + e) * math.sin(0.5 * ea), math.sqrt(1.0 - e) * math.cos(0.5 * ea)))
-    ha = math.asinh(m / e) if abs(m) > 1.0 else m / (e - 1.0) if e > 1.0 else m
+    # Hyperbolic: f(H) = e sinh H - H - M is increasing and, for H > 0, convex, and (e - 1) sinh H <= e sinh H - H <= e sinh H
+    # there, so the root of |M| lies in [asinh(|M| / e), asinh(|M| / (e - 1))]. Newton from the upper end descends monotonically
+    # (no overflow, no overshoot); the bracket is kept as a safeguard against round-off. Odd symmetry gives M < 0.
+    sign, m = (1.0, m) if m >= 0.0 else (-1.0, -m)
+    lo, hi = math.asinh(m / e), math.asinh(m / (e - 1.0))
+    ha = hi
     for _ in range(200):
         f = e * math.sinh(ha) - ha - m
-        d = e * math.cosh(ha) - 1.0
-        step = f / d
-        ha -= step
-        if abs(step) < 1.0e-15 * max(1.0, abs(ha)):
+        if abs(f) <= 1.0e-15 * max(1.0, m):
             break
-    return 2.0 * math.atan(math.sqrt((e + 1.0) / (e - 1.0)) * math.tanh(0.5 * ha))
+        if f > 0.0:
+            hi = ha
+        else:
+            lo = ha
+        step = ha - f / (e * math.cosh(ha) - 1.0)
+        ha = step if lo <= step <= hi else 0.5 * (lo + hi)
+        if hi - lo <= 1.0e-16 * max(1.0, hi):
+            break
+    return sign * 2.0 * math.atan(math.sqrt((e + 1.0) / (e - 1.0)) * math.tanh(0.5 * ha))
 
 
 def mean_motion(mu: float, a: float) -> float:

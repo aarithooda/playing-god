@@ -39,9 +39,11 @@ MAX_PARKING_RADIUS_FRACTION = 0.5  # parking radius / distance to the destinatio
 REDUCED_MODEL_ABOVE = 6  # particles; larger universes are bracketed on a reduced copy
 SCAN_HALF_WIDTH_RAD = math.radians(40.0)
 SCAN_STEP_RAD = math.radians(2.0)
+SCAN_EXTRA_FLIGHTS = 4  # trial flights spent looking for a smoother bracket after a first one was found
 PERIAPSIS_TOL_M = 1.0
 MAX_ROOT_ITERATIONS = 60
 DEFAULT_TIME_BUDGET_S = 25.0
+MAX_DEPARTURE_WAIT_REVOLUTIONS = 2.0  # of the destination about the origin: how far ahead a departure may be asked for
 TRAJECTORY_POINTS_COAST = 240
 TRAJECTORY_POINTS_PER_REV = 48
 VERIFY_REVOLUTIONS = 2.0
@@ -189,7 +191,17 @@ def _transfer_semi_major_axis(mu: float, r0: float, d: float, tof: float) -> Opt
 def design_transfer(sim, craft_id: str, craft: Spacecraft, craft_ids: set, request: TransferRequest, *, pending_nodes: int = 0,
                     time_budget_s: float = DEFAULT_TIME_BUDGET_S, clock=time.monotonic, names: Optional[dict] = None) -> PlanResult:
     """Design the transfer on copies of `sim` (which is not modified). `craft_ids`: every spacecraft of the universe (they are not
-    gravitating reference bodies). `names`: body id -> display name, for the texts a person reads (ids are used when absent)."""
+    gravitating reference bodies). `names`: body id -> display name, for the texts a person reads (ids are used when absent).
+    Bounded in wall-clock time: every loop that flies a copy checks the budget, and no single flight is longer than the bounded
+    search window, so the design ends within the budget plus one flight."""
+    try:
+        return _design_transfer(sim, craft_id, craft, craft_ids, request, pending_nodes, time_budget_s, clock, names)
+    except PlannerTimeout:
+        return PlanResult("no_solution", (f"planning exceeded its {time_budget_s:g} s time budget before a transfer was found",))
+
+
+def _design_transfer(sim, craft_id: str, craft: Spacecraft, craft_ids: set, request: TransferRequest, pending_nodes: int,
+                     time_budget_s: float, clock, names: Optional[dict]) -> PlanResult:
     started = clock()
     names = names or {}
 
@@ -270,6 +282,15 @@ def design_transfer(sim, craft_id: str, craft: Spacecraft, craft_ids: set, reque
         if clock() - started > time_budget_s:
             raise PlannerTimeout()
 
+    n_dest = orbits.norm(h_dest) / (distance * distance)  # present angular rate of the destination about the origin
+    wait_limit = MAX_DEPARTURE_WAIT_REVOLUTIONS * orbits.TWO_PI / n_dest
+    if request.earliest_departure_s is not None and request.earliest_departure_s - t0 > wait_limit:
+        return _unsupported(f"the earliest departure is {request.earliest_departure_s - t0:.4g} s from now; departures are searched at most "
+                            f"{MAX_DEPARTURE_WAIT_REVOLUTIONS:g} revolutions of {name(dest.id)} ahead ({wait_limit:.4g} s). Advance the simulation "
+                            "closer to the departure and design the transfer then")
+
+    arrival_nu = {"value": math.pi}  # true anomaly on the transfer orbit at which the destination's distance is reached
+
     def aim(arrival_distance: float) -> tuple:
         """Patched-conic departure for a destination at `arrival_distance`: (delta-v, time to reach that distance, apoapsis radius).
 
@@ -290,6 +311,8 @@ def design_transfer(sim, craft_id: str, craft: Spacecraft, craft_ids: set, reque
             apo = 2.0 * a - r0
         e = 1.0 - r0 / a
         nu = math.acos(max(-1.0, min(1.0, (a * (1.0 - e * e) / arrival_distance - 1.0) / e)))
+        if request.transfer_time_s is not None:
+            arrival_nu["value"] = nu  # a fast transfer arrives well before its apoapsis
         reach = orbits.time_since_periapsis(orbits.Elements(a, e, 0.0, 0.0, 0.0, nu), mu)
         return orbits.vis_viva_speed(mu, r0, a) - v_circ, reach, apo
 
@@ -319,6 +342,7 @@ def design_transfer(sim, craft_id: str, craft: Spacecraft, craft_ids: set, reque
         node = t0 + lead + duration
 
         def after_burn(dv: float) -> tuple:
+            check_budget()
             c = _copy(screen)
             flyer.burn(c, craft.propellant_kg, node, "finite", origin.id, dv)
             r, v = relative_state(c.particles[particle_index(c, craft_id)], c.particles[particle_index(c, origin.id)])
@@ -369,6 +393,7 @@ def design_transfer(sim, craft_id: str, craft: Spacecraft, craft_ids: set, reque
     oi, di = particle_index(eph_sim, origin.id), particle_index(eph_sim, dest.id)
     eph = []
     for k in range(samples + 1):
+        check_budget()
         eph_sim.integrate(t0 + span * k / samples)
         eph.append(orbits.sub((eph_sim.particles[di].x, eph_sim.particles[di].y, eph_sim.particles[di].z),
                               (eph_sim.particles[oi].x, eph_sim.particles[oi].y, eph_sim.particles[oi].z)))
@@ -380,14 +405,15 @@ def design_transfer(sim, craft_id: str, craft: Spacecraft, craft_ids: set, reque
         return orbits.add(orbits.scale(eph[k], 1.0 - f), orbits.scale(eph[k + 1], f))
 
     def phase_error(t_d: float) -> float:
-        """Angle from the transfer orbit's apoapsis direction to the destination at arrival (zero when they line up), in (-pi, pi]."""
+        """Angle from the transfer orbit's arrival direction to the destination at arrival (zero when they line up), in (-pi, pi].
+        The arrival direction is the apoapsis for the minimum-energy transfer and the true anomaly reached after the requested
+        flight time for a faster one."""
         craft_angle = n_park * (t_d - t0)  # the craft is at angle 0 at t0 and moves towards +y
-        d = angle_in_parking_plane(dest_direction(t_d + tof)) - (craft_angle + apse_shift + math.pi)
+        d = angle_in_parking_plane(dest_direction(t_d + tof)) - (craft_angle + apse_shift + arrival_nu["value"])
         return math.atan2(math.sin(d), math.cos(d))
 
     # the phase error decreases at (n_park - n_dest) rad/s: step to its first zero after t_min; the destination's distance at
     # arrival (eccentric orbit) and the estimate are iterated together
-    n_dest = orbits.norm(h_dest) / (distance * distance)
     rate = max(n_park - n_dest, 1.0e-12)
     t_guess = t_min
     try:
@@ -483,6 +509,7 @@ def design_transfer(sim, craft_id: str, craft: Spacecraft, craft_ids: set, reque
                 target_bracket[1] = target_bracket[1] or (ta, ga, tb, gb)
 
         # outwards from the estimate, so a good estimate needs only a handful of trial flights
+        extra = SCAN_EXTRA_FLIGHTS
         for k in sorted(range(-steps, steps + 1), key=lambda j: (abs(j), j)):
             t_d = centre + k * dt_scan
             if t_d < t_min:
@@ -492,6 +519,13 @@ def design_transfer(sim, craft_id: str, craft: Spacecraft, craft_ids: set, reque
             look(k)
             if target_bracket[0] is not None:
                 break
+            if target_bracket[1] is not None:
+                # the root is inside this bracket too (the pass sweeps through the body between its ends); a fast approach
+                # focuses so little that no sample lands in the narrow band a smooth bracket needs. Look a little further for
+                # one, then use this one instead of flying the whole window.
+                extra -= 1
+                if extra < 0:
+                    break
         bracket = target_bracket[0] or target_bracket[1]
         closest = min((f for _, f in flights.values()), key=lambda f: f.periapsis_radius, default=None)
         if bracket is None:

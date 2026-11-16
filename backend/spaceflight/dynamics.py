@@ -69,31 +69,49 @@ class ThrustForce:
     def __init__(self) -> None:
         self.errors: list[str] = []
         self._burns: list[tuple] = []
+        self._count = 0  # particle count the indices were resolved for
+        self._lost: dict = {}  # craft id -> time its burn lost the craft or the reference body inside an integration
 
     @property
     def active(self) -> bool:
         return bool(self._burns)
 
-    def bind(self, sim, burns: list[ActiveBurn]) -> None:
+    def _resolve(self, sim, burns: list[ActiveBurn], t: float) -> None:
+        """Particle indices of every burn. A burn whose craft or reference body is not in the simulation stops pushing (`_lost`)."""
+        index = {p.name: k for k, p in enumerate(sim.particles)}
         rows = []
         for b in burns:
-            i = particle_index(sim, b.craft_id)
-            j = -1 if b.reference_id is None else particle_index(sim, b.reference_id)
+            i = index.get(b.craft_id)
+            j = -1 if b.reference_id is None else index.get(b.reference_id)
+            if i is None or j is None:
+                self._lost.setdefault(b.craft_id, t)
+                continue
             rows.append((i, j, b))
         self._burns = rows
-        sim.additional_forces = self._force
-        sim.force_is_velocity_dependent = 1 if any(j >= 0 for _, j, _ in rows) else 0
+        self._count = sim.N
 
-    def release(self, sim) -> None:
+    def bind(self, sim, burns: list[ActiveBurn]) -> None:
+        self._lost = {}
+        self._resolve(sim, burns, sim.t)
+        sim.additional_forces = self._force
+        sim.force_is_velocity_dependent = 1 if any(j >= 0 for _, j, _ in self._burns) else 0
+
+    def release(self, sim) -> dict:
+        """Remove the force. Returns {craft id: time} for burns that stopped pushing during the integration because a particle
+        they need was removed inside it (a merge in the collision callback)."""
+        lost, self._lost = self._lost, {}
         self._burns = []
         sim.additional_forces = 0  # NULL: no additional force
         sim.force_is_velocity_dependent = 0
+        return lost
 
     def _force(self, sim_ptr) -> None:
         try:
             sim = sim_ptr.contents
-            ps = sim.particles
             t = sim.t
+            if sim.N != self._count:  # a particle was removed inside this integration (a merge in the collision callback): the
+                self._resolve(sim, [b for _, _, b in self._burns], t)  # indices moved; never push a bystander
+            ps = sim.particles
             for i, j, b in self._burns:
                 p = ps[i]
                 a = b.thrust_n / b.mass_at(t)

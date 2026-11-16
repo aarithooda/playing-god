@@ -153,17 +153,26 @@ def evaluate(mission: Mission, book: SpaceflightBook, t: float, hierarchy: Hiera
             return _fail(mission, t, "the state at the closest approach is degenerate")
         target = objective["periapsisAltitudeM"]
         altitude = el.periapsis - dest.radius_m
+        # The observation is made at the PLANNED time of closest approach. The osculating periapsis alone would also be right for
+        # a craft that is aimed correctly but early or late (the pass has not happened): the craft must BE at that distance now.
+        observed_altitude = orbits.norm(state[0]) - dest.radius_m
         checks = ({"id": "clear", "label": "Closest approach above the surface", "ok": altitude > 0.0, "actual": altitude, "target": "> 0", "unit": "m"},
                   {"id": "periapsis", "label": "Closest-approach altitude within tolerance", "ok": abs(altitude - target) <= objective["toleranceM"],
-                   "actual": altitude, "target": target, "tolerance": objective["toleranceM"], "unit": "m"})
+                   "actual": altitude, "target": target, "tolerance": objective["toleranceM"], "unit": "m"},
+                  {"id": "observed", "label": "At that altitude when observed (the pass happened as planned)",
+                   "ok": abs(observed_altitude - target) <= objective["toleranceM"], "actual": observed_altitude, "target": target,
+                   "tolerance": objective["toleranceM"], "unit": "m"})
         outcome = {"evaluatedAtS": observed.started_at_s, "closestApproachAltitudeM": altitude, "eccentricity": el.e,
                    "speedAtClosestApproachMPerS": orbits.norm(state[1]), "distanceAtNodeM": orbits.norm(state[0])}
         if all(c["ok"] for c in checks):
             return replace(mission, status="completed", phase="flyby completed", checks=checks, agreement=agreement, outcome=outcome,
                            reasons=notes, updated_at_s=t)
-        return replace(_fail(mission, t, "the closest approach missed the requested altitude: "
-                                         f"{altitude / 1e3:.1f} km instead of {target / 1e3:.1f} km", outcome=outcome, checks=checks),
-                       agreement=agreement)
+        if checks[0]["ok"] and checks[1]["ok"]:
+            why = (f"the spacecraft was {observed_altitude / 1e3:.1f} km above {names.get(dest.id, dest.id)} at the planned time of closest "
+                   f"approach, not {target / 1e3:.1f} km: it is early or late")
+        else:
+            why = f"the closest approach missed the requested altitude: {altitude / 1e3:.1f} km instead of {target / 1e3:.1f} km"
+        return replace(_fail(mission, t, why, outcome=outcome, checks=checks), agreement=agreement)
 
     r, v = orbits.sub(craft_state[0], dest.position), orbits.sub(craft_state[1], dest.velocity)
     checks, el = orbit_checks(r, v, mu, dest.radius_m, soi, objective)

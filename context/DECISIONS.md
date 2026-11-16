@@ -635,5 +635,8 @@ Context: second product pillar (Space Mission Design), built on `checkpoint/coll
 - **Frontend.** No integrator in the browser (unchanged rule): conics are drawn from backend elements, flown paths from recorded
   positions, the planned path from the planner's samples; all body-relative. One new canvas prop (`spaceflight`), visible in
   `canvasBoundary.test.ts` (CP-3 amendment, additive).
+- **Independent review before the PR.** A separate review pass over the backend diff reported 15 findings (9 reproduced): 13 fixed and 1 reduced,
+  with regression tests (`tests/spaceflight/test_review_fixes.py`), 1 documented (PRS23 step collapse on exactly collinear head-on
+  configurations, the price of the step criterion a low orbit needs). Summary in `docs/SPACE_MISSION_DESIGN.md` §8a.
 - Verification and measured tolerances: `docs/SPACE_MISSION_DESIGN.md` §7; `tests/spaceflight/`,
   `tests/validation/test_spaceflight_validation.py`, `frontend/e2e/mission.real-backend.e2e.mjs`.

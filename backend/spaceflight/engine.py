@@ -18,6 +18,7 @@ Methods prefixed `_flight` are called by SimulationService under its lock.
 import math
 import traceback
 import uuid
+from contextlib import contextmanager
 from dataclasses import replace
 from typing import Optional
 
@@ -81,19 +82,25 @@ def orbit_about(position, velocity, mass_kg: float, ref, hierarchy: Hierarchy, g
                 specificEnergyJPerKg=0.5 * vn * vn - mu / rn, circularSpeedMPerS=orbits.circular_speed(mu, rn),
                 escapeSpeedMPerS=orbits.escape_speed(mu, rn), sphereOfInfluenceM=None if math.isinf(soi) else soi,
                 gravitationalParameterM3PerS2=mu)
+    # This runs while a state is being published (after the change it describes is committed), so it must never raise: an orbit
+    # whose elements or timings cannot be computed (purely radial, on the edge of parabolic, on an asymptote) is "degenerate".
     try:
         el = orbits.state_to_elements(r, v, mu)
-    except orbits.OrbitError:
+        bound = el.e < 1.0
+        regime = "escape" if not bound else "suborbital" if el.periapsis <= ref.radius_m else "bound"
+        to_peri = orbits.time_to_true_anomaly(el, mu, 0.0)
+        out = OrbitOut(
+            regime=regime, semiMajorAxisM=el.a, eccentricity=el.e, inclinationDeg=_deg(el.i), raanDeg=_deg(el.raan), argPeriapsisDeg=_deg(el.argp),
+            trueAnomalyDeg=_deg(el.nu), periapsisRadiusM=el.periapsis, apoapsisRadiusM=el.apoapsis if bound else None,
+            periapsisAltitudeM=el.periapsis - ref.radius_m, apoapsisAltitudeM=(el.apoapsis - ref.radius_m) if bound else None,
+            periodS=orbits.orbital_period(mu, el.a) if bound else None, timeToPeriapsisS=to_peri if (bound or to_peri >= 0.0) else None,
+            timeToApoapsisS=orbits.time_to_true_anomaly(el, mu, math.pi) if bound else None, **base)
+    except (orbits.OrbitError, ArithmeticError, ValueError):  # ArithmeticError: overflow / division by zero; ValueError: math domain
         return OrbitOut(regime="degenerate", **base)
-    bound = el.e < 1.0
-    regime = "escape" if not bound else "suborbital" if el.periapsis <= ref.radius_m else "bound"
-    to_peri = orbits.time_to_true_anomaly(el, mu, 0.0)
-    return OrbitOut(
-        regime=regime, semiMajorAxisM=el.a, eccentricity=el.e, inclinationDeg=_deg(el.i), raanDeg=_deg(el.raan), argPeriapsisDeg=_deg(el.argp),
-        trueAnomalyDeg=_deg(el.nu), periapsisRadiusM=el.periapsis, apoapsisRadiusM=el.apoapsis if bound else None,
-        periapsisAltitudeM=el.periapsis - ref.radius_m, apoapsisAltitudeM=(el.apoapsis - ref.radius_m) if bound else None,
-        periodS=orbits.orbital_period(mu, el.a) if bound else None, timeToPeriapsisS=to_peri if (bound or to_peri >= 0.0) else None,
-        timeToApoapsisS=orbits.time_to_true_anomaly(el, mu, math.pi) if bound else None, **base)
+    numbers = (out.semiMajorAxisM, out.eccentricity, out.periapsisRadiusM, out.apoapsisRadiusM, out.periodS, out.timeToPeriapsisS, out.timeToApoapsisS)
+    if any(x is not None and not math.isfinite(x) for x in numbers):
+        return OrbitOut(regime="degenerate", **base)
+    return out
 
 
 class SpaceflightMixin:
@@ -239,9 +246,23 @@ class SpaceflightMixin:
         velocity = (central.vx + v[0], central.vy + v[1], central.vz + v[2])
         return position, velocity, warnings
 
+    @contextmanager
+    def _flight_reading(self):
+        """The lock for a preview. A preview needs the live simulation (a body's present state), so unlike the published reads it
+        waits while a step runs; but it changes nothing, so giving up is not recorded as a failure of the universe."""
+        wait = self.lock_wait_s if self.lock_wait_s is not None else self.step_time_limit_s
+        if not self._lock.acquire(timeout=max(wait, 0.0)):
+            from backend.simulation import SimulationBusyError  # local: simulation imports this module
+
+            raise SimulationBusyError("the simulation is busy (a step is still running); try the preview again shortly")
+        try:
+            yield
+        finally:
+            self._lock.release()
+
     def preview_orbit(self, spec: OrbitSpec, mass_kg: float, radius_m: float) -> OrbitPreviewOut:
         """What an orbit request would give, without creating anything."""
-        with self._guard():
+        with self._flight_reading():
             position, velocity, warnings = self._flight_orbit_state(spec, mass_kg, radius_m)
             hierarchy = self._flight_hierarchy()
             ref = hierarchy.by_id(spec.centralBodyId)
@@ -346,7 +367,7 @@ class SpaceflightMixin:
     # ------------------------------------------------------------------------------------------------------------------
     # manoeuvre nodes
     # ------------------------------------------------------------------------------------------------------------------
-    def _flight_reschedule(self, craft_id: str) -> None:
+    def _flight_reschedule(self, craft_id: str, lenient: bool = False) -> None:
         """Recompute the burn windows of a craft's planned nodes from the mass predicted at each ignition, in time order. Raises
         (before the caller commits) when a window would start in the past or overlap another burn."""
         book = self._flight
@@ -369,6 +390,11 @@ class SpaceflightMixin:
                 impulse = plan_impulse((dv, 0.0, 0.0), mass, propellant, craft.isp_s)
                 start = end = m.epoch_s
                 used, feasible = impulse.propellant_used_kg, impulse.shortfall <= dv * mission_rules.SHORTFALL_REL
+            earliest = max(now, busy_until)
+            if lenient and _before(start, earliest):
+                # removing a node must never be refused because of ANOTHER node: with more mass on board a later centred burn is
+                # longer and would have to start earlier; it then starts as early as it can instead (the node says when)
+                start, end = earliest, earliest + (end - start)
             if _before(start, now):
                 raise self._flight_refuse(
                     f"the burn of node {m.label or m.id} would have to start at t = {start:.3f} s, before the present time {now:.3f} s "
@@ -460,7 +486,7 @@ class SpaceflightMixin:
     def preview_maneuver(self, craft_id: str, data: ManeuverCreate) -> ManeuverPreviewOut:
         """The orbit an impulsive version of this node would give. The state at a future node is a TWO-BODY propagation of the present
         osculating orbit about the reference body (an estimate: exact only without perturbations); nothing is changed."""
-        with self._guard():
+        with self._flight_reading():
             craft = self._flight_craft(craft_id)
             before_book = self._flight.copy()
             try:
@@ -480,7 +506,7 @@ class SpaceflightMixin:
                 try:
                     r, v = orbits.propagate_kepler(r, v, mu, wait)
                     basis = "two-body propagation of the present osculating orbit to the node (an estimate)"
-                except orbits.OrbitError as exc:
+                except (orbits.OrbitError, ArithmeticError, ValueError) as exc:
                     raise self._flight_refuse(f"the orbit cannot be propagated to the node: {exc}", "maneuver_invalid", 422) from exc
             still = replace(ref, position=(0.0, 0.0, 0.0), velocity=(0.0, 0.0, 0.0))
             frame = Hierarchy((still,), {still.id: None}, {still.id: hierarchy.soi.get(ref.id, math.inf)})
@@ -507,7 +533,7 @@ class SpaceflightMixin:
                 raise self._flight_refuse("this burn is in progress and cannot be removed", "burn_in_progress")
             del self._flight.maneuvers[maneuver_id]
             if node.status == "planned":
-                self._flight_reschedule(node.craft_id)
+                self._flight_reschedule(node.craft_id, lenient=True)
                 self._flight.physics_epoch += 1
             self._flight_evaluate()
 
@@ -541,10 +567,18 @@ class SpaceflightMixin:
             return craft, p, None, "the reference body no longer exists"
         return craft, p, relative_state(p, self._particle(node.reference_body_id)), None
 
+    def _flight_engine_busy(self, node: Maneuver) -> Optional[str]:
+        """One engine per craft. The schedule keeps a craft's burns apart, but a burn re-timed at ignition (the mass on board was
+        not the predicted one) can run into the next node: that node fails instead of two burns sharing one propellant account."""
+        other = next((m for m in self._flight.executing() if m.craft_id == node.craft_id and m.id != node.id), None)
+        return None if other is None else f"the engine was still burning for {other.label or other.id} when this node came due"
+
     def _flight_execute(self, node: Maneuver) -> None:
         """An impulsive node (or an observation) whose time has come."""
         book, t = self._flight, self._sim.t
         craft, p, state, failure = self._flight_node_frame(node)
+        if failure is None and not node.is_observation:
+            failure = self._flight_engine_busy(node)
         if failure is not None:
             book.amend(node, status="failed", failure=failure, ended_at_s=t)
             return
@@ -576,6 +610,8 @@ class SpaceflightMixin:
     def _flight_ignite(self, node: Maneuver) -> None:
         book, t = self._flight, self._sim.t
         craft, p, state, failure = self._flight_node_frame(node)
+        if failure is None:
+            failure = self._flight_engine_busy(node)
         if failure is None and not (craft.thrust_n > 0.0 and craft.has_engine):
             failure = "the spacecraft has no engine"
         if failure is None and not craft.propellant_kg > 0.0:
@@ -600,7 +636,10 @@ class SpaceflightMixin:
 
     def _flight_burn_progress(self, node: Maneuver, t: float) -> tuple[float, float]:
         """(mass now, propellant used so far) of a burning node at time t (clamped to its cutoff)."""
-        used = node.mass_flow_kg_per_s * (min(t, node.end_s) - node.started_at_s)
+        if _due(node.end_s, t):
+            used = node.planned_propellant_kg  # exact: flow x (end - start) loses digits when the times are large and the burn short
+        else:
+            used = min(max(node.mass_flow_kg_per_s * (t - node.started_at_s), 0.0), node.planned_propellant_kg)
         return node.ignition_mass_kg - used, used
 
     def _flight_sync_masses(self) -> None:
@@ -620,32 +659,62 @@ class SpaceflightMixin:
         if craft is None or node.craft_id not in self._meta:
             book.amend(node, status="failed", failure="the spacecraft no longer exists", ended_at_s=t)
             return
-        mass, used = self._flight_burn_progress(node, node.end_s)
+        self._flight_end_burn(node, node.end_s, None)
+
+    def _flight_end_burn(self, node: Maneuver, burned_until: float, failure: Optional[str]) -> None:
+        """Close a burning node whose engine pushed until `burned_until`: book the propellant and the delta-v actually delivered.
+        `failure`: why it ended before its cutoff (None: the regular cutoff)."""
+        book, t = self._flight, self._sim.t
+        craft = book.craft[node.craft_id]
+        mass, used = self._flight_burn_progress(node, burned_until)
         updated = book.amend(craft, propellant_kg=max(mass - craft.dry_mass_kg, 0.0))
         p = self._particle(node.craft_id)
         p.m = updated.mass_kg
         delivered = exhaust_velocity(craft.isp_s) * math.log(node.ignition_mass_kg / mass) if mass > 0.0 else math.inf
         after = None
-        if node.reference_body_id is not None and node.reference_body_id in self._meta:
+        if node.reference_body_id is not None and any(q.name == node.reference_body_id for q in self._sim.particles):
             after = relative_state(p, self._particle(node.reference_body_id))
         short = delivered < node.dv_magnitude * (1.0 - mission_rules.SHORTFALL_REL)
-        book.amend(node, status="executed", ended_at_s=t, delivered_dv=delivered, propellant_used_kg=used, actual_state_after=after,
-                   failure=f"the propellant ran out: {delivered:.3f} of {node.dv_magnitude:.3f} m/s delivered" if short else None)
+        if failure is not None:
+            book.amend(node, status="failed", ended_at_s=t, end_s=burned_until, delivered_dv=delivered, propellant_used_kg=used, actual_state_after=after,
+                       failure=f"{failure}: {delivered:.3f} of {node.dv_magnitude:.3f} m/s delivered")
+        else:
+            book.amend(node, status="executed", ended_at_s=t, delivered_dv=delivered, propellant_used_kg=used, actual_state_after=after,
+                       failure=f"the propellant ran out: {delivered:.3f} of {node.dv_magnitude:.3f} m/s delivered" if short else None)
         select_ias15(self._sim)
         self._flight_emit(node, "cutoff", delivered, used)
+
+    def _flight_check_burns(self, lost: Optional[dict] = None) -> None:
+        """A VNB burn whose reference body no longer exists (merged away) has no frame to point in: the engine is shut down and the
+        node fails with what it delivered. `lost`: craft id -> the time the thrust force stopped pushing (inside an integration)."""
+        burning = [m for m in self._flight.executing() if m.frame == "vnb"]
+        if not burning:
+            return
+        present = {p.name for p in self._sim.particles}  # not `_meta`: a merge inside the integration is booked there only later
+        for node in burning:
+            if node.craft_id not in self._flight.craft or node.craft_id not in present:
+                continue  # the craft itself is gone: its cutoff says so
+            if node.reference_body_id not in present:
+                until = (lost or {}).get(node.craft_id, self._sim.t)
+                self._flight_end_burn(node, until, "the reference body of the burn no longer exists (it merged with another body); the engine was shut down")
 
     def _flight_events_due(self) -> None:
         """Everything scheduled at (or before) the present time: cutoffs first, then impulses, observations and ignitions in time order."""
         book, t = self._flight, self._sim.t
-        for node in list(book.executing()):
-            if _due(node.end_s, t):
-                self._flight_cutoff(node)
-        due = sorted((m for m in book.maneuvers.values() if m.status == "planned" and _due(m.start_s, t)), key=lambda m: (m.start_s, m.epoch_s))
-        for node in due:
-            if node.mode == "finite" and not node.is_observation:
-                self._flight_ignite(node)
-            else:
-                self._flight_execute(node)
+        while True:
+            for node in list(book.executing()):
+                if _due(node.end_s, t):
+                    self._flight_cutoff(node)
+            due = sorted((m for m in book.maneuvers.values() if m.status == "planned" and _due(m.start_s, t)), key=lambda m: (m.start_s, m.epoch_s))
+            if not due:
+                return
+            for node in due:  # each leaves the "planned" state, so the loop ends
+                if node.mode == "finite" and not node.is_observation:
+                    self._flight_ignite(node)
+                else:
+                    self._flight_execute(node)
+            # again: a burn shorter than the time resolution (almost no propellant left) is already due for its cutoff, and
+            # `_flight_next_boundary` would never stop at a boundary that is not in the future: the engine would keep thrusting
 
     def _flight_next_boundary(self, t: float) -> float:
         nxt = math.inf
@@ -662,8 +731,6 @@ class SpaceflightMixin:
             if craft is None or node.craft_id not in self._meta:
                 continue
             if node.frame == "vnb":
-                if node.reference_body_id not in self._meta:
-                    continue  # the reference body vanished mid-burn (merged away): the engine stops pushing; cutoff records what was delivered
                 reference, components = node.reference_body_id, orbits.unit(node.dv)
             else:
                 reference, components = None, node.burn_direction
@@ -674,7 +741,11 @@ class SpaceflightMixin:
     def _flight_integrate(self, target: float) -> None:
         """`sim.integrate(target)` with the thrust of every burning engine."""
         sim = self._sim
-        burns = self._flight_active_burns() if self._flight.maneuvers else []
+        if not (self._flight.maneuvers and self._flight.executing()):
+            sim.integrate(target)
+            return
+        self._flight_check_burns()  # a reference body removed between integrations (deferred collision resolution)
+        burns = self._flight_active_burns()
         if not burns:
             sim.integrate(target)
             return
@@ -682,11 +753,12 @@ class SpaceflightMixin:
         try:
             sim.integrate(target)
         finally:
-            self._thrust.release(sim)
+            lost = self._thrust.release(sim)
         if self._thrust.errors:
             error = self._thrust.errors[-1]
             self._thrust.errors.clear()
             raise RuntimeError("thrust force failed:\n" + error)
+        self._flight_check_burns(lost)  # a reference body merged away inside this integration (legacy merge in the callback)
 
     def _flight_advance(self, target: float) -> None:
         """Advance to `target`, landing exactly on every manoeuvre boundary on the way (the grid-history analogue for burns)."""
@@ -835,12 +907,12 @@ class SpaceflightMixin:
             raise self._flight_refuse(f"unknown mission: {mission_id}", "mission_not_found", 404)
         return mission
 
-    def _flight_published_mission(self, mission_id: str) -> MissionOut:
-        state = self._pub[0].spaceflight
-        found = next((m for m in (state.missions if state else []) if m.id == mission_id), None)
-        if found is None:
-            raise self._flight_refuse(f"unknown mission: {mission_id}", "mission_not_found", 404)
-        return found.model_copy(deep=True)
+    def _flight_mission_now(self, mission_id: str) -> MissionOut:
+        """The mission as the state about to be published will show it. Called under the lock, at the end of the mutation that
+        changed it, so a concurrent request cannot come between the change and its answer."""
+        mission = self._flight_mission(mission_id)
+        stale = mission.plan is not None and mission.plan_fingerprint != mission_rules.fingerprint(self._flight, self._flight_hierarchy())
+        return self._flight_mission_out(mission, stale)
 
     def create_mission(self, data: MissionCreate, guard=None) -> MissionOut:
         with self._mutation(guard):
@@ -854,12 +926,20 @@ class SpaceflightMixin:
             mission = Mission(id=self._flight.next_id("msn"), name=data.name, craft_id=data.spacecraftId,
                               destination_body_id=data.destinationBodyId, objective=data.objective.model_dump(), created_at_s=t, updated_at_s=t)
             self._flight.put(mission)
-            mission_id = mission.id
-        return self._flight_published_mission(mission_id)
+            out = self._flight_mission_now(mission.id)
+        return out
 
     def plan_mission(self, mission_id: str, request: MissionPlanRequest, guard=None) -> MissionOut:
         """Design the transfer. The universe is copied under the lock, the design runs on the copy WITHOUT the lock (steps and reads
         go on), and the result is stored only if the universe is still the one the plan was made for."""
+        if not self._plan_slot.acquire(blocking=False):  # one design at a time per universe: each one occupies a worker for seconds
+            raise self._flight_refuse("a transfer is already being designed in this universe; wait for it to finish", "plan_in_progress")
+        try:
+            return self._flight_plan(mission_id, request, guard)
+        finally:
+            self._plan_slot.release()
+
+    def _flight_plan(self, mission_id: str, request: MissionPlanRequest, guard) -> MissionOut:
         with self._guard():
             if guard is not None:
                 guard()
@@ -909,7 +989,8 @@ class SpaceflightMixin:
                     plan_revision=mission.plan_revision + 1, plan_fingerprint=stamp[0], trajectory=result.trajectory,
                     origin_body_id=result.plan["originBodyId"], maneuver_ids=(), committed=False, checks=(), agreement=(), outcome=None,
                     capture_started_at_s=None, plan_nodes=result.nodes, updated_at_s=t))
-        return self._flight_published_mission(mission_id)
+            out = self._flight_mission_now(mission_id)
+        return out
 
     def commit_mission(self, mission_id: str, guard=None) -> MissionOut:
         """Schedule the designed nodes in the simulation. From here on the mission is flown by the engine and judged on what happens."""
@@ -941,7 +1022,8 @@ class SpaceflightMixin:
                 raise
             self._flight.put(replace(self._flight.missions[mission_id], committed=True, maneuver_ids=tuple(ids), updated_at_s=self._sim.t))
             self._flight_evaluate()
-        return self._flight_published_mission(mission_id)
+            out = self._flight_mission_now(mission_id)
+        return out
 
     def abort_mission(self, mission_id: str, guard=None) -> MissionOut:
         with self._mutation(guard):
@@ -954,10 +1036,11 @@ class SpaceflightMixin:
                 node = self._flight.maneuvers.get(i)
                 if node is not None and node.status == "planned":
                     del self._flight.maneuvers[i]
-            self._flight_reschedule(mission.craft_id)
+            self._flight_reschedule(mission.craft_id, lenient=True)
             self._flight.put(replace(mission, status="failed", phase="aborted", reasons=("aborted by the user",), updated_at_s=self._sim.t))
             self._flight.physics_epoch += 1
-        return self._flight_published_mission(mission_id)
+            out = self._flight_mission_now(mission_id)
+        return out
 
     def delete_mission(self, mission_id: str, guard=None) -> None:
         with self._mutation(guard):
@@ -972,5 +1055,5 @@ class SpaceflightMixin:
                     pending = True
             del self._flight.missions[mission_id]
             if pending:
-                self._flight_reschedule(mission.craft_id)
+                self._flight_reschedule(mission.craft_id, lenient=True)
                 self._flight.physics_epoch += 1

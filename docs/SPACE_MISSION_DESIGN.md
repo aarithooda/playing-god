@@ -86,7 +86,8 @@ it continues across steps. A zero delta-v node is an observation: the engine lan
 
 **Planning does not block the simulation.** `plan_mission` copies the REBOUND simulation under the engine lock, releases the lock,
 designs the transfer on the copy (bounded by `PG_PLAN_TIME_LIMIT_S`, default 25 s), then stores the plan only if the universe has not
-changed in the meantime (otherwise 409 `plan_outdated`).
+changed in the meantime (otherwise 409 `plan_outdated`). One design runs at a time per universe (409 `plan_in_progress`), and a
+departure may be asked for at most two revolutions of the destination ahead, so no request can occupy a worker for long.
 
 **Frontend.** The frontend still has no integrator. Orbits are drawn as conics from the elements the backend reports; the flown path
 is the recorded positions; the planned path is the planner's samples (`GET .../missions/{id}/trajectory`). All three are drawn
@@ -160,7 +161,9 @@ the integrator is told the force is velocity dependent). The duration is the one
 `Δt = m0(1 − e^(−Δv/v_e))/ṁ`, shortened if the propellant runs out. A centred burn starts `Δt/2` before the node. Thrust, mass flow,
 specific impulse and mass are therefore consistent by construction: the propellant used is exactly `ṁ Δt` and the delivered delta-v
 is exactly `v_e ln(m0/m1)`. The exhaust is not simulated: thrust is an external force, and the system's total momentum changes by the
-impulse delivered. One burn per craft at a time (overlapping nodes are refused).
+impulse delivered. One burn per craft at a time: overlapping nodes are refused when scheduled, and a node that comes due while the
+engine is still burning for another fails. If the reference body of a VNB burn stops existing during the burn (it merged into
+another body), the engine is shut down at that moment and the node fails with the propellant and delta-v it actually delivered.
 
 ### 5.5 Hierarchy and spheres of influence (`dynamics.py`)
 A body's parent is the nearest heavier body whose Hill sphere `r_H = d (m/3M)^(1/3)` contains it (so the Moon belongs to the Earth
@@ -201,7 +204,9 @@ Evaluated after every committed step, on the craft's actual state:
   objective's tolerance (default 50 km) of the target, its apoapsis is inside the destination's sphere of influence, and all of
   this has held for one full revolution since the insertion burn. Reaching the Moon is not success; neither is a burn that was
   merely executed.
-- **Completed (flyby):** at the observation node the craft passed within tolerance of the target altitude.
+- **Completed (flyby):** at the observation node (the planned time of closest approach) the osculating periapsis about the
+  destination is within tolerance of the target altitude **and** the craft is at that altitude. Being aimed correctly but early or
+  late is a failure.
 - **Failed:** a burn of the mission failed (out of propellant, craft removed), the craft collided, the craft left the destination's
   sphere of influence unbound after the insertion, the orbit that resulted does not meet the conditions, or the user aborted.
 - **Plan-versus-simulation agreement:** at each node, the distance between the planned and the actual pre-burn state, against
@@ -283,12 +288,32 @@ into the Earth and checks the halt. Counts and results of the last full run are 
   orbit should be in or near the destination's orbit plane: "match the plane of" does this; an inclined parking orbit is handled by
   the N-body targeting only as far as a solution exists within the scan); no mid-course corrections; no free-return, low-energy or
   multi-revolution transfers; no launch from the surface; no landing; no rendezvous or docking; no return leg.
-- **Planning time** is bounded (25 s by default); a plan that cannot be found in time returns `no_solution` with the reason.
+- **Planning time** is bounded (25 s by default); a plan that cannot be found in time returns `no_solution` with the reason. Transfers
+  faster than the fastest ellipse from the parking orbit (about two days to the Moon from low Earth orbit) would need a hyperbolic
+  departure and are refused. A requested flight time is the two-body time to the destination's distance; the planned flight is a few
+  per cent shorter because the destination's gravity speeds up the last leg.
+- **Integrator step criterion.** Universes with a spacecraft use IAS15's PRS23 step criterion (section 5.8). That criterion has a
+  known weakness that the default one does not: when the net force on a body passes exactly through zero (measured: two small bodies
+  closing head-on along one line next to a planet), the internal step collapses and the application's step time limit ends the step
+  (HTTP 503, state rolled back, nothing corrupted, but that universe cannot advance past the configuration). The same exposure
+  already exists for universes with moons. Not fixed here; the alternative criterion is unusable with a low orbit.
 - **Manoeuvre preview** in the Manoeuvre panel is two-body about the reference body (labelled so); the mission plan is N-body.
 - **Spheres of influence** use the present distance instead of the semi-major axis, and are descriptive only.
 - **Limits:** 32 spacecraft, 64 pending nodes and 16 missions per universe.
 - **Persistence:** as for the rest of the application, state lives in backend memory and is lost on restart.
 - **Collision policy:** see section 6 for which universes stop on contact between celestial bodies.
+
+## 8a. Independent review
+
+After implementation the backend diff was reviewed by a second, independent pass that had not written the code, with instructions
+to look for real defects and to reproduce them. It reported fifteen findings; nine were reproduced with scripts. Thirteen are fixed and
+one is reduced (previews still wait for a running step, but being refused is no longer recorded as a failure of the universe),
+each with a regression test that reproduces the original failure (`tests/spaceflight/test_review_fixes.py`); one (the PRS23 step
+collapse above) is documented as a limitation. The most serious were: a finite burn with almost no propellant left kept thrusting
+for the rest of the step; a merger of two unrelated bodies during a burn (legacy-merge universes) redirected the thrust to a
+bystander body; the planner's time budget did not cover a far-future departure; and a state could be committed and then fail to
+publish for an almost-radial hyperbolic orbit. None affected the validated Earth → Moon scenario (its numbers are unchanged), but
+all were reachable through the API.
 
 ## 9. Not implemented
 

@@ -263,6 +263,7 @@ class SimulationService(SpaceflightMixin):
         self._budget_hit = False
         self._flight = SpaceflightBook()  # spacecraft, manoeuvre nodes, missions, collision halt (backend/spaceflight)
         self._thrust = ThrustForce()  # the additional force while an engine burns
+        self._plan_slot = threading.Lock()  # held while a transfer is being designed (outside the simulation lock)
         self._halted_now = False  # a contact stopped the simulation during the current step attempt
         self._chunk_satisfied = True  # did the internal steps of the chunk just integrated respect the curvature criterion?
         self._chunk_max_dt = 0.0  # longest internal IAS15 step of the chunk being integrated (heartbeat)
@@ -453,7 +454,11 @@ class SimulationService(SpaceflightMixin):
         self._materials, self._rotations, self._products = dict(snap.materials), dict(snap.rotations), dict(snap.products)
         self._sites = dict(snap.sites)
         self._escaped = _copy_escaped(snap.escaped)
+        seq = self._flight.seq
         self._flight = snap.flight.copy()
+        # ids of manoeuvre nodes and missions are never reused in one engine, also across a reset or a snapshot restore (a client
+        # that cached a planned trajectory by mission id and plan revision must not be shown it for a different mission)
+        self._flight.seq = max(self._flight.seq, seq)
         self._adopt_sim(_copy_sim(snap.sim))  # never reselect IAS15 here: that would discard its predictor state
         self._adopt_history(snap.history)
         self.controlled, self.first_uncontrolled_at_s = snap.controlled, snap.first_uncontrolled_at_s
