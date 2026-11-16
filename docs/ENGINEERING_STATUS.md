@@ -5,7 +5,7 @@ running commands in this session; where something was **not** run or **not** ver
 `context/STATUS.md`, `context/HANDOFF.md` and `context/INTEGRATION_BRANCH.md` are historical logs: where they disagree with this file,
 this file wins (it is newer and was checked against the code).
 
-The detailed architecture is in [ARCHITECTURE.md](ARCHITECTURE.md), priorities in [ROADMAP.md](ROADMAP.md), decisions (D-001 .. D-069) in
+The detailed architecture is in [ARCHITECTURE.md](ARCHITECTURE.md), priorities in [ROADMAP.md](ROADMAP.md), decisions (D-001 .. D-070) in
 [`context/DECISIONS.md`](../context/DECISIONS.md) (kept there; it is the canonical decision history, not duplicated under `docs/`).
 
 ## 1. Repository state
@@ -240,3 +240,55 @@ cd frontend && npm ci && npm run dev              # terminal 2, open http://loca
 ```
 Checks: `python -m pytest -q`; in `frontend/`: `npx vitest run`, `npx tsc --noEmit`, `npm run build`, `npm run test:e2e`,
 `npm run e2e:collision`.
+
+## 15. Space Mission Design milestone (2026-11-15)
+
+Branch `claude/clever-curie-d7sf4k`, built on the checkpoint of §14 (`75abe67`); pull request open against `main`, **not merged**.
+Decision D-070; reference [SPACE_MISSION_DESIGN.md](SPACE_MISSION_DESIGN.md) (usage, architecture, physics, validation, limits).
+
+What it contains: spacecraft as particles of the universe's own REBOUND simulation with their own kind, data and UI; orbits from
+classical elements about any body; impulsive and finite burns with propellant accounting; a transfer planner (patched-conic first
+guess, N-body shooting) for planet → moon missions; missions judged on the simulated state; a `stop-on-contact` collision mode and a
+halt on every spacecraft contact; the `earth-moon-j2000` preset; the Missions tool, spacecraft inspector and scene layer.
+
+Verification on the final commit (Linux container, Python 3.11, Node 20, Chromium headless with software WebGL):
+
+| Check | Result |
+|---|---|
+| Backend `python -m pytest` | **1690 passed, 2 xfailed**, 0 failed (3 min 10 s); 239 of them are the new `tests/spaceflight/` and `tests/validation/test_spaceflight_validation.py` |
+| `tsc --noEmit` | clean |
+| Vitest | **762 passed** (76 files) |
+| `npm run build` | OK (the existing >500 kB chunk warning) |
+| Playwright, stubbed API (`npm run test:e2e`) | **20 passed** (the 17 existing + 3 new in `e2e/mission-design.spec.ts`) |
+| Real-backend mission journey (`npm run e2e:mission`) | **ALL PASSED** (9 stages covering the 10-step journey and the collision halt) |
+| Real-backend collision journey (`npm run e2e:collision`) | **ALL PASSED** (10/10; regression) |
+| Experiment 01 journey (`npm run e2e`) | not run (the pre-existing failure of §13; no file of this milestone touches Orbit Lab) |
+
+Baseline measured on `75abe67` in the same container before the work: 1451 passed, 2 xfailed; 699 Vitest; 17 Playwright.
+No existing test was deleted, skipped or weakened. Existing tests that were edited, and why (all additive):
+`frontend/src/components/canvas/canvasBoundary.test.ts` (the pinned canvas prop list gains `spaceflight`),
+`frontend/src/components/ui/ToolDrawer.test.tsx` (the fixture gains the `missions` tool).
+Scientific validation results (V1-V8, measured numbers and asserted tolerances): SPACE_MISSION_DESIGN.md §7.
+The canonical runner (`scripts/run_tests.py`) was not used for this run: its environment check requires the pinned Node 20 and this
+container has Node 22; the stages it would run were run individually (table above). `--extended` now includes the mission journey,
+and CI has a job for it.
+
+Independent review: a separate pass over the backend diff reported 15 findings (9 reproduced). 13 fixed, 1 reduced, each with a
+regression test (`tests/spaceflight/test_review_fixes.py`, 90 cases); 1 documented as a limitation (PRS23 step collapse on exactly
+collinear head-on configurations in a universe that holds a spacecraft). Details: SPACE_MISSION_DESIGN.md §8a.
+
+Honest classification:
+- **Implemented and verified:** spacecraft entities; orbit initialisation; impulsive and finite manoeuvres; the mission workflow; the
+  Earth → Moon transfer and insertion in the Earth-Moon preset (backend tests, independent references, and a browser journey on the
+  real backend); planned/actual trajectory display; stop-on-contact for spacecraft contacts and for `stop-on-contact` universes.
+- **Implemented, partially verified:** mission design inside the 21-body Solar System preset (completes when driven by a script;
+  no automated test and not driven through the UI); visual quality was checked on headless software WebGL screenshots only, not on a
+  GPU or by eye on a real display.
+- **Not implemented:** every transfer geometry other than planet parking orbit → that planet's moon; plane changes; mid-course
+  corrections; atmosphere, J2 and other perturbations; landing; rendezvous (list in SPACE_MISSION_DESIGN.md §9).
+- **Owner decision open:** `stop-on-contact` is not the default for collisions between celestial bodies in the existing sandbox and
+  presets (D-070).
+
+Known pre-existing issue observed, not caused by this work: `tests/impact/test_product_materials.py::
+test_a_parcel_hitting_a_same_material_spinning_body_keeps_the_bodys_material_and_spin_and_links_the_event` failed in one of two
+baseline runs on `75abe67` before any change (float-sensitive debris re-contact, like the flake fixed in §12); it passed in every full run made after the work (3 runs).
