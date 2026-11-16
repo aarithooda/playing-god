@@ -251,7 +251,7 @@ classical elements about any body; impulsive and finite burns with propellant ac
 guess, N-body shooting) for planet → moon missions; missions judged on the simulated state; a `stop-on-contact` collision mode and a
 halt on every spacecraft contact; the `earth-moon-j2000` preset; the Missions tool, spacecraft inspector and scene layer.
 
-Verification on the final commit (Linux container, Python 3.11, Node 20, Chromium headless with software WebGL):
+Verification on the final code (Linux container, Python 3.11.18, Node 22.23.4 — the project pins Node 20, which CI uses — Chromium headless with software WebGL):
 
 | Check | Result |
 |---|---|
