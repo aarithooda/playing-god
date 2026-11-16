@@ -39,7 +39,7 @@ Open the **Missions** tool in the left rail. It has three sections: Spacecraft, 
    difference between the plan and the simulation at each burn.
 
 The preset **Earth and Moon: mission design** (Universes drawer) is the reference scenario: Earth and the Moon at J2000.0 from
-archived JPL Horizons data, with the stop-on-contact collision policy.
+archived JPL Horizons data. Like every universe it stops at any collision (section 6).
 
 Screenshots of this journey, taken by the automated browser test against the real backend, are in
 [`docs/evidence/space-mission-design/`](evidence/space-mission-design/).
@@ -216,27 +216,66 @@ Evaluated after every committed step, on the craft's actual state:
 
 ### 5.8 Numerical method
 IAS15 (Rein & Spiegel 2015): 15th-order Gauss-Radau with adaptive steps. With a spacecraft in low orbit next to slow planets,
-REBOUND's default global step criterion collapses the step (measured: about a million steps for one simulated day); the engine
-therefore selects the PRS23 criterion (Pham, Rein & Spiegel 2023) for any universe that holds a spacecraft, as it already did for
-universes with moons. Burn boundaries restart the integrator's predictor.
+REBOUND's global step criterion collapses the step (measured: about a million steps for one simulated day); the engine therefore
+selects the PRS23 criterion (Pham, Rein & Spiegel 2023) for any universe that holds a spacecraft, as it already did for universes
+with moons. Burn boundaries restart the integrator's predictor.
 
-## 6. Collision policy of this phase
+**The PRS23 step collapse, and its guard.** PRS23 takes for every particle the timescale `τ² = 2|a|² / (|j|² + |a||s|)`
+(acceleration, jerk, snap at the end of the step; REBOUND `src/integrator_ias15.c`) and steps with the smallest. `τ` is the time in
+which the acceleration changes by its own size, a sound measure of orbital curvature, except where a particle's acceleration passes
+through **zero** while its jerk does not: there `τ = √2 |a|/|j|` is simply the time left until the zero. Every step then covers a
+fixed fraction (about a quarter) of the remaining time, the zero is never reached, and the step shrinks geometrically without bound
+(measured: to 1e-25 s, far below the resolution of the time variable); `integrate` never returns. A body's acceleration is exactly
+zero only where the pulls on it cancel as vectors, that is on exactly collinear configurations: two bodies closing head-on along
+the line through a third, or three masses on a line. The GLOBAL criterion has no such singularity and walks through these points in
+a handful of steps.
 
-When two bodies touch: **stop, report, keep a consistent state.** Implemented as a third per-universe collision mode,
-`stop-on-contact`, and additionally enforced for **every contact that involves a spacecraft, in every mode** (a spacecraft is never
-merged into a planet or fed to the collision-outcome models).
+The fix (`StepCollapseGuard`, `backend/collisions.py`): when PRS23 has driven the step below any physically meaningful time, the
+next 32 steps are chosen by GLOBAL, then PRS23 resumes. The threshold is 1e-3 of the fastest conceivable crossing of the smallest
+contact distance in the system (sum of the two smallest radii, over twice the largest present speed plus the speed of a fall to
+the deepest reachable point of the potential), and never less than 64 units of resolution of the time variable; a healthy PRS23
+step is at least 250 times larger. What this does and does not change:
+- Every step taken is one a valid IAS15 error criterion asked for; no minimum step is imposed and no step is skipped. Accuracy is
+  not traded. Measured on the reproduction: the guarded PRS23 run agrees with a pure GLOBAL run to 3e-11 m and 1e-12 m/s.
+- Above the threshold nothing changes: the guard is inert, and existing trajectories are bit-identical (every golden-value and
+  digest test of the suite passes unchanged; the reference lunar mission runs with zero hand-overs and a smallest step more than a
+  thousand times above the threshold).
+- The planner's copies carry the same guard, plus a stop at the planning budget, so a copy that stops making progress cannot hold a
+  worker thread.
+- The step time limit and its rollback are unchanged and remain the last line of defence for a stall nothing cures.
+
+## 6. Collision policy
+
+When two bodies touch: **stop, report, keep a consistent state.** This is the policy of **every universe** (owner decision D-071):
+the startup sandbox, every new sandbox, every preset, the Orbit Lab baseline and modified runs, and every engine derived from one.
+It applies to every pair of bodies: celestial bodies as well as spacecraft.
 
 - The whole system is put back to the instant of first contact (the existing contact refinement), so the stored state is one
-  consistent instant of the simulation, not a mixture.
-- A `contact` event is recorded (who, when, relative speed) and the state carries `halt`. The UI shows a banner and disables Play.
+  consistent instant of the simulation: the two bodies touch (to 1e-9 of the contact distance) and do not overlap.
+- A `contact` event is recorded (who, when, relative speed) and the state carries `halt`. The UI shows a banner naming the bodies
+  and blocks Play and Step Forward, saying why.
 - Further steps are refused (409 `simulation_halted`) until the user resets, restores a snapshot, or removes or edits one of the two
-  bodies. A halt cannot be left by stepping while the bodies still overlap.
-- No fragments, debris, craters or effects are produced. `backend/impact/` is not modified by this work apart from the mode name.
+  bodies. A halt cannot be left by stepping while the bodies are still closing.
+- **Nothing else happens.** No body is merged, removed or created; no fragments, debris, ejecta, craters or collision effects; no
+  collision record. Mass, momentum, angular momentum and energy at the halt are those of the motion up to the contact (nothing is
+  dissipated).
 
-**What uses it.** The mission preset uses `stop-on-contact` for all bodies. Existing universes keep their existing modes for
-collisions between celestial bodies (sandbox: `outcome-v1`; other presets and Orbit Lab: `legacy-merge`), because existing tests and
-decisions (D-045, D-060, D-067) pin that behaviour and this task forbids weakening them. Making stop-on-contact the default for
-every universe is a one-line policy change plus the corresponding test updates; it is left to the owner (D-070).
+**The older behaviour is dormant.** Until D-071 a sandbox resolved collisions with the provisional outcome engine (`outcome-v1`:
+merge, hit-and-run, fragments, debris parcels) and presets and Orbit Lab merged bodies (`legacy-merge`). That code
+(`backend/impact/`, `MergeResolver`) is kept but is no longer on any path the application can reach: no route, preset or Orbit Lab
+run can select those modes, and `collisionMode` accepts only `stop-on-contact`. They can be constructed only by naming them in code
+(`LEGACY_MERGE_CONFIG`, `OUTCOME_V1_CONFIG`), which the tests marked `dormant_collisions` do so that the paused collision engine
+does not rot. The collision-record routes, the collision inspector and the collision effects in the frontend are likewise dormant:
+they stay empty because no `collision` or `merger` event is produced. One consequence: the outstanding defect H4 of D-069 (the
+legacy resolver could merge bodies that do not touch when three or more contacts were reported at once) can no longer occur in the
+application (`tests/test_collision_policy.py` pins a converging ring of 4, 6 and 12 bodies: one stop, every body intact).
+
+**Verified** (`tests/test_collision_policy.py`, on the default engine, against closed forms): the contact time of a bound orbit
+with periapsis inside the contact distance equals Kepler's equation to 1e-8; of a radial free fall, the closed form to 1e-9; a
+head-on pass at 2 km/s is caught whatever the step length; a pass at 0.98 c is caught; a grazing pass 0.1 % inside the contact
+distance stops and one 0.1 % outside does not; of several pairs the first to touch stops everything and the others are found after
+it is resolved; a 30 km/s impact of two rocky planets with materials and spin leaves two untouched bodies; a rock sent into the
+Earth of the Solar System preset stops that preset.
 
 ## 7. Verification
 
@@ -292,24 +331,26 @@ into the Earth and checks the halt. Counts and results of the last full run are 
   faster than the fastest ellipse from the parking orbit (about two days to the Moon from low Earth orbit) would need a hyperbolic
   departure and are refused. A requested flight time is the two-body time to the destination's distance; the planned flight is a few
   per cent shorter because the destination's gravity speeds up the last leg.
-- **Integrator step criterion.** Universes with a spacecraft use IAS15's PRS23 step criterion (section 5.8). That criterion has a
-  known weakness that the default one does not: when the net force on a body passes exactly through zero (measured: two small bodies
-  closing head-on along one line next to a planet), the internal step collapses and the application's step time limit ends the step
-  (HTTP 503, state rolled back, nothing corrupted, but that universe cannot advance past the configuration). The same exposure
-  already exists for universes with moons. Not fixed here; the alternative criterion is unusable with a low orbit.
+- **Integrator step criterion.** Universes with a spacecraft (or moons) use IAS15's PRS23 criterion, whose step collapses where a
+  body's acceleration passes through zero. That stall is fixed by the guard of section 5.8. What remains: the planner flies copies
+  with collisions switched off, so two bodies that would touch in the live universe can pass through each other's centre there, a
+  true singularity; such a design ends at its time budget with that reason instead of hanging. And a stall of a kind not seen so
+  far would still end at the step time limit (HTTP 503, state rolled back).
 - **Manoeuvre preview** in the Manoeuvre panel is two-body about the reference body (labelled so); the mission plan is N-body.
 - **Spheres of influence** use the present distance instead of the semi-major axis, and are descriptive only.
 - **Limits:** 32 spacecraft, 64 pending nodes and 16 missions per universe.
 - **Persistence:** as for the rest of the application, state lives in backend memory and is lost on restart.
-- **Collision policy:** see section 6 for which universes stop on contact between celestial bodies.
+- **Collision policy:** every collision stops the simulation (section 6). The simulator therefore cannot show what a collision
+  does; the user resolves the contact and continues.
 
 ## 8a. Independent review
 
 After implementation the backend diff was reviewed by a second, independent pass that had not written the code, with instructions
 to look for real defects and to reproduce them. It reported fifteen findings; nine were reproduced with scripts. Thirteen are fixed and
 one is reduced (previews still wait for a running step, but being refused is no longer recorded as a failure of the universe),
-each with a regression test that reproduces the original failure (`tests/spaceflight/test_review_fixes.py`); one (the PRS23 step
-collapse above) is documented as a limitation. The most serious were: a finite burn with almost no propellant left kept thrusting
+each with a regression test that reproduces the original failure (`tests/spaceflight/test_review_fixes.py`); the remaining one, the
+PRS23 step collapse, was first documented as a limitation and then root-caused and fixed (section 5.8,
+`tests/spaceflight/test_step_collapse.py`). The most serious were: a finite burn with almost no propellant left kept thrusting
 for the rest of the step; a merger of two unrelated bodies during a burn (legacy-merge universes) redirected the thrust to a
 bystander body; the planner's time budget did not cover a far-future departure; and a state could be committed and then fail to
 publish for an almost-radial hyperbolic orbit. None affected the validated Earth → Moon scenario (its numbers are unchanged), but

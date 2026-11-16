@@ -42,7 +42,9 @@ synchronisation, regression and scientific validation, performance, preset fidel
 ## Space Mission Design (pillar 2) — delivered 2026-11-15 on `claude/clever-curie-d7sf4k` (D-070; PR open, not merged)
 Spacecraft as simulation entities, orbits from elements, impulsive and finite burns, planet → moon transfer design, missions judged on
 the simulated state, stop-on-contact. Reference and limits: [SPACE_MISSION_DESIGN.md](SPACE_MISSION_DESIGN.md). Open items, in order:
-1. **Owner decision:** whether `stop-on-contact` becomes the default collision mode of every universe (D-070).
+1. ~~Owner decision on the default collision mode~~ DONE 2026-11-16 (D-071): every universe stops on contact; the merge and
+   outcome engines are dormant. Follow-up for the owner: delete the dormant collision engine and its tests, or keep them for a
+   later collision phase.
 2. Mission design inside the full Solar System presets through the UI (works by script; not yet covered by a browser test).
 3. More transfer geometries (interplanetary, return leg, plane change), each with its own validation; J2 and drag as optional models.
 

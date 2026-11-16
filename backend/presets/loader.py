@@ -51,7 +51,7 @@ class LoadedPreset:
     sample_interval_s: float
     # Stage 11 (D-058, D-059): body id -> sourced annotation. Descriptive only: never read by the integrator.
     material_annotations: dict | None = None
-    collision_mode: str = "legacy-merge"  # "stop-on-contact" for the mission-design presets (D-070)
+    collision_mode: str = "legacy-merge"  # what the data file says; informational since D-071: every universe is built stop-on-contact
 
 
 def _finite(x) -> bool:

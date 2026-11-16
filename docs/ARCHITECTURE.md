@@ -57,9 +57,12 @@ A lone body is advanced analytically because IAS15's convergence test divides by
 
 ## Collision pipeline
 
-A third mode, **`stop-on-contact`** (D-070), stops the simulation at the instant of first contact, records a `contact` event and
-refuses further steps until the user resolves it; it is also what happens to any contact that involves a spacecraft, in every mode
-(`backend/spaceflight/engine.py`, `docs/SPACE_MISSION_DESIGN.md` §6). The other two modes are unchanged:
+**Active path: `stop-on-contact`** (D-070, D-071). Every universe the application creates stops the simulation at the instant of
+first contact, records a `contact` event and refuses further steps until the user resolves it; nothing is merged or broken
+(`backend/spaceflight/engine.py`, `docs/SPACE_MISSION_DESIGN.md` §6, `tests/test_collision_policy.py`).
+
+**Dormant** (kept, tested under the marker `dormant_collisions`, unreachable from any route, preset or Orbit Lab run): the two
+older modes described in the rest of this section.
 
 Two per-universe modes (`backend/impact/config.py`): **`legacy-merge`** (REBOUND callback merges immediately, `collisions.py`) and
 **`outcome-v1`** (the callback only *records* contacts; `CollisionEngine` resolves them between `integrate` calls).
