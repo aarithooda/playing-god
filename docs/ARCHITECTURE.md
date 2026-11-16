@@ -17,6 +17,8 @@ backend/            FastAPI + REBOUND (Python 3.11)
   history.py          recorded positions (step/grid modes, capped); orbit_lab.py (baseline vs modified run)
   models.py lab_models.py   pydantic request/response schemas; errors.py coded errors; diagnostics.py conserved quantities
   impact/             custom collision engine (below)
+  spaceflight/        Space Mission Design: orbits, propulsion, burns, transfer planner, missions, SpaceflightMixin (docs/SPACE_MISSION_DESIGN.md)
+  api_spaceflight.py  spacecraft, manoeuvre and mission routes
   presets/            loader, data/*.json presets, sources/ archived JPL Horizons + reference-orbit data with SHA-256
 frontend/           Vite + React 18 + TypeScript + three / @react-three/fiber
   src/App.tsx         universe list + layout;  src/UniverseWorkspace.tsx  one universe (scene, tool rail, bar, inspector)
@@ -25,7 +27,7 @@ frontend/           Vite + React 18 + TypeScript + three / @react-three/fiber
                       ringWorld/ringDisturb, referenceOrbits, collision/ (effect descriptions), history/
   src/components/canvas/   WebGL layers (bodies, trajectories, starfield, ring grains, reference orbits, collision effects)
   src/components/ui/       panels (create body, inspector, history, diagnostics, orbit lab, events, collision inspector)
-  e2e/                Playwright specs (stubbed API) and two Node scripts that start a real backend
+  e2e/                Playwright specs (stubbed API) and three Node scripts that start a real backend
 tests/              pytest: unit, API, stress, validation/ (independent physics), smoke/ (live uvicorn), impact/ (collision engine), spike/
 scripts/            developer-only data builders (Horizons, catalogue, textures); the runtime never uses the network
 context/            historical project memory: decisions, status logs, collision plans/audits (see ENGINEERING_STATUS.md §1 for authority)
@@ -55,6 +57,10 @@ A lone body is advanced analytically because IAS15's convergence test divides by
 
 ## Collision pipeline
 
+A third mode, **`stop-on-contact`** (D-070), stops the simulation at the instant of first contact, records a `contact` event and
+refuses further steps until the user resolves it; it is also what happens to any contact that involves a spacecraft, in every mode
+(`backend/spaceflight/engine.py`, `docs/SPACE_MISSION_DESIGN.md` §6). The other two modes are unchanged:
+
 Two per-universe modes (`backend/impact/config.py`): **`legacy-merge`** (REBOUND callback merges immediately, `collisions.py`) and
 **`outcome-v1`** (the callback only *records* contacts; `CollisionEngine` resolves them between `integrate` calls).
 `outcome-v1` lifecycle (docstring of `backend/impact/engine.py`): detected → captured (frozen `ImpactState`, state refined to the
@@ -66,6 +72,17 @@ labelled perfect merge); if that also fails the step is rolled back (HTTP 500 `c
 `material_profiles.json`, spin in `rotation.py`, fragment parcels with deterministic seeding in `fragments.py`, and a versioned
 `CollisionState` serialisation (`collision_state.py`). Every record carries fidelity labels; **cratering is Unsupported**, and the
 scientific content is **provisional** (D-038, D-059).
+
+## Space Mission Design (D-070)
+
+Spacecraft are particles of the same REBOUND simulation (`craft-<12 hex>`, `kind: "spacecraft"`); what the simulation does not hold
+(propellant, engine, manoeuvre nodes, missions, the collision halt) is a `SpaceflightBook` of immutable records that the engine
+copies with its other side tables on every step capture, mutation checkpoint, snapshot and reset. `SimulationService` inherits the
+behaviour from `SpaceflightMixin`: a step is split at manoeuvre node times, impulsive burns change velocity and mass at the node,
+finite burns add a thrust force (REBOUND `additional_forces`, analytic mass) between ignition and cut-off, and missions are judged on
+the actual state after every committed step. The transfer planner works on a private copy of the simulation outside the engine lock.
+The frontend draws conics from backend elements, the recorded path and the planner's samples, all relative to a body; it still has no
+integrator. Full description, physics, validation and limits: [SPACE_MISSION_DESIGN.md](SPACE_MISSION_DESIGN.md).
 
 ## Multi-universe model
 

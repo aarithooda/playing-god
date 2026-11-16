@@ -248,3 +248,32 @@ Source: `COLLISION_ENGINE_PLAN.md` sections 4 and 6. Everything is additive; exi
 - `collision` events: `hasVisual` is `true` for every event of an `outcome-v1` universe (a description can be derived).
 - Frontend contract (UI-0, D-053): the canvas takes the optional inputs `collisionEffects` and `surfaceMarks` (types in `frontend/src/render/contract.ts`); a body's orientation (w, x, y, z) is applied only when the API supplies it.
 - Persistence: none (OD-5, D-054). `SimulationService.collision_state()` is an internal read-only value (`CollisionState`, schemaVersion 1, canonical JSON); there is no endpoint and no loader.
+
+## Space Mission Design (D-070; additive; reference `docs/SPACE_MISSION_DESIGN.md`)
+Schemas: `backend/spaceflight/requests.py`, `backend/spaceflight/schemas.py`. All routes are universe-scoped
+(`/api/v1/universes/{uid}/...`); mutations accept `?activationEpoch=` like the other universe routes. Angles are degrees (`...Deg`),
+measured from the simulation's x-y plane and x axis.
+- **Body:** `kind` and `bodyType` may be `"spacecraft"` (always both); such a body has `id` `craft-<12 hex>` and the object
+  `spacecraft: {dryMassKg, propellantKg, propellantCapacityKg, thrustN, ispS, massFlowKgPerS, deltaVRemainingMPerS, thrusting, homeBodyId, orbit}`.
+  `orbit` (null only when no other body exists) describes the osculating orbit about the body whose sphere of influence holds the craft:
+  `{referenceBodyId, referenceBodyName, regime: bound|suborbital|escape|degenerate, radiusM, altitudeM, speedMPerS, semiMajorAxisM, eccentricity, inclinationDeg, raanDeg, argPeriapsisDeg, trueAnomalyDeg, periapsisRadiusM, apoapsisRadiusM, periapsisAltitudeM, apoapsisAltitudeM, periodS, timeToPeriapsisS, timeToApoapsisS, specificEnergyJPerKg, circularSpeedMPerS, escapeSpeedMPerS, sphereOfInfluenceM, gravitationalParameterM3PerS2}`.
+  `massKg` of a spacecraft is dry + propellant and cannot be set through `PATCH .../bodies/{id}` (409: mass, kind and body type of a spacecraft are refused there; name, colour, position and velocity are editable); `POST .../bodies` cannot create one.
+- `POST .../spacecraft` `{name, colorHex?, radiusM?, dryMassKg, propellantKg, thrustN, ispS, orbit | state}` → 201 `{body, warnings}`.
+  `orbit`: `{centralBodyId, periapsisAltitudeM | semiMajorAxisM, eccentricity, inclinationDeg, raanDeg, argPeriapsisDeg, trueAnomalyDeg, matchPlaneOfBodyId?}`
+  (`matchPlaneOfBodyId` replaces inclination and node by the plane of that body's orbit about the central body);
+  `state`: `{positionM, velocityMPerS, relativeToBodyId?}`. `POST .../spacecraft/orbit-preview` `{orbit}` → `{positionM, velocityMPerS, orbit, warnings}`; creates nothing.
+- `PATCH .../spacecraft/{craftId}` `{dryMassKg?, propellantKg?, thrustN?, ispS?}` → Body.
+- `POST .../spacecraft/{craftId}/maneuvers` `{at: epoch|now|periapsis|apoapsis, epochS?, delayS?, mode: impulsive|finite, frame: vnb|inertial, referenceBodyId?, progradeMPerS?, normalMPerS?, radialMPerS?, deltaVMPerS?, centered?, label?}` → 201 Maneuver.
+  `.../maneuvers/preview` (same body) → the orbit after the burn (two-body about the reference body), propellant and feasibility; changes nothing. `DELETE .../maneuvers/{id}` → 204 (pending nodes only).
+- `POST .../missions` `{name, spacecraftId, destinationBodyId, objective: {type: orbit|flyby, periapsisAltitudeM, apoapsisAltitudeM?, direction: prograde|retrograde, toleranceM?}}` → 201 Mission (`draft`).
+  `POST .../missions/{id}/plan` `{transferTimeS?, burnMode?, earliestDepartureS?}` → Mission with `status` `planned` (a proposal: `committed: false`, nothing scheduled) or `unsupported` (with `reasons`); does not change the simulation.
+  `POST .../missions/{id}/commit` schedules the plan's nodes; `/abort` removes its pending nodes and ends it `failed` ("aborted"); `DELETE` removes it.
+  `GET .../missions/{id}/trajectory` → `{missionId, planRevision, frame, timesS, spacecraftM, originM, destinationM}` (the PLANNED path; the actual path is the recorded history).
+- **SimulationState** (state, step, reset responses): optional `spaceflight: {maneuvers: [Maneuver], missions: [Mission]}` (absent when the universe has no spacecraft, node or mission) and optional `halt: {eventId, reason: "collision", bodyIds, simulationTimeS, relativeSpeedMPerS, refined, message}` (absent unless stopped).
+  Mission `status` ∈ `draft | planned | in_progress | completed | failed | unsupported`; `phase` is a display sentence; `checks` are the evaluated conditions of the ACTUAL state; `agreement` the planned-versus-actual differences at the plan's nodes; `planStale` is true when the universe changed after the plan was made.
+- **Events:** `{type: "maneuver", id, simulationTimeS, bodyIds: [craft], maneuverId, phase: impulse|ignition|cutoff, mode, referenceBodyId, commandedDeltaVMPerS, deliveredDeltaVMPerS, propellantUsedKg, missionId, label}` and
+  `{type: "contact", id: "halt-<n>", simulationTimeS, estimatedContactTimeS, bodyIds, relativeSpeedMPerS, refined, involvesSpacecraft}`. They share the event counter with `merger`/`collision`.
+- **Step:** a step that stops at a contact is committed at the contact time with `warnings: ["collision_stopped"]` and `advancedS` < `dtS`; while `halt` is set, `POST .../step` answers 409 `simulation_halted`. The halt ends on reset, snapshot restore, or removal/edit of one of the two bodies. Steps land exactly on manoeuvre node times internally; `advancedS` is unaffected.
+- **Collision mode:** `collisionMode` on universe summaries; `POST /universes` accepts `collisionMode: "stop-on-contact"` (the only value a client may choose). A contact involving a spacecraft stops the simulation in every mode.
+- **Errors** (`{detail, code}`): 404 `spacecraft_not_found`, `mission_not_found`, `maneuver_not_found`, `body_not_found`; 422 `orbit_invalid`, `maneuver_invalid`, `maneuver_in_past`, `maneuver_overlap`; 409 `simulation_halted`, `no_propulsion`, `burn_in_progress`, `body_limit`, `spacecraft_limit`, `maneuver_limit`, `mission_limit`, `mission_conflict`, `mission_committed`, `mission_over`, `mission_not_planned`, `plan_outdated`. Malformed bodies are ordinary validation 422s.
+- **Limits:** 32 spacecraft, 64 pending nodes, 16 missions per universe; transfer design is cut off after `PG_PLAN_TIME_LIMIT_S` (default 25 s) and never holds the engine lock while computing.

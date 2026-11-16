@@ -39,6 +39,13 @@ synchronisation, regression and scientific validation, performance, preset fidel
 - **Do:** versioned on-disk save/load using the existing `CollisionState` serialisation; a backend-restart test through the real UI path.
 - **Depends on:** #1, #2. **Acceptance:** restart keeps a saved universe bit-identically (same platform) and the UI reconnects without stale lookahead.
 
+## Space Mission Design (pillar 2) — delivered 2026-11-15 on `claude/clever-curie-d7sf4k` (D-070; PR open, not merged)
+Spacecraft as simulation entities, orbits from elements, impulsive and finite burns, planet → moon transfer design, missions judged on
+the simulated state, stop-on-contact. Reference and limits: [SPACE_MISSION_DESIGN.md](SPACE_MISSION_DESIGN.md). Open items, in order:
+1. **Owner decision:** whether `stop-on-contact` becomes the default collision mode of every universe (D-070).
+2. Mission design inside the full Solar System presets through the UI (works by script; not yet covered by a browser test).
+3. More transfer geometries (interplanetary, return leg, plane change), each with its own validation; J2 and drag as optional models.
+
 ## Then (in order)
 Performance (bundle splitting, >64-body frame pacing, 200+-body step latency under load); long-horizon integrator accuracy and energy-drift study;
 visual regression for the WebGL scene; preset fidelity (more moons, sourced materials); only then new features (tidal deformation, new presets).

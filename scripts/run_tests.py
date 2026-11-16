@@ -5,7 +5,7 @@ Runs, in this order, and stops at the first failure (exit status 1):
 
   required:  environment check -> backend pytest -> frontend typecheck -> vitest -> production build
              -> Playwright E2E (stubbed API) -> "no tracked file was modified by the run"
-  extended (only with --extended): the two real-backend browser journeys (collision, Experiment 01)
+  extended (only with --extended): the three real-backend browser journeys (collision, mission design, Experiment 01)
 
 Nothing is skipped silently: a stage that cannot start (missing interpreter version, packages that differ from
 backend/constraints.txt, missing node_modules, missing browser) FAILS with the command that fixes it. The summary lists every
@@ -170,6 +170,7 @@ def build_stages(args) -> list:
     ]
     if args.extended:
         stages += [Stage("browser: real-backend collision journey", "e2e", _cmd([npm, "run", "e2e:collision"], FRONTEND, env)),
+                   Stage("browser: real-backend mission design journey", "e2e", _cmd([npm, "run", "e2e:mission"], FRONTEND, env)),
                    Stage("browser: Experiment 01 journey", "e2e", _cmd([npm, "run", "e2e"], FRONTEND, env))]
     stages.append(Stage("no tracked file modified by the run", "setup", _tracked_clean_stage(before)))
     if args.only:
@@ -181,7 +182,7 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--install", action="store_true", help="install pinned backend and frontend dependencies first")
     ap.add_argument("--only", choices=["backend", "frontend", "e2e"], help="run one group (setup checks always run)")
-    ap.add_argument("--extended", action="store_true", help="also run the two real-backend browser journeys")
+    ap.add_argument("--extended", action="store_true", help="also run the three real-backend browser journeys")
     ap.add_argument("--list", action="store_true", help="print the stages and exit")
     args = ap.parse_args(argv)
     stages = build_stages(args)

@@ -595,3 +595,45 @@ Entry format: Date · Decision · Context/reason · Alternatives · Consequences
   pins the contract type, so the amendment is visible). Decision needed: approve that input-shape change (or another) under CP-3.
 - Scientific gaps unchanged and NOT addressed (no sourced model or constants): cratering/ejecta, propagation, iron/ice LS12 targets,
   projectile erosion, fragment rotation/composition, cross-platform replay tolerance, CP-SCI-1/CP-5. Science remains PROVISIONAL (D-059).
+
+## D-070 — Space Mission Design: spacecraft are particles of the universe's own simulation; stop-on-contact (2026-11-15)
+
+Context: second product pillar (Space Mission Design), built on `checkpoint/collision-engine-repair-2026-10-28` (`75abe67`). Reference:
+`docs/SPACE_MISSION_DESIGN.md`.
+
+- **One simulation.** A spacecraft is a REBOUND particle (`craft-<12 hex>`, `kind`/`bodyType` `spacecraft`) of the universe's
+  `SimulationService`, integrated by IAS15 with everything else. Rejected: a separate propagator for spacecraft (two sources of truth,
+  no interaction with step/reset/snapshot/history, and "planned" and "actual" could never be honestly compared).
+- **Side table, not particle fields.** Propellant, engine, manoeuvre nodes, missions and the halt live in one `SpaceflightBook` of
+  immutable records per universe, copied wherever the engine copies its other side tables (step capture, mutation checkpoint,
+  snapshot, reset, digest). `SimulationService` gains them through `SpaceflightMixin` (`backend/spaceflight/engine.py`) so
+  `simulation.py` grows by hooks only. `backend/spaceflight/` does not import `backend/impact/`.
+- **Burns.** Impulsive: velocity jump + rocket-equation mass at an exact integration target. Finite: REBOUND `additional_forces` with
+  the analytic mass `m0 − ṁ(t − t0)` at IAS15 sub-step times; ignition and cut-off are integration targets. Rejected: fixed
+  sub-stepping of a burn (step-size dependent) and integrating mass as an extra variable (not needed for constant thrust).
+- **IAS15 step criterion.** A universe holding a spacecraft uses PRS23 (as universes with moons already do, D-030): the default global
+  criterion needs ~1e6 steps per simulated day with a low-orbit craft next to slow bodies (measured).
+- **Planner.** Patched conics give only the first guess (and are labelled an estimate); the plan is found by shooting on a private copy
+  of the universe's REBOUND simulation (1-D root find on the signed periapsis radius against departure time). Supported geometry is
+  deliberately narrow (planet parking orbit → that planet's moon); everything else returns `unsupported` with the reason. Rejected:
+  presenting a patched-conic or Lambert solution as the trajectory (it misses the Moon by thousands of km in the N-body simulation).
+- **Missions are judged on the actual state** after every committed step (bound orbit, clear of the surface, apsides within tolerance,
+  inside the SOI, sustained for one revolution). Plan-versus-simulation agreement is measured at each node against explicit tolerances
+  (1 km, 1 m/s) and reported.
+- **Collision policy of this phase: stop, report, keep a consistent state.** New collision mode `stop-on-contact` (third value of
+  `CollisionMode`); any contact that involves a spacecraft stops the simulation **in every mode**. The system is put back to first
+  contact with the existing `refine_contact`; a `contact` event and `halt` are published; steps are refused (409 `simulation_halted`)
+  until reset, snapshot restore, or removal/edit of one of the pair. No collision physics was added or repaired; the outcome engine is
+  untouched apart from the mode name.
+- **OWNER DECISION NEEDED: default collision mode of existing universes.** Left unchanged on purpose: sandbox `outcome-v1`, existing
+  presets and Orbit Lab `legacy-merge` (D-045, D-060, D-067 and their tests pin this, and the task forbids weakening existing tests).
+  `stop-on-contact` is used by the new `earth-moon-j2000` preset and by universes created with `collisionMode: "stop-on-contact"`.
+  Making it the default everywhere is a change of `SANDBOX_CONFIG`/the preset default plus deliberate updates of the tests that pin
+  merges and outcomes.
+- **Orbit reference plane** is the simulation's x-y plane (ecliptic in the presets); bodies have no spin axis, so planet-equatorial
+  inclinations are not available. Stated in the UI and the docs.
+- **Frontend.** No integrator in the browser (unchanged rule): conics are drawn from backend elements, flown paths from recorded
+  positions, the planned path from the planner's samples; all body-relative. One new canvas prop (`spaceflight`), visible in
+  `canvasBoundary.test.ts` (CP-3 amendment, additive).
+- Verification and measured tolerances: `docs/SPACE_MISSION_DESIGN.md` §7; `tests/spaceflight/`,
+  `tests/validation/test_spaceflight_validation.py`, `frontend/e2e/mission.real-backend.e2e.mjs`.
