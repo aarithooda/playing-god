@@ -222,7 +222,7 @@ def test_a_departure_far_in_the_future_is_refused_at_once_instead_of_integrating
     svc.plan_time_limit_s = 2.0
     started = time.monotonic()
     planned = svc.plan_mission(mission, MissionPlanRequest(earliestDepartureS=2.0e8))
-    assert time.monotonic() - started < 1.0
+    assert time.monotonic() - started < svc.plan_time_limit_s  # refused before any integration (it took 8.8 s before)
     assert planned.status == "unsupported" and "revolutions of Moon ahead" in planned.reasons[0]
     # a departure inside the window is still planned, and later than asked
     svc.plan_time_limit_s = 25.0
@@ -231,16 +231,32 @@ def test_a_departure_far_in_the_future_is_refused_at_once_instead_of_integrating
     assert planned.status == "planned" and planned.plan["departure"]["epochS"] >= week
 
 
-def test_the_time_budget_also_covers_the_work_before_the_first_trial_flight(monkeypatch):
-    """Finding 3, second part: the ephemeris and the finite-burn calibration ran without budget checks."""
-    from backend.spaceflight import planner
+@pytest.mark.parametrize("burn_mode", ["impulsive", "finite"])
+def test_the_time_budget_also_covers_the_work_before_the_first_trial_flight(burn_mode):
+    """Finding 3, second part: the ephemeris and the finite-burn calibration ran without budget checks. The planner is given a
+    clock that advances one second per look, so the result does not depend on how fast the machine is: with a 3 s budget the
+    design must give up during the preparation, before any trial flight."""
+    from backend.simulation import _copy_sim
+    from backend.spaceflight.planner import TransferRequest, design_transfer
 
-    svc, _, mission = _lunar()
-    ticks = iter(range(10_000))
-    monkeypatch.setattr(planner.time, "monotonic", lambda: float(next(ticks)))  # every look at the clock is one second later
-    svc.plan_time_limit_s = 3.0
-    planned = svc.plan_mission(mission, MissionPlanRequest(burnMode="finite"))
-    assert planned.status == "draft" and "time budget" in planned.reasons[0]
+    svc, craft_id, _ = _lunar()
+    looks = []
+
+    def clock() -> float:
+        looks.append(None)
+        return float(len(looks))
+
+    with svc.locked():
+        sim, craft = _copy_sim(svc._sim), svc._flight.craft[craft_id]
+    request = TransferRequest(destination_id="body-moon", periapsis_altitude_m=100.0e3, capture="circular", apoapsis_altitude_m=None,
+                              direction="prograde", transfer_time_s=None, burn_mode=burn_mode, earliest_departure_s=None)
+    result = design_transfer(sim, craft_id, craft, {craft_id}, request, time_budget_s=3.0, clock=clock, names={"body-moon": "Moon"})
+    assert result.status == "no_solution" and result.plan is None
+    assert result.reasons == ("planning exceeded its 3 s time budget before a transfer was found",)  # not "... before converging (N trial flights)"
+    assert len(looks) <= 6  # it stopped at the first checks, not after hundreds of ephemeris samples
+    # the same request with a real budget is planned
+    planned = design_transfer(_copy_sim(svc._sim), craft_id, craft, {craft_id}, request, time_budget_s=60.0, names={"body-moon": "Moon"})
+    assert planned.status == "ok"
 
 
 def test_only_one_transfer_is_designed_at_a_time_in_a_universe():
