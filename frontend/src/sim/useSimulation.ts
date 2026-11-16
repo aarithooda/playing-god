@@ -362,6 +362,7 @@ export function useSimulation(client: SimulationClient, options: SimulationOptio
     let failed = false;
     let fetching = false;
     let started = false;
+    let halted = false;
     const buffer: FetchedStep[] = [];
     let timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -379,17 +380,26 @@ export function useSimulation(client: SimulationClient, options: SimulationOptio
       if (cancelled || pausedRef.current) return;
       const next = buffer.shift();
       if (next) showStep(next);
+      if (next?.view.halt) {
+        // The backend stopped the simulation at a contact during this step: there is nothing further to play. Stop here, with the
+        // state of the contact on screen; the halt itself is shown by the workspace from `sim.halt`.
+        pausedRef.current = true;
+        motion.hold(performance.now());
+        setPlaying(false);
+        return;
+      }
       timer = setTimeout(consume, tickMs);
       void fill();
     };
     const fill = async () => {
-      if (cancelled || pausedRef.current || failed || fetching || buffer.length >= LOOKAHEAD_STEPS || stepPending.current) return;
+      if (cancelled || pausedRef.current || failed || halted || fetching || buffer.length >= LOOKAHEAD_STEPS || stepPending.current) return;
       fetching = true;
       stepPending.current = true;
       if (mounted.current) setStepping(true);
       try {
         const step = await fetchStep();
         buffer.push(step);
+        if (step.view.halt) halted = true; // a halted universe refuses further steps: do not ask for them
         if (cancelled || pausedRef.current) flush(); // paused while this step was in flight: its result is still the backend's truth (held, not played)
       } catch (e) {
         failed = true;
@@ -503,6 +513,24 @@ export function useSimulation(client: SimulationClient, options: SimulationOptio
     [act, client, refreshState],
   );
 
+  /**
+   * Any other write of this universe (the spaceflight routes): queued like the body edits, followed by a re-read of the state and the
+   * events, so what is shown afterwards is what the backend holds. `layout`: the set of bodies changed (refit the view).
+   */
+  const mutate = useCallback(
+    (task: () => Promise<void>, options: { layout?: boolean } = {}): Promise<ActionResult> =>
+      act(async () => {
+        await task();
+        await refreshState();
+        const evs = await client.getEvents();
+        if (mounted.current) {
+          setEvents((prev) => mergeEvents(prev, evs.map(toEventView)));
+          if (options.layout) setLayoutEpoch((n) => n + 1);
+        }
+      }),
+    [act, client, refreshState],
+  );
+
   const bodyName = useCallback((id: string) => names.current.get(id) ?? id, []);
   const dismissError = useCallback(() => setActionError(null), []);
 
@@ -531,6 +559,7 @@ export function useSimulation(client: SimulationClient, options: SimulationOptio
     createBody,
     updateBody,
     deleteBody,
+    mutate,
     reload: load,
     bodyName,
     dismissError,

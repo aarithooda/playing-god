@@ -94,3 +94,46 @@ export interface TrajectoryInput {
   /** Ascending in time. */
   samples: readonly PositionSample[];
 }
+
+/** A position relative to a body, in simulation metres (x, y, z in the simulation's axes). */
+export type RelativePoint = readonly [number, number, number];
+
+/**
+ * Space Mission Design (D-070): what the canvas draws for spacecraft beyond their markers. Display only: every point was supplied
+ * by the backend (the elements of the present state, the recorded history, the planner's prediction) and is only re-expressed
+ * relative to a body, so an orbit about a moving body reads as an orbit. The canvas reports nothing back.
+ */
+export interface SpaceflightSceneInput {
+  craft: readonly SpacecraftPathInput[];
+  /** Planned trajectories of missions: predictions, always drawn dashed so they cannot be mistaken for a flown path. */
+  plans: readonly PlannedTrajectoryInput[];
+}
+
+export interface SpacecraftPathInput {
+  bodyId: string;
+  colorHex: string;
+  /** The body the lines are drawn around (the spacecraft's reference body). */
+  frameBodyId: string;
+  /** The osculating conic about the frame body (an instantaneous two-body description of the present state). Empty: none. */
+  orbit: readonly RelativePoint[];
+  /** The recorded (actual) path, in pieces that must not be joined. Each piece is relative to its own frame body: the leg flown
+   *  about one body and the leg flown inside another's sphere of influence are each drawn about the body they belong to. */
+  recorded: readonly { frameBodyId: string; points: readonly RelativePoint[] }[];
+}
+
+export interface PlannedTrajectoryInput {
+  /** `${missionId}:${planRevision}`. */
+  key: string;
+  originBodyId: string;
+  destinationBodyId: string;
+  /** The planned path about the origin body up to the arrival, and about the destination from its approach on. */
+  aboutOrigin: readonly RelativePoint[];
+  aboutDestination: readonly RelativePoint[];
+  /** Where the destination will be at the arrival, relative to the origin body. */
+  destinationAtArrival: RelativePoint | null;
+  destinationName: string;
+  /** Planned burns: where they happen (relative to `frameBodyId`) and what they are called. */
+  nodes: readonly { label: string; frameBodyId: string; position: RelativePoint }[];
+  /** The plan's nodes are scheduled in the simulation (otherwise it is only a proposal). */
+  committed: boolean;
+}

@@ -5,7 +5,7 @@ running commands in this session; where something was **not** run or **not** ver
 `context/STATUS.md`, `context/HANDOFF.md` and `context/INTEGRATION_BRANCH.md` are historical logs: where they disagree with this file,
 this file wins (it is newer and was checked against the code).
 
-The detailed architecture is in [ARCHITECTURE.md](ARCHITECTURE.md), priorities in [ROADMAP.md](ROADMAP.md), decisions (D-001 .. D-069) in
+The detailed architecture is in [ARCHITECTURE.md](ARCHITECTURE.md), priorities in [ROADMAP.md](ROADMAP.md), decisions (D-001 .. D-070) in
 [`context/DECISIONS.md`](../context/DECISIONS.md) (kept there; it is the canonical decision history, not duplicated under `docs/`).
 
 ## 1. Repository state
@@ -240,3 +240,90 @@ cd frontend && npm ci && npm run dev              # terminal 2, open http://loca
 ```
 Checks: `python -m pytest -q`; in `frontend/`: `npx vitest run`, `npx tsc --noEmit`, `npm run build`, `npm run test:e2e`,
 `npm run e2e:collision`.
+
+## 15. Space Mission Design milestone (2026-11-15, revised 2026-11-16)
+
+Branch `claude/clever-curie-d7sf4k`, built on the checkpoint of §14 (`75abe67`); pull request #27 open against
+`checkpoint/collision-engine-repair-2026-10-28` (retargeted from `main` on 2026-11-16 so that it holds the mission-design work
+only), **not merged**. Decisions D-070 and D-071; reference [SPACE_MISSION_DESIGN.md](SPACE_MISSION_DESIGN.md) (usage,
+architecture, physics, validation, limits).
+
+What it contains: spacecraft as particles of the universe's own REBOUND simulation with their own kind, data and UI; orbits from
+classical elements about any body; impulsive and finite burns with propellant accounting; a transfer planner (patched-conic first
+guess, N-body shooting) for planet → moon missions; missions judged on the simulated state; the `earth-moon-j2000` preset; the
+Missions tool, spacecraft inspector and scene layer.
+
+**Collision policy (owner decision D-071, 2026-11-16).** Every universe stops at the instant of first contact, reports it and
+keeps one consistent state: sandbox, presets, Orbit Lab, everything. Nothing merges or fragments; no debris or aftermath. The merge
+resolver and the collision-outcome engine of §14 are dormant: kept in the tree and tested (marker `dormant_collisions`), but not
+reachable from any route, preset or Orbit Lab run.
+
+**Integrator stall (fixed, D-071).** Universes with a spacecraft or moons use IAS15's PRS23 step criterion, whose step collapses
+without bound where a body's acceleration passes through zero (exactly collinear configurations). A guard now hands a collapsed
+step to the GLOBAL criterion for a few steps. Root cause, fix, evidence: SPACE_MISSION_DESIGN.md §5.8,
+`tests/spaceflight/test_step_collapse.py`.
+
+Verification of the final code (Linux container, Python 3.11.18, Node 22.23.4 — the project pins Node 20, which CI uses —
+Chromium headless with software WebGL). The backend count below is the same number CI reports for the same commit:
+
+| Check | Result |
+|---|---|
+| Backend `python -m pytest` | **1724 passed, 2 xfailed**, 0 failed (3 min 59 s) |
+| `tsc --noEmit` | clean |
+| Vitest | **762 passed** (76 files) |
+| `npm run build` | OK (the existing >500 kB chunk warning) |
+| Playwright, stubbed API (`npm run test:e2e`) | **20 passed** (the 17 existing + 3 in `e2e/mission-design.spec.ts`) |
+| Real-backend mission journey (`npm run e2e:mission`) | **ALL PASSED** (9 stages covering the 10-step journey and the collision stop) |
+| Real-backend collision journey (`npm run e2e:collision`) | **ALL PASSED** (10 stages; rewritten for stop-on-contact) |
+| Experiment 01 journey (`npm run e2e`) | not run (the pre-existing failure of §13; no file of this milestone touches Orbit Lab's reference path) |
+
+Backend test inventory (1726 collected): baseline on `75abe67` 1453 (1451 passed, 2 xfailed); this milestone adds 273. Of the
+total, 249 are `tests/spaceflight/` and `tests/validation/test_spaceflight_validation.py` (mission design, the review fixes, the
+step collapse), 17 are `tests/test_collision_policy.py` (the active collision path), and 67 cases in 15 older files carry the
+marker `dormant_collisions`. Frontend: baseline 699 Vitest and 17 Playwright; now 762 and 20.
+
+An earlier revision of this section and of the pull request said "1690 passed" while CI reported 1691: the local figure had been
+recorded before one test was split into two parametrised cases. Both figures are superseded by the table above, which was taken
+from the final code.
+
+Existing tests changed, and why:
+- D-070, additive: `frontend/src/components/canvas/canvasBoundary.test.ts` (the pinned canvas prop list gains `spaceflight`),
+  `frontend/src/components/ui/ToolDrawer.test.tsx` (the fixture gains the `missions` tool).
+- D-071, the policy change the owner asked for:
+  - marked `dormant_collisions`, assertions unchanged (55 functions, 67 cases): the tests that pin merging or collision outcomes
+    through a default engine, in `tests/test_simulation_service.py`, `test_stress_p003.py`, `test_diagnostics_service.py`,
+    `test_events_endpoint.py`, `test_body_render_metadata.py`, `test_history.py`, `test_step_guard.py`, `test_stall_resilience.py`,
+    `validation/test_independent_physics.py` and six files of `tests/impact/`;
+  - rewritten to pin the policy: `tests/impact/test_mode_defaults.py` (whole file), two tests of `tests/impact/test_contracts.py`,
+    one each of `tests/test_snapshots.py`, `tests/test_api_simulation.py`, `tests/smoke/test_live_server.py`, two spaceflight tests;
+  - `tests/test_step_guard.py::test_watchdog_stops_a_genuinely_stalled_engine_and_rolls_back` switches the new guard off, because the
+    guard cures the stall that test needs in order to exercise the watchdog;
+  - frontend: `DiagnosticsPanel.test.tsx` (two notes that described mergers), the real-backend collision journey (rewritten).
+  No test was deleted or skipped.
+
+Independent review (before the PR was opened): a separate pass over the backend diff reported 15 findings (9 reproduced). 13 fixed,
+1 reduced, each with a regression test (`tests/spaceflight/test_review_fixes.py`); the fifteenth, the PRS23 step collapse, was
+fixed afterwards (above). Details: SPACE_MISSION_DESIGN.md §8a.
+
+Honest classification:
+- **Implemented and verified:** spacecraft entities; orbit initialisation; impulsive and finite manoeuvres; the mission workflow; the
+  Earth → Moon transfer and insertion in the Earth-Moon preset (backend tests, independent references, and a browser journey on the
+  real backend); planned/actual trajectory display; stop-on-contact for every pair of bodies in every universe (closed-form contact
+  times, API, and a browser journey on the real backend); the step-collapse guard (plain-REBOUND reproduction, application test,
+  agreement with the reference criterion to round-off).
+- **Implemented, partially verified:** mission design inside the 21-body Solar System preset (completes when driven by a script;
+  no automated test and not driven through the UI); visual quality was checked on headless software WebGL screenshots only, not on a
+  GPU or by eye on a real display; the guard's threshold rests on a physical bound and on the existing suites staying bit-identical,
+  not on a proof that no healthy system can ever step below it.
+- **Not implemented:** every transfer geometry other than planet parking orbit → that planet's moon; plane changes; mid-course
+  corrections; atmosphere, J2 and other perturbations; landing; rendezvous (list in SPACE_MISSION_DESIGN.md §9). Any collision
+  outcome: by decision, a collision only stops the simulation.
+- **Dormant, kept:** the merge resolver, the collision-outcome engine (`backend/impact/`, 4,300 lines, 858 tests) and the collision
+  inspector and effects of the frontend. Owner decision open: delete or keep.
+
+Known pre-existing issue, not caused by this work and now confined to dormant code: `tests/impact/test_product_materials.py::
+test_a_parcel_hitting_a_same_material_spinning_body_keeps_the_bodys_material_and_spin_and_links_the_event` fails intermittently
+(4 of 16 runs on the untouched `75abe67`, 2 of 16 on this branch; it failed one CI run of this PR). Cause: body ids are random and
+seed the debris realisation; in about one run in ten the targeted parcel meets another fragment first, and the test requires the
+parcel to take part in exactly one event. A one-line fix is proposed in a comment on the PR; it is not applied (it changes an
+existing collision-engine test).

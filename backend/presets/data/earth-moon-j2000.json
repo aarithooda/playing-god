@@ -1,0 +1,159 @@
+{
+ "id": "earth-moon-j2000",
+ "name": "Earth and Moon: mission design (J2000.0)",
+ "dataVersion": "1",
+ "description": "Earth and the Moon as point masses about their common barycentre (no Sun), initial states from JPL Horizons at J2000.0. A mission-design sandbox: add a spacecraft, plan a transfer to the Moon and fly it. Contacts stop the simulation.",
+ "epoch": {
+  "label": "J2000.0",
+  "jdTdb": 2451545.0,
+  "iso": "2000-01-01T12:00:00 TDB"
+ },
+ "frame": "Ecliptic and mean equinox of J2000.0 (Horizons REF_PLANE=ECLIPTIC, REF_SYSTEM=ICRF); right-handed; the x-y plane is the ecliptic",
+ "origin": "Barycentre of Earth and the Moon (zero total momentum), shifted from the Solar System Barycenter",
+ "units": "SI: m, kg, s, m/s",
+ "gSI": 6.6743e-11,
+ "gSource": "CODATA 2018 (JPL SSD Astrodynamic Parameters); the engine's fixed value",
+ "collisionMode": "stop-on-contact",
+ "history": {
+  "mode": "grid",
+  "sampleIntervalS": 180.0
+ },
+ "validationEpochs": [],
+ "bodies": [
+  {
+   "id": "body-earth",
+   "name": "Earth",
+   "kind": "planet",
+   "bodyType": "rocky-planet",
+   "assetKey": "earth",
+   "primaryId": null,
+   "colorHex": "#3b82f6",
+   "colorNote": "display only",
+   "horizonsTarget": "399",
+   "gm": {
+    "valueM3PerS2": 398600435507000.0,
+    "sourceValue": "398600.435507 km^3/s^2",
+    "basis": "measured",
+    "source": "JPL SSD Astrodynamic Parameters, DE440 (Park et al. 2021, AJ 161:105)"
+   },
+   "radius": {
+    "valueM": 6371008.399999999,
+    "sourceValue": "6371.0084 km",
+    "basis": "measured",
+    "source": "JPL SSD Planetary Physical Parameters, mean radius (Archinal et al. 2018)"
+   },
+   "state": {
+    "jdTdb": 2451545.0,
+    "sourceFile": "399_2451545.0.txt",
+    "sourceSha256": "2f4fcb326daa61e06b5347a24d77a8d0cd9091829a571b277ebbcdedfa95d36a",
+    "sourceLine": "Target body name: Earth (399)                     {source: DE441}",
+    "positionM": [
+     -27566740482.81145,
+     144279021520.7299,
+     30250667.8288132
+    ],
+    "velocityMPerS": [
+     -29784.947498510883,
+     -5482.119695478543,
+     0.01843295986780902
+    ],
+    "basis": "measured",
+    "note": "Horizons geometric state relative to the Solar System Barycenter, km -> m by x1000, before the barycentre shift"
+   }
+  },
+  {
+   "id": "body-moon",
+   "name": "Moon",
+   "kind": "planet",
+   "bodyType": "moon",
+   "assetKey": "moon",
+   "primaryId": "body-earth",
+   "colorHex": "#9ca3af",
+   "colorNote": "display only",
+   "horizonsTarget": "301",
+   "gm": {
+    "valueM3PerS2": 4902800118000.0,
+    "sourceValue": "4902.800118 km^3/s^2",
+    "basis": "measured",
+    "source": "JPL SSD Astrodynamic Parameters, DE440 (Park et al. 2021, AJ 161:105)"
+   },
+   "radius": {
+    "valueM": 1737400.0,
+    "sourceValue": "1737.4 km",
+    "basis": "measured",
+    "source": "JPL SSD planetary satellite physical parameters, mean radius"
+   },
+   "state": {
+    "jdTdb": 2451545.0,
+    "sourceFile": "301_2451545.0.txt",
+    "sourceSha256": "42e74b43180632a045784b3e57b6e066d5d10f0ddbf87eba108ed98d1cc9be9c",
+    "sourceLine": "Target body name: Moon (301)                      {source: DE441}",
+    "positionM": [
+     -27858348866.99916,
+     144004041779.0567,
+     66521864.45580423
+    ],
+    "velocityMPerS": [
+     -29141.41610952193,
+     -6213.103678165645,
+     -11.48803177931867
+    ],
+    "basis": "measured",
+    "note": "Horizons geometric state relative to the Solar System Barycenter, km -> m by x1000, before the barycentre shift"
+   }
+  }
+ ],
+ "omitted": [
+  "the Sun and every other body: the solar tide on the Earth-Moon system and on a translunar trajectory is absent (its size is measured in tests/validation/test_spaceflight_validation.py)",
+  "planetary oblateness (J2) and tides",
+  "general relativity",
+  "atmospheric drag",
+  "solar radiation pressure",
+  "lunar mass concentrations"
+ ],
+ "assumptions": [
+  "Newtonian point-mass gravity",
+  "positions are DE441 vectors, masses are DE440 GM",
+  "m = GM / G, so the source GM is reproduced exactly",
+  "Earth and Moon states come from Horizons (CENTER=500@0) at the same epoch; removing the barycentre motion leaves their relative state unchanged"
+ ],
+ "limitations": [
+  "without the Sun the Moon's orbit is a two-body ellipse: its real evection and variation (solar perturbations of the lunar orbit) are absent, so the Moon's position departs from the ephemeris within days",
+  "a spacecraft here feels Earth and Moon only: a plan made in this universe is not a prediction for the real Earth-Moon system",
+  "history is recorded every 180 s; recording stops when the per-universe cap is reached (about 139 days with three bodies)"
+ ],
+ "retrieved": {
+  "utc": "2026-10-24T14:22:02Z",
+  "api": "https://ssd.jpl.nasa.gov/api/horizons.api"
+ },
+ "sources": [
+  {
+   "citation": "JPL Horizons System, vector ephemerides",
+   "url": "https://ssd-api.jpl.nasa.gov/doc/horizons.html"
+  },
+  {
+   "citation": "JPL SSD Astrodynamic Parameters (GM, au, G)",
+   "url": "https://ssd.jpl.nasa.gov/astro_par.html"
+  },
+  {
+   "citation": "Park et al. 2021, AJ 161:105 (DE440/DE441)",
+   "url": "https://ssd.jpl.nasa.gov/doc/Park.2021.AJ.DE440.pdf"
+  },
+  {
+   "citation": "JPL SSD Planetary Physical Parameters",
+   "url": "https://ssd.jpl.nasa.gov/planets/phys_par.html"
+  },
+  {
+   "citation": "IAU 2015 Resolution B3 (Mamajek et al.)",
+   "url": "https://arxiv.org/abs/1510.07674"
+  },
+  {
+   "citation": "JPL Horizons object data pages for the satellites (GM, mean radius), and JPL SSD planetary satellite physical parameters",
+   "url": "https://ssd.jpl.nasa.gov/sats/phys_par/"
+  },
+  {
+   "citation": "JPL SSD Planetary Satellite Mean Elements",
+   "url": "https://ssd.jpl.nasa.gov/sats/elem/sep.html"
+  }
+ ]
+}

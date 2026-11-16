@@ -30,6 +30,7 @@ class UniverseSummary(BaseModel):
     createdAtIso: str
     epochLabel: str | None
     historyMode: Literal["grid", "step"]
+    collisionMode: Literal["legacy-merge", "outcome-v1", "stop-on-contact"] = "legacy-merge"  # what a contact of two bodies does here
 
 
 class UniverseList(BaseModel):
@@ -55,6 +56,8 @@ class CreateUniverseRequest(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=64)
     source: Annotated[EmptySource | PresetSource, Field(discriminator="kind")]
     activate: bool = False
+    # Only for an empty universe: "stop-on-contact" makes every contact stop the simulation (the default stays the sandbox mode).
+    collisionMode: Literal["stop-on-contact"] | None = None
 
 
 class PreviousUniverse(BaseModel):

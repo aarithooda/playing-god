@@ -102,6 +102,7 @@ def call_with_timeout(fn, timeout=5.0):
 
 
 # ---------- the incident state ----------
+@pytest.mark.dormant_collisions
 def test_incident_state_completes_instead_of_stalling(monkeypatch):
     """The recovered state hung forever on the pre-D-011 code (verified out of tree). With the GLOBAL criterion the
     same step completes, and the symmetric double collision resolves as two mergers conserving mass."""

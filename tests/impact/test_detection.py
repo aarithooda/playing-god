@@ -181,6 +181,7 @@ def assert_same_physical_event(a, b, tolerance_s):
     assert a.relativeSpeedMPerS == pytest.approx(b.relativeSpeedMPerS, rel=1e-3)
 
 
+@pytest.mark.dormant_collisions
 @pytest.mark.parametrize("factory", [deferred, SimulationService], ids=["outcome-v1", "legacy-merge"])
 def test_pause_and_resume_do_not_change_the_event(factory):
     """Detection happens only inside `step`: a pause is no step, a resume is the next step. Two halves = one whole, within
@@ -194,6 +195,7 @@ def test_pause_and_resume_do_not_change_the_event(factory):
     assert halves.snapshot() == state and len(halves.events()) == 1
 
 
+@pytest.mark.dormant_collisions
 @pytest.mark.parametrize("factory", [deferred, SimulationService], ids=["outcome-v1", "legacy-merge"])
 def test_time_scale_does_not_change_the_event(factory):
     """The same total time as 2 requests of 1e5 s or 2000 of 1e2 s (a far, slow approach): same event within tolerance."""

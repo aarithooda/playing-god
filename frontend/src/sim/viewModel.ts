@@ -1,6 +1,6 @@
 // DTO -> view model mapping. Physical quantities keep their SI names and values; the view model only
 // adds derived read-only values (speed). Scene (render) values are produced separately by toSceneBody.
-import type { BodyDto, BodyKind, BodyType, DiagnosticsDto, SimulationEventDto, SimulationStateDto, SimulationStatus, Vec3 } from "../api/types";
+import type { BodyDto, BodyKind, BodyType, DiagnosticsDto, HaltDto, ManeuverDto, MissionDto, SimulationEventDto, SimulationStateDto, SimulationStatus, SpacecraftDto, Vec3 } from "../api/types";
 import {
   DEFAULT_SIZE_MODE,
   SIZE_LAWS,
@@ -30,6 +30,8 @@ export interface BodyView {
   speedMPerS: number;
   /** Unit quaternion (w, x, y, z) of the body's orientation, only when the backend supplied one (a body with a rotation state). */
   orientation?: readonly [number, number, number, number];
+  /** Present only for kind "spacecraft": propulsion and the osculating orbit, exactly as the backend reported them. */
+  spacecraft?: SpacecraftDto;
 }
 
 export interface SimulationView {
@@ -42,6 +44,11 @@ export interface SimulationView {
   diagnosticsIssue: string | null;
   /** Commit counter of the universe this state belongs to (universe-scoped responses only). */
   revision?: number;
+  /** Manoeuvre nodes and missions of the universe (empty arrays when it has none). */
+  maneuvers: ManeuverDto[];
+  missions: MissionDto[];
+  /** Set while the simulation is stopped at a contact. */
+  halt: HaltDto | null;
 }
 
 export interface SceneBody {
@@ -70,6 +77,8 @@ export interface SceneBody {
   moonRoom?: number;
   /** Orientation (w, x, y, z) in the simulation frame; absent = the body is drawn exactly as before (D-053). */
   orientation?: readonly [number, number, number, number];
+  /** A spacecraft whose engine is burning (backend state); drawn on its marker. */
+  thrusting?: boolean;
 }
 
 /**
@@ -99,6 +108,7 @@ export function toBodyView(dto: BodyDto): BodyView {
     ...(dto.orientation === undefined || dto.orientation.quaternion.length !== 4
       ? {}
       : { orientation: [dto.orientation.quaternion[0]!, dto.orientation.quaternion[1]!, dto.orientation.quaternion[2]!, dto.orientation.quaternion[3]!] as const }),
+    ...(dto.spacecraft === undefined ? {} : { spacecraft: dto.spacecraft }),
     speedMPerS: Math.hypot(v.x, v.y, v.z),
   };
 }
@@ -111,12 +121,15 @@ export function toSimulationView(dto: SimulationStateDto): SimulationView {
     diagnostics: dto.diagnostics,
     diagnosticsIssue: dto.diagnosticsIssue,
     ...(dto.revision !== undefined ? { revision: dto.revision } : {}),
+    maneuvers: dto.spaceflight?.maneuvers ?? [],
+    missions: dto.spaceflight?.missions ?? [],
+    halt: dto.halt ?? null,
   };
 }
 
 /** What the scene needs of a body: a live BodyView and a recorded history frame both provide it. */
 export type DisplayBody = Pick<BodyView, "id" | "name" | "colorHex" | "kind" | "positionM" | "radiusM"> &
-  Partial<Pick<BodyView, "bodyType" | "assetKey" | "primaryId" | "orientation" | "massKg">>;
+  Partial<Pick<BodyView, "bodyType" | "assetKey" | "primaryId" | "orientation" | "massKg" | "spacecraft">>;
 
 export function toSceneBody(body: DisplayBody, t: RenderTransform, sizeMode: SizeMode = DEFAULT_SIZE_MODE): SceneBody {
   const law = SIZE_LAWS[sizeMode];
@@ -129,6 +142,7 @@ export function toSceneBody(body: DisplayBody, t: RenderTransform, sizeMode: Siz
     ...(body.assetKey === undefined ? {} : { assetKey: body.assetKey }),
     ...(body.primaryId === undefined ? {} : { primaryId: body.primaryId }),
     ...(body.orientation === undefined ? {} : { orientation: body.orientation }),
+    ...(body.spacecraft?.thrusting ? { thrusting: true } : {}),
     position: toScenePosition(body.positionM, t),
     radius: physicalRadiusUnits(body.radiusM, t),
     // Keep star visibility separate from the planet radius curve: the solar disc must fit inside
@@ -178,14 +192,47 @@ export interface CollisionEventView {
   fidelitySummary: Record<string, string>;
 }
 
-export type EventView = MergerEventView | CollisionEventView;
+/** A burn of a spacecraft (an impulse, or the ignition / cutoff of a finite burn). */
+export interface ManeuverEventView {
+  id: string;
+  type: "maneuver";
+  simulationTimeS: number;
+  bodyIds: string[];
+  maneuverId: string;
+  phase: "impulse" | "ignition" | "cutoff";
+  mode: "impulsive" | "finite";
+  referenceBodyId: string | null;
+  commandedDeltaVMPerS: number;
+  deliveredDeltaVMPerS: number;
+  propellantUsedKg: number;
+  missionId: string | null;
+  label: string;
+}
 
-/** The body to highlight for an event, if any: a merger's survivor, a collision's first surviving or created body. */
+/** Two bodies touched and the simulation stopped there. */
+export interface ContactEventView {
+  id: string;
+  type: "contact";
+  simulationTimeS: number;
+  estimatedContactTimeS: number | null;
+  bodyIds: string[];
+  relativeSpeedMPerS: number;
+  refined: boolean;
+  involvesSpacecraft: boolean;
+}
+
+export type EventView = MergerEventView | CollisionEventView | ManeuverEventView | ContactEventView;
+
+/** The body to highlight for an event, if any: a merger's survivor, a collision's first surviving or created body, the spacecraft
+ *  of a burn, the first body of a contact. */
 export function eventFocusBodyId(event: EventView): string | undefined {
-  return event.type === "merger" ? event.resultBodyId : (event.survivingBodyIds[0] ?? event.createdBodyIds[0]);
+  if (event.type === "merger") return event.resultBodyId;
+  if (event.type === "collision") return event.survivingBodyIds[0] ?? event.createdBodyIds[0];
+  return event.bodyIds[0];
 }
 
 export function toEventView(dto: SimulationEventDto): EventView {
+  if (dto.type === "maneuver" || dto.type === "contact") return { ...dto, bodyIds: [...dto.bodyIds] };
   if (dto.type === "collision") {
     return {
       id: dto.id, type: "collision", outcome: dto.outcome, simulationTimeS: dto.simulationTimeS,

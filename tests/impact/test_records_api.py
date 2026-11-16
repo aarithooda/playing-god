@@ -59,6 +59,7 @@ def dig(d, path):
     return d
 
 
+@pytest.mark.dormant_collisions
 def test_the_detail_route_returns_every_item_of_spec_10_2(client):
     run_pair(engine(), 3.0, 0.3)
     j = client.get(f"/api/v1/universes/{UID}/collisions/col-1").json()
@@ -106,6 +107,7 @@ def test_unknown_and_dropped_records_are_a_coded_404(client):
     assert client.get(f"/api/v1/universes/{UID}/collisions/evt-9").status_code == 404
 
 
+@pytest.mark.dormant_collisions
 def test_a_legacy_merger_event_of_a_material_less_pair_has_a_record_found_by_either_id(client):
     svc = engine()
     svc.add_body(make("a", m=1.0e22, r=1.0e6))

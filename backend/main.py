@@ -9,11 +9,13 @@ from backend.api_catalogue import router as catalogue_router
 from backend.api_collisions import router as collisions_router
 from backend.api_orbit_lab import router as orbit_lab_router
 from backend.api_presets import router as presets_router
+from backend.api_spaceflight import router as spaceflight_router
 from backend.api_universes import router as universes_router
 from backend.errors import CodedError
 from backend.models import (Body, BodyCreate, BodyUpdate, EventList, SimulationState, StepRequest, StepResponse)
 from backend.simulation import (CommitGuard, ConflictError, NotFoundError, SimulationBusyError, SimulationFailure,
                                 SimulationService, StepTimeoutError, get_service)
+from backend.spaceflight.engine import SpaceflightError
 from backend.universes import get_legacy_guard
 
 app = FastAPI(title="Playing God backend")
@@ -37,6 +39,11 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
 
 @app.exception_handler(CodedError)
 async def coded_error_handler(request: Request, exc: CodedError):
+    return JSONResponse(status_code=exc.status, content={"detail": exc.detail, "code": exc.code})
+
+
+@app.exception_handler(SpaceflightError)
+async def spaceflight_error_handler(request: Request, exc: SpaceflightError):
     return JSONResponse(status_code=exc.status, content={"detail": exc.detail, "code": exc.code})
 
 
@@ -70,6 +77,7 @@ app.include_router(presets_router)
 app.include_router(catalogue_router)
 app.include_router(collisions_router)
 app.include_router(orbit_lab_router)
+app.include_router(spaceflight_router)
 
 
 @app.get("/health")

@@ -72,6 +72,7 @@ def merged(svc):
 
 
 # ---------- merger ----------
+@pytest.mark.dormant_collisions
 def test_merger_conserves_mass_momentum_and_orbital_plus_booked_angular_momentum(svc):
     before, after = merged(svc)
     d0, d1 = diag(before), diag(after)
@@ -88,6 +89,7 @@ def test_merger_conserves_mass_momentum_and_orbital_plus_booked_angular_momentum
     assert d1.angularMomentumAboutOriginKgM2PerS.z != pytest.approx(total0[2], rel=1e-6)  # orbital L alone is NOT conserved
 
 
+@pytest.mark.dormant_collisions
 def test_merger_removes_translational_kinetic_energy_and_the_pair_potential(svc):
     before, after = merged(svc)
     q = after.events[0].kineticEnergyLostJ
@@ -101,6 +103,7 @@ def test_merger_removes_translational_kinetic_energy_and_the_pair_potential(svc)
     assert e1 < e0  # total K+U is not conserved by a merger
 
 
+@pytest.mark.dormant_collisions
 def test_cascade_accumulates_booked_spin_on_the_survivor(svc):
     # A and C converge on B from opposite sides with different impact parameters; gravity is negligible.
     svc.add_body(make("A", 1000.0, 1.0, (-60.0, 0.4, 0), (20.0, 0, 0)))
@@ -130,6 +133,7 @@ def test_reset_zeroes_every_diagnostic_including_booked_spin(svc):
     assert diag(svc.snapshot()).bookedSpinKgM2PerS.model_dump() == ZERO3  # old spin does not resurface
 
 
+@pytest.mark.dormant_collisions
 def test_deleting_the_remnant_removes_its_booked_spin(svc):
     _, out = merged(svc)
     assert diag(out).bookedSpinKgM2PerS.z != 0.0
@@ -139,6 +143,7 @@ def test_deleting_the_remnant_removes_its_booked_spin(svc):
     assert d.totalMassKg == 5.0 and d.bookedSpinKgM2PerS.model_dump() == ZERO3
 
 
+@pytest.mark.dormant_collisions
 def test_deleting_the_last_body_warns_in_rebound_but_leaves_a_clean_empty_usable_system(svc):
     """REBOUND emits RuntimeWarning "Last particle removed." from remove(). It is a notice only (a supported UI path,
     exercised over real HTTP in tests/smoke): the state is empty, diagnostics are the empty-system zeros, and the
@@ -166,6 +171,7 @@ def test_patch_and_add_change_diagnostics_as_defined(svc):
 
 
 # ---------- rollback ----------
+@pytest.mark.dormant_collisions
 def test_failed_step_leaves_diagnostics_bitwise_unchanged_including_booked_spin(svc, monkeypatch):
     merged(svc)
     svc.add_body(make("C", 5.0, 1.0, (5000.0, 0, 0), (0, 1.0, 0)))
@@ -191,6 +197,7 @@ def test_timed_out_step_leaves_diagnostics_unchanged(svc):
 
 
 # ---------- reading does not mutate ----------
+@pytest.mark.dormant_collisions
 def test_reading_diagnostics_does_not_change_the_trajectory():
     probed, twin = SimulationService(), SimulationService()
     for s in (probed, twin):
@@ -210,6 +217,7 @@ def test_reading_diagnostics_does_not_change_the_trajectory():
 
 
 # ---------- self-consistency: diagnostics describe the bodies in the same response ----------
+@pytest.mark.dormant_collisions
 def test_every_response_is_consistent_with_its_own_bodies(svc):
     for b in spheres():
         svc.add_body(b)

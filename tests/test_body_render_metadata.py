@@ -190,6 +190,7 @@ def merge(client, a_extra, b_extra):
     return a, out
 
 
+@pytest.mark.dormant_collisions
 def test_merger_product_has_generic_type_and_no_inherited_asset(client):
     a, out = merge(client, dict(bodyType="rocky-planet", assetKey="earth"), dict(bodyType="asteroid", assetKey="ceres"))
     (product,) = out["bodies"]
@@ -198,11 +199,13 @@ def test_merger_product_has_generic_type_and_no_inherited_asset(client):
     assert meta(client.get("/api/v1/simulation/state").json()["bodies"][0]) == ("default", None)
 
 
+@pytest.mark.dormant_collisions
 def test_star_merger_product_stays_a_star_without_an_asset(client):
     _, out = merge(client, dict(kind="star", bodyType="star", assetKey="sun"), dict(kind="star", bodyType="star"))
     assert meta(out["bodies"][0]) == ("star", None) and out["bodies"][0]["kind"] == "star"
 
 
+@pytest.mark.dormant_collisions
 def test_merger_leaves_unrelated_bodies_metadata_alone(client):
     far = create(client, name="Far", m=1.0e20, x=1.0e7, bodyType="gas-giant", assetKey="jupiter")
     merge(client, dict(assetKey="earth"), dict(assetKey="ceres"))

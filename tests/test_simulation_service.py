@@ -110,6 +110,7 @@ def spheres(sep=200.037, v_rel=2.0, b=0.5, drift=(0.3, -0.2, 0.1)):
             make("B", mB, 0.8, x=(sep / 2, -b / 2, 0), v=(vb + drift[0], drift[1], drift[2])))
 
 
+@pytest.mark.dormant_collisions
 @pytest.mark.parametrize("n_calls", [1, 24])
 def test_merger_conserves_mass_and_momentum_and_keeps_stepping(svc, n_calls):
     a_in, b_in = spheres()
@@ -148,6 +149,7 @@ def test_merger_conserves_mass_and_momentum_and_keeps_stepping(svc, n_calls):
     assert svc.events() == events
 
 
+@pytest.mark.dormant_collisions
 def test_fast_head_on_collision_is_not_tunnelled(svc):
     """M0 F2: with 'direct' detection a 2000 m/s pair crossing in one step is missed. 'line' must catch it."""
     svc.add_body(make("A", 2000.0, 1.0, x=(-10003.5, 0, 0), v=(1000.0, 0, 0)))
@@ -186,6 +188,7 @@ def test_three_body_merger_keeps_momentum_with_heavy_neighbour(svc):
     assert mom1 == pytest.approx(mom0, abs=1e-9)
 
 
+@pytest.mark.dormant_collisions
 def test_two_simultaneous_pairs_and_chain(svc):
     for body in spheres():
         svc.add_body(body)
@@ -201,6 +204,7 @@ def test_two_simultaneous_pairs_and_chain(svc):
     assert mom1 == pytest.approx(mom0, abs=1e-12 * mom_scale(s0))
 
 
+@pytest.mark.dormant_collisions
 def test_chain_collision_merges_all_three_over_time(svc):
     d = 101.037
     svc.add_body(make("A", 2000.0, 1.0, x=(-d, 0, 0), v=(2.0, 0, 0)))
@@ -214,6 +218,7 @@ def test_chain_collision_merges_all_three_over_time(svc):
 
 
 # ---------- ids, CRUD, order, reset ----------
+@pytest.mark.dormant_collisions
 def test_ids_and_creation_order_survive_merge_and_delete(svc):
     x = svc.add_body(make("X", 1.0, 0.5, x=(0, 5000.0, 0)))
     a_in, b_in = spheres(b=0.2)
@@ -291,6 +296,7 @@ def test_body_limit(svc, monkeypatch):
 
 
 # ---------- transactional steps ----------
+@pytest.mark.dormant_collisions
 def test_failed_step_is_rolled_back_and_engine_stays_usable(svc, monkeypatch):
     for body in spheres():
         svc.add_body(body)
@@ -344,6 +350,7 @@ def test_chunk_limit_relaxed_only_for_pair_that_cannot_touch(svc):
     assert limit == pytest.approx(0.5 * math.sqrt(2.0 * (d - 1.1e5) / a_rel), rel=1e-12)
 
 
+@pytest.mark.dormant_collisions
 def test_radial_infall_through_one_large_step_merges_exactly_once(svc):
     """A probe released from rest 1e8 m from a 1e24 kg body falls radially (free-fall time ~1.4e5 s, strongly curved
     path) inside a single 3e5 s request. The pair must merge once, conserving mass and momentum."""

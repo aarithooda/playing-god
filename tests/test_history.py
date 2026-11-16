@@ -132,6 +132,7 @@ def test_history_step_ring_drops_oldest():
     assert page["samples"][0]["positionsM"]["a"] == [5.0, 0.0, 0.0]
 
 
+@pytest.mark.dormant_collisions
 def test_history_segments_increment_on_edit_and_merger():
     s = SimulationService()
     a = s.add_body(make("A", m=1e10, r=1.0))
@@ -154,6 +155,7 @@ def test_history_segments_increment_on_edit_and_merger():
     assert segs[-1] > segs[-2]
 
 
+@pytest.mark.dormant_collisions
 def test_history_keeps_metadata_of_merged_bodies():
     c = SimulationService()
     p = c.add_body(make("P", m=2e12, r=100.0))

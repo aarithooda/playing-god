@@ -58,13 +58,17 @@ def test_restore_preserves_engine_configuration():
     sim = s._sim
     assert sim.G == 6.67430e-11 and str(sim.integrator) == "ias15" and sim.integrator.adaptive_mode.lower() == "global"
     assert sim.collision == "line" and sim.rand_seed == 12345
-    c = SimulationService()  # the merger layer still works after a restore (callbacks were re-registered)
+    c = SimulationService()  # contact detection still works after a restore (the callbacks were re-registered)
     c.add_body(make("P", m=2e12, r=100.0))
     c.add_body(make("Q", m=1e12, r=100.0, x=(1000.0, 0, 0), v=(-5.0, 0, 0)))
     snap2 = c.capture_snapshot()
     c.restore_snapshot(snap2)
     r = c.step(300.0)
-    assert [e.type for e in r.events] == ["merger"] and len(r.bodies) == 1
+    # stop-on-contact (D-071; this pair merged into one body before): reported, halted at the contact, both bodies kept
+    assert [e.type for e in r.events] == ["contact"] and len(r.bodies) == 2 and r.halt is not None
+    assert 150.0 < r.simulationTimeS < 170.0  # 800 m of gap closing at 5 m/s, a little faster under their gravity
+    c.restore_snapshot(snap2)  # restoring a state from before the contact clears the halt
+    assert c.snapshot().halt is None and c.step(10.0).advancedS == 10.0
 
 
 def test_event_ids_not_reused_after_restore():

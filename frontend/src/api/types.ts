@@ -7,7 +7,7 @@ export interface Vec3 {
   z: number;
 }
 
-export type BodyType = "star" | "rocky-planet" | "gas-giant" | "ice-giant" | "moon" | "asteroid" | "default";
+export type BodyType = "star" | "rocky-planet" | "gas-giant" | "ice-giant" | "moon" | "asteroid" | "default" | "spacecraft";
 
 /** Stable rendering-asset identity assigned by the backend for recognized bodies; custom bodies omit it. */
 export type BodyAssetKey =
@@ -34,7 +34,10 @@ export type BodyAssetKey =
   | "trappist-1"
   | "sirius-a"
   | "betelgeuse";
-export type BodyKind = "star" | "planet";
+/** What a body can be created as through the body form. */
+export type CreatableBodyKind = "star" | "planet";
+/** What the backend reports: a spacecraft is its own kind of entity (created through the spaceflight routes). */
+export type BodyKind = CreatableBodyKind | "spacecraft";
 
 export interface BodyDto {
   id: string;
@@ -64,10 +67,12 @@ export interface BodyDto {
   debris?: DebrisDto;
   /** Fragments and parcels: dynamical class from the present state (Stage 7). Not a prediction. */
   fragmentClass?: "bound_to_remnant" | "orbiting_system" | "escaping";
+  /** Present only for kind "spacecraft": propulsion state and the osculating orbit about its reference body. */
+  spacecraft?: SpacecraftDto;
 }
 
 /** POST /api/v1/bodies request (the server generates `id`). `kind` defaults to "planet" on the server. */
-export type BodyCreateDto = Omit<BodyDto, "id" | "kind" | "catalogueEntryId" | "bodyType" | "assetKey" | "primaryId"> & {
+export type BodyCreateDto = Omit<BodyDto, "id" | "kind" | "catalogueEntryId" | "bodyType" | "assetKey" | "primaryId" | "spacecraft"> & {
   kind?: BodyKind;
   catalogueEntryId?: string | null;
   bodyType?: BodyType;
@@ -289,6 +294,10 @@ export interface SimulationStateDto {
   /** Universe-scoped responses only: which universe this state belongs to and its commit counter. */
   universeId?: string;
   revision?: number;
+  /** Manoeuvre nodes and missions; absent when the universe has none. */
+  spaceflight?: SpaceflightDto;
+  /** Present only while the simulation is stopped at a contact (stepping is refused until the contact is removed). */
+  halt?: HaltDto;
 }
 
 /** The legacy perfectly inelastic merger (unchanged shape). */
@@ -335,11 +344,41 @@ export interface CollisionEventDto {
   hasVisual: boolean;
 }
 
-export type SimulationEventDto = MergerEventDto | CollisionEventDto;
+/** A burn of a spacecraft changed the simulation state. */
+export interface ManeuverEventDto {
+  id: string;
+  type: "maneuver";
+  simulationTimeS: number;
+  bodyIds: string[]; // [spacecraft]
+  maneuverId: string;
+  phase: "impulse" | "ignition" | "cutoff";
+  mode: "impulsive" | "finite";
+  referenceBodyId: string | null;
+  commandedDeltaVMPerS: number;
+  deliveredDeltaVMPerS: number;
+  propellantUsedKg: number;
+  missionId: string | null;
+  label: string;
+}
+
+/** Two bodies touched and the simulation stopped there (stop-on-contact). Nothing was merged or broken. */
+export interface ContactEventDto {
+  id: string;
+  type: "contact";
+  simulationTimeS: number;
+  estimatedContactTimeS: number | null;
+  bodyIds: string[];
+  relativeSpeedMPerS: number;
+  refined: boolean;
+  involvesSpacecraft: boolean;
+}
+
+export type SimulationEventDto = MergerEventDto | CollisionEventDto | ManeuverEventDto | ContactEventDto;
 
 export interface StepResponseDto extends SimulationStateDto {
   advancedS: number;
-  /** Present only when non-empty: "collision_budget_reached" = the step ended early (advancedS < dtS), by design (DQ-10);
+  /** Present only when non-empty: "collision_stopped" = a contact stopped the simulation during this step (see `halt`);
+   *  "collision_budget_reached" = the step ended early (advancedS < dtS), by design (DQ-10);
    *  "collisions_merged_fallback" = a collision-engine failure was repaired by merging (this step only); "collision_detection_degraded";
    *  "product_material_unspecified" = a legacy merger of two different materials left its remnant without a material (D-035, D-069). */
   warnings?: string[];
@@ -394,6 +433,8 @@ export interface UniverseSummaryDto {
   createdAtIso: string;
   epochLabel: string | null;
   historyMode: "grid" | "step";
+  /** What a contact of two bodies does in this universe (absent on older backends). */
+  collisionMode?: "legacy-merge" | "outcome-v1" | "stop-on-contact";
 }
 
 export interface UniverseListDto {
@@ -602,4 +643,239 @@ export interface UniverseProvenanceDto {
   controlled: boolean;
   firstUncontrolledAtS: number | null;
   audit: AuditEntryDto[];
+}
+
+// ---------- Space Mission Design ----------
+/** Osculating two-body orbit of a spacecraft about its reference body (instantaneous; computed by the backend). Angles in degrees. */
+export interface OrbitDto {
+  referenceBodyId: string;
+  referenceBodyName: string;
+  /** suborbital: bound, but the periapsis is below the surface. */
+  regime: "bound" | "suborbital" | "escape" | "degenerate";
+  radiusM: number;
+  altitudeM: number;
+  /** Relative to the reference body. */
+  speedMPerS: number;
+  semiMajorAxisM: number | null;
+  eccentricity: number | null;
+  inclinationDeg: number | null;
+  raanDeg: number | null;
+  argPeriapsisDeg: number | null;
+  trueAnomalyDeg: number | null;
+  periapsisRadiusM: number | null;
+  apoapsisRadiusM: number | null;
+  periapsisAltitudeM: number | null;
+  apoapsisAltitudeM: number | null;
+  periodS: number | null;
+  timeToPeriapsisS: number | null;
+  timeToApoapsisS: number | null;
+  specificEnergyJPerKg: number;
+  circularSpeedMPerS: number;
+  escapeSpeedMPerS: number;
+  sphereOfInfluenceM: number | null;
+  gravitationalParameterM3PerS2: number;
+}
+
+export interface SpacecraftDto {
+  dryMassKg: number;
+  propellantKg: number;
+  propellantCapacityKg: number;
+  thrustN: number;
+  ispS: number;
+  massFlowKgPerS: number;
+  deltaVRemainingMPerS: number;
+  thrusting: boolean;
+  homeBodyId: string | null;
+  orbit: OrbitDto | null;
+}
+
+export type ManeuverStatus = "planned" | "executing" | "executed" | "failed";
+
+export interface ManeuverDto {
+  id: string;
+  spacecraftId: string;
+  epochS: number;
+  mode: "impulsive" | "finite";
+  frame: "vnb" | "inertial";
+  referenceBodyId: string | null;
+  progradeMPerS: number | null;
+  normalMPerS: number | null;
+  radialMPerS: number | null;
+  deltaVMPerS: Vec3 | null;
+  deltaVMagnitudeMPerS: number;
+  label: string;
+  centered: boolean;
+  missionId: string | null;
+  role: string | null;
+  status: ManeuverStatus;
+  startS: number;
+  endS: number;
+  plannedPropellantKg: number;
+  feasible: boolean;
+  startedAtS: number | null;
+  endedAtS: number | null;
+  deliveredDeltaVMPerS: number | null;
+  propellantUsedKg: number | null;
+  failure: string | null;
+}
+
+export type MissionStatus = "draft" | "planned" | "in_progress" | "completed" | "failed" | "unsupported";
+
+export interface MissionObjectiveDto {
+  type: "orbit" | "flyby";
+  periapsisAltitudeM: number;
+  apoapsisAltitudeM: number | null;
+  direction: "prograde" | "retrograde";
+  toleranceM: number;
+}
+
+/** One evaluated condition of the ACTUAL simulated state. */
+export interface MissionCheckDto {
+  id: string;
+  label: string;
+  ok: boolean;
+  actual: number | null;
+  target: number | string | null;
+  tolerance: number | null;
+  unit: string;
+}
+
+/** Plan against simulation at one node (the same instant). */
+export interface MissionAgreementDto {
+  maneuverId: string;
+  role: string | null;
+  positionDifferenceM: number;
+  velocityDifferenceMPerS: number;
+  positionToleranceM: number;
+  velocityToleranceMPerS: number;
+  ok: boolean;
+}
+
+/** The planner's result as the UI shows it. Every number is the backend's; a missing block is null. */
+export interface MissionPlanDto {
+  originBodyId: string;
+  destinationBodyId: string;
+  designedAtS: number;
+  model: { method: string; bodiesInFinalFlight: number; reducedModelForBracketing: boolean; burnModel: string; trialFlights: number; periapsisResidualM: number; planningWallTimeS: number };
+  parkingOrbit: { radiusM: number; eccentricity: number; periodS: number; speedMPerS: number; planeMismatchDeg: number };
+  patchedConic: { note: string; departureDeltaVMPerS: number; transferTimeS: number; hohmannDepartureDeltaVMPerS: number; hohmannTransferTimeS: number };
+  departure: { epochS: number; ignitionS: number; cutoffS: number; deltaVMPerS: number; mode: string; propellantKg: number };
+  arrival: { epochS: number; transferTimeS: number; periapsisRadiusM: number; periapsisAltitudeM: number; periapsisSpeedMPerS: number; direction: string; inclinationToDestinationOrbitDeg: number; hyperbolicExcessSpeedMPerS: number; sphereOfInfluenceM: number };
+  insertion: { epochS: number; deltaVMPerS: number; mode: string; ignitionS: number; cutoffS: number; propellantKg: number } | null;
+  predictedOrbit: { bound: boolean; semiMajorAxisM: number | null; eccentricity: number | null; periodS: number | null; minAltitudeM: number; maxAltitudeM: number } | null;
+  totals: { deltaVMPerS: number; propellantRequiredKg: number; propellantAvailableKg: number; deltaVAvailableMPerS: number; feasible: boolean };
+  trajectoryEndS: number;
+}
+
+export interface MissionDto {
+  id: string;
+  name: string;
+  spacecraftId: string;
+  originBodyId: string | null;
+  destinationBodyId: string;
+  objective: MissionObjectiveDto;
+  status: MissionStatus;
+  phase: string;
+  reasons: string[];
+  committed: boolean;
+  planRevision: number;
+  planStale: boolean;
+  plan: MissionPlanDto | null;
+  maneuverIds: string[];
+  checks: MissionCheckDto[];
+  agreement: MissionAgreementDto[];
+  /** The actual result as last evaluated (keys depend on the objective); display values only. */
+  outcome: Record<string, number | boolean | null> | null;
+  createdAtS: number;
+  updatedAtS: number;
+}
+
+export interface SpaceflightDto {
+  maneuvers: ManeuverDto[];
+  missions: MissionDto[];
+}
+
+export interface HaltDto {
+  eventId: string;
+  reason: "collision";
+  bodyIds: string[];
+  simulationTimeS: number;
+  relativeSpeedMPerS: number;
+  refined: boolean;
+  message: string;
+}
+
+/** The PLANNED trajectory of a mission (a prediction made when the transfer was designed), inertial frame, SI metres. */
+export interface MissionTrajectoryDto {
+  missionId: string;
+  planRevision: number;
+  timesS: number[];
+  spacecraftM: Vec3Tuple[];
+  originM: Vec3Tuple[];
+  destinationM: Vec3Tuple[];
+}
+
+export interface OrbitSpecDto {
+  centralBodyId: string;
+  periapsisAltitudeM?: number;
+  semiMajorAxisM?: number;
+  eccentricity?: number;
+  inclinationDeg?: number;
+  raanDeg?: number;
+  argPeriapsisDeg?: number;
+  trueAnomalyDeg?: number;
+  matchPlaneOfBodyId?: string;
+}
+
+export interface SpacecraftCreateDto {
+  name: string;
+  colorHex?: string;
+  radiusM?: number;
+  dryMassKg: number;
+  propellantKg?: number;
+  thrustN?: number;
+  ispS?: number;
+  orbit: OrbitSpecDto;
+}
+
+export type SpacecraftUpdateDto = Partial<Pick<SpacecraftDto, "dryMassKg" | "propellantKg" | "thrustN" | "ispS">>;
+
+export interface OrbitPreviewDto {
+  orbit: OrbitDto;
+  warnings: string[];
+}
+
+export interface ManeuverCreateDto {
+  at: "epoch" | "now" | "periapsis" | "apoapsis";
+  epochS?: number;
+  delayS?: number;
+  mode?: "impulsive" | "finite";
+  referenceBodyId?: string;
+  progradeMPerS?: number;
+  normalMPerS?: number;
+  radialMPerS?: number;
+  label?: string;
+}
+
+export interface ManeuverPreviewDto {
+  epochS: number;
+  basis: string;
+  deltaVMagnitudeMPerS: number;
+  propellantKg: number;
+  burnDurationS: number;
+  feasible: boolean;
+  before: OrbitDto;
+  after: OrbitDto;
+}
+
+export interface MissionCreateDto {
+  name: string;
+  spacecraftId: string;
+  destinationBodyId: string;
+  objective: { type: "orbit" | "flyby"; periapsisAltitudeM: number; apoapsisAltitudeM?: number; direction?: "prograde" | "retrograde"; toleranceM?: number };
+}
+
+export interface MissionPlanRequestDto {
+  transferTimeS?: number;
+  burnMode?: "impulsive" | "finite";
 }

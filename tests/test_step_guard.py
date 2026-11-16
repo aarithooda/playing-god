@@ -50,6 +50,7 @@ def test_exhausted_budget_fails_before_any_chunk_and_changes_nothing(svc):
     assert svc.snapshot() == before and svc.events() == []
 
 
+@pytest.mark.dormant_collisions
 def test_timeout_after_a_merger_rolls_back_the_merger_completely(svc, monkeypatch):
     """The merger happens in chunk 2 (chunks forced to 5 s); the clock then runs out before the step ends. Bodies,
     time, events, event ids, ledgers and the pending list must all be those from before the request. The fake
@@ -172,6 +173,7 @@ def test_lone_body_is_advanced_exactly_and_without_engine_warnings(svc, caplog):
     assert [r for r in caplog.records if "REBOUND warning" in r.getMessage()] == []
 
 
+@pytest.mark.dormant_collisions
 def test_merger_remnant_continues_without_engine_warnings(svc, caplog):
     """The scenario that warned before: merge, then keep stepping the lone remnant in many small chunks."""
     caplog.set_level(logging.WARNING, logger="backend.simulation")
@@ -221,7 +223,11 @@ def test_symmetric_lines_of_equal_masses_run_for_many_small_steps(svc, n):
 def test_watchdog_stops_a_genuinely_stalled_engine_and_rolls_back(svc, monkeypatch):
     """Re-create the stall by selecting REBOUND's stalling default criterion again. The budget (0.5 s) must cut
     the single, never-returning `integrate` call short through the heartbeat, so the HTTP request fails with a
-    timeout instead of wedging the process and its lock; nothing is committed."""
+    timeout instead of wedging the process and its lock; nothing is committed.
+
+    Since D-071 a collapsed PRS23 step is handed to the GLOBAL criterion (`StepCollapseGuard`), which cures exactly this stall
+    (tests/spaceflight/test_step_collapse.py pins that with this same scenario). The watchdog is the last line of defence for a
+    stall nothing cures, so to have one to stop, the guard is switched off here as well."""
     import time
     from backend import collisions
 
@@ -230,6 +236,7 @@ def test_watchdog_stops_a_genuinely_stalled_engine_and_rolls_back(svc, monkeypat
 
     monkeypatch.setattr(simulation, "select_ias15", stalling_select)
     monkeypatch.setattr(collisions, "select_ias15", stalling_select)
+    monkeypatch.setattr(collisions.StepCollapseGuard, "arm", lambda self, sim: None)  # never armed: the stall is back
     line_of_equal_bodies(svc, 3)
     before = svc.snapshot()
     svc.step_time_limit_s = 0.5

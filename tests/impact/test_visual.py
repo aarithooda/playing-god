@@ -22,6 +22,7 @@ def records_for(x, b, gamma=1.0, **kw):
     return svc, out
 
 
+@pytest.mark.dormant_collisions
 def test_a_legacy_merge_has_no_description_and_the_route_says_so():
     svc = universes.get_registry().get(UID).engine
     svc.add_body(make("a", m=1.0e22, r=1.0e6))
@@ -92,6 +93,7 @@ def test_the_description_does_not_depend_on_anything_but_the_record():
     assert visual.describe_visual(dataclasses.replace(rec, result=None)) is None  # no validated result, no description
 
 
+@pytest.mark.dormant_collisions
 def test_events_say_they_have_a_description_and_the_route_serves_it():
     svc = universes.get_registry().get(UID).engine
     pair_service(3.0, 0.3, svc=svc)

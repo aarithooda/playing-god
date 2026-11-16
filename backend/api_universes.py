@@ -7,7 +7,7 @@ from backend.lab_models import (ActivationResult, CreateUniverseRequest, History
                                 SnapshotSummary, UniverseList, UniverseProvenance, UniverseState, UniverseStepResponse, UniverseSummary)
 from backend.models import Body, BodyCreate, BodyUpdate, EventList, StepRequest
 from backend.presets.loader import PresetDataError, UnknownPresetError, load_preset
-from backend.simulation import LEGACY_MERGE_CONFIG, SimulationService
+from backend.simulation import STOP_ON_CONTACT_CONFIG, SimulationService
 from backend.universes import StoredSnapshot, Universe, UniverseRegistry, get_registry
 from backend.errors import CodedError
 
@@ -23,7 +23,8 @@ def summary(reg: UniverseRegistry, u: Universe) -> UniverseSummary:
         id=u.id, name=u.name, role=u.role, presetId=u.preset_id, experimentId=u.experiment_id,
         active=u.id == reg.active_id, simulationTimeS=state.simulationTimeS, bodyCount=len(state.bodies),
         revision=revision, status="mutating" if u.engine.is_busy() else "idle", lastFailure=u.engine.last_failure,
-        createdAtIso=u.created_at, epochLabel=(u.provenance or {}).get("epoch"), historyMode=u.engine.history_mode)
+        createdAtIso=u.created_at, epochLabel=(u.provenance or {}).get("epoch"), historyMode=u.engine.history_mode,
+        collisionMode=u.engine.collision_config.mode)
 
 
 def create_preset_universe(reg: UniverseRegistry, preset_id: str, name: str | None, activate: bool) -> Universe:
@@ -35,7 +36,7 @@ def create_preset_universe(reg: UniverseRegistry, preset_id: str, name: str | No
         raise CodedError(f"unknown preset: {preset_id}", code="preset_not_found", status=404) from None
     except PresetDataError as exc:
         raise CodedError(f"preset {preset_id} cannot be loaded: {exc}", code="preset_invalid", status=500) from exc
-    engine = SimulationService(LEGACY_MERGE_CONFIG)  # presets stay legacy-merge until Stage 11 (D-045)
+    engine = SimulationService(STOP_ON_CONTACT_CONFIG)  # every universe stops on contact (D-071), whatever the preset's data says
     try:
         engine.load_bodies(preset.bodies, history_mode=preset.history_mode, sample_interval_s=preset.sample_interval_s)
     except Exception as exc:  # noqa: BLE001
@@ -60,7 +61,7 @@ def list_universes(reg: UniverseRegistry = Depends(get_registry)) -> UniverseLis
 def create_universe(req: CreateUniverseRequest, reg: UniverseRegistry = Depends(get_registry)) -> UniverseSummary:
     if req.source.kind == "preset":
         return summary(reg, create_preset_universe(reg, req.source.presetId, req.name, req.activate))
-    u = reg.create(req.name, role="sandbox", activate=req.activate)
+    u = reg.create(req.name, role="sandbox", activate=req.activate)  # the default engine: stop-on-contact (D-071)
     return summary(reg, u)
 
 

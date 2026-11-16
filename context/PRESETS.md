@@ -81,3 +81,14 @@ Not part of either preset's state. Shown with the two Solar System presets; togg
 - **Belt:** JPL SBDB Query API, the first 10,000 numbered asteroids of class MBA, osculating elements at JD 2461200.5 (4 significant digits).
 - **Approximations:** ellipses are osculating two-body orbits at their epoch; markers and asteroids are propagated by Kepler's equation alone. Illustrative positions, not an ephemeris.
 - **Check:** the planets' elements reproduce this preset's J2000 heliocentric state (position and velocity) to < 1e-9 relative (`tests/validation/test_reference_orbits.py`).
+
+## Earth and Moon: mission design (`backend/presets/data/earth-moon-j2000.json`; D-070)
+Tests: `tests/spaceflight/test_missions.py`, `tests/validation/test_spaceflight_validation.py`, `tests/test_presets_api.py` (listing).
+- **Bodies (2):** Earth (Horizons 399) and the Moon (301), copied unchanged from the Solar System with major moons preset (same archived
+  Horizons files and SHA-256, GM, radii and basis labels), re-centred on the barycentre of the two. Epoch J2000.0 TDB, ecliptic/ICRF, SI.
+- **Why it exists:** the reference scenario of Space Mission Design. Two bodies keep a 4-day transfer interactive (a 1-hour step takes
+  milliseconds) and make the independent three-body validation possible. The Moon is a real gravitating body of the simulation.
+- **Collision mode:** `stop-on-contact`, like every preset and every universe since D-071 (until then the other presets merged bodies on contact). History: grid mode, 180 s, so a low orbit is recorded as a curve.
+- **Not included, and what it costs:** no Sun and no other planet. Measured (validation V8): the same translunar departure flown with
+  the Sun present arrives about 300 km away from where it does here. A plan made in this preset is a plan for this two-body universe.
+  No J2, no atmosphere. Orbital inclinations are measured from the ecliptic.

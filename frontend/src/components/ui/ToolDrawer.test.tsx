@@ -7,7 +7,7 @@ import { ToolRail, TOOLS, type ToolId } from "./ToolRail";
 afterEach(cleanup);
 
 const sections = (extra: Partial<Record<ToolId, React.ReactNode>> = {}): Record<ToolId, React.ReactNode> => ({
-  create: <p>create body</p>, universes: <p>universes body</p>, orbitlab: <p>lab</p>, events: <p>events</p>,
+  create: <p>create body</p>, universes: <p>universes body</p>, missions: <p>missions</p>, orbitlab: <p>lab</p>, events: <p>events</p>,
   history: <p>history</p>, diagnostics: <p>diagnostics</p>, ...extra,
 });
 

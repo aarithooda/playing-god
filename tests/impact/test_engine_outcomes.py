@@ -363,6 +363,7 @@ def test_a_fresh_universe_gives_the_same_outcome_and_totals():
 EXACT = ["kepler_merge", "four_chain", "probe_heavy_created_first", "probe_heavy_created_second", "extreme_ratio", "equal_mass_tie", "fast_impact"]
 
 
+@pytest.mark.dormant_collisions
 @pytest.mark.parametrize("name", EXACT)
 def test_material_less_scenarios_give_byte_identical_events_in_both_modes(name):
     legacy = ls.run_scenario(SimulationService, name)

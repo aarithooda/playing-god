@@ -595,3 +595,91 @@ Entry format: Date · Decision · Context/reason · Alternatives · Consequences
   pins the contract type, so the amendment is visible). Decision needed: approve that input-shape change (or another) under CP-3.
 - Scientific gaps unchanged and NOT addressed (no sourced model or constants): cratering/ejecta, propagation, iron/ice LS12 targets,
   projectile erosion, fragment rotation/composition, cross-platform replay tolerance, CP-SCI-1/CP-5. Science remains PROVISIONAL (D-059).
+
+## D-070 — Space Mission Design: spacecraft are particles of the universe's own simulation; stop-on-contact (2026-11-15)
+
+Context: second product pillar (Space Mission Design), built on `checkpoint/collision-engine-repair-2026-10-28` (`75abe67`). Reference:
+`docs/SPACE_MISSION_DESIGN.md`.
+
+- **One simulation.** A spacecraft is a REBOUND particle (`craft-<12 hex>`, `kind`/`bodyType` `spacecraft`) of the universe's
+  `SimulationService`, integrated by IAS15 with everything else. Rejected: a separate propagator for spacecraft (two sources of truth,
+  no interaction with step/reset/snapshot/history, and "planned" and "actual" could never be honestly compared).
+- **Side table, not particle fields.** Propellant, engine, manoeuvre nodes, missions and the halt live in one `SpaceflightBook` of
+  immutable records per universe, copied wherever the engine copies its other side tables (step capture, mutation checkpoint,
+  snapshot, reset, digest). `SimulationService` gains them through `SpaceflightMixin` (`backend/spaceflight/engine.py`) so
+  `simulation.py` grows by hooks only. `backend/spaceflight/` does not import `backend/impact/`.
+- **Burns.** Impulsive: velocity jump + rocket-equation mass at an exact integration target. Finite: REBOUND `additional_forces` with
+  the analytic mass `m0 − ṁ(t − t0)` at IAS15 sub-step times; ignition and cut-off are integration targets. Rejected: fixed
+  sub-stepping of a burn (step-size dependent) and integrating mass as an extra variable (not needed for constant thrust).
+- **IAS15 step criterion.** A universe holding a spacecraft uses PRS23 (as universes with moons already do, D-030): the default global
+  criterion needs ~1e6 steps per simulated day with a low-orbit craft next to slow bodies (measured).
+- **Planner.** Patched conics give only the first guess (and are labelled an estimate); the plan is found by shooting on a private copy
+  of the universe's REBOUND simulation (1-D root find on the signed periapsis radius against departure time). Supported geometry is
+  deliberately narrow (planet parking orbit → that planet's moon); everything else returns `unsupported` with the reason. Rejected:
+  presenting a patched-conic or Lambert solution as the trajectory (it misses the Moon by thousands of km in the N-body simulation).
+- **Missions are judged on the actual state** after every committed step (bound orbit, clear of the surface, apsides within tolerance,
+  inside the SOI, sustained for one revolution). Plan-versus-simulation agreement is measured at each node against explicit tolerances
+  (1 km, 1 m/s) and reported.
+- **Collision policy of this phase: stop, report, keep a consistent state.** New collision mode `stop-on-contact` (third value of
+  `CollisionMode`); any contact that involves a spacecraft stops the simulation **in every mode**. The system is put back to first
+  contact with the existing `refine_contact`; a `contact` event and `halt` are published; steps are refused (409 `simulation_halted`)
+  until reset, snapshot restore, or removal/edit of one of the pair. No collision physics was added or repaired; the outcome engine is
+  untouched apart from the mode name.
+- **RESOLVED by D-071 (owner decision, 2026-11-16): every universe stops on contact.** As first delivered it read: OWNER DECISION
+  NEEDED, default collision mode of existing universes. Left unchanged on purpose: sandbox `outcome-v1`, existing
+  presets and Orbit Lab `legacy-merge` (D-045, D-060, D-067 and their tests pin this, and the task forbids weakening existing tests).
+  `stop-on-contact` is used by the new `earth-moon-j2000` preset and by universes created with `collisionMode: "stop-on-contact"`.
+  Making it the default everywhere is a change of `SANDBOX_CONFIG`/the preset default plus deliberate updates of the tests that pin
+  merges and outcomes.
+- **Orbit reference plane** is the simulation's x-y plane (ecliptic in the presets); bodies have no spin axis, so planet-equatorial
+  inclinations are not available. Stated in the UI and the docs.
+- **Frontend.** No integrator in the browser (unchanged rule): conics are drawn from backend elements, flown paths from recorded
+  positions, the planned path from the planner's samples; all body-relative. One new canvas prop (`spaceflight`), visible in
+  `canvasBoundary.test.ts` (CP-3 amendment, additive).
+- **Independent review before the PR.** A separate review pass over the backend diff reported 15 findings (9 reproduced): 13 fixed and 1 reduced,
+  with regression tests (`tests/spaceflight/test_review_fixes.py`), 1 documented (PRS23 step collapse on exactly collinear head-on
+  configurations, the price of the step criterion a low orbit needs). Summary in `docs/SPACE_MISSION_DESIGN.md` §8a.
+- Verification and measured tolerances: `docs/SPACE_MISSION_DESIGN.md` §7; `tests/spaceflight/`,
+  `tests/validation/test_spaceflight_validation.py`, `frontend/e2e/mission.real-backend.e2e.mjs`.
+
+## D-071 — Owner decision: every collision stops the simulation; the PRS23 step collapse is fixed (2026-11-16)
+
+Owner instruction after reviewing the D-070 handoff. Supersedes D-045 (sandbox `outcome-v1`), D-060 and D-067 (presets and Orbit
+Lab `legacy-merge`) as far as the collision mode of a universe is concerned.
+
+- **Policy.** Stop-on-contact is the collision behaviour of every universe the application creates: the startup sandbox, new
+  sandboxes, all presets, Orbit Lab baseline and modified runs, derived engines. `CollisionConfig()` and `SimulationService()`
+  default to it (`DEFAULT_MODE`, `SimulationService.DEFAULT_CONFIG`); `create_preset_universe`, `create_universe` and `orbit_lab`
+  construct it; `collisionMode` in a request accepts only `"stop-on-contact"`. No particle fragmentation, debris, ejecta or
+  collision aftermath exists on the active path.
+- **The merge resolver and the collision-outcome engine are dormant, not deleted.** `backend/impact/`, `MergeResolver`, the
+  collision-record routes, the collision inspector and effects in the frontend remain in the tree and unreachable: nothing the
+  application does can select `legacy-merge` or `outcome-v1`. Reason for keeping them: the instruction was to remove them from the
+  active collision path, deleting about 4,300 lines of engine and its 858 tests is a step
+  the owner did not ask for, and a later collision phase can start from tested code. **Open for the owner:** delete them, or keep
+  them.
+- **Tests.** (a) 55 existing test functions (67 cases) that pin merging or collision outcomes through an engine created without a configuration carry
+  the marker `dormant_collisions`: for them only, the engine default is `outcome-v1`, as when they were written
+  (`tests/conftest.py`). Their assertions are unchanged. (b) The tests that pinned the old defaults are rewritten to pin the policy
+  (`tests/impact/test_mode_defaults.py`, two tests of `test_contracts.py`, `test_snapshots.py`, `test_api_simulation.py`, the
+  live-server journey, two spaceflight tests). (c) New `tests/test_collision_policy.py`: the active path against closed forms
+  (Kepler and free-fall contact times to 1e-8 / 1e-9, fast and near-relativistic passes, grazing geometry, several pairs, a
+  converging ring, no aftermath with materials and spin, presets, resolve and continue, the API). (d) The real-backend collision
+  journey (`npm run e2e:collision`) now drives a contact stop through the UI.
+- **H4 of D-069** (the legacy resolver could merge bodies that do not touch when three or more contacts were reported in one pass)
+  can no longer occur in the application; it remains a defect of the dormant resolver.
+- **PRS23 step collapse (the limitation recorded under D-070).** Root cause, from REBOUND `src/integrator_ias15.c`: the PRS23
+  timescale of a particle, `tau^2 = 2|a|^2 / (|j|^2 + |a||s|)`, is the time left until a zero of that particle's acceleration, so the
+  step shrinks geometrically towards the zero and never passes it. Reached on exactly collinear configurations (two bodies closing
+  head-on along the line through a third; three masses on a line). Fix: `StepCollapseGuard` (`backend/collisions.py`) lets the
+  GLOBAL criterion choose 32 steps once PRS23 has driven the step below 1e-3 of the fastest conceivable contact-crossing time (or
+  64 ulp of the time variable), then PRS23 resumes. Every step is still chosen by a valid IAS15 error criterion; above the
+  threshold nothing changes (existing golden-value tests pass unchanged; zero hand-overs on the reference lunar mission). Rejected:
+  REBOUND's `min_dt` floor (it also gets the reproduction through, in 70 to 21,000 steps depending on the floor, but a floor is a
+  step no error criterion asked for: one high enough to be efficient can bind in a legitimate fast close approach, one low enough
+  to be safe crawls through the region where the acceleration is round-off noise); selecting GLOBAL for universes with a spacecraft (a million steps per simulated
+  day); AARSETH85 as the standing criterion (it changes every existing trajectory at round-off level). The same guard also cures
+  the stall of three masses at rest on a line that D-030 / `select_ias15` avoid by choosing GLOBAL. The planner's copies carry the
+  guard and a budget stop. Tests: `tests/spaceflight/test_step_collapse.py`.
+- **PR structure.** PR #27 is retargeted from `main` to `checkpoint/collision-engine-repair-2026-10-28`, so it contains the
+  mission-design work only; the checkpoint's own content reaches `main` separately, when the owner decides.

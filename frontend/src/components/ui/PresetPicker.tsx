@@ -17,11 +17,12 @@ export const PLANNED_SCENARIOS: readonly { name: string; note: string }[] = [
   { name: 'Collision playground', note: 'needs a curated set of impact scenarios' },
 ];
 
-type ArtKind = 'system' | 'moons' | 'rings';
+type ArtKind = 'system' | 'moons' | 'rings' | 'mission';
 
 /** Which picture a preset gets, from its own facts (moons, or the Ring World scene); decorative, not a map of positions. */
 function artKind(presetId: string): ArtKind {
   if (presetId.includes('rings')) return 'rings';
+  if (presetId.includes('earth-moon')) return 'mission';
   return presetId.includes('moons') ? 'moons' : 'system';
 }
 
@@ -38,7 +39,18 @@ const PresetArt: React.FC<{ kind: ArtKind; dimmed: boolean }> = ({ kind, dimmed 
         <stop offset="100%" stopColor="#b8935a" />
       </linearGradient>
     </defs>
-    {kind === 'rings' ? (
+    {kind === 'mission' ? (
+      <>
+        {/* Earth, the Moon on its orbit, a parking orbit and the dashed transfer between them */}
+        <ellipse cx="34" cy="38" rx="42" ry="20" fill="none" stroke="rgba(214,222,235,0.16)" strokeWidth={0.6} />
+        <circle cx="34" cy="38" r="8" fill="#3b82f6" />
+        <path d="M 30 33 a 5 4 0 0 1 8 1" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth={1.2} />
+        <ellipse cx="34" cy="38" rx="11.5" ry="10.5" fill="none" stroke="rgba(143,211,255,0.7)" strokeWidth={0.7} />
+        <path d="M 44 33 C 58 22, 70 22, 76 31" fill="none" stroke="#c4b5fd" strokeWidth={1} strokeDasharray="2.4 2" />
+        <circle cx="76" cy="34" r="3.2" fill="#9ca3af" />
+        <path d="M 44.5 30.6 l 2 2 -2 2 -2 -2z" fill="#8fd3ff" />
+      </>
+    ) : kind === 'rings' ? (
       <>
         {/* Saturn with its rings, and a few moons on their orbits */}
         {[27, 38].map((rx) => (

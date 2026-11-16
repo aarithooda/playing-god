@@ -129,6 +129,7 @@ def kepler_time_apoapsis_to_separation(a, e, gm, r):
     return (math.pi - (ecc_anomaly - e * math.sin(ecc_anomaly))) / n
 
 
+@pytest.mark.dormant_collisions
 def test_bound_orbit_with_periapsis_inside_contact_distance_merges_at_kepler_time(svc):
     """e = 0.9, a = 1000 m: periapsis 100 m < contact distance R = 150 m, so the pair merges on its first
     pericentre approach after ~T/2 (a strongly curved, accelerating path: the speed at contact is ~2x the apoapsis
@@ -233,6 +234,7 @@ def converging_ring(svc, n, ring_radius, speed, mass, radius):
                           v=tuple(-speed * c for c in d)))
 
 
+@pytest.mark.dormant_collisions
 @pytest.mark.parametrize("n", [4, 6, 12])
 def test_symmetric_ring_collapses_into_one_body_at_the_centre(svc, n):
     """n equal bodies (1e6 kg, radius 5 m) on a ring of radius 100 m, each moving radially inward at 10 m/s. By
@@ -266,6 +268,7 @@ def homologous_collapse(svc, seed, n=10, tau=40.0):
         svc.add_body(make(f"h{i}", rnd.uniform(1e5, 1e7), 20.0, x=tuple(pos), v=tuple(-c / tau for c in pos)))
 
 
+@pytest.mark.dormant_collisions
 def test_homologous_collapse_of_ten_random_bodies_conserves_everything(svc):
     """Ten simultaneous arrivals at one point, seeded (20261024). The order REBOUND reports overlaps is fixed by
     the service's rand_seed, so the outcome is reproducible. Invariants: total mass, momentum, centre-of-mass
@@ -293,6 +296,7 @@ def test_homologous_collapse_of_ten_random_bodies_conserves_everything(svc):
     assert key(again) == key(svc)
 
 
+@pytest.mark.dormant_collisions
 def test_five_independent_pairs_collide_within_one_chunk(svc):
     """Five well-separated pairs (1 km apart), each closing head-on at 20 m/s from the same gap, so all five contacts
     fall in the same internal step. Five mergers, five survivors, and each pair's mass and momentum are conserved
@@ -317,6 +321,7 @@ def test_five_independent_pairs_collide_within_one_chunk(svc):
     assert svc.step(5.0).events == []
 
 
+@pytest.mark.dormant_collisions
 def test_four_body_chain_collision_resolves_over_two_requests(svc):
     """Four bodies on a line converging on a resting second body. A chain can resolve across internal steps (the
     remnant merges with the next body one step later, PHYSICS_SPIKE.md), so only the invariants are asserted:
@@ -355,6 +360,7 @@ def test_one_kg_probe_around_a_solar_mass_body_closes_a_circular_orbit(svc):
     assert out.events == []
 
 
+@pytest.mark.dormant_collisions
 @pytest.mark.parametrize("probe_first", [False, True])
 def test_one_kg_probe_merges_into_a_1e12_kg_body_exactly(svc, probe_first):
     """Mass ratio 1e12 : 1. Both masses and their sum are exactly representable in binary64 (< 2^53), so the
@@ -379,6 +385,7 @@ def test_one_kg_probe_merges_into_a_1e12_kg_body_exactly(svc, probe_first):
     assert ev.kineticEnergyLostJ == pytest.approx(0.5 * mu * ev.relativeSpeedMPerS ** 2, rel=1e-12)
 
 
+@pytest.mark.dormant_collisions
 def test_mass_ratio_beyond_binary64_loses_the_light_body_but_conserves_momentum(svc):
     """Mass ratio 1e17 : 1. binary64 spacing at 1e17 is 16 kg, so M + 1 kg rounds back to (within an ulp of) M:
     the stored mass cannot be exact (a documented limitation, found by the independent review at 1e16 : 1). What

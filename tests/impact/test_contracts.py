@@ -260,7 +260,7 @@ def test_site_and_event_bounds():
 # ---------------------------------------------------------------------------------------------------------------
 def test_config_defaults_match_the_plan():
     cfg = c.CollisionConfig()
-    assert (cfg.mode, cfg.seed) == ("outcome-v1", 12345)  # the sandbox default since Stage 4b (D-045)
+    assert (cfg.mode, cfg.seed) == ("stop-on-contact", 12345)  # every universe since D-071 (it was outcome-v1 from Stage 4b, D-045)
     assert (cfg.max_tracked_fragments_per_event, cfg.max_tracked_fragments_total) == (16, 64)
     assert (cfg.max_debris_parcels_per_event, cfg.max_debris_parcels_total) == (4, 32)
     assert (cfg.max_resolutions_per_step, cfg.max_fragmenting_generation, cfg.reserve_for_user) == (64, 2, 8)
@@ -271,11 +271,13 @@ def test_config_defaults_match_the_plan():
     assert (t.dissipated_energy_floor_rel, t.contact_distance_rel, t.replay_cross_platform_rel) == (1e-9, 1e-9, 1e-12)
 
 
-def test_default_sandbox_mode_is_outcome_v1_since_stage_4b():
-    """D-033/D-045: flipped by Stage 4 step 4b (CP-4b). The per-role behaviour is pinned in tests/impact/test_mode_defaults.py."""
-    assert config.DEFAULT_SANDBOX_MODE == "outcome-v1"
-    assert c.DEFAULT_SANDBOX_MODE == "outcome-v1"
-    assert c.CollisionConfig().mode == "outcome-v1"
+def test_the_default_mode_is_stop_on_contact_since_d_071():
+    """D-071 (owner decision): every universe stops on contact. It was "outcome-v1" for sandboxes from Stage 4 step 4b (D-033/D-045)
+    until then. The per-role behaviour is pinned in tests/impact/test_mode_defaults.py; the older modes are dormant and explicit."""
+    assert config.DEFAULT_MODE == config.DEFAULT_SANDBOX_MODE == "stop-on-contact"
+    assert c.DEFAULT_SANDBOX_MODE == "stop-on-contact"
+    assert c.CollisionConfig().mode == "stop-on-contact"
+    assert config.OUTCOME_V1_MODE == "outcome-v1" and config.LEGACY_MERGE_MODE == "legacy-merge"
 
 
 def test_config_validation():

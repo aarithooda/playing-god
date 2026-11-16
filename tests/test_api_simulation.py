@@ -135,22 +135,38 @@ def test_step_rejects_non_finite_dt(client, literal):
     assert r.status_code == 422
 
 
-def test_step_with_merger_reports_event_and_events_endpoint_agrees(client):
+def test_step_with_a_contact_stops_reports_the_event_and_the_events_endpoint_agrees(client):
+    """Stop-on-contact (D-071). Before it this pair merged into one 3000 kg body with a `merger` event; the merger event's shape is
+    still pinned, for the dormant mode, in tests/test_events_endpoint.py."""
     a = make(client, name="A", massKg=2000.0, positionM={"x": -100.0, "y": 0.0, "z": 0.0}, velocityMPerS={"x": 1.0, "y": 0, "z": 0})
     b = make(client, name="B", massKg=1000.0, radiusM=0.8, positionM={"x": 100.0, "y": 0.0, "z": 0.0}, velocityMPerS={"x": -1.0, "y": 0, "z": 0})
     assert client.get("/api/v1/events").json() == {"events": []}
     out = client.post("/api/v1/simulation/step", json={"dtS": 120.0}).json()
-    assert [x["id"] for x in out["bodies"]] == [a["id"]]
+    assert [x["id"] for x in out["bodies"]] == [a["id"], b["id"]]  # both kept
+    assert [x["massKg"] for x in out["bodies"]] == [2000.0, 1000.0]
     assert len(out["events"]) == 1
     ev = out["events"][0]
-    assert ev["type"] == "merger" and ev["bodyIds"] == [a["id"], b["id"]] and ev["resultBodyId"] == a["id"]
-    assert ev["resultMassKg"] == 3000.0 and ev["id"].startswith("evt-")
-    assert set(ev) == {"id", "type", "simulationTimeS", "estimatedContactTimeS", "bodyIds", "resultBodyId",
-                       "resultMassKg", "relativeSpeedMPerS", "kineticEnergyLostJ", "spinAddedKgM2PerS"}
-    assert all(math.isfinite(ev[k]) for k in ("simulationTimeS", "relativeSpeedMPerS", "kineticEnergyLostJ"))
+    assert ev["type"] == "contact" and set(ev["bodyIds"]) == {a["id"], b["id"]} and ev["id"].startswith("halt-")
+    assert set(ev) == {"id", "type", "simulationTimeS", "estimatedContactTimeS", "bodyIds", "relativeSpeedMPerS", "refined",
+                       "involvesSpacecraft"}
+    assert ev["refined"] is True and ev["involvesSpacecraft"] is False
+    assert all(math.isfinite(ev[k]) for k in ("simulationTimeS", "relativeSpeedMPerS"))
+    # the step ended AT the contact: 198.2 m of gap (radii 1.0 and 0.8 m) closing at 2 m/s
+    assert out["simulationTimeS"] == pytest.approx(99.1, abs=0.01) and out["advancedS"] == out["simulationTimeS"]
+    assert out["warnings"] == ["collision_stopped"]
+    assert out["halt"]["eventId"] == ev["id"] and set(out["halt"]["bodyIds"]) == {a["id"], b["id"]}
+    xa, xb = (next(x["positionM"]["x"] for x in out["bodies"] if x["id"] == i) for i in (a["id"], b["id"]))
+    assert xb - xa == pytest.approx(1.8, rel=1e-6)  # exactly touching, not overlapping
     assert client.get("/api/v1/events").json() == {"events": out["events"]}
-    # a later step reports no events again (events are per step), but the log keeps them
-    assert client.post("/api/v1/simulation/step", json={"dtS": 10.0}).json()["events"] == []
+    # nothing advances until the contact is resolved; the log keeps the event
+    refused = client.post("/api/v1/simulation/step", json={"dtS": 10.0})
+    assert refused.status_code == 409 and refused.json()["code"] == "simulation_halted"
+    assert client.get("/api/v1/simulation/state").json()["simulationTimeS"] == out["simulationTimeS"]
+    assert len(client.get("/api/v1/events").json()["events"]) == 1
+    # removing one of the pair resolves it: the next step runs and reports no events (events are per step)
+    assert client.delete(f"/api/v1/bodies/{b['id']}").status_code == 204
+    after = client.post("/api/v1/simulation/step", json={"dtS": 10.0}).json()
+    assert after["events"] == [] and "halt" not in after and after["advancedS"] == 10.0
     assert len(client.get("/api/v1/events").json()["events"]) == 1
 
 

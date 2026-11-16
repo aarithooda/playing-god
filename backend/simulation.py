@@ -29,7 +29,12 @@ Model (decisions D-007, D-008, D-010; evidence in context/PHYSICS_SPIKE.md):
 - Collision resolution has two modes (backend/impact/config.py). "legacy-merge" (default for every universe) merges inside the
   REBOUND callback exactly as before. "outcome-v1" only RECORDS contacts in the callback, stops integration, and resolves
   them between `integrate` calls (backend/impact/engine.py): the callback must never add or remove particles.
-Known limits: see context/API_CONTRACT.md ("Physics limitations").
+- Spacecraft (backend/spaceflight/engine.py, the `SpaceflightMixin` base of this class) are particles of the same REBOUND simulation.
+  Their propulsion state, manoeuvre nodes and missions live in one more side table, the spaceflight book, copied with every
+  checkpoint, capture and snapshot like the others. Manoeuvre nodes are integration targets (the engine lands exactly on them); a
+  finite burn adds a thrust force for its duration. A third collision mode, "stop-on-contact", resolves nothing: it stops the
+  simulation at the contact (also what happens to ANY contact of a spacecraft, in every mode).
+Known limits: see context/API_CONTRACT.md ("Physics limitations") and docs/SPACE_MISSION_DESIGN.md.
 """
 import contextlib
 import hashlib
@@ -46,10 +51,11 @@ from typing import Any, Callable, NamedTuple
 
 import rebound
 
-from backend.collisions import MergeResolver, add_named_particle, select_ias15
+from backend.collisions import MergeResolver, StepCollapseGuard, add_named_particle, select_ias15
 from backend.impact import lifecycle
 from backend.impact.config import CollisionConfig
-from backend.impact.detection import ContactRecorder
+from backend.impact.contact import refine_contact  # noqa: F401 - used by the stop-on-contact halt (backend/spaceflight/engine.py)
+from backend.impact.detection import ContactRecorder, order_key  # noqa: F401 - order_key: same use
 from backend.impact import rotation as rot
 from backend.impact.applier import ApplyState
 from backend.impact.contracts import CollisionEvent, ContractError, MaterialRef, RotationState
@@ -62,6 +68,9 @@ from backend.errors import CodedError, StepCancelled
 from backend.history import HistoryBuffer
 from backend.models import (MAX_BODIES, Body, BodyCreate, BodyUpdate, CollisionEventOut, DebrisSpec, DetectionSummary, Event, MaterialSpec,
                             OrientationSpec, Position3, SimulationState, StepResponse, Vec3, check_kind_body_type, default_body_type)
+from backend.spaceflight.craft import SpaceflightBook
+from backend.spaceflight.dynamics import ThrustForce
+from backend.spaceflight.engine import SpaceflightError, SpaceflightMixin
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +86,8 @@ EMPTY_DETECTION = {"degradedChunks": 0, "worstCurvatureRatio": 1.0, "chunksAbove
 DEFAULT_STEP_TIME_LIMIT_S = 10.0
 # A mutation waits this much longer than the step budget for the lock before answering 503 "busy".
 LOCK_WAIT_MARGIN_S = 5.0
+# Wall-clock budget of one transfer design (seconds); override with PG_PLAN_TIME_LIMIT_S. It runs on a copy, outside the lock.
+DEFAULT_PLAN_TIME_LIMIT_S = 25.0
 
 
 class NotFoundError(Exception):
@@ -154,6 +165,7 @@ class EngineSnapshot:
     products: dict = field(default_factory=dict)  # body id -> (representation, origin event id, DebrisDescriptor | None)
     sites: dict = field(default_factory=dict)  # body id -> tuple of body-local ImpactSite (Stage 6)
     escaped: dict = field(default_factory=dict)  # escaped-material ledger (Stage 7); empty = nothing has escaped
+    flight: SpaceflightBook = field(default_factory=SpaceflightBook)  # spacecraft, manoeuvre nodes, missions, collision halt
 
 
 def _copy_escaped(ledger: dict) -> dict:
@@ -171,7 +183,8 @@ def _copy_sim(sim: rebound.Simulation) -> rebound.Simulation:
 
 
 def _digest(sim: rebound.Simulation, meta: dict, history_mode: str, sample_interval_s: float | None,
-            materials: dict | None = None, rotations: dict | None = None, products: dict | None = None, sites: dict | None = None) -> str:
+            materials: dict | None = None, rotations: dict | None = None, products: dict | None = None, sites: dict | None = None,
+            craft: dict | None = None) -> str:
     """SHA-256 over canonical JSON of the physical initial state and configuration (colour excluded; plan 8.3)."""
     by_id = {p.name: p for p in sim.particles}
     bodies = []
@@ -187,6 +200,8 @@ def _digest(sim: rebound.Simulation, meta: dict, history_mode: str, sample_inter
                             None if products[body_id][2] is None else products[body_id][2].to_dict()]})
             if sites and body_id in sites:  # only when present: universes without surface records keep their digest
                 row[-1]["sites"] = [s.to_dict() for s in sites[body_id]]
+        if craft and body_id in craft:  # a spacecraft's propulsion state is part of the physical state (other digests are unchanged)
+            row.append({"spacecraft": craft[body_id].to_digest()})
         bodies.append(row)
     doc = {"bodies": bodies, "t": float(sim.t).hex(), "G": float(sim.G).hex(), "integrator": "ias15",
            "adaptive": "global", "collision": "line", "randSeed": RAND_SEED, "historyMode": history_mode,
@@ -194,18 +209,28 @@ def _digest(sim: rebound.Simulation, meta: dict, history_mode: str, sample_inter
     return hashlib.sha256(json.dumps(doc, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
-# Presets and Orbit Lab runs keep the legacy resolver until Stage 11 whatever the sandbox default is (D-045).
+# Every universe: a contact stops the simulation and is reported; nothing is merged or broken (D-070, D-071). This is what
+# `SimulationService()` uses, and the only mode the application creates.
+STOP_ON_CONTACT_CONFIG = CollisionConfig(mode="stop-on-contact")
+# DORMANT modes (D-071): the legacy merge resolver and the collision-outcome engine. Not reachable from any route, preset or
+# Orbit Lab run; constructed explicitly only by the tests that keep the paused collision engine from rotting.
 LEGACY_MERGE_CONFIG = CollisionConfig(mode="legacy-merge")
+OUTCOME_V1_CONFIG = CollisionConfig(mode="outcome-v1")
 
 
-class SimulationService:
+class SimulationService(SpaceflightMixin):
     # A collision-engine failure inside a step is retried once with merge-only collisions instead of failing the step.
     FALLBACK_TO_MERGE = True
+    # The collision configuration of an engine created without one: every universe the application creates (D-071).
+    DEFAULT_CONFIG = STOP_ON_CONTACT_CONFIG
 
     def __init__(self, collision_config: CollisionConfig | None = None) -> None:
-        # The mode is fixed when the engine is created (D-033). The default is the sandbox mode (outcome-v1 since 4b, D-045).
-        self.collision_config = collision_config or CollisionConfig()
+        # The mode is fixed when the engine is created (D-033). The default, and the mode of every universe the application
+        # creates, is stop-on-contact (D-071).
+        self.collision_config = collision_config or self.DEFAULT_CONFIG
         self._deferred = self.collision_config.mode == "outcome-v1"
+        self._stop_mode = self.collision_config.mode == "stop-on-contact"
+        self.plan_time_limit_s = float(os.getenv("PG_PLAN_TIME_LIMIT_S", DEFAULT_PLAN_TIME_LIMIT_S))
         self._lock = threading.RLock()
         self.revision = 0  # +1 per committed change (step, add, patch, delete, reset)
         self._cancel = threading.Event()  # set when this universe is deactivated: stops a running integrate
@@ -242,6 +267,11 @@ class SimulationService:
         self._collision_engine_failed = False  # set when contact detection/resolution raised during the current step attempt (H1)
         self._step_material_dropped = False  # a legacy merger of two different materials happened in the current step attempt (H2)
         self._budget_hit = False
+        self._flight = SpaceflightBook()  # spacecraft, manoeuvre nodes, missions, collision halt (backend/spaceflight)
+        self._thrust = ThrustForce()  # the additional force while an engine burns
+        self._plan_slot = threading.Lock()  # held while a transfer is being designed (outside the simulation lock)
+        self._step_guard = StepCollapseGuard()  # hands a collapsed PRS23 step to GLOBAL (backend/collisions.py)
+        self._halted_now = False  # a contact stopped the simulation during the current step attempt
         self._chunk_satisfied = True  # did the internal steps of the chunk just integrated respect the curvature criterion?
         self._chunk_max_dt = 0.0  # longest internal IAS15 step of the chunk being integrated (heartbeat)
         self.last_detection: dict = dict(EMPTY_DETECTION)  # of the latest step
@@ -250,6 +280,7 @@ class SimulationService:
         self._record_history()  # sample 0: the empty start
         self._pub = (self._snapshot(), self.revision)  # last committed state, served to readers without the lock
         self._pub_hist = self._history
+        self._pub_flight = self._flight.copy()
         self._history.commit()
         self._initial = self._take_snapshot()  # what reset returns to
 
@@ -311,6 +342,7 @@ class SimulationService:
         self._history.commit()
         self._pub_hist = self._history
         self._pub = (self._snapshot(), self.revision)
+        self._pub_flight = self._flight.copy()
 
     def _checkpoint(self) -> dict:
         """Cheap exact rollback point for CRUD, reset and restore (a REBOUND copy, so rollback is bitwise)."""
@@ -321,10 +353,12 @@ class SimulationService:
                 "collision_records": list(self._collision_records),
                 "materials": dict(self._materials), "rotations": dict(self._rotations),
                 "products": dict(self._products), "sites": dict(self._sites),
-                "escaped": _copy_escaped(self._escaped)}
+                "escaped": _copy_escaped(self._escaped), "flight": self._flight.copy(), "event_seq": self._event_seq}
 
     def _rollback(self, cp: dict) -> None:
         self._meta, self._events, self._pending = cp["meta"], cp["events"], []
+        self._flight = cp["flight"]  # before the simulation is adopted: the collision callback depends on it
+        self._event_seq = cp["event_seq"]  # ids of events of a rolled-back mutation were never seen
         self._collision_records = cp["collision_records"]
         self._materials, self._rotations, self._products = cp["materials"], cp["rotations"], cp["products"]
         self._sites = cp["sites"]
@@ -354,6 +388,9 @@ class SimulationService:
                 if record and self._history.mode == "step":
                     self._record_history()
             except (ConflictError, NotFoundError):
+                raise
+            except SpaceflightError:
+                self._rollback(before)  # a refusal: state exactly as before, and not a failure of the universe
                 raise
             except BaseException as exc:
                 self._rollback(before)
@@ -403,10 +440,11 @@ class SimulationService:
             history=self._history.copy(), controlled=self.controlled,
             first_uncontrolled_at_s=self.first_uncontrolled_at_s, simulation_time_s=self._sim.t,
             revision=self.revision if revision is None else revision,
-            digest=_digest(self._sim, self._meta, self._history.mode, self._history.sample_interval_s, self._materials, self._rotations, self._products, self._sites),
+            digest=_digest(self._sim, self._meta, self._history.mode, self._history.sample_interval_s, self._materials, self._rotations, self._products, self._sites,
+                           self._flight.craft),
             body_count=len(self._meta), records=list(self._collision_records), materials=dict(self._materials),
             rotations=dict(self._rotations), products=dict(self._products), sites=dict(self._sites),
-            escaped=_copy_escaped(self._escaped))
+            escaped=_copy_escaped(self._escaped), flight=self._flight.copy())
 
     def capture_snapshot(self) -> EngineSnapshot:
         """A restorable copy of the current state; the live simulation is not touched or advanced."""
@@ -423,6 +461,11 @@ class SimulationService:
         self._materials, self._rotations, self._products = dict(snap.materials), dict(snap.rotations), dict(snap.products)
         self._sites = dict(snap.sites)
         self._escaped = _copy_escaped(snap.escaped)
+        seq = self._flight.seq
+        self._flight = snap.flight.copy()
+        # ids of manoeuvre nodes and missions are never reused in one engine, also across a reset or a snapshot restore (a client
+        # that cached a planned trajectory by mission id and plan revision must not be shown it for a different mission)
+        self._flight.seq = max(self._flight.seq, seq)
         self._adopt_sim(_copy_sim(snap.sim))  # never reselect IAS15 here: that would discard its predictor state
         self._adopt_history(snap.history)
         self.controlled, self.first_uncontrolled_at_s = snap.controlled, snap.first_uncontrolled_at_s
@@ -481,6 +524,7 @@ class SimulationService:
             engine._materials, engine._rotations, engine._products = dict(snap.materials), dict(snap.rotations), dict(snap.products)
             engine._sites = dict(snap.sites)
             engine._escaped = _copy_escaped(snap.escaped)
+            engine._flight = snap.flight.copy()
             sim = _copy_sim(snap.sim)
             if transform is not None:
                 transform(sim)
@@ -493,8 +537,11 @@ class SimulationService:
         return engine
 
     def _collision_callback(self):
-        """The REBOUND collision callback of this engine's mode: resolve in place (legacy) or only record (deferred)."""
-        return self._recorder.resolve if self._deferred else self._resolver.resolve
+        """The REBOUND collision callback of this engine's mode: resolve in place (legacy) or only record (deferred, stop-on-contact).
+        A legacy universe that holds a spacecraft records that spacecraft's contacts instead of merging them."""
+        if self._deferred or self._stop_mode:
+            return self._recorder.resolve
+        return self._flight_legacy_callback if self._flight.craft else self._resolver.resolve
 
     def _new_sim(self, records: list[dict], t: float) -> rebound.Simulation:
         sim = rebound.Simulation()
@@ -542,9 +589,12 @@ class SimulationService:
     def _particles_by_id(self) -> dict:
         return {p.name: p for p in self._sim.particles}
 
-    def _body(self, body_id: str, p, classes: dict | None = None) -> Body:
+    def _body(self, body_id: str, p, classes: dict | None = None, flight: tuple | None = None) -> Body:
         meta = self._meta[body_id]
         extra = {}
+        if body_id in self._flight.craft:
+            hierarchy, names = flight if flight is not None else (self._flight_hierarchy(), self._flight_names())
+            extra["spacecraft"] = self._flight_spacecraft_out(body_id, p, hierarchy, names)
         if classes and body_id in classes:
             extra["fragmentClass"] = classes[body_id]
         material = self._materials.get(body_id)
@@ -573,7 +623,9 @@ class SimulationService:
         by_id = self._particles_by_id()
         # Bodies are returned in creation order regardless of REBOUND's internal array order.
         classes = self._classify(by_id) if self._deferred else {}
-        bodies = [self._body(i, by_id[i], classes) for i in self._meta]
+        book = self._flight
+        flight = (self._flight_hierarchy(), self._flight_names()) if (book.craft or book.missions) else None
+        bodies = [self._body(i, by_id[i], classes, flight) for i in self._meta]
         # Same particle read as `bodies`, under the caller's lock: the diagnostics describe exactly this state.
         diagnostics = compute_diagnostics(
             [(b.massKg, (b.positionM.x, b.positionM.y, b.positionM.z),
@@ -581,7 +633,8 @@ class SimulationService:
             [self._resolver.spin[i] for i in self._meta if i in self._resolver.spin], G_SI,
             [rot.spin_angular_momentum(self._rotations[i]) for i in self._meta if i in self._rotations],
             self._escaped or None)
-        return SimulationState(status="paused", simulationTimeS=self._sim.t, bodies=bodies, diagnostics=diagnostics)
+        return SimulationState(status="paused", simulationTimeS=self._sim.t, bodies=bodies, diagnostics=diagnostics,
+                               spaceflight=self._flight_state_out(flight[0] if flight else None), halt=self._flight_halt_out())
 
     # ---------- debris lifecycle (collision engine, Stage 7) ----------
     def _lifecycle_bodies(self, by_id: dict) -> list:
@@ -702,6 +755,8 @@ class SimulationService:
                 self._rotations[body_id] = new_rotation
             select_ias15(self._sim)  # reset integrator state after a structural change
             self._history.bump_segment()
+            self._flight.physics_epoch += 1
+            self._flight_evaluate()
             self._audit("add", body_id, {"name": data.name, "massKg": data.massKg, "radiusM": data.radiusM,
                                           "positionM": [data.positionM.x, data.positionM.y, data.positionM.z],
                                           "velocityMPerS": [data.velocityMPerS.x, data.velocityMPerS.y,
@@ -713,6 +768,11 @@ class SimulationService:
             self._require_known(body_id)
             p = self._particle(body_id)
             fields = patch.model_fields_set
+            if body_id in self._flight.craft:
+                blocked = sorted(fields & {"massKg", "kind", "bodyType", "assetKey", "material", "spinRadPerS"})
+                if blocked:  # refused before anything changed
+                    raise ConflictError(f"{', '.join(blocked)} cannot be edited on a spacecraft through the body route "
+                                        "(its mass is dry mass + propellant: edit those through the spacecraft route)")
             new_pos = patch.positionM if "positionM" in fields else Position3(x=p.x, y=p.y, z=p.z)
             new_radius = patch.radiusM if "radiusM" in fields else p.r
             if "positionM" in fields or "radiusM" in fields:
@@ -783,6 +843,8 @@ class SimulationService:
             if physical:
                 select_ias15(self._sim)
                 self._history.bump_segment()
+                self._flight_body_edited(body_id)
+                self._flight_evaluate()
             self._audit("update", body_id, changes, physical)
         return self._body(body_id, self._particle(body_id))
 
@@ -796,6 +858,8 @@ class SimulationService:
             self._products.pop(body_id, None)
             self._sites.pop(body_id, None)
             self._resolver.spin.pop(body_id, None)
+            self._flight_body_removed(body_id)
+            self._flight_evaluate()
             select_ias15(self._sim)
             self._history.bump_segment()
             self._audit("delete", body_id, {}, True)
@@ -818,6 +882,8 @@ class SimulationService:
         with self._guard():
             if guard is not None:
                 guard()
+            if self._flight.halt is not None:  # stop-on-contact: nothing advances until the contact is removed
+                raise SpaceflightError(self._flight_halt_out().message, code="simulation_halted")
             before = self._capture()
             self._pending = []
             self.last_detection = dict(EMPTY_DETECTION)
@@ -830,11 +896,13 @@ class SimulationService:
                     self._timed_out = False
                     self._step_resolutions = 0
                     self._budget_hit = False
+                    self._halted_now = False
                     self._deadline = self._clock() + self.step_time_limit_s
                     self._advance(t0 + dt_s)
                     if self._deferred:
                         self._remove_escaped()
                     self._verify_finite()
+                    self._flight_evaluate()  # missions are judged on the state this step produced
                     if guard is not None:
                         try:
                             guard()  # commit point: refuse (and roll back) if the universe was deactivated meanwhile
@@ -858,7 +926,7 @@ class SimulationService:
                         # mode is restored when the step ends (H1): the retry never outlives the step it repairs.
                         logger.exception("collision engine failed; retrying the step with merge-only collisions")
                         self._deferred = False
-                        self._sim.collision_resolve = self._resolver.resolve
+                        self._sim.collision_resolve = self._collision_callback()
                         fell_back = True
                         continue
                     if fell_back:  # the merge-only retry failed too: this was not the collision engine's fault
@@ -882,6 +950,8 @@ class SimulationService:
                 warnings.append("collisions_merged_fallback")
             if self._step_material_dropped:
                 warnings.append("product_material_unspecified")
+            if self._halted_now:
+                warnings.append("collision_stopped")
             detection = None
             if self.last_detection["degradedChunks"] > 0:  # M3: a possible missed contact is reported, never silent
                 warnings.append("collision_detection_degraded")
@@ -894,6 +964,7 @@ class SimulationService:
         dt = abs(sim_ptr.contents.dt_last_done)
         if dt > self._chunk_max_dt:
             self._chunk_max_dt = dt  # the detection criterion is judged on internal steps (_note_chunk)
+        self._step_guard.beat(sim_ptr.contents)
         if self._cancel.is_set():
             sim_ptr.contents.stop()
         elif self._clock() > self._deadline:
@@ -912,12 +983,14 @@ class SimulationService:
         """Advance to `target`. In grid-history mode every k * interval inside the step is an integration target, so
         the engine lands exactly on it and the state there is recorded."""
         history = self._history
+        if self._flight_touching():
+            return  # stop-on-contact: a pair is already in contact and closing; nothing advances
         while True:
             grid = history.next_grid_time()
             sub = grid if (grid is not None and grid <= target) else target
-            self._advance_to(sub)
-            if self._budget_hit:
-                break  # DQ-10 (a): the step ends at the current time, committed, advancedS < dtS
+            self._flight_advance(sub)  # == _advance_to(sub) unless a manoeuvre node lies on the way
+            if self._budget_hit or self._halted_now:
+                break  # DQ-10 (a) / stop-on-contact: the step ends at the current time, committed, advancedS < dtS
             if grid is not None and sub == grid:
                 self._record_history()
             if sub >= target:
@@ -933,7 +1006,7 @@ class SimulationService:
             warnings.simplefilter("always")
             while sim.t < target:
                 self._check_deadline()
-                if sim.N == 1:
+                if sim.N == 1 and not (self._flight.maneuvers and self._flight.executing()):
                     self._drift_lone_body(target)  # no force acts: exact, and IAS15 would warn spuriously
                     break
                 remaining = target - sim.t
@@ -941,12 +1014,14 @@ class SimulationService:
                 chunk = max(limit, floor)
                 nxt = target if chunk >= remaining * (1 - 1e-9) else sim.t + chunk
                 self._chunk_max_dt = 0.0
-                sim.integrate(nxt)
+                self._flight_integrate(nxt)  # sim.integrate(nxt), plus the thrust of any burning engine
                 self._check_deadline()  # an integrate stopped by the watchdog returns early
                 self._note_chunk(limit, chunk)
+                if self._flight_halt_contacts():
+                    break  # stop-on-contact: the step ends here, at the contact
                 if self._deferred:
                     self._resolve_contacts(nxt)
-                    if self._budget_hit:
+                    if self._budget_hit or self._halted_now:
                         break
                 if self._resolver.errors:
                     raise RuntimeError("collision resolver failed:\n" + self._resolver.errors[-1])
@@ -1010,9 +1085,11 @@ class SimulationService:
             # of the changed system (diagnostic only: the integration itself is unchanged)
             limit, start = self._chunk_limit(), sim.t
             self._chunk_max_dt = 0.0
-            sim.integrate(nxt)
+            self._flight_integrate(nxt)
             self._check_deadline()
             self._note_chunk(limit, sim.t - start)
+            if self._flight_halt_contacts():
+                return
 
     def _emit_collision(self, event: CollisionEvent) -> None:
         """Called by the engine while the step lock is held: number and queue a `collision` event (ids share the counter with `evt-`)."""
@@ -1160,10 +1237,12 @@ class SimulationService:
             "products": dict(self._products),
             "sites": dict(self._sites),
             "escaped": _copy_escaped(self._escaped),
+            "flight": self._flight.copy(),
         }
 
     def _restore(self, cap: dict) -> None:
         self._meta = cap["meta"]
+        self._flight = cap["flight"].copy()  # a copy: the merge-only retry restores from the same capture again
         self._events = cap["events"]
         self._collision_records = cap["collision_records"]
         self._materials, self._rotations, self._products = cap["materials"], cap["rotations"], cap["products"]
